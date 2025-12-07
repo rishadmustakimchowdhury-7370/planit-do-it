@@ -1,0 +1,134 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { jobDescription, candidateResume, jobTitle, candidateSkills } = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    const systemPrompt = `You are an expert AI recruitment assistant that analyzes job descriptions and candidate resumes to provide match scores and insights.
+
+Your task is to:
+1. Analyze the job requirements and candidate qualifications
+2. Calculate a match score (0-100%)
+3. Identify key strengths where the candidate matches well
+4. Identify skill gaps or areas of improvement
+5. Provide a brief explanation of the match
+
+Always respond with valid JSON in this exact format:
+{
+  "score": <number 0-100>,
+  "confidence": <number 0-100>,
+  "strengths": ["strength1", "strength2", ...],
+  "gaps": ["gap1", "gap2", ...],
+  "explanation": "Brief explanation of the match assessment"
+}`;
+
+    const userPrompt = `Analyze this job and candidate match:
+
+**Job Title:** ${jobTitle || 'Not specified'}
+
+**Job Description:**
+${jobDescription || 'No job description provided'}
+
+**Candidate Resume/Profile:**
+${candidateResume || 'No resume provided'}
+
+**Candidate Skills:**
+${Array.isArray(candidateSkills) ? candidateSkills.join(', ') : candidateSkills || 'Not specified'}
+
+Please analyze and provide the match assessment.`;
+
+    console.log('Calling Lovable AI Gateway for match analysis...');
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: 'AI credits exhausted. Please add more credits.' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const errorText = await response.text();
+      console.error('AI Gateway error:', response.status, errorText);
+      throw new Error(`AI Gateway error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('No response from AI');
+    }
+
+    // Parse the JSON response
+    let matchResult;
+    try {
+      // Extract JSON from potential markdown code blocks
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
+      matchResult = JSON.parse(jsonMatch[1].trim());
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', content);
+      // Provide a fallback response
+      matchResult = {
+        score: 50,
+        confidence: 30,
+        strengths: ['Unable to fully analyze'],
+        gaps: ['Analysis incomplete'],
+        explanation: 'Could not complete full analysis. Please try again.'
+      };
+    }
+
+    console.log('Match analysis complete:', matchResult);
+
+    return new Response(JSON.stringify(matchResult), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in ai-match function:', error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      score: 0,
+      strengths: [],
+      gaps: [],
+      explanation: 'Error occurred during analysis'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
