@@ -1,1 +1,10 @@
 project_id = "efdvolifacsnmiinifiq"
+
+[functions.ai-match]
+verify_jwt = true
+
+[functions.parse-cv]
+verify_jwt = true
+
+[functions.chatbot]
+verify_jwt = false
