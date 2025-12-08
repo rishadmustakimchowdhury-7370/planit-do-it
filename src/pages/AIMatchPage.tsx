@@ -77,28 +77,67 @@ const AIMatchPage = () => {
     }
 
     setIsMatching(true);
+    setMatchResult(null);
+    
     try {
+      const job = jobs.find(j => j.id === selectedJobId);
+      const candidate = candidates.find(c => c.id === selectedCandidateId);
+
+      if (!job || !candidate) {
+        throw new Error('Selected job or candidate not found');
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-match', {
         body: {
-          jobId: selectedJobId,
-          candidateId: selectedCandidateId
+          jobDescription: job.description || '',
+          jobTitle: job.title,
+          candidateResume: '',
+          candidateSkills: candidate.skills || []
         }
       });
 
-      if (error) throw error;
-
-      if (data) {
-        setMatchResult({
-          score: data.score || 0,
-          summary: data.summary || 'Match analysis complete.',
-          strengths: data.strengths || [],
-          skillGaps: data.skill_gaps || data.skillGaps || []
-        });
-        toast.success('AI Match completed!');
+      if (error) {
+        console.error('AI Match function error:', error);
+        if (error.message?.includes('429') || error.message?.includes('Rate limit')) {
+          throw new Error('AI service is rate limited. Please try again in a moment.');
+        }
+        if (error.message?.includes('402') || error.message?.includes('credits')) {
+          throw new Error('AI credits exhausted. Please add more credits in billing.');
+        }
+        throw error;
       }
+
+      if (!data || data.error) {
+        throw new Error(data?.error || 'No response from AI service');
+      }
+
+      setMatchResult({
+        score: data.score || 0,
+        summary: data.explanation || 'Match analysis complete.',
+        strengths: data.strengths || [],
+        skillGaps: data.gaps || data.skill_gaps || data.skillGaps || []
+      });
+
+      // Save match result to database
+      await supabase.from('job_candidates').upsert({
+        job_id: selectedJobId,
+        candidate_id: selectedCandidateId,
+        tenant_id: tenantId,
+        match_score: data.score || 0,
+        match_strengths: data.strengths || [],
+        match_gaps: data.gaps || [],
+        match_explanation: data.explanation || '',
+        match_confidence: data.confidence || 0,
+        matched_at: new Date().toISOString(),
+        stage: 'applied'
+      }, {
+        onConflict: 'job_id,candidate_id'
+      });
+
+      toast.success('AI Match completed!');
     } catch (error: any) {
       console.error('Error running AI match:', error);
-      toast.error(error.message || 'Failed to run AI match');
+      toast.error(error.message || 'Failed to run AI match. Try manual matching.');
     } finally {
       setIsMatching(false);
     }
@@ -174,6 +213,11 @@ const AIMatchPage = () => {
               </>
             )}
           </Button>
+          
+          {/* Manual fallback option */}
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            If AI fails, you can manually score candidates in the job pipeline.
+          </p>
         </motion.div>
 
         {/* Right: Results Panel */}

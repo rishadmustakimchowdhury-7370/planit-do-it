@@ -19,6 +19,7 @@ import AddClientPage from "./pages/AddClientPage";
 import AIMatchPage from "./pages/AIMatchPage";
 import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
+import ReportsPage from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -64,6 +65,7 @@ const AppRoutes = () => (
     <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+    <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
     
     {/* 404 */}
     <Route path="*" element={<NotFound />} />

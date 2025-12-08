@@ -8,6 +8,7 @@ import {
   Sparkles, 
   Settings, 
   CreditCard,
+  BarChart3,
   LogOut,
   ChevronLeft,
   ChevronRight
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Candidates', href: '/candidates', icon: Users },
   { name: 'Clients', href: '/clients', icon: Building2 },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles },
+  { name: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 
 const bottomNav = [

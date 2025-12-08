@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { CandidateStatusSelect } from '@/components/candidates/CandidateStatusSelect';
 
 interface Candidate {
   id: string;
@@ -191,12 +192,18 @@ const CandidatesPage = () => {
                           {candidate.current_company && ` at ${candidate.current_company}`}
                         </p>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={cn('text-xs capitalize whitespace-nowrap', statusColors[candidate.status] || statusColors.new)}
-                      >
-                        {candidate.status}
-                      </Badge>
+                      <div onClick={(e) => e.preventDefault()}>
+                        <CandidateStatusSelect
+                          candidateId={candidate.id}
+                          currentStatus={candidate.status}
+                          onStatusChange={(newStatus) => {
+                            setCandidates(prev => prev.map(c => 
+                              c.id === candidate.id ? { ...c, status: newStatus } : c
+                            ));
+                          }}
+                          compact
+                        />
+                      </div>
                     </div>
                     
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
