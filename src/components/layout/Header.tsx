@@ -1,9 +1,11 @@
-import { Bell, Search, Plus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, Search, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,16 +14,118 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
 }
 
+interface SearchResult {
+  id: string;
+  type: 'job' | 'candidate';
+  title: string;
+  subtitle: string;
+}
+
 export function Header({ title, subtitle }: HeaderProps) {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, tenantId, user } = useAuth();
   const userName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const searchData = async () => {
+      if (!searchQuery.trim() || searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Get tenant ID
+        let currentTenantId = tenantId;
+        if (!currentTenantId && user) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('id', user.id)
+            .maybeSingle();
+          currentTenantId = profileData?.tenant_id || null;
+        }
+
+        if (!currentTenantId) return;
+
+        const query = searchQuery.toLowerCase();
+
+        // Search jobs
+        const { data: jobs } = await supabase
+          .from('jobs')
+          .select('id, title, location, status')
+          .eq('tenant_id', currentTenantId)
+          .or(`title.ilike.%${query}%,location.ilike.%${query}%`)
+          .limit(5);
+
+        // Search candidates
+        const { data: candidates } = await supabase
+          .from('candidates')
+          .select('id, full_name, email, current_title')
+          .eq('tenant_id', currentTenantId)
+          .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%`)
+          .limit(5);
+
+        const results: SearchResult[] = [
+          ...(jobs || []).map(job => ({
+            id: job.id,
+            type: 'job' as const,
+            title: job.title,
+            subtitle: `${job.location || 'Remote'} • ${job.status}`,
+          })),
+          ...(candidates || []).map(c => ({
+            id: c.id,
+            type: 'candidate' as const,
+            title: c.full_name,
+            subtitle: c.current_title || c.email,
+          })),
+        ];
+
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounce = setTimeout(searchData, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, tenantId, user]);
+
+  const handleSelect = (result: SearchResult) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    if (result.type === 'job') {
+      navigate(`/jobs/${result.id}`);
+    } else {
+      navigate(`/candidates/${result.id}`);
+    }
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
@@ -34,14 +138,93 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         {/* Right Side */}
         <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search jobs, candidates..."
-              className="w-64 pl-9 bg-muted/50 border-transparent focus:border-border"
-            />
-          </div>
+          {/* Global Search */}
+          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+            <PopoverTrigger asChild>
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search jobs, candidates..."
+                  className="w-64 pl-9 bg-muted/50 border-transparent focus:border-border cursor-pointer"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (!searchOpen) setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="end">
+              <Command>
+                <CommandList>
+                  {isSearching ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      Searching...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <CommandEmpty>
+                      {searchQuery.length < 2 
+                        ? 'Type at least 2 characters to search...'
+                        : 'No results found.'
+                      }
+                    </CommandEmpty>
+                  ) : (
+                    <>
+                      {searchResults.filter(r => r.type === 'job').length > 0 && (
+                        <CommandGroup heading="Jobs">
+                          {searchResults.filter(r => r.type === 'job').map((result) => (
+                            <CommandItem
+                              key={result.id}
+                              onSelect={() => handleSelect(result)}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">Job</Badge>
+                                <div>
+                                  <p className="font-medium">{result.title}</p>
+                                  <p className="text-xs text-muted-foreground">{result.subtitle}</p>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                      {searchResults.filter(r => r.type === 'candidate').length > 0 && (
+                        <CommandGroup heading="Candidates">
+                          {searchResults.filter(r => r.type === 'candidate').map((result) => (
+                            <CommandItem
+                              key={result.id}
+                              onSelect={() => handleSelect(result)}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">Candidate</Badge>
+                                <div>
+                                  <p className="font-medium">{result.title}</p>
+                                  <p className="text-xs text-muted-foreground">{result.subtitle}</p>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </>
+                  )}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
 
           {/* Quick Add */}
           <DropdownMenu>
