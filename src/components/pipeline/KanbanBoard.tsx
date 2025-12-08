@@ -70,6 +70,17 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
     setDraggedCandidate(null);
   };
 
+  // Map pipeline stage to candidate status for sync
+  const pipelineToStatus: Record<DatabasePipelineStage, string> = {
+    applied: 'new',
+    screening: 'screening',
+    interview: 'interviewing',
+    technical: 'interviewing',
+    offer: 'offered',
+    hired: 'hired',
+    rejected: 'rejected',
+  };
+
   const handleDrop = async (stage: DatabasePipelineStage) => {
     if (!draggedCandidate) return;
     
@@ -81,6 +92,7 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
 
     setIsUpdating(true);
     try {
+      // Update job_candidates table
       const { error } = await supabase
         .from('job_candidates')
         .update({ 
@@ -90,6 +102,16 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
         .eq('id', candidate.id);
 
       if (error) throw error;
+
+      // Also sync candidate status in candidates table
+      const candidateStatus = pipelineToStatus[stage];
+      await supabase
+        .from('candidates')
+        .update({ 
+          status: candidateStatus as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', candidate.candidateId);
 
       toast.success(`Moved to ${stageLabels[stage]}`);
       
