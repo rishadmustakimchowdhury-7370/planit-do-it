@@ -156,12 +156,16 @@ export default function SettingsPage() {
         if (data.subscription_plan_id) {
           const { data: planData } = await supabase
             .from('subscription_plans')
-            .select('max_users, name')
+            .select('max_users, name, slug')
             .eq('id', data.subscription_plan_id)
             .single();
           
           if (planData) {
-            setTeamLimit(planData.max_users || 1);
+            // Handle -1 as unlimited (999 for comparison purposes)
+            const maxUsers = planData.max_users === -1 || planData.max_users === null 
+              ? 999 
+              : planData.max_users;
+            setTeamLimit(maxUsers);
             setPlanName(planData.name.toLowerCase());
           }
         }
@@ -733,15 +737,19 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  {/* Upgrade prompt */}
-                  {teamMembers.length + pendingInvites.length >= teamLimit && teamLimit !== 999 && (
+                  {/* Upgrade prompt - Only show for plans with limits */}
+                  {teamLimit < 999 && (teamMembers.length + pendingInvites.length) >= teamLimit && (
                     <div className="mt-6 p-4 rounded-lg bg-warning/10 border border-warning/30">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
                         <div>
                           <p className="font-medium text-warning">Team limit reached</p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Upgrade to Pro (3 seats), Agency (5 seats), or Enterprise (unlimited) to add more team members.
+                            {planName === 'starter' 
+                              ? 'Upgrade to Pro (5 members) or Agency (Unlimited) to add more team members.'
+                              : planName === 'pro'
+                              ? 'Upgrade to Agency (Unlimited members) to add more team members.'
+                              : 'Contact support to increase your team limit.'}
                           </p>
                           <Button variant="outline" size="sm" className="mt-3" onClick={() => window.location.href = '/billing'}>
                             View Plans

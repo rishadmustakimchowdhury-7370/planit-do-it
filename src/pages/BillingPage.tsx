@@ -43,6 +43,19 @@ interface Tenant {
   subscription_ends_at: string | null;
   match_credits_remaining: number | null;
   match_credits_limit: number | null;
+  subscription_plan_id: string | null;
+}
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  slug: string;
+  max_users: number | null;
+  max_jobs: number | null;
+  max_candidates: number | null;
+  match_credits_monthly: number | null;
+  price_monthly: number;
+  price_yearly: number;
 }
 
 const plans = [
@@ -87,6 +100,7 @@ export default function BillingPage() {
   const { tenantId } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [currentPlanData, setCurrentPlanData] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -98,15 +112,28 @@ export default function BillingPage() {
   const fetchBillingData = async () => {
     setIsLoading(true);
     try {
-      // Fetch tenant subscription info
+      // Fetch tenant subscription info with plan_id
       const { data: tenantData, error: tenantError } = await supabase
         .from('tenants')
-        .select('id, name, subscription_status, subscription_ends_at, match_credits_remaining, match_credits_limit')
+        .select('id, name, subscription_status, subscription_ends_at, match_credits_remaining, match_credits_limit, subscription_plan_id')
         .eq('id', tenantId)
         .single();
 
       if (tenantError) throw tenantError;
       setTenant(tenantData);
+
+      // Fetch the actual subscription plan details if plan_id exists
+      if (tenantData?.subscription_plan_id) {
+        const { data: planData, error: planError } = await supabase
+          .from('subscription_plans')
+          .select('id, name, slug, max_users, max_jobs, max_candidates, match_credits_monthly, price_monthly, price_yearly')
+          .eq('id', tenantData.subscription_plan_id)
+          .single();
+
+        if (!planError && planData) {
+          setCurrentPlanData(planData);
+        }
+      }
 
       // Fetch invoices
       const { data: invoicesData, error: invoicesError } = await supabase
@@ -130,7 +157,10 @@ export default function BillingPage() {
     // In a real app, this would generate/download a PDF
   };
 
-  const currentPlan = plans.find(p => p.name.toLowerCase() === tenant?.subscription_status) || plans[0];
+  // Use actual plan data from database, fallback to matching from static plans
+  const currentPlan = currentPlanData 
+    ? plans.find(p => p.name.toLowerCase() === currentPlanData.name.toLowerCase()) || plans[0]
+    : plans[0];
   const creditsUsed = (tenant?.match_credits_limit || 100) - (tenant?.match_credits_remaining || 0);
   const creditsPercent = Math.round((creditsUsed / (tenant?.match_credits_limit || 100)) * 100);
 
@@ -162,7 +192,7 @@ export default function BillingPage() {
                   <CardDescription>
                     {tenant?.subscription_status === 'trial' 
                       ? 'You are currently on a free trial'
-                      : `Your ${currentPlan.name} subscription`}
+                      : `Your ${currentPlanData?.name || currentPlan.name} subscription`}
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="capitalize">
@@ -179,16 +209,24 @@ export default function BillingPage() {
                       <currentPlan.icon className="h-5 w-5 text-accent" />
                     </div>
                     <div>
-                      <p className="font-semibold">{currentPlan.name} Plan</p>
+                      <p className="font-semibold">{currentPlanData?.name || currentPlan.name} Plan</p>
                       <p className="text-sm text-muted-foreground">
-                        ${currentPlan.price}/{currentPlan.period}
+                        ${currentPlanData?.price_monthly || currentPlan.price}/{currentPlan.period}
                       </p>
                     </div>
                   </div>
-                  <Button size="sm" className="w-full gap-2">
-                    <ArrowUpRight className="h-4 w-4" />
-                    Upgrade Plan
-                  </Button>
+                  {/* Plan Features */}
+                  <div className="space-y-1 mb-3 text-xs text-muted-foreground">
+                    <p>• {currentPlanData?.max_users === -1 ? 'Unlimited' : currentPlanData?.max_users || currentPlan.teamLimit} Team Members</p>
+                    <p>• {currentPlanData?.max_jobs === -1 ? 'Unlimited' : currentPlanData?.max_jobs || 'Limited'} Jobs</p>
+                    <p>• {currentPlanData?.match_credits_monthly || 100} AI Credits/month</p>
+                  </div>
+                  {currentPlan.name !== 'Agency' && (
+                    <Button size="sm" className="w-full gap-2">
+                      <ArrowUpRight className="h-4 w-4" />
+                      Upgrade Plan
+                    </Button>
+                  )}
                 </div>
 
                 {/* AI Credits */}
