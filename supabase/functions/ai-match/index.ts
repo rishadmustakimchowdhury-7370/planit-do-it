@@ -11,7 +11,15 @@ serve(async (req) => {
   }
 
   try {
-    const { jobDescription, candidateResume, jobTitle, candidateSkills } = await req.json();
+    const body = await req.json();
+    const { jobDescription, candidateResume, jobTitle, candidateSkills } = body;
+    
+    console.log('AI Match request received:', { 
+      hasJobDescription: !!jobDescription, 
+      hasResume: !!candidateResume,
+      jobTitle,
+      candidateSkillsCount: Array.isArray(candidateSkills) ? candidateSkills.length : 0
+    });
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
