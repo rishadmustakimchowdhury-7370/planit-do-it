@@ -3,17 +3,46 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Upload, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { Plus, Search, Upload, MapPin, Calendar, Loader2, Trash2, Download, CheckSquare, X, UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { CandidateStatusSelect } from '@/components/candidates/CandidateStatusSelect';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Candidate {
   id: string;
@@ -27,6 +56,14 @@ interface Candidate {
   experience_years: number | null;
   status: string;
   created_at: string;
+  phone: string | null;
+  linkedin_url: string | null;
+}
+
+interface Job {
+  id: string;
+  title: string;
+  status: string;
 }
 
 const statusFilters = [
@@ -51,15 +88,23 @@ const statusColors: Record<string, string> = {
 
 const CandidatesPage = () => {
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [showMoveToJobDialog, setShowMoveToJobDialog] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
 
   useEffect(() => {
     if (tenantId) {
       fetchCandidates();
+      fetchJobs();
     }
   }, [tenantId]);
 
@@ -86,6 +131,22 @@ const CandidatesPage = () => {
     }
   };
 
+  const fetchJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, status')
+        .eq('tenant_id', tenantId)
+        .in('status', ['open', 'draft'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    }
+  };
+
   const filteredCandidates = candidates.filter(candidate => {
     const matchesFilter = filter === 'all' || candidate.status === filter;
     const matchesSearch = 
@@ -102,6 +163,140 @@ const CandidatesPage = () => {
   statusFilters.slice(1).forEach(status => {
     statusCounts[status.id] = candidates.filter(c => c.status === status.id).length;
   });
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]
+    );
+  };
+
+  const selectAll = () => {
+    if (selectedIds.length === filteredCandidates.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredCandidates.map(c => c.id));
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('candidates')
+        .update({ status: newStatus as 'new' | 'screening' | 'interviewing' | 'offered' | 'hired' | 'rejected' | 'withdrawn' })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+      toast.success(`Updated ${selectedIds.length} candidate(s) to ${newStatus}`);
+      fetchCandidates();
+      setSelectedIds([]);
+    } catch (error) {
+      console.error('Error updating candidates:', error);
+      toast.error('Failed to update candidates');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      // First delete from job_candidates
+      await supabase
+        .from('job_candidates')
+        .delete()
+        .in('candidate_id', selectedIds);
+
+      // Then delete candidates
+      const { error } = await supabase
+        .from('candidates')
+        .delete()
+        .in('id', selectedIds);
+
+      if (error) throw error;
+      toast.success(`Deleted ${selectedIds.length} candidate(s)`);
+      fetchCandidates();
+      setSelectedIds([]);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error('Error deleting candidates:', error);
+      toast.error('Failed to delete candidates');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleMoveToJob = async () => {
+    if (!selectedJobId) return;
+    
+    setIsMoving(true);
+    try {
+      // Check which candidates are already in the job
+      const { data: existing } = await supabase
+        .from('job_candidates')
+        .select('candidate_id')
+        .eq('job_id', selectedJobId)
+        .in('candidate_id', selectedIds);
+
+      const existingIds = existing?.map(e => e.candidate_id) || [];
+      const newIds = selectedIds.filter(id => !existingIds.includes(id));
+
+      if (newIds.length === 0) {
+        toast.info('All selected candidates are already in this job');
+        setShowMoveToJobDialog(false);
+        return;
+      }
+
+      const insertData = newIds.map(candidateId => ({
+        job_id: selectedJobId,
+        candidate_id: candidateId,
+        tenant_id: tenantId,
+        stage: 'applied' as const,
+        applied_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('job_candidates')
+        .insert(insertData);
+
+      if (error) throw error;
+
+      const job = jobs.find(j => j.id === selectedJobId);
+      toast.success(`Added ${newIds.length} candidate(s) to ${job?.title || 'job'}`);
+      setSelectedIds([]);
+      setShowMoveToJobDialog(false);
+      setSelectedJobId(null);
+    } catch (error: any) {
+      console.error('Error moving candidates:', error);
+      toast.error('Failed to add candidates to job');
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
+  const handleExport = () => {
+    const selectedCandidates = candidates.filter(c => selectedIds.includes(c.id));
+    
+    const csvContent = [
+      ['Name', 'Email', 'Phone', 'LinkedIn', 'Title', 'Company', 'Location'].join(','),
+      ...selectedCandidates.map(c => [
+        `"${c.full_name}"`,
+        `"${c.email}"`,
+        `"${c.phone || ''}"`,
+        `"${c.linkedin_url || ''}"`,
+        `"${c.current_title || ''}"`,
+        `"${c.current_company || ''}"`,
+        `"${c.location || ''}"`,
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `candidates_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${selectedCandidates.length} candidate(s)`);
+  };
 
   return (
     <AppLayout title="Candidates" subtitle="Manage your talent pool and track candidate progress.">
@@ -134,8 +329,78 @@ const CandidatesPage = () => {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between gap-4 mb-4 p-3 bg-accent/10 border border-accent/30 rounded-lg"
+        >
+          <div className="flex items-center gap-3">
+            <CheckSquare className="w-5 h-5 text-accent" />
+            <span className="font-medium">{selectedIds.length} selected</span>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+              <X className="w-4 h-4 mr-1" />
+              Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">Change Status</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {statusFilters.slice(1).map(status => (
+                  <DropdownMenuItem 
+                    key={status.id} 
+                    onClick={() => handleBulkStatusChange(status.id)}
+                  >
+                    {status.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowMoveToJobDialog(true)}
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              Add to Job
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="w-4 h-4 mr-1" />
+              Export
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Status Filters */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+        <button
+          onClick={selectAll}
+          className={cn(
+            'px-3 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap flex items-center gap-2',
+            selectedIds.length === filteredCandidates.length && filteredCandidates.length > 0
+              ? 'bg-accent text-accent-foreground'
+              : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+          )}
+        >
+          <Checkbox 
+            checked={selectedIds.length === filteredCandidates.length && filteredCandidates.length > 0}
+            onCheckedChange={selectAll}
+          />
+          Select All
+        </button>
         {statusFilters.map((status) => (
           <button
             key={status.id}
@@ -172,27 +437,40 @@ const CandidatesPage = () => {
               whileHover={{ y: -2 }}
               transition={{ duration: 0.2 }}
             >
-              <Link
-                to={`/candidates/${candidate.id}`}
-                className="block bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all"
+              <div
+                className={cn(
+                  "block bg-card rounded-xl border p-5 transition-all cursor-pointer",
+                  selectedIds.includes(candidate.id)
+                    ? "border-accent shadow-lg"
+                    : "border-border hover:shadow-lg hover:border-accent/30"
+                )}
               >
                 <div className="flex items-start gap-4">
-                  <Avatar className="w-14 h-14">
-                    <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
-                    <AvatarFallback className="text-lg bg-accent/10 text-accent font-medium">
-                      {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={selectedIds.includes(candidate.id)}
+                      onCheckedChange={() => toggleSelection(candidate.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <Link to={`/candidates/${candidate.id}`}>
+                      <Avatar className="w-14 h-14">
+                        <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
+                        <AvatarFallback className="text-lg bg-accent/10 text-accent font-medium">
+                          {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold text-foreground">{candidate.full_name}</h3>
+                      <Link to={`/candidates/${candidate.id}`} className="flex-1">
+                        <h3 className="font-semibold text-foreground hover:text-accent transition-colors">{candidate.full_name}</h3>
                         <p className="text-sm text-accent">
                           {candidate.current_title || 'No title'}
                           {candidate.current_company && ` at ${candidate.current_company}`}
                         </p>
-                      </div>
-                      <div onClick={(e) => e.preventDefault()}>
+                      </Link>
+                      <div onClick={(e) => e.stopPropagation()}>
                         <CandidateStatusSelect
                           candidateId={candidate.id}
                           currentStatus={candidate.status}
@@ -237,7 +515,7 @@ const CandidatesPage = () => {
                     )}
                   </div>
                 </div>
-              </Link>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -252,6 +530,94 @@ const CandidatesPage = () => {
           </Button>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} candidate(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected candidates and remove them from all jobs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Move to Job Dialog */}
+      <Dialog open={showMoveToJobDialog} onOpenChange={setShowMoveToJobDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add to Job</DialogTitle>
+            <DialogDescription>
+              Select a job to add {selectedIds.length} candidate(s) to.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-64 border rounded-lg">
+            <div className="p-2 space-y-1">
+              {jobs.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">No open jobs available</p>
+              ) : (
+                jobs.map(job => (
+                  <div
+                    key={job.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                      selectedJobId === job.id
+                        ? "bg-accent/10 border border-accent/30"
+                        : "hover:bg-muted/50 border border-transparent"
+                    )}
+                    onClick={() => setSelectedJobId(job.id)}
+                  >
+                    <Checkbox
+                      checked={selectedJobId === job.id}
+                      onCheckedChange={() => setSelectedJobId(job.id)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium">{job.title}</p>
+                      <p className="text-sm text-muted-foreground capitalize">{job.status}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMoveToJobDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleMoveToJob} disabled={!selectedJobId || isMoving}>
+              {isMoving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add to Job
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

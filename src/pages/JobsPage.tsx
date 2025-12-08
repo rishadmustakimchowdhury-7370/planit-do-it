@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, LayoutGrid, List, MapPin, Users, Calendar, DollarSign, MoreHorizontal, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Search, LayoutGrid, List, MapPin, Users, Calendar, DollarSign, MoreHorizontal, Sparkles, Loader2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface Job {
@@ -52,6 +63,8 @@ const JobsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [jobs, setJobs] = useState<JobWithCandidateCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (tenantId) {
@@ -109,6 +122,35 @@ const JobsPage = () => {
     } catch (error) {
       console.error('Error updating job:', error);
       toast.error('Failed to update job status');
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!deleteJobId) return;
+    
+    setIsDeleting(true);
+    try {
+      // First delete related job_candidates
+      await supabase
+        .from('job_candidates')
+        .delete()
+        .eq('job_id', deleteJobId);
+
+      // Then delete the job
+      const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', deleteJobId);
+
+      if (error) throw error;
+      toast.success('Job deleted successfully');
+      fetchJobs();
+      setDeleteJobId(null);
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast.error('Failed to delete job');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -281,6 +323,10 @@ const JobsPage = () => {
                         <DropdownMenuItem onClick={(e) => { e.preventDefault(); navigate(`/jobs/${job.id}`); }}>
                           View Details
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.preventDefault(); navigate(`/jobs/${job.id}/edit`); }}>
+                          Edit Job
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         {job.status !== 'open' && (
                           <DropdownMenuItem onClick={(e) => { e.preventDefault(); handleStatusChange(job.id, 'open'); }}>
                             Set to Open
@@ -294,11 +340,18 @@ const JobsPage = () => {
                         {job.status !== 'closed' && (
                           <DropdownMenuItem 
                             onClick={(e) => { e.preventDefault(); handleStatusChange(job.id, 'closed'); }}
-                            className="text-destructive"
                           >
                             Close Job
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={(e) => { e.preventDefault(); setDeleteJobId(job.id); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Job
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -318,6 +371,35 @@ const JobsPage = () => {
           </Button>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteJobId} onOpenChange={() => setDeleteJobId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the job and remove all associated candidate applications.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteJob}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

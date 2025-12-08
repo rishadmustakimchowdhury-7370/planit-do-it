@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,18 +45,37 @@ export function AddCandidateToJobDialog({
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
-    if (open && tenantId) {
+    if (open) {
       fetchCandidates();
+      setSearchQuery('');
+      setSelectedIds([]);
     }
-  }, [open, tenantId]);
+  }, [open]);
 
   const fetchCandidates = async () => {
     setIsLoading(true);
     try {
+      // Get user's tenant_id from profile if not available
+      let currentTenantId = tenantId;
+      if (!currentTenantId && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
+        currentTenantId = profile?.tenant_id || null;
+      }
+
+      if (!currentTenantId) {
+        console.error('No tenant ID available');
+        setCandidates([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('candidates')
         .select('id, full_name, email, current_title, avatar_url, skills')
-        .eq('tenant_id', tenantId)
+        .eq('tenant_id', currentTenantId)
         .order('full_name');
 
       if (error) throw error;
@@ -78,11 +97,17 @@ export function AddCandidateToJobDialog({
     }
   };
 
-  const filteredCandidates = candidates.filter(c =>
-    c.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.current_title?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Use useMemo for filtered candidates with case-insensitive search
+  const filteredCandidates = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return candidates;
+    
+    return candidates.filter(c =>
+      c.full_name.toLowerCase().includes(query) ||
+      c.email.toLowerCase().includes(query) ||
+      (c.current_title && c.current_title.toLowerCase().includes(query))
+    );
+  }, [candidates, searchQuery]);
 
   const toggleCandidate = (id: string) => {
     setSelectedIds(prev =>
@@ -100,11 +125,27 @@ export function AddCandidateToJobDialog({
 
     setIsAdding(true);
     try {
+      // Get tenant ID
+      let currentTenantId = tenantId;
+      if (!currentTenantId && user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .maybeSingle();
+        currentTenantId = profile?.tenant_id || null;
+      }
+
+      if (!currentTenantId) {
+        toast.error('Unable to determine tenant');
+        return;
+      }
+
       // Insert candidates to job_candidates table
       const insertData = selectedIds.map(candidateId => ({
         job_id: jobId,
         candidate_id: candidateId,
-        tenant_id: tenantId,
+        tenant_id: currentTenantId,
         stage: 'applied' as const,
         applied_at: new Date().toISOString(),
       }));
@@ -117,7 +158,7 @@ export function AddCandidateToJobDialog({
 
       // Log activity
       await supabase.from('activities').insert({
-        tenant_id: tenantId,
+        tenant_id: currentTenantId,
         user_id: user?.id,
         action: `Added ${selectedIds.length} candidate(s) to job`,
         entity_type: 'job',
@@ -159,7 +200,7 @@ export function AddCandidateToJobDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search candidates..."
+              placeholder="Search by name, email, or title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -172,12 +213,12 @@ export function AddCandidateToJobDialog({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : filteredCandidates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
                 <UserPlus className="h-8 w-8 mb-2" />
-                <p className="text-sm">
+                <p className="text-sm text-center">
                   {candidates.length === 0 
-                    ? 'No candidates available to add'
-                    : 'No candidates match your search'
+                    ? 'No candidates available to add. Add candidates first.'
+                    : `No candidates match "${searchQuery}"`
                   }
                 </p>
               </div>
