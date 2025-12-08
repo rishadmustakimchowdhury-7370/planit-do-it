@@ -92,42 +92,48 @@ export default function AddCandidatePage() {
 
     setIsParsing(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target?.result as string;
-        
-        const { data, error } = await supabase.functions.invoke('parse-cv', {
-          body: { cvText: text.substring(0, 10000) }
-        });
+      // Read file as base64 for proper PDF/DOCX handling
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          // Extract base64 data after the data URL prefix
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(cvFile);
+      });
 
-        if (error) throw error;
-
-        if (data) {
-          setFormData({
-            fullName: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            location: data.location || '',
-            currentTitle: data.current_title || '',
-            currentCompany: data.current_company || '',
-            linkedinUrl: data.linkedin_url || '',
-            summary: data.summary || '',
-            skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
-            experienceYears: data.experience_years?.toString() || '',
-          });
-          toast.success('CV parsed successfully!');
-          setActiveTab('manual');
+      const { data, error } = await supabase.functions.invoke('parse-cv', {
+        body: { 
+          cvBase64: base64,
+          mimeType: cvFile.type 
         }
-        setIsParsing(false);
-      };
-      reader.onerror = () => {
-        toast.error('Failed to read file');
-        setIsParsing(false);
-      };
-      reader.readAsText(cvFile);
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          fullName: data.full_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          location: data.location || '',
+          currentTitle: data.current_title || '',
+          currentCompany: data.current_company || '',
+          linkedinUrl: data.linkedin_url || '',
+          summary: data.summary || '',
+          skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
+          experienceYears: data.experience_years?.toString() || '',
+        });
+        toast.success('CV parsed successfully!');
+        setActiveTab('manual');
+      }
     } catch (error: any) {
       console.error('Error parsing CV:', error);
       toast.error(error.message || 'Failed to parse CV');
+    } finally {
       setIsParsing(false);
     }
   };
@@ -193,22 +199,29 @@ export default function AddCandidatePage() {
       setBulkResults([...results]);
 
       try {
-        // Read file
-        const text = await new Promise<string>((resolve, reject) => {
+        // Read file as base64 for proper PDF/DOCX handling
+        const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
           reader.onerror = reject;
-          reader.readAsText(file);
+          reader.readAsDataURL(file);
         });
 
         // Parse CV with AI
         const { data, error } = await supabase.functions.invoke('parse-cv', {
-          body: { cvText: text.substring(0, 10000) }
+          body: { 
+            cvBase64: base64,
+            mimeType: file.type 
+          }
         });
 
         if (error) throw error;
 
-        if (!data?.name || !data?.email) {
+        if (!data?.full_name || !data?.email) {
           throw new Error('Could not extract name and email from CV');
         }
 
@@ -225,7 +238,7 @@ export default function AddCandidatePage() {
             ...results[i], 
             status: 'error', 
             error: 'Candidate with this email already exists',
-            candidateName: data.name 
+            candidateName: data.full_name 
           };
         } else {
           // Insert candidate
@@ -233,7 +246,7 @@ export default function AddCandidatePage() {
           
           const { error: insertError } = await supabase.from('candidates').insert({
             tenant_id: tenantId,
-            full_name: data.name,
+            full_name: data.full_name,
             email: data.email,
             phone: data.phone || null,
             location: data.location || null,
@@ -251,7 +264,7 @@ export default function AddCandidatePage() {
           results[i] = { 
             ...results[i], 
             status: 'success', 
-            candidateName: data.name 
+            candidateName: data.full_name 
           };
           successCount++;
         }

@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { cvText, linkedinUrl } = await req.json();
+    const { cvText, cvBase64, mimeType, linkedinUrl } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -48,18 +48,42 @@ Always respond with valid JSON in this exact format:
   ]
 }`;
 
-    let userPrompt = '';
+    let messages: any[] = [{ role: 'system', content: systemPrompt }];
     
     if (linkedinUrl) {
-      userPrompt = `Parse this LinkedIn profile URL and extract what information you can infer: ${linkedinUrl}
+      messages.push({
+        role: 'user',
+        content: `Parse this LinkedIn profile URL and extract what information you can infer: ${linkedinUrl}
 
-Note: I cannot access the URL directly, so please extract any information visible in the URL itself (like username) and provide a template structure. The user will need to provide actual profile data.`;
+Note: I cannot access the URL directly, so please extract any information visible in the URL itself (like username) and provide a template structure. The user will need to provide actual profile data.`
+      });
+    } else if (cvBase64 && mimeType) {
+      // Use multimodal capability for PDF/document files
+      console.log('Processing document with multimodal API, mimeType:', mimeType);
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Parse this CV/Resume document and extract all structured information. Return only valid JSON.'
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${cvBase64}`
+            }
+          }
+        ]
+      });
     } else if (cvText) {
-      userPrompt = `Parse this CV/Resume and extract structured information:
+      messages.push({
+        role: 'user',
+        content: `Parse this CV/Resume and extract structured information:
 
-${cvText}`;
+${cvText}`
+      });
     } else {
-      throw new Error('Either cvText or linkedinUrl must be provided');
+      throw new Error('Either cvText, cvBase64, or linkedinUrl must be provided');
     }
 
     console.log('Calling Lovable AI Gateway for CV parsing...');
@@ -72,10 +96,7 @@ ${cvText}`;
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+        messages,
         temperature: 0.1,
       }),
     });
@@ -105,14 +126,24 @@ ${cvText}`;
       throw new Error('No response from AI');
     }
 
+    console.log('AI Response:', content.substring(0, 500));
+
     // Parse the JSON response
     let parsedCV;
     try {
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-      parsedCV = JSON.parse(jsonMatch[1].trim());
+      const jsonStr = jsonMatch[1].trim();
+      // Try to find JSON object in the response
+      const jsonStart = jsonStr.indexOf('{');
+      const jsonEnd = jsonStr.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        parsedCV = JSON.parse(jsonStr.substring(jsonStart, jsonEnd + 1));
+      } else {
+        parsedCV = JSON.parse(jsonStr);
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
-      throw new Error('Failed to parse CV data');
+      throw new Error('Failed to parse CV data from AI response');
     }
 
     console.log('CV parsing complete');
