@@ -51,6 +51,17 @@ export function CandidateStatusSelect({
   const statuses = isJobCandidate ? pipelineStages : candidateStatuses;
   const currentStatusInfo = statuses.find(s => s.value === status) || statuses[0];
 
+  // Map candidate status to job pipeline stage for sync
+  const statusToPipelineStage: Record<string, string> = {
+    new: 'applied',
+    screening: 'screening',
+    interviewing: 'interview',
+    offered: 'offer',
+    hired: 'hired',
+    rejected: 'rejected',
+    withdrawn: 'rejected',
+  };
+
   const handleChange = async (newStatus: string) => {
     if (newStatus === status) return;
     
@@ -78,6 +89,16 @@ export function CandidateStatusSelect({
           .eq('id', candidateId);
 
         if (error) throw error;
+
+        // Also sync with job_candidates table for consistency
+        const pipelineStage = statusToPipelineStage[newStatus] || 'applied';
+        await supabase
+          .from('job_candidates')
+          .update({ 
+            stage: pipelineStage as any,
+            stage_updated_at: new Date().toISOString()
+          })
+          .eq('candidate_id', candidateId);
       }
 
       // Log activity

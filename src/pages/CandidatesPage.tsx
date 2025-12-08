@@ -3,16 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Upload, MapPin, Calendar, Loader2, Trash2, Download, CheckSquare, X, UserPlus } from 'lucide-react';
+import { 
+  Plus, Search, Upload, MapPin, Calendar, Loader2, Trash2, Download, 
+  CheckSquare, X, UserPlus, LayoutGrid, List, Table2, Briefcase,
+  Mail, Phone, Linkedin, MoreHorizontal, Eye, Filter
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { CandidateStatusSelect } from '@/components/candidates/CandidateStatusSelect';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
@@ -20,9 +23,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -43,6 +43,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Candidate {
   id: string;
@@ -66,24 +81,37 @@ interface Job {
   status: string;
 }
 
+type ViewMode = 'grid' | 'list' | 'table';
+
 const statusFilters = [
-  { id: 'all', label: 'All' },
-  { id: 'new', label: 'New' },
-  { id: 'screening', label: 'Screening' },
-  { id: 'interviewing', label: 'Interviewing' },
-  { id: 'offered', label: 'Offered' },
-  { id: 'hired', label: 'Hired' },
-  { id: 'rejected', label: 'Rejected' },
+  { id: 'all', label: 'All', icon: null },
+  { id: 'new', label: 'New', color: 'bg-slate-500' },
+  { id: 'screening', label: 'Screening', color: 'bg-blue-500' },
+  { id: 'interviewing', label: 'Interviewing', color: 'bg-purple-500' },
+  { id: 'offered', label: 'Offered', color: 'bg-amber-500' },
+  { id: 'hired', label: 'Hired', color: 'bg-emerald-500' },
+  { id: 'rejected', label: 'Rejected', color: 'bg-red-500' },
 ];
 
 const statusColors: Record<string, string> = {
-  new: 'bg-muted text-muted-foreground',
-  screening: 'bg-info/10 text-info border-info/30',
-  interviewing: 'bg-accent/10 text-accent border-accent/30',
-  offered: 'bg-warning/10 text-warning border-warning/30',
-  hired: 'bg-success/20 text-success border-success/40',
-  rejected: 'bg-destructive/10 text-destructive border-destructive/30',
-  withdrawn: 'bg-muted text-muted-foreground',
+  new: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  screening: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  interviewing: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  offered: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  hired: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  withdrawn: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+};
+
+// Map candidate status to job pipeline stage
+const statusToPipelineStage: Record<string, string> = {
+  new: 'applied',
+  screening: 'screening',
+  interviewing: 'interview',
+  offered: 'offer',
+  hired: 'hired',
+  rejected: 'rejected',
+  withdrawn: 'rejected',
 };
 
 const CandidatesPage = () => {
@@ -100,6 +128,7 @@ const CandidatesPage = () => {
   const [showMoveToJobDialog, setShowMoveToJobDialog] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isMoving, setIsMoving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   useEffect(() => {
     if (tenantId) {
@@ -178,14 +207,69 @@ const CandidatesPage = () => {
     }
   };
 
+  // Updated to sync status with job_candidates table
+  const handleStatusChange = async (candidateId: string, newStatus: string) => {
+    try {
+      // Update candidate status
+      const { error: candidateError } = await supabase
+        .from('candidates')
+        .update({ 
+          status: newStatus as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', candidateId);
+
+      if (candidateError) throw candidateError;
+
+      // Also update all job_candidates entries for this candidate
+      const pipelineStage = statusToPipelineStage[newStatus] || 'applied';
+      await supabase
+        .from('job_candidates')
+        .update({ 
+          stage: pipelineStage as any,
+          stage_updated_at: new Date().toISOString()
+        })
+        .eq('candidate_id', candidateId);
+
+      // Log activity
+      await supabase.from('activities').insert({
+        tenant_id: tenantId,
+        user_id: user?.id,
+        action: `Changed candidate status to "${newStatus}"`,
+        entity_type: 'candidate',
+        entity_id: candidateId,
+        metadata: { new_status: newStatus }
+      });
+
+      setCandidates(prev => prev.map(c => 
+        c.id === candidateId ? { ...c, status: newStatus } : c
+      ));
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (error: any) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+    }
+  };
+
   const handleBulkStatusChange = async (newStatus: string) => {
     try {
       const { error } = await supabase
         .from('candidates')
-        .update({ status: newStatus as 'new' | 'screening' | 'interviewing' | 'offered' | 'hired' | 'rejected' | 'withdrawn' })
+        .update({ status: newStatus as any })
         .in('id', selectedIds);
 
       if (error) throw error;
+
+      // Also update job_candidates for all selected candidates
+      const pipelineStage = statusToPipelineStage[newStatus] || 'applied';
+      await supabase
+        .from('job_candidates')
+        .update({ 
+          stage: pipelineStage as any,
+          stage_updated_at: new Date().toISOString()
+        })
+        .in('candidate_id', selectedIds);
+
       toast.success(`Updated ${selectedIds.length} candidate(s) to ${newStatus}`);
       fetchCandidates();
       setSelectedIds([]);
@@ -198,13 +282,11 @@ const CandidatesPage = () => {
   const handleBulkDelete = async () => {
     setIsDeleting(true);
     try {
-      // First delete from job_candidates
       await supabase
         .from('job_candidates')
         .delete()
         .in('candidate_id', selectedIds);
 
-      // Then delete candidates
       const { error } = await supabase
         .from('candidates')
         .delete()
@@ -228,7 +310,6 @@ const CandidatesPage = () => {
     
     setIsMoving(true);
     try {
-      // Check which candidates are already in the job
       const { data: existing } = await supabase
         .from('job_candidates')
         .select('candidate_id')
@@ -275,7 +356,7 @@ const CandidatesPage = () => {
     const selectedCandidates = candidates.filter(c => selectedIds.includes(c.id));
     
     const csvContent = [
-      ['Name', 'Email', 'Phone', 'LinkedIn', 'Title', 'Company', 'Location'].join(','),
+      ['Name', 'Email', 'Phone', 'LinkedIn', 'Title', 'Company', 'Location', 'Status'].join(','),
       ...selectedCandidates.map(c => [
         `"${c.full_name}"`,
         `"${c.email}"`,
@@ -284,6 +365,7 @@ const CandidatesPage = () => {
         `"${c.current_title || ''}"`,
         `"${c.current_company || ''}"`,
         `"${c.location || ''}"`,
+        `"${c.status}"`,
       ].join(','))
     ].join('\n');
 
@@ -298,237 +380,596 @@ const CandidatesPage = () => {
     toast.success(`Exported ${selectedCandidates.length} candidate(s)`);
   };
 
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <AnimatePresence mode="popLayout">
+        {filteredCandidates.map((candidate, index) => (
+          <motion.div
+            key={candidate.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2, delay: index * 0.02 }}
+            layout
+          >
+            <div
+              className={cn(
+                "group relative bg-card rounded-xl border overflow-hidden transition-all duration-200",
+                selectedIds.includes(candidate.id)
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40 hover:shadow-lg"
+              )}
+            >
+              {/* Selection checkbox */}
+              <div className="absolute top-4 left-4 z-10">
+                <Checkbox
+                  checked={selectedIds.includes(candidate.id)}
+                  onCheckedChange={() => toggleSelection(candidate.id)}
+                  className="bg-background/80 backdrop-blur-sm"
+                />
+              </div>
+
+              {/* Quick actions */}
+              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate(`/candidates/${candidate.id}`)}>
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={() => {
+                        setSelectedIds([candidate.id]);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <Link to={`/candidates/${candidate.id}`} className="block p-5">
+                <div className="flex items-start gap-4">
+                  <Avatar className="w-14 h-14 ring-2 ring-background shadow-md">
+                    <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
+                    <AvatarFallback className="text-base font-semibold bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                      {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                      {candidate.full_name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {candidate.current_title || 'No title'}
+                      {candidate.current_company && (
+                        <span className="text-muted-foreground/60"> at {candidate.current_company}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {candidate.location && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{candidate.location}</span>
+                    </div>
+                  )}
+                  {candidate.experience_years && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                      <span>{candidate.experience_years} years experience</span>
+                    </div>
+                  )}
+                </div>
+
+                {candidate.skills && candidate.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-4">
+                    {candidate.skills.slice(0, 3).map((skill) => (
+                      <Badge key={skill} variant="secondary" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {candidate.skills.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{candidate.skills.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </Link>
+
+              {/* Status bar at bottom */}
+              <div className="px-5 pb-4 pt-0" onClick={(e) => e.stopPropagation()}>
+                <Select 
+                  value={candidate.status} 
+                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
+                >
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue>
+                      <Badge className={cn('text-xs font-medium', statusColors[candidate.status])}>
+                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                      </Badge>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusFilters.slice(1).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
+                          {s.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+
+  const renderListView = () => (
+    <div className="space-y-2">
+      <AnimatePresence mode="popLayout">
+        {filteredCandidates.map((candidate, index) => (
+          <motion.div
+            key={candidate.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2, delay: index * 0.02 }}
+            layout
+          >
+            <div
+              className={cn(
+                "group flex items-center gap-4 p-4 bg-card rounded-xl border transition-all duration-200",
+                selectedIds.includes(candidate.id)
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40 hover:shadow-md"
+              )}
+            >
+              <Checkbox
+                checked={selectedIds.includes(candidate.id)}
+                onCheckedChange={() => toggleSelection(candidate.id)}
+              />
+
+              <Link to={`/candidates/${candidate.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                <Avatar className="w-12 h-12 shrink-0">
+                  <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
+                    {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {candidate.full_name}
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {candidate.current_title || 'No title'}
+                    {candidate.current_company && ` at ${candidate.current_company}`}
+                  </p>
+                </div>
+              </Link>
+
+              <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground shrink-0">
+                {candidate.location && (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4" />
+                    <span className="max-w-[120px] truncate">{candidate.location}</span>
+                  </div>
+                )}
+                {candidate.email && (
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-4 h-4" />
+                    <span className="max-w-[160px] truncate">{candidate.email}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="shrink-0 w-32" onClick={(e) => e.stopPropagation()}>
+                <Select 
+                  value={candidate.status} 
+                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue>
+                      <Badge className={cn('text-xs', statusColors[candidate.status])}>
+                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                      </Badge>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusFilters.slice(1).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
+                          {s.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate(`/candidates/${candidate.id}`)}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-destructive"
+                    onClick={() => {
+                      setSelectedIds([candidate.id]);
+                      setShowDeleteDialog(true);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+
+  const renderTableView = () => (
+    <div className="bg-card rounded-xl border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
+            <TableHead className="w-12">
+              <Checkbox
+                checked={selectedIds.length === filteredCandidates.length && filteredCandidates.length > 0}
+                onCheckedChange={selectAll}
+              />
+            </TableHead>
+            <TableHead>Candidate</TableHead>
+            <TableHead className="hidden md:table-cell">Location</TableHead>
+            <TableHead className="hidden lg:table-cell">Email</TableHead>
+            <TableHead className="hidden xl:table-cell">Skills</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-12"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredCandidates.map((candidate) => (
+            <TableRow 
+              key={candidate.id}
+              className={cn(
+                "cursor-pointer transition-colors",
+                selectedIds.includes(candidate.id) && "bg-primary/5"
+              )}
+            >
+              <TableCell>
+                <Checkbox
+                  checked={selectedIds.includes(candidate.id)}
+                  onCheckedChange={() => toggleSelection(candidate.id)}
+                />
+              </TableCell>
+              <TableCell>
+                <Link to={`/candidates/${candidate.id}`} className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
+                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
+                      {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-foreground hover:text-primary transition-colors">
+                      {candidate.full_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {candidate.current_title || 'No title'}
+                    </p>
+                  </div>
+                </Link>
+              </TableCell>
+              <TableCell className="hidden md:table-cell">
+                {candidate.location ? (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="max-w-[120px] truncate">{candidate.location}</span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/50">—</span>
+                )}
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                <span className="text-sm text-muted-foreground truncate max-w-[160px] block">
+                  {candidate.email}
+                </span>
+              </TableCell>
+              <TableCell className="hidden xl:table-cell">
+                {candidate.skills && candidate.skills.length > 0 ? (
+                  <div className="flex gap-1">
+                    {candidate.skills.slice(0, 2).map((skill) => (
+                      <Badge key={skill} variant="secondary" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {candidate.skills.length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{candidate.skills.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/50">—</span>
+                )}
+              </TableCell>
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <Select 
+                  value={candidate.status} 
+                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
+                >
+                  <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectValue>
+                      <Badge className={cn('text-xs', statusColors[candidate.status])}>
+                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                      </Badge>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusFilters.slice(1).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
+                          {s.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate(`/candidates/${candidate.id}`)}>
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={() => {
+                        setSelectedIds([candidate.id]);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
   return (
     <AppLayout title="Candidates" subtitle="Manage your talent pool and track candidate progress.">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+        {statusFilters.map((status) => (
+          <motion.button
+            key={status.id}
+            onClick={() => setFilter(status.id)}
+            className={cn(
+              "relative p-4 rounded-xl border text-left transition-all duration-200",
+              filter === status.id
+                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                : "bg-card border-border hover:border-primary/40 hover:shadow-md"
+            )}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              {status.color && (
+                <div className={cn('w-2 h-2 rounded-full', status.color)} />
+              )}
+              <span className={cn(
+                "text-xs font-medium uppercase tracking-wide",
+                filter === status.id ? "text-primary-foreground/80" : "text-muted-foreground"
+              )}>
+                {status.label}
+              </span>
+            </div>
+            <p className={cn(
+              "text-2xl font-bold",
+              filter === status.id ? "text-primary-foreground" : "text-foreground"
+            )}>
+              {statusCounts[status.id] || 0}
+            </p>
+          </motion.button>
+        ))}
+      </div>
+
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 lg:flex-initial">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search candidates, skills..."
+              placeholder="Search candidates, skills, email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-72 pl-9 bg-card"
+              className="w-full lg:w-80 pl-10 bg-card"
             />
           </div>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-card border rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('grid')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode('table')}
+            >
+              <Table2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => navigate('/candidates/new?tab=bulk')}>
-            <Upload className="w-4 h-4" />
+
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=bulk')}>
+            <Upload className="w-4 h-4 mr-2" />
             Bulk Upload
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => navigate('/candidates/new?tab=cv')}>
-            <Upload className="w-4 h-4" />
+          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=cv')}>
+            <Upload className="w-4 h-4 mr-2" />
             Upload CV
           </Button>
-          <Button className="gap-2" onClick={() => navigate('/candidates/new')}>
-            <Plus className="w-4 h-4" />
+          <Button size="sm" onClick={() => navigate('/candidates/new')}>
+            <Plus className="w-4 h-4 mr-2" />
             Add Candidate
           </Button>
         </div>
       </div>
 
       {/* Bulk Actions Bar */}
-      {selectedIds.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between gap-4 mb-4 p-3 bg-accent/10 border border-accent/30 rounded-lg"
-        >
-          <div className="flex items-center gap-3">
-            <CheckSquare className="w-5 h-5 text-accent" />
-            <span className="font-medium">{selectedIds.length} selected</span>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
-              <X className="w-4 h-4 mr-1" />
-              Clear
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">Change Status</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {statusFilters.slice(1).map(status => (
-                  <DropdownMenuItem 
-                    key={status.id} 
-                    onClick={() => handleBulkStatusChange(status.id)}
-                  >
-                    {status.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowMoveToJobDialog(true)}
-            >
-              <UserPlus className="w-4 h-4 mr-1" />
-              Add to Job
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4 mr-1" />
-              Export
-            </Button>
-            <Button 
-              variant="destructive" 
-              size="sm"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Delete
-            </Button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Status Filters */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <button
-          onClick={selectAll}
-          className={cn(
-            'px-3 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap flex items-center gap-2',
-            selectedIds.length === filteredCandidates.length && filteredCandidates.length > 0
-              ? 'bg-accent text-accent-foreground'
-              : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
-          )}
-        >
-          <Checkbox 
-            checked={selectedIds.length === filteredCandidates.length && filteredCandidates.length > 0}
-            onCheckedChange={selectAll}
-          />
-          Select All
-        </button>
-        {statusFilters.map((status) => (
-          <button
-            key={status.id}
-            onClick={() => setFilter(status.id)}
-            className={cn(
-              'px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap',
-              filter === status.id 
-                ? 'bg-accent text-accent-foreground' 
-                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
-            )}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -10, height: 0 }}
+            className="mb-4"
           >
-            {status.label}
-            <span className="ml-1.5 opacity-70">
-              {statusCounts[status.id] || 0}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Candidates Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredCandidates.map((candidate) => (
-            <motion.div
-              key={candidate.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -2 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div
-                className={cn(
-                  "block bg-card rounded-xl border p-5 transition-all cursor-pointer",
-                  selectedIds.includes(candidate.id)
-                    ? "border-accent shadow-lg"
-                    : "border-border hover:shadow-lg hover:border-accent/30"
-                )}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedIds.includes(candidate.id)}
-                      onCheckedChange={() => toggleSelection(candidate.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Link to={`/candidates/${candidate.id}`}>
-                      <Avatar className="w-14 h-14">
-                        <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
-                        <AvatarFallback className="text-lg bg-accent/10 text-accent font-medium">
-                          {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Link>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <Link to={`/candidates/${candidate.id}`} className="flex-1">
-                        <h3 className="font-semibold text-foreground hover:text-accent transition-colors">{candidate.full_name}</h3>
-                        <p className="text-sm text-accent">
-                          {candidate.current_title || 'No title'}
-                          {candidate.current_company && ` at ${candidate.current_company}`}
-                        </p>
-                      </Link>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <CandidateStatusSelect
-                          candidateId={candidate.id}
-                          currentStatus={candidate.status}
-                          onStatusChange={(newStatus) => {
-                            setCandidates(prev => prev.map(c => 
-                              c.id === candidate.id ? { ...c, status: newStatus } : c
-                            ));
-                          }}
-                          compact
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                      {candidate.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {candidate.location}
-                        </span>
-                      )}
-                      {candidate.experience_years && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {candidate.experience_years} years exp.
-                        </span>
-                      )}
-                    </div>
-                    
-                    {candidate.skills && candidate.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {candidate.skills.slice(0, 4).map((skill) => (
-                          <Badge key={skill} variant="secondary" className="text-xs bg-muted/50">
-                            {skill}
-                          </Badge>
-                        ))}
-                        {candidate.skills.length > 4 && (
-                          <Badge variant="secondary" className="text-xs bg-muted/50">
-                            +{candidate.skills.length - 4}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
+            <div className="flex items-center justify-between gap-4 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                  {selectedIds.length}
                 </div>
+                <span className="font-medium">selected</span>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
               </div>
-            </motion.div>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Filter className="w-4 h-4 mr-2" />
+                      Change Status
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {statusFilters.slice(1).map(status => (
+                      <DropdownMenuItem 
+                        key={status.id} 
+                        onClick={() => handleBulkStatusChange(status.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={cn('w-2 h-2 rounded-full', status.color)} />
+                          {status.label}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="outline" size="sm" onClick={() => setShowMoveToJobDialog(true)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add to Job
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Candidates Display */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-52 rounded-xl" />
           ))}
         </div>
-      )}
-
-      {!isLoading && filteredCandidates.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">No candidates found matching your criteria.</p>
+      ) : filteredCandidates.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16"
+        >
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Search className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">No candidates found</h3>
+          <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+            {searchQuery || filter !== 'all' 
+              ? "Try adjusting your search or filter criteria" 
+              : "Start building your talent pool by adding candidates"}
+          </p>
           <Button onClick={() => navigate('/candidates/new')}>
             <Plus className="w-4 h-4 mr-2" />
             Add Your First Candidate
           </Button>
-        </div>
+        </motion.div>
+      ) : (
+        <>
+          {viewMode === 'grid' && renderGridView()}
+          {viewMode === 'list' && renderListView()}
+          {viewMode === 'table' && renderTableView()}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -580,7 +1021,7 @@ const CandidatesPage = () => {
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
                       selectedJobId === job.id
-                        ? "bg-accent/10 border border-accent/30"
+                        ? "bg-primary/10 border border-primary/30"
                         : "hover:bg-muted/50 border border-transparent"
                     )}
                     onClick={() => setSelectedJobId(job.id)}
