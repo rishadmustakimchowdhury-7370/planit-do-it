@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Briefcase, Users, Calendar, Trophy, Sparkles, Building2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
 interface DashboardStats {
   openJobs: number;
@@ -33,21 +34,48 @@ export default function DashboardPage() {
       }
 
       try {
-        const [jobsResult, candidatesResult, clientsResult, aiUsageResult] = await Promise.all([
+        const now = new Date();
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+        const monthStart = startOfMonth(now).toISOString();
+        const monthEnd = endOfMonth(now).toISOString();
+
+        const [
+          jobsResult,
+          candidatesResult,
+          clientsResult,
+          aiUsageResult,
+          interviewsResult,
+          placementsResult
+        ] = await Promise.all([
           supabase.from('jobs').select('id, status').eq('tenant_id', tenantId),
           supabase.from('candidates').select('id').eq('tenant_id', tenantId),
           supabase.from('clients').select('id').eq('tenant_id', tenantId),
           supabase.from('ai_usage').select('id').eq('tenant_id', tenantId),
+          // Interviews this week (candidates in interview or technical stage updated this week)
+          supabase
+            .from('job_candidates')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .in('stage', ['interview', 'technical'])
+            .gte('stage_updated_at', weekStart)
+            .lte('stage_updated_at', weekEnd),
+          // Placements this month (candidates hired this month)
+          supabase
+            .from('job_candidates')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('stage', 'hired')
+            .gte('stage_updated_at', monthStart)
+            .lte('stage_updated_at', monthEnd),
         ]);
 
         const openJobs = jobsResult.data?.filter(j => j.status === 'open').length || 0;
         const totalCandidates = candidatesResult.data?.length || 0;
         const totalClients = clientsResult.data?.length || 0;
         const aiMatchesRun = aiUsageResult.data?.length || 0;
-
-        // For now, mock interviews and placements
-        const interviewsThisWeek = Math.floor(Math.random() * 10) + 3;
-        const placementsThisMonth = Math.floor(Math.random() * 5) + 1;
+        const interviewsThisWeek = interviewsResult.data?.length || 0;
+        const placementsThisMonth = placementsResult.data?.length || 0;
 
         setStats({
           openJobs,
@@ -72,41 +100,43 @@ export default function DashboardPage() {
       title: 'Open Jobs',
       value: stats?.openJobs ?? 0,
       icon: Briefcase,
-      trend: { value: 12, isPositive: true },
-      color: 'text-info' as const,
+      subtitle: 'Active positions',
+      variant: 'info' as const,
     },
     {
       title: 'Total Candidates',
       value: stats?.totalCandidates ?? 0,
       icon: Users,
-      trend: { value: 8, isPositive: true },
-      color: 'text-accent' as const,
+      subtitle: 'In your database',
+      variant: 'accent' as const,
     },
     {
       title: 'Interviews This Week',
       value: stats?.interviewsThisWeek ?? 0,
       icon: Calendar,
-      trend: { value: 5, isPositive: true },
-      color: 'text-warning' as const,
+      subtitle: 'Scheduled interviews',
+      variant: 'warning' as const,
     },
     {
       title: 'Placements This Month',
       value: stats?.placementsThisMonth ?? 0,
       icon: Trophy,
-      trend: { value: 20, isPositive: true },
-      color: 'text-success' as const,
+      subtitle: 'Successful hires',
+      variant: 'success' as const,
     },
     {
       title: 'Total Clients',
       value: stats?.totalClients ?? 0,
       icon: Building2,
-      color: 'text-primary' as const,
+      subtitle: 'Active clients',
+      variant: 'primary' as const,
     },
     {
       title: 'AI Matches Run',
       value: stats?.aiMatchesRun ?? 0,
       icon: Sparkles,
-      color: 'text-accent' as const,
+      subtitle: 'AI analyses completed',
+      variant: 'accent' as const,
     },
   ];
 
@@ -128,21 +158,18 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {isLoading ? (
             [...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-32 rounded-lg" />
+              <Skeleton key={i} className="h-[120px] rounded-2xl" />
             ))
           ) : (
             statsCards.map((stat, i) => (
-              <motion.div
+              <StatsCard
                 key={stat.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <StatsCard {...stat} />
-              </motion.div>
+                {...stat}
+                delay={i * 0.05}
+              />
             ))
           )}
         </div>
