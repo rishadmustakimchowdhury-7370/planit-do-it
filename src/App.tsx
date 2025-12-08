@@ -24,6 +24,15 @@ import NotFound from "./pages/NotFound";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminAuditLogsPage from "./pages/admin/AdminAuditLogsPage";
+import AdminPagesPage from "./pages/admin/AdminPagesPage";
+import AdminBrandingPage from "./pages/admin/AdminBrandingPage";
+import AdminEmailTemplatesPage from "./pages/admin/AdminEmailTemplatesPage";
+import AdminBillingPage from "./pages/admin/AdminBillingPage";
+import AdminVideosPage from "./pages/admin/AdminVideosPage";
+import AdminLiveChatPage from "./pages/admin/AdminLiveChatPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
+import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -73,6 +82,14 @@ const AppRoutes = () => (
     {/* Super Admin routes */}
     <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
     <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+    <Route path="/admin/packages" element={<ProtectedRoute><AdminPackagesPage /></ProtectedRoute>} />
+    <Route path="/admin/pages" element={<ProtectedRoute><AdminPagesPage /></ProtectedRoute>} />
+    <Route path="/admin/branding" element={<ProtectedRoute><AdminBrandingPage /></ProtectedRoute>} />
+    <Route path="/admin/emails" element={<ProtectedRoute><AdminEmailTemplatesPage /></ProtectedRoute>} />
+    <Route path="/admin/billing" element={<ProtectedRoute><AdminBillingPage /></ProtectedRoute>} />
+    <Route path="/admin/videos" element={<ProtectedRoute><AdminVideosPage /></ProtectedRoute>} />
+    <Route path="/admin/chat" element={<ProtectedRoute><AdminLiveChatPage /></ProtectedRoute>} />
+    <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
     
     {/* 404 */}
@@ -88,6 +105,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AppRoutes />
+          <LiveChatWidget />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
