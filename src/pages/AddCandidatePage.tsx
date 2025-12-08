@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,20 +7,37 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User, Files, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+interface BulkUploadResult {
+  fileName: string;
+  status: 'pending' | 'parsing' | 'success' | 'error';
+  candidateName?: string;
+  error?: string;
+}
 
 export default function AddCandidatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { tenantId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [activeTab, setActiveTab] = useState('manual');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'manual');
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [linkedinUrl, setLinkedinUrl] = useState('');
+  
+  // Bulk upload state
+  const [bulkFiles, setBulkFiles] = useState<File[]>([]);
+  const [bulkResults, setBulkResults] = useState<BulkUploadResult[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -35,6 +52,13 @@ export default function AddCandidatePage() {
     experienceYears: '',
   });
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['manual', 'cv', 'linkedin', 'bulk'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -46,6 +70,20 @@ export default function AddCandidatePage() {
     }
   };
 
+  const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => 
+      ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)
+    );
+    
+    if (validFiles.length !== files.length) {
+      toast.warning(`${files.length - validFiles.length} files were skipped (only PDF/DOCX allowed)`);
+    }
+    
+    setBulkFiles(validFiles);
+    setBulkResults(validFiles.map(f => ({ fileName: f.name, status: 'pending' })));
+  };
+
   const parseCV = async () => {
     if (!cvFile) {
       toast.error('Please select a CV file first');
@@ -54,14 +92,12 @@ export default function AddCandidatePage() {
 
     setIsParsing(true);
     try {
-      // Read file as text (simplified - real implementation would use edge function)
       const reader = new FileReader();
       reader.onload = async (e) => {
         const text = e.target?.result as string;
         
-        // Call parse-cv edge function
         const { data, error } = await supabase.functions.invoke('parse-cv', {
-          body: { cvText: text.substring(0, 10000) } // Limit text length
+          body: { cvText: text.substring(0, 10000) }
         });
 
         if (error) throw error;
@@ -80,14 +116,18 @@ export default function AddCandidatePage() {
             experienceYears: data.experience_years?.toString() || '',
           });
           toast.success('CV parsed successfully!');
-          setActiveTab('manual'); // Switch to manual tab to review
+          setActiveTab('manual');
         }
+        setIsParsing(false);
+      };
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+        setIsParsing(false);
       };
       reader.readAsText(cvFile);
     } catch (error: any) {
       console.error('Error parsing CV:', error);
       toast.error(error.message || 'Failed to parse CV');
-    } finally {
       setIsParsing(false);
     }
   };
@@ -127,6 +167,114 @@ export default function AddCandidatePage() {
       toast.error(error.message || 'Failed to parse LinkedIn profile');
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const processBulkUpload = async () => {
+    if (bulkFiles.length === 0) {
+      toast.error('Please select files to upload');
+      return;
+    }
+
+    if (!tenantId) {
+      toast.error('No tenant found. Please log in again.');
+      return;
+    }
+
+    setIsBulkProcessing(true);
+    setBulkProgress(0);
+
+    const results = [...bulkResults];
+    let successCount = 0;
+
+    for (let i = 0; i < bulkFiles.length; i++) {
+      const file = bulkFiles[i];
+      results[i] = { ...results[i], status: 'parsing' };
+      setBulkResults([...results]);
+
+      try {
+        // Read file
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+
+        // Parse CV with AI
+        const { data, error } = await supabase.functions.invoke('parse-cv', {
+          body: { cvText: text.substring(0, 10000) }
+        });
+
+        if (error) throw error;
+
+        if (!data?.name || !data?.email) {
+          throw new Error('Could not extract name and email from CV');
+        }
+
+        // Check if candidate already exists
+        const { data: existing } = await supabase
+          .from('candidates')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('email', data.email)
+          .maybeSingle();
+
+        if (existing) {
+          results[i] = { 
+            ...results[i], 
+            status: 'error', 
+            error: 'Candidate with this email already exists',
+            candidateName: data.name 
+          };
+        } else {
+          // Insert candidate
+          const skillsArray = Array.isArray(data.skills) ? data.skills : [];
+          
+          const { error: insertError } = await supabase.from('candidates').insert({
+            tenant_id: tenantId,
+            full_name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            location: data.location || null,
+            current_title: data.current_title || null,
+            current_company: data.current_company || null,
+            linkedin_url: data.linkedin_url || null,
+            summary: data.summary || null,
+            skills: skillsArray.length > 0 ? skillsArray : null,
+            experience_years: data.experience_years || null,
+            status: 'new',
+          });
+
+          if (insertError) throw insertError;
+
+          results[i] = { 
+            ...results[i], 
+            status: 'success', 
+            candidateName: data.name 
+          };
+          successCount++;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${file.name}:`, error);
+        results[i] = { 
+          ...results[i], 
+          status: 'error', 
+          error: error.message || 'Failed to process' 
+        };
+      }
+
+      setBulkResults([...results]);
+      setBulkProgress(((i + 1) / bulkFiles.length) * 100);
+    }
+
+    setIsBulkProcessing(false);
+    
+    if (successCount > 0) {
+      toast.success(`Successfully added ${successCount} candidate(s)`);
+    }
+    if (successCount < bulkFiles.length) {
+      toast.warning(`${bulkFiles.length - successCount} file(s) had errors`);
     }
   };
 
@@ -188,12 +336,12 @@ export default function AddCandidatePage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Add New Candidate</h1>
-            <p className="text-muted-foreground">Add a candidate manually, via CV upload, or LinkedIn</p>
+            <p className="text-muted-foreground">Add a candidate manually, via CV upload, LinkedIn, or bulk upload</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-3 w-full max-w-md">
+          <TabsList className="grid grid-cols-4 w-full max-w-lg">
             <TabsTrigger value="manual" className="gap-2">
               <User className="h-4 w-4" />
               Manual
@@ -206,7 +354,115 @@ export default function AddCandidatePage() {
               <LinkIcon className="h-4 w-4" />
               LinkedIn
             </TabsTrigger>
+            <TabsTrigger value="bulk" className="gap-2">
+              <Files className="h-4 w-4" />
+              Bulk
+            </TabsTrigger>
           </TabsList>
+
+          {/* Bulk Upload Tab */}
+          <TabsContent value="bulk">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bulk Resume Upload</CardTitle>
+                <CardDescription>
+                  Upload multiple CVs at once. We'll parse them with AI and create candidates automatically.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                  <input
+                    ref={bulkFileInputRef}
+                    type="file"
+                    accept=".pdf,.docx"
+                    multiple
+                    onChange={handleBulkFileChange}
+                    className="hidden"
+                  />
+                  {bulkFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      <Files className="h-12 w-12 mx-auto text-accent" />
+                      <p className="font-medium">{bulkFiles.length} file(s) selected</p>
+                      <Button variant="outline" size="sm" onClick={() => { setBulkFiles([]); setBulkResults([]); }}>
+                        Clear All
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">Drag & drop multiple CVs or click to upload</p>
+                      <p className="text-xs text-muted-foreground">Supports PDF and DOCX files</p>
+                      <Button variant="outline" onClick={() => bulkFileInputRef.current?.click()}>
+                        Select Files
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {bulkResults.length > 0 && (
+                  <div className="space-y-3">
+                    {isBulkProcessing && (
+                      <div className="space-y-2">
+                        <Progress value={bulkProgress} className="h-2" />
+                        <p className="text-sm text-muted-foreground text-center">
+                          Processing... {Math.round(bulkProgress)}%
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="max-h-64 overflow-y-auto space-y-2">
+                      {bulkResults.map((result, idx) => (
+                        <div 
+                          key={idx} 
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg border",
+                            result.status === 'success' && "bg-success/10 border-success/30",
+                            result.status === 'error' && "bg-destructive/10 border-destructive/30",
+                            result.status === 'parsing' && "bg-info/10 border-info/30",
+                            result.status === 'pending' && "bg-muted"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {result.status === 'success' && <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />}
+                            {result.status === 'error' && <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />}
+                            {result.status === 'parsing' && <Loader2 className="h-4 w-4 animate-spin text-info flex-shrink-0" />}
+                            {result.status === 'pending' && <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{result.fileName}</p>
+                              {result.candidateName && (
+                                <p className="text-xs text-muted-foreground">{result.candidateName}</p>
+                              )}
+                              {result.error && (
+                                <p className="text-xs text-destructive">{result.error}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={processBulkUpload} 
+                  disabled={bulkFiles.length === 0 || isBulkProcessing}
+                  className="w-full"
+                >
+                  {isBulkProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Process {bulkFiles.length} Resume(s)
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="cv">
             <Card>
