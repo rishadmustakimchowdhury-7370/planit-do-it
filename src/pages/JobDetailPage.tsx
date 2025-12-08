@@ -246,24 +246,44 @@ const JobDetailPage = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4 text-accent" />
-                  <span className="text-sm">{job.location || 'Not specified'}</span>
+              <div className="flex flex-wrap items-center gap-6 mt-6 pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-medium text-foreground">{job.location || 'Not specified'}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <DollarSign className="w-4 h-4 text-success" />
-                  <span className="text-sm">{formatSalary()}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Salary</p>
+                    <p className="text-sm font-medium text-foreground">{formatSalary()}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Users className="w-4 h-4 text-info" />
-                  <span className="text-sm">{candidates.length} candidates</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-info/10 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-info" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Candidates</p>
+                    <p className="text-sm font-medium text-foreground">{candidates.length}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-sm">
-                    {job.created_at ? `Posted ${formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}` : 'Not posted'}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Posted</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {job.created_at ? formatDistanceToNow(new Date(job.created_at), { addSuffix: true }) : 'Not posted'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

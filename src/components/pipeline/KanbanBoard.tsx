@@ -52,7 +52,7 @@ const stageLabels: Record<DatabasePipelineStage, string> = {
   rejected: 'Rejected',
 };
 
-const activeStages: DatabasePipelineStage[] = ['applied', 'screening', 'interview', 'technical', 'offer', 'hired'];
+const activeStages: DatabasePipelineStage[] = ['applied', 'screening', 'interview', 'technical', 'offer', 'hired', 'rejected'];
 
 export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBoardProps) {
   const [draggedCandidate, setDraggedCandidate] = useState<string | null>(null);
