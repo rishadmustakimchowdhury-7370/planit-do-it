@@ -21,6 +21,9 @@ import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
 import ReportsPage from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminAuditLogsPage from "./pages/admin/AdminAuditLogsPage";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -66,6 +69,11 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+    
+    {/* Super Admin routes */}
+    <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
+    <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+    <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
     
     {/* 404 */}
     <Route path="*" element={<NotFound />} />
