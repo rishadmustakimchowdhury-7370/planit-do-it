@@ -589,22 +589,56 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   {/* Team Limit Info */}
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-accent/10">
-                        <Users className="h-5 w-5 text-accent" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-accent/10">
+                          <Users className="h-5 w-5 text-accent" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Team Seats</p>
+                          <p className="text-sm text-muted-foreground">
+                            {teamMembers.length + pendingInvites.length} / {teamLimit >= 999 ? 'Unlimited' : teamLimit} used
+                          </p>
+                        </div>
                       </div>
+                      <Badge variant="outline" className="capitalize">
+                        {planName} Plan
+                      </Badge>
+                    </div>
+                    
+                    {/* Plan Team Limits */}
+                    <div className="p-4 rounded-lg border bg-background">
+                      <p className="font-medium text-sm mb-3">Team Limits by Plan</p>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className={`p-2 rounded-lg ${planName === 'starter' ? 'bg-accent/10 border border-accent/30' : 'bg-muted/50'}`}>
+                          <p className="text-lg font-bold">2</p>
+                          <p className="text-xs text-muted-foreground">Starter</p>
+                        </div>
+                        <div className={`p-2 rounded-lg ${planName === 'pro' ? 'bg-accent/10 border border-accent/30' : 'bg-muted/50'}`}>
+                          <p className="text-lg font-bold">5</p>
+                          <p className="text-xs text-muted-foreground">Pro</p>
+                        </div>
+                        <div className={`p-2 rounded-lg ${planName === 'agency' || planName === 'enterprise' ? 'bg-accent/10 border border-accent/30' : 'bg-muted/50'}`}>
+                          <p className="text-lg font-bold">∞</p>
+                          <p className="text-xs text-muted-foreground">Agency</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Team Limit Warning */}
+                  {teamLimit < 999 && (teamMembers.length + pendingInvites.length) >= teamLimit && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-warning/10 border border-warning/30 mb-6">
+                      <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
                       <div>
-                        <p className="font-medium">Team Seats</p>
+                        <p className="font-medium text-warning">Team limit reached</p>
                         <p className="text-sm text-muted-foreground">
-                          {teamMembers.length + pendingInvites.length} / {teamLimit === 999 ? 'Unlimited' : teamLimit} used
+                          Upgrade to {planName === 'starter' ? 'Pro (5 members)' : 'Agency (Unlimited members)'} to invite more team members.
                         </p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="capitalize">
-                      {planName} Plan
-                    </Badge>
-                  </div>
+                  )}
 
                   {/* Current Members */}
                   <div className="space-y-3">

@@ -51,7 +51,8 @@ const plans = [
     price: 9,
     period: 'month',
     icon: Zap,
-    features: ['5 Active Jobs', '50 Candidates', '50 AI Matches/month', 'Email Support'],
+    teamLimit: 2,
+    features: ['2 Team Members', '5 Active Jobs', '50 Candidates', '50 AI Matches/month', 'Email Support'],
     popular: false,
   },
   {
@@ -59,7 +60,8 @@ const plans = [
     price: 29,
     period: 'month',
     icon: Sparkles,
-    features: ['25 Active Jobs', '500 Candidates', '200 AI Matches/month', 'Priority Support', 'API Access'],
+    teamLimit: 5,
+    features: ['5 Team Members', '25 Active Jobs', '500 Candidates', '200 AI Matches/month', 'Priority Support', 'API Access'],
     popular: true,
   },
   {
@@ -67,7 +69,8 @@ const plans = [
     price: 79,
     period: 'month',
     icon: Crown,
-    features: ['Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'White Label'],
+    teamLimit: -1, // Unlimited
+    features: ['Unlimited Team Members', 'Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'White Label'],
     popular: false,
   },
 ];
