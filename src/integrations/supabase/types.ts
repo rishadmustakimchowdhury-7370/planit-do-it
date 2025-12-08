@@ -503,6 +503,39 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          created_at: string | null
+          html_content: string
+          id: string
+          is_active: boolean | null
+          name: string
+          subject: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          subject: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          subject?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
@@ -867,6 +900,48 @@ export type Database = {
           },
         ]
       }
+      site_branding: {
+        Row: {
+          chat_widget_script: string | null
+          favicon_url: string | null
+          id: string
+          logo_url: string | null
+          meta_description: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          site_title: string | null
+          social_links: Json | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          chat_widget_script?: string | null
+          favicon_url?: string | null
+          id?: string
+          logo_url?: string | null
+          meta_description?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          site_title?: string | null
+          social_links?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          chat_widget_script?: string | null
+          favicon_url?: string | null
+          id?: string
+          logo_url?: string | null
+          meta_description?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          site_title?: string | null
+          social_links?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -987,16 +1062,53 @@ export type Database = {
           },
         ]
       }
+      temp_login_links: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string
+          id: string
+          reason: string | null
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          reason?: string | null
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          reason?: string | null
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           created_at: string | null
           favicon_url: string | null
+          grace_until: string | null
           id: string
+          is_paused: boolean | null
           is_suspended: boolean | null
           logo_url: string | null
           match_credits_limit: number | null
           match_credits_remaining: number | null
           name: string
+          paused_at: string | null
+          paused_reason: string | null
           primary_color: string | null
           slug: string
           subscription_ends_at: string | null
@@ -1010,12 +1122,16 @@ export type Database = {
         Insert: {
           created_at?: string | null
           favicon_url?: string | null
+          grace_until?: string | null
           id?: string
+          is_paused?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
           match_credits_limit?: number | null
           match_credits_remaining?: number | null
           name: string
+          paused_at?: string | null
+          paused_reason?: string | null
           primary_color?: string | null
           slug: string
           subscription_ends_at?: string | null
@@ -1029,12 +1145,16 @@ export type Database = {
         Update: {
           created_at?: string | null
           favicon_url?: string | null
+          grace_until?: string | null
           id?: string
+          is_paused?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
           match_credits_limit?: number | null
           match_credits_remaining?: number | null
           name?: string
+          paused_at?: string | null
+          paused_reason?: string | null
           primary_color?: string | null
           slug?: string
           subscription_ends_at?: string | null
@@ -1122,6 +1242,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      videos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_featured: boolean | null
+          is_visible: boolean | null
+          order_index: number | null
+          title: string
+          updated_at: string | null
+          youtube_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_visible?: boolean | null
+          order_index?: number | null
+          title: string
+          updated_at?: string | null
+          youtube_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_visible?: boolean | null
+          order_index?: number | null
+          title?: string
+          updated_at?: string | null
+          youtube_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
