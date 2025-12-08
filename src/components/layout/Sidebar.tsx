@@ -67,7 +67,7 @@ export function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="font-bold text-xl text-sidebar-foreground whitespace-nowrap overflow-hidden"
               >
-                RecruitCRM
+                Recruitsy CRM
               </motion.span>
             )}
           </AnimatePresence>

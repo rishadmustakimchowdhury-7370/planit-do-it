@@ -17,6 +17,8 @@ import AddCandidatePage from "./pages/AddCandidatePage";
 import ClientsPage from "./pages/ClientsPage";
 import AddClientPage from "./pages/AddClientPage";
 import AIMatchPage from "./pages/AIMatchPage";
+import SettingsPage from "./pages/SettingsPage";
+import BillingPage from "./pages/BillingPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -55,10 +57,13 @@ const AppRoutes = () => (
     <Route path="/jobs/:id/edit" element={<ProtectedRoute><EditJobPage /></ProtectedRoute>} />
     <Route path="/candidates" element={<ProtectedRoute><CandidatesPage /></ProtectedRoute>} />
     <Route path="/candidates/new" element={<ProtectedRoute><AddCandidatePage /></ProtectedRoute>} />
+    <Route path="/candidates/add" element={<ProtectedRoute><AddCandidatePage /></ProtectedRoute>} />
     <Route path="/candidates/:id" element={<ProtectedRoute><CandidateDetailPage /></ProtectedRoute>} />
     <Route path="/clients" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
     <Route path="/clients/new" element={<ProtectedRoute><AddClientPage /></ProtectedRoute>} />
     <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
+    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     
     {/* 404 */}
     <Route path="*" element={<NotFound />} />
