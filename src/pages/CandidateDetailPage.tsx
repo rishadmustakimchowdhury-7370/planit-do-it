@@ -127,26 +127,43 @@ const CandidateDetailPage = () => {
     }
 
     try {
+      // Extract just the file path from the URL if it's a full URL
+      let filePath = candidate.cv_file_url;
+      
+      // If it's a full URL, extract the path after /documents/
+      if (filePath.includes('/documents/')) {
+        filePath = filePath.split('/documents/').pop() || filePath;
+      }
+      
+      // Remove any query parameters
+      filePath = filePath.split('?')[0];
+
       const { data, error } = await supabase.storage
         .from('documents')
-        .download(candidate.cv_file_url);
+        .download(filePath);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Download error:', error);
+        throw error;
+      }
 
+      // Determine file extension from original path
+      const extension = filePath.split('.').pop() || 'pdf';
+      
       // Create download link
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV.pdf`;
+      a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       toast.success('CV downloaded successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading CV:', error);
-      toast.error('Failed to download CV. The file may not exist.');
+      toast.error(error.message || 'Failed to download CV. The file may not exist.');
     }
   };
 

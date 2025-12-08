@@ -373,11 +373,14 @@ export default function SettingsPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Create a signed URL for private bucket access
+      const { data: signedData, error: signedError } = await supabase.storage
         .from('documents')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry
 
-      setProfileData({ ...profileData, avatar_url: publicUrl });
+      if (signedError) throw signedError;
+
+      setProfileData({ ...profileData, avatar_url: signedData.signedUrl });
       toast.success('Avatar uploaded. Click Save to apply.');
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
