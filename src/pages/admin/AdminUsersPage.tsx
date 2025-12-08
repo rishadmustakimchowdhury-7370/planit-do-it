@@ -97,10 +97,20 @@ export default function AdminUsersPage() {
   const [showGraceDialog, setShowGraceDialog] = useState(false);
   const [showPackageDialog, setShowPackageDialog] = useState(false);
   const [showTempLoginDialog, setShowTempLoginDialog] = useState(false);
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [graceDays, setGraceDays] = useState('7');
   const [selectedPackage, setSelectedPackage] = useState('');
   const [tempLoginMinutes, setTempLoginMinutes] = useState('30');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Add user form
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    fullName: '',
+    password: '',
+    companyName: '',
+    selectedPlan: '',
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -147,12 +157,72 @@ export default function AdminUsersPage() {
 
   const logAuditAction = async (action: string, targetId: string, payload?: object) => {
     await supabase.from('audit_log').insert({
-      admin_id: currentUser?.id,
       action,
       entity_type: 'user',
       entity_id: targetId,
-      payload: payload || {},
+      new_values: payload || {},
     });
+  };
+
+  const handleAddUser = async () => {
+    if (!newUserForm.email || !newUserForm.password || !newUserForm.fullName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      // Create user via Supabase Auth Admin API (this requires service role)
+      // Since we can't use service role from frontend, we'll use signUp 
+      // In production, this should be done via an edge function
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUserForm.email,
+        password: newUserForm.password,
+        options: {
+          data: {
+            full_name: newUserForm.fullName,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // If a plan is selected, update the tenant
+        if (newUserForm.selectedPlan) {
+          // Wait a bit for the trigger to create profile/tenant
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('tenant_id')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (profile?.tenant_id) {
+            await supabase
+              .from('tenants')
+              .update({ 
+                subscription_plan_id: newUserForm.selectedPlan,
+                name: newUserForm.companyName || `${newUserForm.fullName}'s Workspace`,
+              })
+              .eq('id', profile.tenant_id);
+          }
+        }
+
+        await logAuditAction('create_user', authData.user.id, { email: newUserForm.email });
+        toast.success('User created successfully! They will receive a confirmation email.');
+        setShowAddUserDialog(false);
+        setNewUserForm({ email: '', fullName: '', password: '', companyName: '', selectedPlan: '' });
+        fetchUsers();
+      }
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast.error(error.message || 'Failed to create user');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePauseUser = async (user: UserWithTenant) => {
@@ -286,7 +356,9 @@ export default function AdminUsersPage() {
 
       if (error) throw error;
 
-      const tempLoginUrl = `${window.location.origin}/auth?temp_token=${token}`;
+      // Store the raw token temporarily so we can use it for login
+      // The temp login URL includes the raw token AND user_id for lookup
+      const tempLoginUrl = `${window.location.origin}/auth?temp_token=${token}&user_id=${selectedUser.id}`;
       await navigator.clipboard.writeText(tempLoginUrl);
 
       await logAuditAction('generate_temp_login', selectedUser.id, { expires_in: tempLoginMinutes });
@@ -389,7 +461,7 @@ export default function AdminUsersPage() {
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>
-        <Button>
+        <Button onClick={() => setShowAddUserDialog(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Add User
         </Button>
@@ -522,6 +594,85 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add User Dialog */}
+      <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account. They will receive a confirmation email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Full Name *</Label>
+              <Input
+                value={newUserForm.fullName}
+                onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+                placeholder="John Doe"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                placeholder="john@example.com"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Password *</Label>
+              <Input
+                type="password"
+                value={newUserForm.password}
+                onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                placeholder="••••••••"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Company Name</Label>
+              <Input
+                value={newUserForm.companyName}
+                onChange={(e) => setNewUserForm({ ...newUserForm, companyName: e.target.value })}
+                placeholder="Acme Inc."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Subscription Plan</Label>
+              <Select 
+                value={newUserForm.selectedPlan} 
+                onValueChange={(value) => setNewUserForm({ ...newUserForm, selectedPlan: value })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select a plan (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddUserDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Grace Period Dialog */}
       <Dialog open={showGraceDialog} onOpenChange={setShowGraceDialog}>

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Lock, User, ArrowLeft, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -35,11 +36,100 @@ type SignupFormData = z.infer<typeof signupSchema>;
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+  const tempToken = searchParams.get('temp_token');
+  const tempUserId = searchParams.get('user_id');
+  
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTempLoginLoading, setIsTempLoginLoading] = useState(false);
   const { signIn, signUp, signInWithGoogle, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Handle temporary login
+  useEffect(() => {
+    const handleTempLogin = async () => {
+      if (!tempToken || !tempUserId) return;
+
+      setIsTempLoginLoading(true);
+      try {
+        // Hash the token to compare with stored hash
+        const tokenHash = await crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(tempToken)
+        );
+        const hashArray = Array.from(new Uint8Array(tokenHash));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Verify the temp login link
+        const { data: linkData, error: linkError } = await supabase
+          .from('temp_login_links')
+          .select('*')
+          .eq('user_id', tempUserId)
+          .eq('token_hash', hashHex)
+          .is('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .single();
+
+        if (linkError || !linkData) {
+          toast({
+            variant: 'destructive',
+            title: 'Invalid or expired link',
+            description: 'This temporary login link is invalid or has expired. Please request a new one.',
+          });
+          setIsTempLoginLoading(false);
+          return;
+        }
+
+        // Mark the link as used
+        await supabase
+          .from('temp_login_links')
+          .update({ used_at: new Date().toISOString() })
+          .eq('id', linkData.id);
+
+        // Get user email from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', tempUserId)
+          .single();
+
+        if (profile?.email) {
+          // Generate a magic link for the user
+          const { error: magicError } = await supabase.auth.signInWithOtp({
+            email: profile.email,
+            options: {
+              shouldCreateUser: false,
+            },
+          });
+
+          if (magicError) {
+            toast({
+              variant: 'destructive',
+              title: 'Login failed',
+              description: 'Unable to process temporary login. Please try again or contact support.',
+            });
+          } else {
+            toast({
+              title: 'Check your email',
+              description: 'A login link has been sent to your email address.',
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Temp login error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'An error occurred while processing the temporary login.',
+        });
+      } finally {
+        setIsTempLoginLoading(false);
+      }
+    };
+
+    handleTempLogin();
+  }, [tempToken, tempUserId, toast]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -121,10 +211,13 @@ export default function AuthPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || isTempLoginLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        {isTempLoginLoading && (
+          <p className="text-muted-foreground">Processing temporary login...</p>
+        )}
       </div>
     );
   }

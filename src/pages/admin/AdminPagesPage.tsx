@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, Loader2, FileText, ExternalLink, Layout } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface CMSPage {
@@ -26,11 +27,94 @@ interface CMSPage {
   updated_at: string | null;
 }
 
+const DEFAULT_TEMPLATES = [
+  {
+    name: 'About Us',
+    slug: 'about',
+    content: `<h1>About Us</h1>
+<p>Welcome to our company. We are dedicated to providing the best services to our customers.</p>
+
+<h2>Our Mission</h2>
+<p>Our mission is to revolutionize the recruitment industry with AI-powered solutions that help companies find the best talent efficiently.</p>
+
+<h2>Our Values</h2>
+<ul>
+<li><strong>Innovation</strong> - We constantly push boundaries to deliver cutting-edge solutions</li>
+<li><strong>Integrity</strong> - We believe in transparency and honest communication</li>
+<li><strong>Excellence</strong> - We strive for excellence in everything we do</li>
+</ul>
+
+<h2>Contact Us</h2>
+<p>Have questions? <a href="/contact">Get in touch</a> with our team today.</p>`,
+  },
+  {
+    name: 'Contact',
+    slug: 'contact',
+    content: `<h1>Contact Us</h1>
+<p>We'd love to hear from you. Reach out to us through any of the channels below.</p>
+
+<h2>Get in Touch</h2>
+<p><strong>Email:</strong> support@recruitsy.net</p>
+<p><strong>Phone:</strong> +1 (555) 123-4567</p>
+
+<h2>Office Location</h2>
+<p>123 Business Street<br/>Suite 100<br/>New York, NY 10001</p>
+
+<h2>Business Hours</h2>
+<p>Monday - Friday: 9:00 AM - 6:00 PM EST</p>`,
+  },
+  {
+    name: 'Privacy Policy',
+    slug: 'privacy',
+    content: `<h1>Privacy Policy</h1>
+<p>Last updated: ${format(new Date(), 'MMMM d, yyyy')}</p>
+
+<h2>Introduction</h2>
+<p>We are committed to protecting your privacy. This policy explains how we collect, use, and safeguard your information.</p>
+
+<h2>Information We Collect</h2>
+<p>We collect information you provide directly to us, including:</p>
+<ul>
+<li>Name and contact information</li>
+<li>Account credentials</li>
+<li>Usage data and preferences</li>
+</ul>
+
+<h2>How We Use Your Information</h2>
+<p>We use your information to provide and improve our services, communicate with you, and ensure security.</p>
+
+<h2>Contact Us</h2>
+<p>If you have questions about this policy, please contact us at privacy@recruitsy.net.</p>`,
+  },
+  {
+    name: 'Terms of Service',
+    slug: 'terms',
+    content: `<h1>Terms of Service</h1>
+<p>Last updated: ${format(new Date(), 'MMMM d, yyyy')}</p>
+
+<h2>Agreement to Terms</h2>
+<p>By accessing our service, you agree to be bound by these terms. If you disagree with any part, you may not access the service.</p>
+
+<h2>Use License</h2>
+<p>Permission is granted to temporarily use our service for personal, non-commercial purposes only.</p>
+
+<h2>Disclaimer</h2>
+<p>Our service is provided "as is" without warranties of any kind, either express or implied.</p>
+
+<h2>Limitations</h2>
+<p>We shall not be held liable for any damages arising from the use of our service.</p>
+
+<h2>Governing Law</h2>
+<p>These terms shall be governed by the laws of the jurisdiction in which we operate.</p>`,
+  },
+];
+
 export default function AdminPagesPage() {
   const [pages, setPages] = useState<CMSPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPage, setEditingPage] = useState<CMSPage | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -65,10 +149,15 @@ export default function AdminPagesPage() {
   const handleOpenDialog = (page?: CMSPage) => {
     if (page) {
       setEditingPage(page);
+      const contentBody = typeof page.content === 'object' && page.content?.body 
+        ? page.content.body 
+        : typeof page.content === 'string' 
+          ? page.content 
+          : '';
       setFormData({
         title: page.title,
         slug: page.slug,
-        content: typeof page.content === 'string' ? page.content : JSON.stringify(page.content, null, 2),
+        content: contentBody,
         meta_title: page.meta_title || '',
         meta_description: page.meta_description || '',
         is_published: page.is_published,
@@ -84,6 +173,19 @@ export default function AdminPagesPage() {
         is_published: false,
       });
     }
+    setIsDialogOpen(true);
+  };
+
+  const handleUseTemplate = (template: typeof DEFAULT_TEMPLATES[0]) => {
+    setFormData({
+      title: template.name,
+      slug: template.slug,
+      content: template.content,
+      meta_title: template.name,
+      meta_description: `${template.name} page for Recruitsy`,
+      is_published: false,
+    });
+    setShowTemplateDialog(false);
     setIsDialogOpen(true);
   };
 
@@ -165,81 +267,112 @@ export default function AdminPagesPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground">Create and manage static pages for your public website</p>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Page
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingPage ? 'Edit Page' : 'Create New Page'}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
+          <div className="flex gap-2">
+            <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Layout className="h-4 w-4 mr-2" />
+                  Use Template
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Choose a Template</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-3 mt-4">
+                  {DEFAULT_TEMPLATES.map((template) => (
+                    <Card 
+                      key={template.slug} 
+                      className="cursor-pointer hover:border-primary transition-colors"
+                      onClick={() => handleUseTemplate(template)}
+                    >
+                      <CardContent className="p-4">
+                        <h4 className="font-medium">{template.name}</h4>
+                        <p className="text-sm text-muted-foreground">/{template.slug}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => handleOpenDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Page
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingPage ? 'Edit Page' : 'Create New Page'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Title</Label>
+                      <Input
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="Page Title"
+                      />
+                    </div>
+                    <div>
+                      <Label>Slug</Label>
+                      <Input
+                        value={formData.slug}
+                        onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                        placeholder="page-slug"
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <Label>Title</Label>
+                    <Label>Content</Label>
+                    <div className="mt-2">
+                      <RichTextEditor
+                        content={formData.content}
+                        onChange={(content) => setFormData({ ...formData, content })}
+                        placeholder="Start writing your page content..."
+                        className="min-h-[300px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Meta Title (SEO)</Label>
                     <Input
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Page Title"
+                      value={formData.meta_title}
+                      onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                      placeholder="SEO Title"
                     />
                   </div>
                   <div>
-                    <Label>Slug</Label>
-                    <Input
-                      value={formData.slug}
-                      onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                      placeholder="page-slug"
+                    <Label>Meta Description (SEO)</Label>
+                    <Textarea
+                      value={formData.meta_description}
+                      onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                      placeholder="SEO Description"
+                      rows={3}
                     />
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.is_published}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
+                    />
+                    <Label>Publish immediately</Label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {editingPage ? 'Update' : 'Create'}
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Label>Content (HTML)</Label>
-                  <Textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    placeholder="<h1>Hello World</h1>"
-                    rows={10}
-                  />
-                </div>
-                <div>
-                  <Label>Meta Title (SEO)</Label>
-                  <Input
-                    value={formData.meta_title}
-                    onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
-                    placeholder="SEO Title"
-                  />
-                </div>
-                <div>
-                  <Label>Meta Description (SEO)</Label>
-                  <Textarea
-                    value={formData.meta_description}
-                    onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
-                    placeholder="SEO Description"
-                    rows={3}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.is_published}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
-                  />
-                  <Label>Publish immediately</Label>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave} disabled={saving}>
-                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    {editingPage ? 'Update' : 'Create'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {loading ? (
@@ -251,11 +384,17 @@ export default function AdminPagesPage() {
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No pages yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first CMS page</p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Page
-              </Button>
+              <p className="text-muted-foreground mb-4">Create your first CMS page or use a template</p>
+              <div className="flex justify-center gap-2">
+                <Button variant="outline" onClick={() => setShowTemplateDialog(true)}>
+                  <Layout className="h-4 w-4 mr-2" />
+                  Use Template
+                </Button>
+                <Button onClick={() => handleOpenDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Page
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (

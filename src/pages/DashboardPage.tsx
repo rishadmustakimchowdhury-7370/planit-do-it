@@ -6,6 +6,7 @@ import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { RecentJobs } from '@/components/dashboard/RecentJobs';
 import { TopCandidates } from '@/components/dashboard/TopCandidates';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { VideoTutorials } from '@/components/dashboard/VideoTutorials';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Briefcase, Users, Calendar, Trophy, Sparkles, Building2 } from 'lucide-react';
@@ -181,6 +182,15 @@ export default function DashboardPage() {
           transition={{ delay: 0.3 }}
         >
           <QuickActions />
+        </motion.div>
+
+        {/* Video Tutorials Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <VideoTutorials />
         </motion.div>
 
         {/* Main Content Grid */}

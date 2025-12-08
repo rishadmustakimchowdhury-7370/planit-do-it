@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Users,
   Building2,
@@ -16,6 +18,11 @@ import {
   Send,
   Clock,
   DollarSign,
+  Mail,
+  FileText,
+  Video,
+  Settings,
+  Loader2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -29,6 +36,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 
 interface DashboardMetrics {
   totalUsers: number;
@@ -49,12 +57,19 @@ interface RecentActivity {
   created_at: string;
 }
 
+interface MonthlyRevenue {
+  month: string;
+  revenue: number;
+}
+
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [mrrData, setMrrData] = useState<{ month: string; mrr: number }[]>([]);
+  const [mrrData, setMrrData] = useState<MonthlyRevenue[]>([]);
   const [signupsData, setSignupsData] = useState<{ date: string; signups: number }[]>([]);
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -78,7 +93,7 @@ export default function AdminDashboardPage() {
       // Fetch subscriptions by status
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('subscription_status, is_paused, is_suspended, subscription_ends_at');
+        .select('subscription_status, is_paused, is_suspended, subscription_ends_at, subscription_plan_id');
 
       const activeSubscriptions = tenantData?.filter(t => 
         t.subscription_status === 'active' && !t.is_suspended
@@ -96,16 +111,75 @@ export default function AdminDashboardPage() {
         return endDate <= thirtyDaysFromNow && endDate > new Date();
       }).length || 0;
 
-      // Fetch invoices for revenue calculation
-      const { data: invoiceData } = await supabase
+      // Fetch all invoices for revenue calculation
+      const { data: allInvoices } = await supabase
         .from('invoices')
-        .select('amount, status, created_at')
+        .select('amount, status, created_at, paid_at')
         .eq('status', 'paid');
 
-      const totalRevenue = invoiceData?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
+      const totalRevenue = allInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
       
-      // Calculate MRR (simplified - based on active subscriptions and average)
-      const mrr = activeSubscriptions * 19; // Assuming average $19/month
+      // Calculate actual MRR from paid invoices in the last month
+      const now = new Date();
+      const lastMonthStart = startOfMonth(subMonths(now, 1));
+      const lastMonthEnd = endOfMonth(subMonths(now, 1));
+      
+      const lastMonthInvoices = allInvoices?.filter(inv => {
+        const paidDate = inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at);
+        return paidDate >= lastMonthStart && paidDate <= lastMonthEnd;
+      }) || [];
+      
+      const mrr = lastMonthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+      // Calculate monthly revenue for the chart (last 12 months)
+      const monthlyRevenueData: MonthlyRevenue[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const monthStart = startOfMonth(subMonths(now, i));
+        const monthEnd = endOfMonth(subMonths(now, i));
+        
+        const monthInvoices = allInvoices?.filter(inv => {
+          const paidDate = inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at);
+          return paidDate >= monthStart && paidDate <= monthEnd;
+        }) || [];
+        
+        const monthRevenue = monthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+        monthlyRevenueData.push({
+          month: format(monthStart, 'MMM'),
+          revenue: monthRevenue,
+        });
+      }
+      setMrrData(monthlyRevenueData);
+
+      // Fetch actual signups data from profiles (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: recentProfiles } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // Group signups by date
+      const signupsByDate: { [key: string]: number } = {};
+      for (let i = 0; i < 30; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i));
+        const dateKey = format(date, 'MMM d');
+        signupsByDate[dateKey] = 0;
+      }
+
+      recentProfiles?.forEach(profile => {
+        const dateKey = format(new Date(profile.created_at!), 'MMM d');
+        if (signupsByDate[dateKey] !== undefined) {
+          signupsByDate[dateKey]++;
+        }
+      });
+
+      const signupsChartData = Object.entries(signupsByDate).map(([date, signups]) => ({
+        date,
+        signups,
+      }));
+      setSignupsData(signupsChartData);
 
       setMetrics({
         totalUsers: totalUsers || 0,
@@ -117,26 +191,6 @@ export default function AdminDashboardPage() {
         pausedAccounts,
         trialAccounts,
       });
-
-      // Generate mock MRR data for chart
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const currentMonth = new Date().getMonth();
-      const mrrChartData = months.slice(0, currentMonth + 1).map((month, idx) => ({
-        month,
-        mrr: Math.floor(mrr * (0.6 + (idx * 0.05) + Math.random() * 0.1)),
-      }));
-      setMrrData(mrrChartData);
-
-      // Generate mock signups data for last 30 days
-      const signupsChartData = Array.from({ length: 30 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (29 - i));
-        return {
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          signups: Math.floor(Math.random() * 5) + 1,
-        };
-      });
-      setSignupsData(signupsChartData);
 
       // Fetch recent activity
       const { data: activityData } = await supabase
@@ -157,15 +211,42 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleSendRenewalReminders = async () => {
+    setIsSendingReminders(true);
+    try {
+      // Call edge function to send renewal reminders
+      const { data, error } = await supabase.functions.invoke('send-renewal-reminders');
+      
+      if (error) throw error;
+      
+      toast.success(`Renewal reminders sent to ${data?.sent || 0} users`);
+    } catch (error: any) {
+      console.error('Error sending reminders:', error);
+      toast.error('Failed to send renewal reminders');
+    } finally {
+      setIsSendingReminders(false);
+    }
+  };
+
   const statCards = [
     { title: 'Total Users', value: metrics?.totalUsers, icon: Users, color: 'text-blue-500' },
     { title: 'Active Tenants', value: metrics?.activeTenants, icon: Building2, color: 'text-green-500' },
     { title: 'Active Subscriptions', value: metrics?.activeSubscriptions, icon: CreditCard, color: 'text-purple-500' },
-    { title: 'MRR', value: `$${metrics?.mrr?.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-500' },
-    { title: 'Total Revenue (YTD)', value: `$${metrics?.totalRevenue?.toLocaleString()}`, icon: DollarSign, color: 'text-amber-500' },
+    { title: 'MRR', value: `$${metrics?.mrr?.toLocaleString() || 0}`, icon: TrendingUp, color: 'text-emerald-500' },
+    { title: 'Total Revenue (YTD)', value: `$${metrics?.totalRevenue?.toLocaleString() || 0}`, icon: DollarSign, color: 'text-amber-500' },
     { title: 'Expiring (30 days)', value: metrics?.expiringSubscriptions, icon: Clock, color: 'text-orange-500' },
     { title: 'Paused Accounts', value: metrics?.pausedAccounts, icon: PauseCircle, color: 'text-red-500' },
     { title: 'Trial Accounts', value: metrics?.trialAccounts, icon: AlertTriangle, color: 'text-yellow-500' },
+  ];
+
+  const quickActions = [
+    { label: 'Create User', icon: UserPlus, onClick: () => navigate('/admin/users') },
+    { label: 'Manage Users', icon: Users, onClick: () => navigate('/admin/users') },
+    { label: 'Send Renewal Reminders', icon: Mail, onClick: handleSendRenewalReminders, loading: isSendingReminders },
+    { label: 'Email Templates', icon: Send, onClick: () => navigate('/admin/email-templates') },
+    { label: 'Manage Pages', icon: FileText, onClick: () => navigate('/admin/pages') },
+    { label: 'Video Tutorials', icon: Video, onClick: () => navigate('/admin/videos') },
+    { label: 'Settings', icon: Settings, onClick: () => navigate('/admin/settings') },
   ];
 
   return (
@@ -205,22 +286,22 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" size="sm">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Create User
-            </Button>
-            <Button variant="outline" size="sm">
-              <PauseCircle className="h-4 w-4 mr-2" />
-              Pause User
-            </Button>
-            <Button variant="outline" size="sm">
-              <Send className="h-4 w-4 mr-2" />
-              Send Reminder
-            </Button>
-            <Button variant="outline" size="sm">
-              <Clock className="h-4 w-4 mr-2" />
-              Grant Grace Period
-            </Button>
+            {quickActions.map((action) => (
+              <Button 
+                key={action.label} 
+                variant="outline" 
+                size="sm" 
+                onClick={action.onClick}
+                disabled={action.loading}
+              >
+                {action.loading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <action.icon className="h-4 w-4 mr-2" />
+                )}
+                {action.label}
+              </Button>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -229,7 +310,7 @@ export default function AdminDashboardPage() {
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">MRR Trend (12 Months)</CardTitle>
+            <CardTitle className="text-lg">Monthly Revenue (12 Months)</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -239,16 +320,17 @@ export default function AdminDashboardPage() {
                 <AreaChart data={mrrData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" />
+                  <YAxis className="text-xs" tickFormatter={(value) => `$${value}`} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))' 
-                    }} 
+                    }}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
                   />
                   <Area
                     type="monotone"
-                    dataKey="mrr"
+                    dataKey="revenue"
                     stroke="hsl(var(--primary))"
                     fill="hsl(var(--primary) / 0.2)"
                   />
