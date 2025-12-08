@@ -70,25 +70,36 @@ export function Header({ title, subtitle }: HeaderProps) {
           currentTenantId = profileData?.tenant_id || null;
         }
 
-        if (!currentTenantId) return;
+        if (!currentTenantId) {
+          setIsSearching(false);
+          return;
+        }
 
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase().trim();
 
-        // Search jobs
-        const { data: jobs } = await supabase
+        // Search jobs with proper query
+        const { data: jobs, error: jobsError } = await supabase
           .from('jobs')
           .select('id, title, location, status')
           .eq('tenant_id', currentTenantId)
-          .or(`title.ilike.%${query}%,location.ilike.%${query}%`)
+          .or(`title.ilike.%${query}%,location.ilike.%${query}%,description.ilike.%${query}%`)
           .limit(5);
 
-        // Search candidates
-        const { data: candidates } = await supabase
+        if (jobsError) {
+          console.error('Jobs search error:', jobsError);
+        }
+
+        // Search candidates with proper query
+        const { data: candidates, error: candidatesError } = await supabase
           .from('candidates')
-          .select('id, full_name, email, current_title')
+          .select('id, full_name, email, current_title, location')
           .eq('tenant_id', currentTenantId)
-          .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%`)
+          .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%,location.ilike.%${query}%`)
           .limit(5);
+
+        if (candidatesError) {
+          console.error('Candidates search error:', candidatesError);
+        }
 
         const results: SearchResult[] = [
           ...(jobs || []).map(job => ({
@@ -108,6 +119,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         setSearchResults(results);
       } catch (error) {
         console.error('Search error:', error);
+        setSearchResults([]);
       } finally {
         setIsSearching(false);
       }

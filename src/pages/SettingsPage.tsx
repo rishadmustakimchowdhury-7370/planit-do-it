@@ -81,9 +81,9 @@ interface TenantWithPlan {
 }
 
 const TEAM_LIMITS: Record<string, number> = {
-  'starter': 1,
-  'pro': 3,
-  'agency': 5,
+  'starter': 2,
+  'pro': 5,
+  'agency': 999, // Unlimited
   'enterprise': 999,
 };
 
