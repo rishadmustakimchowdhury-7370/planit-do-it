@@ -337,22 +337,15 @@ const JobDetailPage = () => {
                 candidate: {
                   id: jc.candidates.id,
                   name: jc.candidates.full_name,
-                  email: '',
-                  phone: '',
-                  skills: [],
-                  experienceYears: 0,
                   currentTitle: jc.candidates.current_title || '',
-                  location: '',
-                  resumeUrl: '',
                   avatar: jc.candidates.avatar_url || undefined,
-                  status: (jc.stage as any) || 'new',
                   matchScore: jc.match_score || undefined,
-                  createdAt: new Date()
                 },
-                status: (jc.stage as any) || 'new',
+                stage: (jc.stage as 'applied' | 'screening' | 'interview' | 'technical' | 'offer' | 'hired' | 'rejected') || 'applied',
                 matchScore: jc.match_score || undefined,
                 appliedAt: new Date()
-              }))} 
+              }))}
+              onRefresh={fetchJobDetails}
             />
           ) : (
             <div className="text-center py-12 bg-card rounded-xl border border-border">
