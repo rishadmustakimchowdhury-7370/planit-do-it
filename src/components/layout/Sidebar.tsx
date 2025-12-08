@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { currentUser } from '@/data/mockData';
+import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Candidates', href: '/candidates', icon: Users },
   { name: 'Clients', href: '/clients', icon: Building2 },
@@ -33,7 +33,17 @@ const bottomNav = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const userName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
+  const userEmail = profile?.email || '';
 
   return (
     <motion.aside
@@ -44,7 +54,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to="/dashboard" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
@@ -152,9 +162,9 @@ export function Sidebar() {
           collapsed && 'justify-center'
         )}>
           <Avatar className="w-9 h-9 flex-shrink-0">
-            <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+            <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm">
-              {currentUser.name.split(' ').map(n => n[0]).join('')}
+              {userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
             </AvatarFallback>
           </Avatar>
           <AnimatePresence>
@@ -166,12 +176,36 @@ export function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="flex-1 overflow-hidden"
               >
-                <p className="font-medium text-sm text-sidebar-foreground truncate">{currentUser.name}</p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">{currentUser.email}</p>
+                <p className="font-medium text-sm text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">{userEmail}</p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+        
+        {/* Logout Button */}
+        <Button
+          variant="ghost"
+          onClick={handleSignOut}
+          className={cn(
+            'w-full mt-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            collapsed && 'px-2'
+          )}
+        >
+          <LogOut className="w-4 h-4" />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="ml-2"
+              >
+                Sign Out
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Button>
       </div>
     </motion.aside>
   );

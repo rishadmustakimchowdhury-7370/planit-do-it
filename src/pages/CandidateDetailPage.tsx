@@ -1,11 +1,12 @@
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
-import { candidates, sampleMatchScore, jobs } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -15,39 +16,155 @@ import {
   Sparkles, 
   FileText,
   Download,
-  Edit,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { PipelineStage } from '@/types/recruitment';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
 
-const statusColors: Record<PipelineStage, string> = {
+interface Candidate {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  location: string | null;
+  current_title: string | null;
+  current_company: string | null;
+  linkedin_url: string | null;
+  avatar_url: string | null;
+  cv_file_url: string | null;
+  summary: string | null;
+  skills: string[] | null;
+  experience_years: number | null;
+  status: string;
+  created_at: string;
+}
+
+interface JobCandidate {
+  id: string;
+  job_id: string;
+  match_score: number | null;
+  match_strengths: string[] | null;
+  match_gaps: string[] | null;
+  match_explanation: string | null;
+  stage: string;
+}
+
+const statusColors: Record<string, string> = {
   new: 'bg-muted text-muted-foreground',
   screening: 'bg-info/10 text-info border-info/30',
-  shortlisted: 'bg-warning/10 text-warning border-warning/30',
-  interview: 'bg-accent/10 text-accent border-accent/30',
-  offer: 'bg-success/10 text-success border-success/30',
-  placed: 'bg-success/20 text-success border-success/40',
+  interviewing: 'bg-accent/10 text-accent border-accent/30',
+  offered: 'bg-warning/10 text-warning border-warning/30',
+  hired: 'bg-success/20 text-success border-success/40',
   rejected: 'bg-destructive/10 text-destructive border-destructive/30',
-};
-
-const statusLabels: Record<PipelineStage, string> = {
-  new: 'New',
-  screening: 'Screening',
-  shortlisted: 'Shortlisted',
-  interview: 'Interview',
-  offer: 'Offer',
-  placed: 'Placed',
-  rejected: 'Rejected',
+  withdrawn: 'bg-muted text-muted-foreground',
 };
 
 const CandidateDetailPage = () => {
   const { id } = useParams();
-  const candidate = candidates.find(c => c.id === id);
-  const matchScore = candidate?.id === '1' ? sampleMatchScore : null;
+  const navigate = useNavigate();
+  const { tenantId } = useAuth();
+  const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [jobCandidate, setJobCandidate] = useState<JobCandidate | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRunningMatch, setIsRunningMatch] = useState(false);
+
+  useEffect(() => {
+    if (id && tenantId) {
+      fetchCandidate();
+    }
+  }, [id, tenantId]);
+
+  const fetchCandidate = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setCandidate({
+        ...data,
+        skills: Array.isArray(data.skills) ? data.skills as string[] : null,
+      });
+
+      // Fetch job_candidates for match data
+      const { data: jcData } = await supabase
+        .from('job_candidates')
+        .select('*')
+        .eq('candidate_id', id)
+        .order('match_score', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (jcData) {
+        setJobCandidate({
+          ...jcData,
+          match_strengths: Array.isArray(jcData.match_strengths) ? jcData.match_strengths as string[] : null,
+          match_gaps: Array.isArray(jcData.match_gaps) ? jcData.match_gaps as string[] : null,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching candidate:', error);
+      toast.error('Failed to load candidate');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownloadCV = async () => {
+    if (!candidate?.cv_file_url) {
+      toast.error('No CV file available for this candidate');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(candidate.cv_file_url);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('CV downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading CV:', error);
+      toast.error('Failed to download CV. The file may not exist.');
+    }
+  };
+
+  const handleRunAIMatch = () => {
+    navigate(`/ai-match?candidateId=${id}`);
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!candidate) {
     return (
@@ -62,8 +179,10 @@ const CandidateDetailPage = () => {
     );
   }
 
+  const matchScore = jobCandidate?.match_score || null;
+
   return (
-    <AppLayout title={candidate.name} subtitle={candidate.currentTitle}>
+    <AppLayout title={candidate.full_name} subtitle={candidate.current_title || undefined}>
       {/* Header */}
       <div className="mb-6">
         <Link 
@@ -82,59 +201,70 @@ const CandidateDetailPage = () => {
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
             <div className="flex items-start gap-4">
               <Avatar className="w-20 h-20">
-                <AvatarImage src={candidate.avatar} alt={candidate.name} />
+                <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
                 <AvatarFallback className="text-2xl bg-accent/10 text-accent">
-                  {candidate.name.split(' ').map(n => n[0]).join('')}
+                  {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl font-bold text-foreground">{candidate.name}</h1>
+                  <h1 className="text-2xl font-bold text-foreground">{candidate.full_name}</h1>
                   <Badge 
                     variant="outline" 
-                    className={cn('capitalize', statusColors[candidate.status])}
+                    className={cn('capitalize', statusColors[candidate.status] || statusColors.new)}
                   >
-                    {statusLabels[candidate.status]}
+                    {candidate.status}
                   </Badge>
                 </div>
-                <p className="text-accent text-lg mt-1">{candidate.currentTitle}</p>
+                {candidate.current_title && (
+                  <p className="text-accent text-lg mt-1">
+                    {candidate.current_title}
+                    {candidate.current_company && ` at ${candidate.current_company}`}
+                  </p>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4 text-accent" />
-                    <span className="text-sm">{candidate.location}</span>
-                  </div>
+                  {candidate.location && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4 text-accent" />
+                      <span className="text-sm">{candidate.location}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Mail className="w-4 h-4 text-info" />
                     <span className="text-sm">{candidate.email}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-4 h-4 text-success" />
-                    <span className="text-sm">{candidate.phone}</span>
-                  </div>
+                  {candidate.phone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="w-4 h-4 text-success" />
+                      <span className="text-sm">{candidate.phone}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 mt-4">
-                  {candidate.skills.map((skill) => (
-                    <Badge key={skill} variant="secondary" className="text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
+                {candidate.skills && candidate.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-4">
+                    {candidate.skills.map((skill) => (
+                      <Badge key={skill} variant="secondary" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex flex-col items-center gap-3">
-              {candidate.matchScore && (
-                <MatchScoreCircle score={candidate.matchScore} size="lg" />
+              {matchScore && (
+                <MatchScoreCircle score={matchScore} size="lg" />
               )}
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
                   <Download className="w-4 h-4" />
                   Download CV
                 </Button>
-                <Button size="sm" className="gap-1.5">
+                <Button size="sm" className="gap-1.5" onClick={handleRunAIMatch}>
                   <Sparkles className="w-4 h-4" />
                   Run AI Match
                 </Button>
@@ -162,7 +292,7 @@ const CandidateDetailPage = () => {
         </TabsList>
 
         <TabsContent value="match" className="mt-6">
-          {matchScore ? (
+          {jobCandidate && jobCandidate.match_score ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Score Summary */}
               <motion.div 
@@ -172,12 +302,14 @@ const CandidateDetailPage = () => {
               >
                 <h3 className="text-lg font-semibold mb-4">Match Score</h3>
                 <div className="flex justify-center mb-4">
-                  <MatchScoreCircle score={matchScore.score} size="lg" />
+                  <MatchScoreCircle score={jobCandidate.match_score} size="lg" />
                 </div>
-                <p className="text-sm text-muted-foreground">{matchScore.summary}</p>
+                {jobCandidate.match_explanation && (
+                  <p className="text-sm text-muted-foreground">{jobCandidate.match_explanation}</p>
+                )}
               </motion.div>
 
-              {/* Strengths & Weaknesses */}
+              {/* Strengths & Gaps */}
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -190,30 +322,18 @@ const CandidateDetailPage = () => {
                     <CheckCircle className="w-5 h-5 text-success" />
                     Strengths
                   </h3>
-                  <ul className="space-y-2">
-                    {matchScore.strengths.map((strength, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="w-1.5 h-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
-                        {strength}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Weaknesses */}
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                    <AlertCircle className="w-5 h-5 text-warning" />
-                    Areas to Consider
-                  </h3>
-                  <ul className="space-y-2">
-                    {matchScore.weaknesses.map((weakness, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="w-1.5 h-1.5 rounded-full bg-warning mt-2 flex-shrink-0" />
-                        {weakness}
-                      </li>
-                    ))}
-                  </ul>
+                  {jobCandidate.match_strengths && jobCandidate.match_strengths.length > 0 ? (
+                    <ul className="space-y-2">
+                      {jobCandidate.match_strengths.map((strength, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
+                          {strength}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No strengths data available.</p>
+                  )}
                 </div>
 
                 {/* Skill Gaps */}
@@ -222,13 +342,17 @@ const CandidateDetailPage = () => {
                     <XCircle className="w-5 h-5 text-destructive" />
                     Skill Gaps
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {matchScore.skillGaps.map((gap, i) => (
-                      <Badge key={i} variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
-                        {gap}
-                      </Badge>
-                    ))}
-                  </div>
+                  {jobCandidate.match_gaps && jobCandidate.match_gaps.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {jobCandidate.match_gaps.map((gap, i) => (
+                        <Badge key={i} variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
+                          {gap}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No skill gaps identified.</p>
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -237,7 +361,7 @@ const CandidateDetailPage = () => {
               <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No AI Match Results</h3>
               <p className="text-muted-foreground mb-4">Run an AI match to see how this candidate fits your jobs.</p>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={handleRunAIMatch}>
                 <Sparkles className="w-4 h-4" />
                 Run AI Match
               </Button>
@@ -253,24 +377,38 @@ const CandidateDetailPage = () => {
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold">Resume</h3>
-              <Button variant="outline" size="sm" className="gap-1.5">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
                 <Download className="w-4 h-4" />
                 Download
               </Button>
             </div>
             <div className="prose prose-sm max-w-none text-muted-foreground">
-              <h4>Experience</h4>
-              <p><strong>{candidate.currentTitle}</strong> - {candidate.experienceYears} years of experience</p>
-              <p>Full resume preview would be displayed here with parsed CV data.</p>
+              {candidate.summary && (
+                <>
+                  <h4>Summary</h4>
+                  <p>{candidate.summary}</p>
+                </>
+              )}
               
-              <h4>Skills</h4>
-              <div className="flex flex-wrap gap-2 not-prose">
-                {candidate.skills.map((skill) => (
-                  <Badge key={skill} variant="secondary">
-                    {skill}
-                  </Badge>
-                ))}
-              </div>
+              <h4>Experience</h4>
+              <p>
+                <strong>{candidate.current_title || 'Professional'}</strong>
+                {candidate.current_company && ` at ${candidate.current_company}`}
+                {candidate.experience_years && ` - ${candidate.experience_years} years of experience`}
+              </p>
+              
+              {candidate.skills && candidate.skills.length > 0 && (
+                <>
+                  <h4>Skills</h4>
+                  <div className="flex flex-wrap gap-2 not-prose">
+                    {candidate.skills.map((skill) => (
+                      <Badge key={skill} variant="secondary">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         </TabsContent>
@@ -286,22 +424,26 @@ const CandidateDetailPage = () => {
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-accent mt-2" />
                 <div>
-                  <p className="text-sm font-medium">Moved to {statusLabels[candidate.status]}</p>
-                  <p className="text-xs text-muted-foreground">2 days ago</p>
+                  <p className="text-sm font-medium">Status: {candidate.status}</p>
+                  <p className="text-xs text-muted-foreground">Current status</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-info mt-2" />
-                <div>
-                  <p className="text-sm font-medium">AI Match completed - {candidate.matchScore}% match</p>
-                  <p className="text-xs text-muted-foreground">3 days ago</p>
+              {matchScore && (
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-info mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">AI Match completed - {matchScore}% match</p>
+                    <p className="text-xs text-muted-foreground">Match score calculated</p>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-success mt-2" />
                 <div>
-                  <p className="text-sm font-medium">CV uploaded and parsed</p>
-                  <p className="text-xs text-muted-foreground">5 days ago</p>
+                  <p className="text-sm font-medium">Candidate added</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(candidate.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             </div>
