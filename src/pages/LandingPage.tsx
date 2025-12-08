@@ -113,7 +113,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="h-6 w-6 text-accent" />
-            Recruitsy
+            Recruitsy CRM
           </Link>
           
           <nav className="hidden md:flex items-center gap-8">
