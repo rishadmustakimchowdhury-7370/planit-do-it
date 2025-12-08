@@ -783,42 +783,6 @@ const CandidatesPage = () => {
 
   return (
     <AppLayout title="Candidates" subtitle="Manage your talent pool and track candidate progress.">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
-        {statusFilters.map((status) => (
-          <motion.button
-            key={status.id}
-            onClick={() => setFilter(status.id)}
-            className={cn(
-              "relative p-4 rounded-xl border text-left transition-all duration-200",
-              filter === status.id
-                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
-                : "bg-card border-border hover:border-primary/40 hover:shadow-md"
-            )}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              {status.color && (
-                <div className={cn('w-2 h-2 rounded-full', status.color)} />
-              )}
-              <span className={cn(
-                "text-xs font-medium uppercase tracking-wide",
-                filter === status.id ? "text-primary-foreground/80" : "text-muted-foreground"
-              )}>
-                {status.label}
-              </span>
-            </div>
-            <p className={cn(
-              "text-2xl font-bold",
-              filter === status.id ? "text-primary-foreground" : "text-foreground"
-            )}>
-              {statusCounts[status.id] || 0}
-            </p>
-          </motion.button>
-        ))}
-      </div>
-
       {/* Header Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3 w-full lg:w-auto">
