@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -18,7 +19,8 @@ import {
   UserPlus,
   Building2,
   FileText,
-  Loader2
+  Loader2,
+  UserSearch
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -71,6 +73,7 @@ const JobDetailPage = () => {
   const [candidates, setCandidates] = useState<JobCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningMatch, setIsRunningMatch] = useState(false);
+  const [showAddCandidateDialog, setShowAddCandidateDialog] = useState(false);
 
   useEffect(() => {
     if (id && tenantId) {
@@ -279,10 +282,19 @@ const JobDetailPage = () => {
                 variant="outline" 
                 size="sm" 
                 className="gap-1.5"
+                onClick={() => setShowAddCandidateDialog(true)}
+              >
+                <UserSearch className="w-4 h-4" />
+                Add from Database
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
                 onClick={() => navigate(`/candidates/add?jobId=${id}`)}
               >
                 <UserPlus className="w-4 h-4" />
-                Add Candidates
+                Add New
               </Button>
               <Button 
                 size="sm" 
@@ -370,7 +382,7 @@ const JobDetailPage = () => {
             <h3 className="text-lg font-semibold mb-4">Job Description</h3>
             {job.description ? (
               <div 
-                className="prose prose-sm max-w-none text-muted-foreground"
+                className="prose prose-sm max-w-none text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-medium [&_a]:text-accent [&_a]:underline"
                 dangerouslySetInnerHTML={{ __html: job.description }}
               />
             ) : (
@@ -381,7 +393,7 @@ const JobDetailPage = () => {
               <div className="mt-6 pt-6 border-t border-border">
                 <h4 className="font-medium mb-3">Requirements</h4>
                 <div 
-                  className="prose prose-sm max-w-none text-muted-foreground"
+                  className="prose prose-sm max-w-none text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2"
                   dangerouslySetInnerHTML={{ __html: job.requirements }}
                 />
               </div>
@@ -389,6 +401,18 @@ const JobDetailPage = () => {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Add Candidate from Database Dialog */}
+      {job && (
+        <AddCandidateToJobDialog
+          open={showAddCandidateDialog}
+          onOpenChange={setShowAddCandidateDialog}
+          jobId={job.id}
+          jobTitle={job.title}
+          existingCandidateIds={candidates.map(c => c.candidate_id)}
+          onSuccess={fetchJobDetails}
+        />
+      )}
     </AppLayout>
   );
 };
