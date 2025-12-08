@@ -1,10 +1,11 @@
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { KanbanBoard } from '@/components/pipeline/KanbanBoard';
-import { jobs, jobCandidates, clients } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -16,29 +17,188 @@ import {
   Upload, 
   UserPlus,
   Building2,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
 
-const statusColors = {
+const statusColors: Record<string, string> = {
+  draft: 'bg-muted text-muted-foreground border-muted',
   open: 'bg-success/10 text-success border-success/30',
+  paused: 'bg-warning/10 text-warning border-warning/30',
   closed: 'bg-muted text-muted-foreground border-muted',
-  'on-hold': 'bg-warning/10 text-warning border-warning/30',
+  filled: 'bg-info/10 text-info border-info/30',
 };
+
+interface Job {
+  id: string;
+  title: string;
+  description: string | null;
+  requirements: string | null;
+  location: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  status: string | null;
+  created_at: string | null;
+  client_id: string | null;
+  clients?: { name: string } | null;
+}
+
+interface JobCandidate {
+  id: string;
+  candidate_id: string;
+  stage: string | null;
+  match_score: number | null;
+  candidates: {
+    id: string;
+    full_name: string;
+    current_title: string | null;
+    avatar_url: string | null;
+  };
+}
 
 const JobDetailPage = () => {
   const { id } = useParams();
-  const job = jobs.find(j => j.id === id);
-  const client = clients.find(c => c.id === job?.clientId);
-  const candidates = jobCandidates.filter(jc => jc.jobId === id);
+  const navigate = useNavigate();
+  const { tenantId } = useAuth();
+  const [job, setJob] = useState<Job | null>(null);
+  const [candidates, setCandidates] = useState<JobCandidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRunningMatch, setIsRunningMatch] = useState(false);
+
+  useEffect(() => {
+    if (id && tenantId) {
+      fetchJobDetails();
+    }
+  }, [id, tenantId]);
+
+  const fetchJobDetails = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch job with client info
+      const { data: jobData, error: jobError } = await supabase
+        .from('jobs')
+        .select('*, clients(name)')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (jobError) throw jobError;
+      setJob(jobData);
+
+      // Fetch candidates for this job
+      if (jobData) {
+        const { data: candidatesData, error: candidatesError } = await supabase
+          .from('job_candidates')
+          .select('id, candidate_id, stage, match_score, candidates(id, full_name, current_title, avatar_url)')
+          .eq('job_id', id)
+          .eq('tenant_id', tenantId);
+
+        if (candidatesError) throw candidatesError;
+        setCandidates(candidatesData as unknown as JobCandidate[] || []);
+      }
+    } catch (error) {
+      console.error('Error fetching job:', error);
+      toast.error('Failed to load job details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const runAIMatchForAll = async () => {
+    if (!job) return;
+    
+    setIsRunningMatch(true);
+    try {
+      // Get all candidates for this tenant who aren't already matched to this job
+      const { data: allCandidates, error } = await supabase
+        .from('candidates')
+        .select('id, full_name, skills, summary, current_title')
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+
+      let matchedCount = 0;
+      for (const candidate of allCandidates || []) {
+        // Check if already in job_candidates
+        const existing = candidates.find(jc => jc.candidate_id === candidate.id);
+        if (existing) continue;
+
+        // Run AI match
+        const { data: matchData, error: matchError } = await supabase.functions.invoke('ai-match', {
+          body: {
+            jobDescription: job.description || '',
+            jobTitle: job.title,
+            candidateResume: candidate.summary || '',
+            candidateSkills: candidate.skills || []
+          }
+        });
+
+        if (matchError) {
+          console.error('Match error for candidate:', candidate.id, matchError);
+          continue;
+        }
+
+        // Add to job_candidates with match score
+        const { error: insertError } = await supabase
+          .from('job_candidates')
+          .insert({
+            job_id: job.id,
+            candidate_id: candidate.id,
+            tenant_id: tenantId,
+            match_score: matchData.score || 0,
+            match_strengths: matchData.strengths || [],
+            match_gaps: matchData.gaps || [],
+            match_explanation: matchData.explanation || '',
+            match_confidence: matchData.confidence || 0,
+            matched_at: new Date().toISOString(),
+            stage: 'applied'
+          });
+
+        if (!insertError) matchedCount++;
+      }
+
+      toast.success(`AI Match completed! ${matchedCount} new candidates matched.`);
+      fetchJobDetails(); // Refresh the candidates list
+    } catch (error: any) {
+      console.error('Error running AI match:', error);
+      toast.error(error.message || 'Failed to run AI match');
+    } finally {
+      setIsRunningMatch(false);
+    }
+  };
+
+  const formatSalary = () => {
+    if (!job?.salary_min && !job?.salary_max) return 'Not specified';
+    const currency = job.salary_currency || 'USD';
+    if (job.salary_min && job.salary_max) {
+      return `${currency} ${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()}`;
+    }
+    return job.salary_min ? `${currency} ${job.salary_min.toLocaleString()}+` : `Up to ${currency} ${job.salary_max?.toLocaleString()}`;
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Loading...">
+        <div className="space-y-6">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!job) {
     return (
       <AppLayout title="Job Not Found">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">This job doesn't exist.</p>
+          <p className="text-muted-foreground">This job doesn't exist or you don't have access to it.</p>
           <Link to="/jobs" className="text-accent hover:underline mt-2 inline-block">
             Back to Jobs
           </Link>
@@ -48,7 +208,7 @@ const JobDetailPage = () => {
   }
 
   return (
-    <AppLayout title={job.title} subtitle={job.clientName}>
+    <AppLayout title={job.title} subtitle={job.clients?.name || 'No client'}>
       {/* Header */}
       <div className="mb-6">
         <Link 
@@ -70,30 +230,27 @@ const JobDetailPage = () => {
                 <h1 className="text-2xl font-bold text-foreground">{job.title}</h1>
                 <Badge 
                   variant="outline" 
-                  className={cn('capitalize', statusColors[job.status])}
+                  className={cn('capitalize', statusColors[job.status || 'draft'])}
                 >
-                  {job.status}
+                  {job.status || 'draft'}
                 </Badge>
               </div>
 
-              <div className="flex items-center gap-2 mt-2">
-                <Building2 className="w-4 h-4 text-accent" />
-                <Link 
-                  to={`/clients/${job.clientId}`} 
-                  className="text-accent hover:underline font-medium"
-                >
-                  {job.clientName}
-                </Link>
-              </div>
+              {job.clients?.name && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Building2 className="w-4 h-4 text-accent" />
+                  <span className="text-accent font-medium">{job.clients.name}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-4 h-4 text-accent" />
-                  <span className="text-sm">{job.location}</span>
+                  <span className="text-sm">{job.location || 'Not specified'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <DollarSign className="w-4 h-4 text-success" />
-                  <span className="text-sm">{job.salaryRange}</span>
+                  <span className="text-sm">{formatSalary()}</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="w-4 h-4 text-info" />
@@ -101,26 +258,43 @@ const JobDetailPage = () => {
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-sm">Posted {formatDistanceToNow(job.createdAt, { addSuffix: true })}</span>
+                  <span className="text-sm">
+                    {job.created_at ? `Posted ${formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}` : 'Not posted'}
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Upload className="w-4 h-4" />
-                Upload JD
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => navigate(`/jobs/${id}/edit`)}
+              >
                 <Edit className="w-4 h-4" />
                 Edit Job
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => navigate(`/candidates/add?jobId=${id}`)}
+              >
                 <UserPlus className="w-4 h-4" />
                 Add Candidates
               </Button>
-              <Button size="sm" className="gap-1.5">
-                <Sparkles className="w-4 h-4" />
+              <Button 
+                size="sm" 
+                className="gap-1.5"
+                onClick={runAIMatchForAll}
+                disabled={isRunningMatch}
+              >
+                {isRunningMatch ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
                 Run AI Match
               </Button>
             </div>
@@ -142,7 +316,49 @@ const JobDetailPage = () => {
         </TabsList>
 
         <TabsContent value="pipeline" className="mt-6">
-          <KanbanBoard candidates={candidates} />
+          {candidates.length > 0 ? (
+            <KanbanBoard 
+              candidates={candidates.map(jc => ({
+                id: jc.id,
+                jobId: id!,
+                candidateId: jc.candidate_id,
+                candidate: {
+                  id: jc.candidates.id,
+                  name: jc.candidates.full_name,
+                  email: '',
+                  phone: '',
+                  skills: [],
+                  experienceYears: 0,
+                  currentTitle: jc.candidates.current_title || '',
+                  location: '',
+                  resumeUrl: '',
+                  avatar: jc.candidates.avatar_url || undefined,
+                  status: (jc.stage as any) || 'new',
+                  matchScore: jc.match_score || undefined,
+                  createdAt: new Date()
+                },
+                status: (jc.stage as any) || 'new',
+                matchScore: jc.match_score || undefined,
+                appliedAt: new Date()
+              }))} 
+            />
+          ) : (
+            <div className="text-center py-12 bg-card rounded-xl border border-border">
+              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">No Candidates Yet</h3>
+              <p className="text-muted-foreground mb-4">Add candidates or run AI Match to find suitable candidates.</p>
+              <div className="flex gap-2 justify-center">
+                <Button variant="outline" onClick={() => navigate(`/candidates/add?jobId=${id}`)}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Candidate
+                </Button>
+                <Button onClick={runAIMatchForAll} disabled={isRunningMatch}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Run AI Match
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="description" className="mt-6">
@@ -152,17 +368,24 @@ const JobDetailPage = () => {
             className="bg-card rounded-xl border border-border p-6 shadow-sm"
           >
             <h3 className="text-lg font-semibold mb-4">Job Description</h3>
-            <p className="text-muted-foreground leading-relaxed">{job.description}</p>
+            {job.description ? (
+              <div 
+                className="prose prose-sm max-w-none text-muted-foreground"
+                dangerouslySetInnerHTML={{ __html: job.description }}
+              />
+            ) : (
+              <p className="text-muted-foreground">No description provided.</p>
+            )}
             
-            <div className="mt-6 pt-6 border-t border-border">
-              <h4 className="font-medium mb-3">Requirements</h4>
-              <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                <li>5+ years of experience in software development</li>
-                <li>Strong proficiency in React and TypeScript</li>
-                <li>Experience with modern frontend tooling</li>
-                <li>Excellent communication skills</li>
-              </ul>
-            </div>
+            {job.requirements && (
+              <div className="mt-6 pt-6 border-t border-border">
+                <h4 className="font-medium mb-3">Requirements</h4>
+                <div 
+                  className="prose prose-sm max-w-none text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: job.requirements }}
+                />
+              </div>
+            )}
           </motion.div>
         </TabsContent>
       </Tabs>

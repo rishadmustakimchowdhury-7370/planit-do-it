@@ -234,12 +234,33 @@ export default function AddCandidatePage() {
           .maybeSingle();
 
         if (existing) {
+          // Update existing candidate instead of showing error
+          const skillsArray = Array.isArray(data.skills) ? data.skills : [];
+          
+          const { error: updateError } = await supabase
+            .from('candidates')
+            .update({
+              full_name: data.full_name,
+              phone: data.phone || null,
+              location: data.location || null,
+              current_title: data.current_title || null,
+              current_company: data.current_company || null,
+              linkedin_url: data.linkedin_url || null,
+              summary: data.summary || null,
+              skills: skillsArray.length > 0 ? skillsArray : null,
+              experience_years: data.experience_years || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+
+          if (updateError) throw updateError;
+
           results[i] = { 
             ...results[i], 
-            status: 'error', 
-            error: 'Candidate with this email already exists',
-            candidateName: data.full_name 
+            status: 'success', 
+            candidateName: `${data.full_name} (updated)` 
           };
+          successCount++;
         } else {
           // Insert candidate
           const skillsArray = Array.isArray(data.skills) ? data.skills : [];
