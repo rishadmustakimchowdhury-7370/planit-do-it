@@ -19,13 +19,15 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  StickyNote
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 
 interface Candidate {
   id: string;
@@ -43,6 +45,8 @@ interface Candidate {
   experience_years: number | null;
   status: string;
   created_at: string;
+  notes: string | null;
+  private_notes: string | null;
 }
 
 interface JobCandidate {
@@ -302,6 +306,10 @@ const CandidateDetailPage = () => {
             <FileText className="w-4 h-4" />
             CV & Experience
           </TabsTrigger>
+          <TabsTrigger value="notes" className="gap-2">
+            <StickyNote className="w-4 h-4" />
+            Notes
+          </TabsTrigger>
           <TabsTrigger value="activity" className="gap-2">
             <Calendar className="w-4 h-4" />
             Activity
@@ -428,6 +436,16 @@ const CandidateDetailPage = () => {
               )}
             </div>
           </motion.div>
+        </TabsContent>
+
+        <TabsContent value="notes" className="mt-6">
+          <CandidateNotesPanel
+            candidateId={candidate.id}
+            candidateName={candidate.full_name}
+            existingNotes={candidate.notes}
+            privateNotes={candidate.private_notes}
+            onNotesUpdate={fetchCandidate}
+          />
         </TabsContent>
 
         <TabsContent value="activity" className="mt-6">

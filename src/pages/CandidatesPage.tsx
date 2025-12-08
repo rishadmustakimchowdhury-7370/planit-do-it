@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { 
   Plus, Search, Upload, MapPin, Calendar, Loader2, Trash2, Download, 
   CheckSquare, X, UserPlus, LayoutGrid, List, Table2, Briefcase,
-  Mail, Phone, Linkedin, MoreHorizontal, Eye, Filter
+  Mail, Phone, Linkedin, MoreHorizontal, Eye, Filter, SlidersHorizontal
 } from 'lucide-react';
+import { AdvancedSearchPanel, AdvancedSearchFilters } from '@/components/candidates/AdvancedSearchPanel';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,6 +115,17 @@ const statusToPipelineStage: Record<string, string> = {
   withdrawn: 'rejected',
 };
 
+const defaultAdvancedFilters: AdvancedSearchFilters = {
+  query: '',
+  skills: [],
+  title: '',
+  location: '',
+  experienceMin: '',
+  experienceMax: '',
+  status: 'all',
+  booleanQuery: '',
+};
+
 const CandidatesPage = () => {
   const navigate = useNavigate();
   const { tenantId, user } = useAuth();
@@ -129,6 +141,7 @@ const CandidatesPage = () => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>(defaultAdvancedFilters);
 
   useEffect(() => {
     if (tenantId) {
@@ -176,15 +189,79 @@ const CandidatesPage = () => {
     }
   };
 
-  const filteredCandidates = candidates.filter(candidate => {
-    const matchesFilter = filter === 'all' || candidate.status === filter;
-    const matchesSearch = 
-      candidate.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.current_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.skills?.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesSearch;
-  });
+  // Boolean search parser
+  const parseBooleanQuery = (query: string, text: string): boolean => {
+    if (!query.trim()) return true;
+    
+    const normalizedText = text.toLowerCase();
+    const normalizedQuery = query.toLowerCase();
+    
+    // Replace operators with JS equivalents
+    let expression = normalizedQuery
+      .replace(/\bAND\b/gi, '&&')
+      .replace(/\bOR\b/gi, '||')
+      .replace(/\bNOT\b/gi, '!')
+      .replace(/"([^"]+)"/g, (_, phrase) => normalizedText.includes(phrase) ? 'true' : 'false');
+    
+    // Replace remaining words with boolean checks
+    const words = expression.match(/[a-z0-9]+/gi) || [];
+    words.forEach(word => {
+      if (!['true', 'false', '&&', '||', '!'].includes(word)) {
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        expression = expression.replace(regex, normalizedText.includes(word) ? 'true' : 'false');
+      }
+    });
+    
+    try {
+      return eval(expression);
+    } catch {
+      // Fallback to simple contains check
+      return normalizedText.includes(normalizedQuery);
+    }
+  };
+
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter(candidate => {
+      // Basic filter
+      const statusFilter = advancedFilters.status !== 'all' ? advancedFilters.status : filter;
+      const matchesFilter = statusFilter === 'all' || candidate.status === statusFilter;
+      
+      // Basic search query
+      const searchText = [
+        candidate.full_name,
+        candidate.current_title,
+        candidate.email,
+        candidate.location,
+        ...(candidate.skills || [])
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      const matchesSearch = !searchQuery || searchText.includes(searchQuery.toLowerCase());
+      
+      // Advanced filters
+      const matchesSkills = advancedFilters.skills.length === 0 || 
+        advancedFilters.skills.every(skill => 
+          candidate.skills?.some(s => s.toLowerCase().includes(skill.toLowerCase()))
+        );
+      
+      const matchesTitle = !advancedFilters.title || 
+        candidate.current_title?.toLowerCase().includes(advancedFilters.title.toLowerCase());
+      
+      const matchesLocation = !advancedFilters.location || 
+        candidate.location?.toLowerCase().includes(advancedFilters.location.toLowerCase());
+      
+      const expYears = candidate.experience_years || 0;
+      const matchesExpMin = !advancedFilters.experienceMin || 
+        expYears >= parseInt(advancedFilters.experienceMin);
+      const matchesExpMax = !advancedFilters.experienceMax || 
+        expYears <= parseInt(advancedFilters.experienceMax);
+      
+      // Boolean search
+      const matchesBoolean = parseBooleanQuery(advancedFilters.booleanQuery, searchText);
+      
+      return matchesFilter && matchesSearch && matchesSkills && matchesTitle && 
+             matchesLocation && matchesExpMin && matchesExpMax && matchesBoolean;
+    });
+  }, [candidates, filter, searchQuery, advancedFilters]);
 
   const statusCounts: Record<string, number> = {
     all: candidates.length,
@@ -826,6 +903,11 @@ const CandidatesPage = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+          <AdvancedSearchPanel
+            filters={advancedFilters}
+            onFiltersChange={setAdvancedFilters}
+            onReset={() => setAdvancedFilters(defaultAdvancedFilters)}
+          />
           <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=bulk')}>
             <Upload className="w-4 h-4 mr-2" />
             Bulk Upload
