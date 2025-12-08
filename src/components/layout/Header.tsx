@@ -2,7 +2,8 @@ import { Bell, Search, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { currentUser } from '@/data/mockData';
+import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,10 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle }: HeaderProps) {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const userName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
+
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
       <div className="h-full px-6 flex items-center justify-between">
@@ -47,11 +52,19 @@ export function Header({ title, subtitle }: HeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem>Add New Job</DropdownMenuItem>
-              <DropdownMenuItem>Add Candidate</DropdownMenuItem>
-              <DropdownMenuItem>Add Client</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/jobs/new')}>
+                Add New Job
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/candidates/new')}>
+                Add Candidate
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/clients/new')}>
+                Add Client
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Run AI Match</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/ai-match')}>
+                Run AI Match
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -65,9 +78,9 @@ export function Header({ title, subtitle }: HeaderProps) {
 
           {/* User Avatar - Mobile */}
           <Avatar className="w-8 h-8 md:hidden">
-            <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+            <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
             <AvatarFallback>
-              {currentUser.name.split(' ').map(n => n[0]).join('')}
+              {userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
             </AvatarFallback>
           </Avatar>
         </div>

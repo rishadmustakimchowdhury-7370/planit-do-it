@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   User, 
   Building2, 
@@ -21,17 +22,86 @@ import {
   Phone,
   MapPin,
   Linkedin,
-  CheckCircle
+  CheckCircle,
+  Users,
+  UserPlus,
+  Trash2,
+  Crown,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+interface TeamMember {
+  id: string;
+  user_id: string;
+  role: string;
+  profile?: {
+    full_name: string | null;
+    email: string;
+    avatar_url: string | null;
+    job_title: string | null;
+  };
+}
+
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  created_at: string;
+}
+
+interface TenantWithPlan {
+  subscription_plan_id: string | null;
+  subscription_plans?: {
+    max_users: number | null;
+    name: string;
+  } | null;
+}
+
+const TEAM_LIMITS: Record<string, number> = {
+  'starter': 1,
+  'pro': 3,
+  'agency': 5,
+  'enterprise': 999,
+};
 
 export default function SettingsPage() {
-  const { profile, tenantId, refreshProfile } = useAuth();
+  const { profile, tenantId, user, refreshProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Team management state
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [teamLimit, setTeamLimit] = useState(1);
+  const [planName, setPlanName] = useState('starter');
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<string>('recruiter');
+  const [isInviting, setIsInviting] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -62,6 +132,7 @@ export default function SettingsPage() {
     
     if (tenantId) {
       fetchTenantData();
+      fetchTeamData();
     }
   }, [profile, tenantId]);
 
@@ -69,7 +140,7 @@ export default function SettingsPage() {
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .select('name, logo_url, primary_color')
+        .select('name, logo_url, primary_color, subscription_plan_id')
         .eq('id', tenantId)
         .single();
 
@@ -80,9 +151,155 @@ export default function SettingsPage() {
           logo_url: data.logo_url || '',
           primary_color: data.primary_color || '#0ea5e9',
         });
+        
+        // Fetch plan details if subscription_plan_id exists
+        if (data.subscription_plan_id) {
+          const { data: planData } = await supabase
+            .from('subscription_plans')
+            .select('max_users, name')
+            .eq('id', data.subscription_plan_id)
+            .single();
+          
+          if (planData) {
+            setTeamLimit(planData.max_users || 1);
+            setPlanName(planData.name.toLowerCase());
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching tenant:', error);
+    }
+  };
+
+  const fetchTeamData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch team members (user_roles with profiles)
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('id, user_id, role')
+        .eq('tenant_id', tenantId);
+
+      if (rolesError) throw rolesError;
+
+      // Fetch profiles for each team member
+      if (rolesData && rolesData.length > 0) {
+        const userIds = rolesData.map(r => r.user_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url, job_title')
+          .in('id', userIds);
+
+        const membersWithProfiles = rolesData.map(role => ({
+          ...role,
+          profile: profilesData?.find(p => p.id === role.user_id) || null
+        }));
+
+        setTeamMembers(membersWithProfiles as TeamMember[]);
+      }
+
+      // Fetch pending invites
+      const { data: invitesData, error: invitesError } = await supabase
+        .from('user_invites')
+        .select('id, email, role, expires_at, created_at')
+        .eq('tenant_id', tenantId)
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString());
+
+      if (invitesError) throw invitesError;
+      setPendingInvites(invitesData || []);
+
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInviteMember = async () => {
+    if (!inviteEmail.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inviteEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Check team limit
+    const currentCount = teamMembers.length + pendingInvites.length;
+    if (currentCount >= teamLimit) {
+      toast.error(`Team limit reached (${teamLimit} members). Upgrade your plan for more seats.`);
+      return;
+    }
+
+    setIsInviting(true);
+    try {
+      const { error } = await supabase
+        .from('user_invites')
+        .insert({
+          tenant_id: tenantId,
+          email: inviteEmail.toLowerCase().trim(),
+          role: inviteRole as any,
+          invited_by: user?.id,
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('This email has already been invited');
+        }
+        throw error;
+      }
+
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setShowInviteDialog(false);
+      setInviteEmail('');
+      setInviteRole('recruiter');
+      fetchTeamData();
+    } catch (error: any) {
+      console.error('Error inviting member:', error);
+      toast.error(error.message || 'Failed to send invitation');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('id', memberToRemove.id);
+
+      if (error) throw error;
+
+      toast.success('Team member removed');
+      setMemberToRemove(null);
+      fetchTeamData();
+    } catch (error: any) {
+      console.error('Error removing member:', error);
+      toast.error(error.message || 'Failed to remove member');
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_invites')
+        .delete()
+        .eq('id', inviteId);
+
+      if (error) throw error;
+
+      toast.success('Invitation cancelled');
+      fetchTeamData();
+    } catch (error: any) {
+      console.error('Error cancelling invite:', error);
+      toast.error(error.message || 'Failed to cancel invitation');
     }
   };
 
@@ -174,14 +391,32 @@ export default function SettingsPage() {
     return linkedinRegex.test(url);
   };
 
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+      case 'super_admin':
+        return 'bg-warning/10 text-warning border-warning/30';
+      case 'recruiter':
+        return 'bg-accent/10 text-accent border-accent/30';
+      case 'support':
+        return 'bg-info/10 text-info border-info/30';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
   return (
-    <AppLayout title="Settings" subtitle="Manage your profile and organization settings">
+    <AppLayout title="Settings" subtitle="Manage your profile, team, and organization settings">
       <div className="max-w-4xl mx-auto">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="profile" className="gap-2">
               <User className="h-4 w-4" />
               Profile
+            </TabsTrigger>
+            <TabsTrigger value="team" className="gap-2">
+              <Users className="h-4 w-4" />
+              Team
             </TabsTrigger>
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
@@ -326,6 +561,163 @@ export default function SettingsPage() {
             </motion.div>
           </TabsContent>
 
+          <TabsContent value="team">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              {/* Plan Info */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Team Members</CardTitle>
+                      <CardDescription>
+                        Manage your team and invite new members
+                      </CardDescription>
+                    </div>
+                    <Button onClick={() => setShowInviteDialog(true)} className="gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      Invite Member
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Team Limit Info */}
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-accent/10">
+                        <Users className="h-5 w-5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Team Seats</p>
+                        <p className="text-sm text-muted-foreground">
+                          {teamMembers.length + pendingInvites.length} / {teamLimit === 999 ? 'Unlimited' : teamLimit} used
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {planName} Plan
+                    </Badge>
+                  </div>
+
+                  {/* Current Members */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground">Active Members</h4>
+                    {isLoading ? (
+                      <div className="space-y-2">
+                        {[1, 2].map(i => (
+                          <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+                        ))}
+                      </div>
+                    ) : teamMembers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4">No team members yet</p>
+                    ) : (
+                      teamMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 rounded-lg border"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={member.profile?.avatar_url || ''} />
+                              <AvatarFallback className="bg-accent/10 text-accent text-sm">
+                                {member.profile?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{member.profile?.full_name || 'Unknown'}</p>
+                                {member.user_id === user?.id && (
+                                  <Badge variant="secondary" className="text-xs">You</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{member.profile?.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className={getRoleBadgeColor(member.role)}>
+                              {member.role === 'admin' && <Crown className="h-3 w-3 mr-1" />}
+                              {member.role}
+                            </Badge>
+                            {member.user_id !== user?.id && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => setMemberToRemove(member)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Pending Invites */}
+                  {pendingInvites.length > 0 && (
+                    <div className="space-y-3 mt-6">
+                      <h4 className="font-medium text-sm text-muted-foreground">Pending Invitations</h4>
+                      {pendingInvites.map((invite) => (
+                        <div
+                          key={invite.id}
+                          className="flex items-center justify-between p-4 rounded-lg border border-dashed"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-muted text-muted-foreground text-sm">
+                                <Mail className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{invite.email}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Expires {new Date(invite.expires_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline">{invite.role}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleCancelInvite(invite.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upgrade prompt */}
+                  {teamMembers.length + pendingInvites.length >= teamLimit && teamLimit !== 999 && (
+                    <div className="mt-6 p-4 rounded-lg bg-warning/10 border border-warning/30">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
+                        <div>
+                          <p className="font-medium text-warning">Team limit reached</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Upgrade to Pro (3 seats), Agency (5 seats), or Enterprise (unlimited) to add more team members.
+                          </p>
+                          <Button variant="outline" size="sm" className="mt-3" onClick={() => window.location.href = '/billing'}>
+                            View Plans
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="organization">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -458,24 +850,15 @@ export default function SettingsPage() {
                     </Button>
                   </div>
 
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between">
+                  <div className="p-4 rounded-lg border bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="font-medium">Two-Factor Authentication</p>
                         <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
                       </div>
-                      <Badge variant="secondary">Coming Soon</Badge>
                     </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">Active Sessions</p>
-                        <p className="text-sm text-muted-foreground">Manage your active login sessions</p>
-                      </div>
-                      <Badge variant="secondary">Coming Soon</Badge>
-                    </div>
+                    <Badge variant="secondary" className="mt-3">Coming Soon</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -483,6 +866,79 @@ export default function SettingsPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Invite Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite Team Member</DialogTitle>
+            <DialogDescription>
+              Send an invitation to join your team. They'll receive an email with a link to join.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite_email">Email Address</Label>
+              <Input
+                id="invite_email"
+                type="email"
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite_role">Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recruiter">Recruiter</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="support">Support</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleInviteMember} disabled={isInviting}>
+              {isInviting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4 mr-2" />
+              )}
+              Send Invitation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation */}
+      <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {memberToRemove?.profile?.full_name || 'this member'} from your team?
+              They will lose access to all team resources.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveMember}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
