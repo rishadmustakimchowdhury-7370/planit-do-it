@@ -11,7 +11,8 @@ import {
   BarChart3,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -33,10 +34,12 @@ const bottomNav = [
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];
 
+const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
+
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isSuperAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleSignOut = async () => {
@@ -155,6 +158,34 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Super Admin Link */}
+        {isSuperAdmin && (
+          <Link
+            to={adminNav.href}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+              location.pathname.startsWith('/admin')
+                ? 'bg-primary text-primary-foreground'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+            )}
+          >
+            <adminNav.icon className="w-5 h-5 flex-shrink-0" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="font-medium whitespace-nowrap"
+                >
+                  {adminNav.name}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Link>
+        )}
       </div>
 
       {/* User Profile */}
