@@ -262,3 +262,50 @@
 *:focus-visible {
   @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
 }
+
+/* Rich Text Editor Styles */
+.ProseMirror {
+  min-height: 200px;
+  padding: 1rem;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-muted-foreground pointer-events-none float-left h-0;
+  content: attr(data-placeholder);
+}
+
+.ProseMirror h1 {
+  @apply text-2xl font-bold mb-4;
+}
+
+.ProseMirror h2 {
+  @apply text-xl font-semibold mb-3;
+}
+
+.ProseMirror h3 {
+  @apply text-lg font-medium mb-2;
+}
+
+.ProseMirror ul {
+  @apply list-disc pl-6 mb-4;
+}
+
+.ProseMirror ol {
+  @apply list-decimal pl-6 mb-4;
+}
+
+.ProseMirror li {
+  @apply mb-1;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-accent pl-4 italic my-4 text-muted-foreground;
+}
+
+.ProseMirror a {
+  @apply text-primary underline;
+}
+
+.ProseMirror p {
+  @apply mb-3;
+}
