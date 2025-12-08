@@ -233,24 +233,47 @@ export default function AddCandidatePage() {
           .eq('email', data.email)
           .maybeSingle();
 
+        // Upload CV file to storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${tenantId}/cvs/${Date.now()}_${data.full_name.replace(/\s+/g, '_')}.${fileExt}`;
+        
+        let cvFileUrl: string | null = null;
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(fileName, file, { upsert: false });
+          
+          if (!uploadError) {
+            cvFileUrl = fileName;
+          }
+        } catch (uploadErr) {
+          console.error('CV upload error:', uploadErr);
+        }
+
         if (existing) {
           // Update existing candidate instead of showing error
           const skillsArray = Array.isArray(data.skills) ? data.skills : [];
           
+          const updateData: any = {
+            full_name: data.full_name,
+            phone: data.phone || null,
+            location: data.location || null,
+            current_title: data.current_title || null,
+            current_company: data.current_company || null,
+            linkedin_url: data.linkedin_url || null,
+            summary: data.summary || null,
+            skills: skillsArray.length > 0 ? skillsArray : null,
+            experience_years: data.experience_years || null,
+            updated_at: new Date().toISOString(),
+          };
+          
+          if (cvFileUrl) {
+            updateData.cv_file_url = cvFileUrl;
+          }
+          
           const { error: updateError } = await supabase
             .from('candidates')
-            .update({
-              full_name: data.full_name,
-              phone: data.phone || null,
-              location: data.location || null,
-              current_title: data.current_title || null,
-              current_company: data.current_company || null,
-              linkedin_url: data.linkedin_url || null,
-              summary: data.summary || null,
-              skills: skillsArray.length > 0 ? skillsArray : null,
-              experience_years: data.experience_years || null,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('id', existing.id);
 
           if (updateError) throw updateError;
@@ -277,6 +300,7 @@ export default function AddCandidatePage() {
             summary: data.summary || null,
             skills: skillsArray.length > 0 ? skillsArray : null,
             experience_years: data.experience_years || null,
+            cv_file_url: cvFileUrl,
             status: 'new',
           });
 
@@ -333,6 +357,25 @@ export default function AddCandidatePage() {
         .map(s => s.trim())
         .filter(Boolean);
 
+      let cvFileUrl: string | null = null;
+
+      // Upload CV file if exists
+      if (cvFile) {
+        const fileExt = cvFile.name.split('.').pop();
+        const fileName = `${tenantId}/cvs/${Date.now()}_${formData.fullName.replace(/\s+/g, '_')}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(fileName, cvFile, { upsert: false });
+
+        if (uploadError) {
+          console.error('CV upload error:', uploadError);
+          toast.warning('CV could not be uploaded, but candidate will still be created');
+        } else {
+          cvFileUrl = fileName;
+        }
+      }
+
       const { error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         full_name: formData.fullName,
@@ -345,6 +388,7 @@ export default function AddCandidatePage() {
         summary: formData.summary || null,
         skills: skillsArray.length > 0 ? skillsArray : null,
         experience_years: formData.experienceYears ? parseInt(formData.experienceYears) : null,
+        cv_file_url: cvFileUrl,
         status: 'new',
       });
 
