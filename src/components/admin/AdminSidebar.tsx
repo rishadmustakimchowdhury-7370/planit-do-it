@@ -14,6 +14,7 @@ import {
   ScrollText,
   Palette,
   ArrowLeft,
+  Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ const adminNavItems = [
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
   { title: 'Email Templates', url: '/admin/emails', icon: Mail },
+  { title: 'WhatsApp', url: '/admin/whatsapp', icon: Phone },
   { title: 'Billing', url: '/admin/billing', icon: CreditCard },
   { title: 'Videos', url: '/admin/videos', icon: Video },
   { title: 'Live Chat', url: '/admin/chat', icon: MessageSquare },
