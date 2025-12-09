@@ -1279,6 +1279,136 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_logs: {
+        Row: {
+          candidate_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          message: string
+          phone_number: string
+          sent_at: string | null
+          status: string | null
+          template_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          candidate_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          candidate_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_logs_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_settings: {
+        Row: {
+          api_key: string | null
+          api_provider: string | null
+          api_secret: string | null
+          business_account_id: string | null
+          id: string
+          is_configured: boolean | null
+          phone_number_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          api_provider?: string | null
+          api_secret?: string | null
+          business_account_id?: string | null
+          id?: string
+          is_configured?: boolean | null
+          phone_number_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          api_provider?: string | null
+          api_secret?: string | null
+          business_account_id?: string | null
+          id?: string
+          is_configured?: boolean | null
+          phone_number_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          message: string
+          name: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message: string
+          name: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          name?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
