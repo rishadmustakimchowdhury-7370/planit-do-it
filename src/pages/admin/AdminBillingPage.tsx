@@ -6,9 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, DollarSign, TrendingUp, Users, CreditCard, FileText, Download } from 'lucide-react';
+import { Loader2, DollarSign, TrendingUp, CreditCard, FileText, Plus, Send, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Invoice {
@@ -21,11 +30,13 @@ interface Invoice {
   due_date: string | null;
   paid_at: string | null;
   created_at: string | null;
+  notes: string | null;
 }
 
 interface Tenant {
   id: string;
   name: string;
+  slug: string;
 }
 
 export default function AdminBillingPage() {
@@ -39,6 +50,16 @@ export default function AdminBillingPage() {
     paidThisMonth: 0,
   });
   const [filter, setFilter] = useState('all');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [invoiceForm, setInvoiceForm] = useState({
+    tenant_id: '',
+    amount: '',
+    currency: 'USD',
+    due_date: '',
+    notes: '',
+  });
 
   useEffect(() => {
     fetchData();
@@ -48,7 +69,7 @@ export default function AdminBillingPage() {
     try {
       const [invoicesRes, tenantsRes] = await Promise.all([
         supabase.from('invoices').select('*').order('created_at', { ascending: false }),
-        supabase.from('tenants').select('id, name'),
+        supabase.from('tenants').select('id, name, slug'),
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;
@@ -86,11 +107,24 @@ export default function AdminBillingPage() {
     return tenants.find(t => t.id === tenantId)?.name || 'Unknown';
   };
 
+  const getTenantEmail = async (tenantId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('tenant_id', tenantId)
+      .limit(1)
+      .single();
+    return data?.email;
+  };
+
   const updateInvoiceStatus = async (invoiceId: string, status: string) => {
     try {
       const updates: any = { status };
       if (status === 'paid') {
         updates.paid_at = new Date().toISOString();
+      }
+      if (status === 'sent') {
+        updates.sent_at = new Date().toISOString();
       }
 
       const { error } = await supabase
@@ -103,6 +137,88 @@ export default function AdminBillingPage() {
       fetchData();
     } catch (error: any) {
       toast.error('Failed to update invoice: ' + error.message);
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!invoiceForm.tenant_id || !invoiceForm.amount) {
+      toast.error('Tenant and amount are required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Generate invoice number
+      const { data: invoiceNumber } = await supabase.rpc('generate_invoice_number');
+
+      const { error } = await supabase.from('invoices').insert({
+        tenant_id: invoiceForm.tenant_id,
+        invoice_number: invoiceNumber || `INV-${Date.now()}`,
+        amount: parseFloat(invoiceForm.amount),
+        currency: invoiceForm.currency,
+        due_date: invoiceForm.due_date || null,
+        notes: invoiceForm.notes || null,
+        status: 'draft',
+      });
+
+      if (error) throw error;
+
+      toast.success('Invoice created');
+      setShowCreateDialog(false);
+      setInvoiceForm({ tenant_id: '', amount: '', currency: 'USD', due_date: '', notes: '' });
+      fetchData();
+    } catch (error: any) {
+      toast.error('Failed to create invoice: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSendInvoiceEmail = async (invoice: Invoice) => {
+    setIsSaving(true);
+    try {
+      const tenantEmail = await getTenantEmail(invoice.tenant_id);
+      if (!tenantEmail) {
+        toast.error('Could not find email for this tenant');
+        setIsSaving(false);
+        return;
+      }
+
+      const tenantName = getTenantName(invoice.tenant_id);
+
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: tenantEmail,
+          subject: `Invoice ${invoice.invoice_number} - ${invoice.currency} $${Number(invoice.amount).toLocaleString()}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h1 style="color: #0ea5e9;">Invoice from Recruitsy</h1>
+              <p>Dear ${tenantName},</p>
+              <p>Please find your invoice details below:</p>
+              <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p><strong>Invoice Number:</strong> ${invoice.invoice_number}</p>
+                <p><strong>Amount:</strong> ${invoice.currency} $${Number(invoice.amount).toLocaleString()}</p>
+                <p><strong>Due Date:</strong> ${invoice.due_date ? format(new Date(invoice.due_date), 'MMMM d, yyyy') : 'Upon receipt'}</p>
+                ${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}
+              </div>
+              <p>Thank you for your business!</p>
+              <p style="color: #64748b; font-size: 12px; margin-top: 40px;">
+                This email was sent from Recruitsy. If you have any questions, please contact support.
+              </p>
+            </div>
+          `,
+        },
+      });
+
+      if (error) throw error;
+
+      // Update invoice status to sent
+      await updateInvoiceStatus(invoice.id, 'sent');
+      toast.success('Invoice sent via email');
+    } catch (error: any) {
+      toast.error('Failed to send email: ' + error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -195,18 +311,24 @@ export default function AdminBillingPage() {
                 <CardTitle>Invoices</CardTitle>
                 <CardDescription>Manage all platform invoices</CardDescription>
               </div>
-              <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -214,6 +336,9 @@ export default function AdminBillingPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No invoices found</p>
+                <Button variant="link" onClick={() => setShowCreateDialog(true)}>
+                  Create your first invoice
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -238,9 +363,18 @@ export default function AdminBillingPage() {
                           {invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'No due date'}
                         </p>
                       </div>
-                      <Badge variant={statusColors[invoice.status] as any || 'secondary'}>
+                      <Badge variant={statusColors[invoice.status] as any || 'secondary'} className={invoice.status === 'paid' ? 'bg-green-600' : ''}>
                         {invoice.status}
                       </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSendInvoiceEmail(invoice)}
+                        disabled={isSaving}
+                      >
+                        <Mail className="h-4 w-4 mr-1" />
+                        Send
+                      </Button>
                       <Select
                         value={invoice.status}
                         onValueChange={(value) => updateInvoiceStatus(invoice.id, value)}
@@ -264,6 +398,84 @@ export default function AdminBillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Invoice Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Invoice</DialogTitle>
+            <DialogDescription>Create a new invoice for a tenant</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tenant *</Label>
+              <Select
+                value={invoiceForm.tenant_id}
+                onValueChange={(value) => setInvoiceForm({ ...invoiceForm, tenant_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select tenant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Amount *</Label>
+                <Input
+                  type="number"
+                  value={invoiceForm.amount}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                  placeholder="99.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Select
+                  value={invoiceForm.currency}
+                  onValueChange={(value) => setInvoiceForm({ ...invoiceForm, currency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Input
+                type="date"
+                value={invoiceForm.due_date}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, due_date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={invoiceForm.notes}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })}
+                placeholder="Additional notes..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateInvoice} disabled={isSaving}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

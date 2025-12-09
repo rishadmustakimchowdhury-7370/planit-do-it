@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.send-email]
 verify_jwt = true
+
+[functions.send-whatsapp]
+verify_jwt = true
+
+[functions.temp-login]
+verify_jwt = false

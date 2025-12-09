@@ -46,75 +46,37 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Handle temporary login
+  // Handle temporary login via edge function
   useEffect(() => {
     const handleTempLogin = async () => {
       if (!tempToken || !tempUserId) return;
 
       setIsTempLoginLoading(true);
       try {
-        // Hash the token to compare with stored hash
-        const tokenHash = await crypto.subtle.digest(
-          'SHA-256',
-          new TextEncoder().encode(tempToken)
-        );
-        const hashArray = Array.from(new Uint8Array(tokenHash));
-        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        // Call the edge function to verify and get login URL
+        const { data, error } = await supabase.functions.invoke('temp-login', {
+          body: { token: tempToken, user_id: tempUserId },
+        });
 
-        // Verify the temp login link
-        const { data: linkData, error: linkError } = await supabase
-          .from('temp_login_links')
-          .select('*')
-          .eq('user_id', tempUserId)
-          .eq('token_hash', hashHex)
-          .is('used_at', null)
-          .gt('expires_at', new Date().toISOString())
-          .single();
-
-        if (linkError || !linkData) {
+        if (error || !data?.success) {
           toast({
             variant: 'destructive',
             title: 'Invalid or expired link',
-            description: 'This temporary login link is invalid or has expired. Please request a new one.',
+            description: data?.error || 'This temporary login link is invalid or has expired.',
           });
           setIsTempLoginLoading(false);
           return;
         }
 
-        // Mark the link as used
-        await supabase
-          .from('temp_login_links')
-          .update({ used_at: new Date().toISOString() })
-          .eq('id', linkData.id);
-
-        // Get user email from profiles
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', tempUserId)
-          .single();
-
-        if (profile?.email) {
-          // Generate a magic link for the user
-          const { error: magicError } = await supabase.auth.signInWithOtp({
-            email: profile.email,
-            options: {
-              shouldCreateUser: false,
-            },
+        // Redirect to the magic link URL
+        if (data.redirect_url) {
+          window.location.href = data.redirect_url;
+        } else {
+          toast({
+            title: 'Login successful',
+            description: 'Redirecting to dashboard...',
           });
-
-          if (magicError) {
-            toast({
-              variant: 'destructive',
-              title: 'Login failed',
-              description: 'Unable to process temporary login. Please try again or contact support.',
-            });
-          } else {
-            toast({
-              title: 'Check your email',
-              description: 'A login link has been sent to your email address.',
-            });
-          }
+          navigate('/dashboard');
         }
       } catch (error) {
         console.error('Temp login error:', error);
@@ -123,13 +85,12 @@ export default function AuthPage() {
           title: 'Error',
           description: 'An error occurred while processing the temporary login.',
         });
-      } finally {
         setIsTempLoginLoading(false);
       }
     };
 
     handleTempLogin();
-  }, [tempToken, tempUserId, toast]);
+  }, [tempToken, tempUserId, toast, navigate]);
 
   useEffect(() => {
     if (!authLoading && user) {
