@@ -155,13 +155,13 @@ export default function AdminUsersPage() {
     setPlans(data || []);
   };
 
-  const logAuditAction = async (action: string, targetId: string, payload?: object) => {
-    await supabase.from('audit_log').insert({
+  const logAuditAction = async (action: string, targetId: string, payload?: Record<string, unknown>) => {
+    await supabase.from('audit_log').insert([{
       action,
       entity_type: 'user',
       entity_id: targetId,
-      new_values: payload || {},
-    });
+      new_values: (payload || {}) as any,
+    }]);
   };
 
   const handleAddUser = async () => {
