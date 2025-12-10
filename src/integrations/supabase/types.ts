@@ -503,6 +503,56 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          recipient_email: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          subject: string
+          template_name: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject: string
+          template_name?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string
+          template_name?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           created_at: string | null
@@ -539,6 +589,10 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          company_address: string | null
+          company_logo: string | null
+          company_name: string | null
+          company_phone: string | null
           created_at: string | null
           currency: string | null
           due_date: string | null
@@ -556,6 +610,10 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_address?: string | null
+          company_logo?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           created_at?: string | null
           currency?: string | null
           due_date?: string | null
@@ -573,6 +631,10 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_address?: string | null
+          company_logo?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           created_at?: string | null
           currency?: string | null
           due_date?: string | null
@@ -808,6 +870,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           email: string
+          email_signature: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
@@ -822,6 +885,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           email: string
+          email_signature?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
@@ -836,6 +900,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           email?: string
+          email_signature?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
@@ -1163,6 +1228,48 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_status"]
             | null
           suspended_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      testimonials: {
+        Row: {
+          author_avatar: string | null
+          author_name: string
+          author_role: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          order_index: number | null
+          quote: string
+          rating: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_name: string
+          author_role: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          order_index?: number | null
+          quote: string
+          rating?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_avatar?: string | null
+          author_name?: string
+          author_role?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          order_index?: number | null
+          quote?: string
+          rating?: number | null
           updated_at?: string | null
         }
         Relationships: []

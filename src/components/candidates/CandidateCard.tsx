@@ -1,12 +1,12 @@
 import { Candidate, PipelineStage } from '@/types/recruitment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
-import { MapPin, Mail, Phone, Calendar } from 'lucide-react';
+import { MapPin, Mail, Phone, Calendar, Linkedin, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
-
 interface CandidateCardProps {
   candidate: Candidate;
   showMatchScore?: boolean;
@@ -103,7 +103,52 @@ export function CandidateCard({ candidate, showMatchScore = true, compact = fals
               </span>
             </div>
             
-            <div className="flex flex-wrap gap-1.5 mt-3">
+            {/* Quick Action Icons */}
+            <div className="flex items-center gap-1 mt-3" onClick={(e) => e.preventDefault()}>
+              {candidate.linkedinUrl && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.open(candidate.linkedinUrl, '_blank');
+                  }}
+                  title="View LinkedIn Profile"
+                >
+                  <Linkedin className="h-4 w-4 text-[#0077B5]" />
+                </Button>
+              )}
+              {candidate.phone && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const phoneNumber = candidate.phone?.replace(/\D/g, '');
+                    window.open(`https://wa.me/${phoneNumber}`, '_blank');
+                  }}
+                  title="Send WhatsApp"
+                >
+                  <MessageCircle className="h-4 w-4 text-green-500" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = `mailto:${candidate.email}`;
+                }}
+                title="Send Email"
+              >
+                <Mail className="h-4 w-4 text-info" />
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {candidate.skills.slice(0, 4).map((skill) => (
                 <Badge key={skill} variant="secondary" className="text-xs bg-muted/50">
                   {skill}

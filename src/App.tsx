@@ -33,6 +33,8 @@ import AdminLiveChatPage from "./pages/admin/AdminLiveChatPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
 import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
+import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
+import TutorialVideosPage from "./pages/TutorialVideosPage";
 import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
@@ -79,6 +81,7 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+    <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
     
     {/* Super Admin routes */}
     <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
@@ -93,6 +96,7 @@ const AppRoutes = () => (
     <Route path="/admin/chat" element={<ProtectedRoute><AdminLiveChatPage /></ProtectedRoute>} />
     <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
+    <Route path="/admin/testimonials" element={<ProtectedRoute><AdminTestimonialsPage /></ProtectedRoute>} />
     
     {/* 404 */}
     <Route path="*" element={<NotFound />} />
