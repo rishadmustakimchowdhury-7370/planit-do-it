@@ -12,6 +12,7 @@ interface Profile {
   job_title: string | null;
   is_active: boolean;
   must_reset_password: boolean;
+  email_signature?: string | null;
 }
 
 interface UserRole {

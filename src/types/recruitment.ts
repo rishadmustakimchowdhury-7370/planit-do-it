@@ -46,6 +46,7 @@ export interface Candidate {
   location: string;
   resumeUrl: string;
   avatar?: string;
+  linkedinUrl?: string;
   status: PipelineStage;
   matchScore?: number;
   createdAt: Date;
