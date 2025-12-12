@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { Candidate, PipelineStage } from '@/types/recruitment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
-import { MapPin, Mail, Phone, Calendar, Linkedin, MessageCircle } from 'lucide-react';
+import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+import { MapPin, Mail, Calendar, Linkedin, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+
 interface CandidateCardProps {
   candidate: Candidate;
   showMatchScore?: boolean;
@@ -34,6 +37,8 @@ const statusLabels: Record<PipelineStage, string> = {
 };
 
 export function CandidateCard({ candidate, showMatchScore = true, compact = false }: CandidateCardProps) {
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
   if (compact) {
     return (
       <motion.div
@@ -61,114 +66,126 @@ export function CandidateCard({ candidate, showMatchScore = true, compact = fals
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
-      transition={{ duration: 0.2 }}
-    >
-      <Link
-        to={`/candidates/${candidate.id}`}
-        className="block bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all"
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -2 }}
+        transition={{ duration: 0.2 }}
       >
-        <div className="flex items-start gap-4">
-          <Avatar className="w-14 h-14">
-            <AvatarImage src={candidate.avatar} alt={candidate.name} />
-            <AvatarFallback className="text-lg bg-accent/10 text-accent font-medium">
-              {candidate.name.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-foreground">{candidate.name}</h3>
-                <p className="text-sm text-accent">{candidate.currentTitle}</p>
+        <Link
+          to={`/candidates/${candidate.id}`}
+          className="block bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all"
+        >
+          <div className="flex items-start gap-4">
+            <Avatar className="w-14 h-14">
+              <AvatarImage src={candidate.avatar} alt={candidate.name} />
+              <AvatarFallback className="text-lg bg-accent/10 text-accent font-medium">
+                {candidate.name.split(' ').map(n => n[0]).join('')}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-foreground">{candidate.name}</h3>
+                  <p className="text-sm text-accent">{candidate.currentTitle}</p>
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={cn('text-xs capitalize whitespace-nowrap', statusColors[candidate.status])}
+                >
+                  {statusLabels[candidate.status]}
+                </Badge>
               </div>
-              <Badge 
-                variant="outline" 
-                className={cn('text-xs capitalize whitespace-nowrap', statusColors[candidate.status])}
-              >
-                {statusLabels[candidate.status]}
-              </Badge>
-            </div>
-            
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" />
-                {candidate.location}
-              </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                {candidate.experienceYears} years exp.
-              </span>
-            </div>
-            
-            {/* Quick Action Icons */}
-            <div className="flex items-center gap-1 mt-3" onClick={(e) => e.preventDefault()}>
-              {candidate.linkedinUrl && (
+              
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {candidate.location}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {candidate.experienceYears} years exp.
+                </span>
+              </div>
+              
+              {/* Quick Action Icons */}
+              <div className="flex items-center gap-1 mt-3" onClick={(e) => e.preventDefault()}>
+                {candidate.linkedinUrl && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open(candidate.linkedinUrl, '_blank');
+                    }}
+                    title="View LinkedIn Profile"
+                  >
+                    <Linkedin className="h-4 w-4 text-[#0077B5]" />
+                  </Button>
+                )}
+                {candidate.phone && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const phoneNumber = candidate.phone?.replace(/\D/g, '');
+                      window.open(`https://wa.me/${phoneNumber}`, '_blank');
+                    }}
+                    title="Send WhatsApp"
+                  >
+                    <MessageCircle className="h-4 w-4 text-green-500" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.open(candidate.linkedinUrl, '_blank');
+                    e.stopPropagation();
+                    setEmailDialogOpen(true);
                   }}
-                  title="View LinkedIn Profile"
+                  title="Send Email"
                 >
-                  <Linkedin className="h-4 w-4 text-[#0077B5]" />
+                  <Mail className="h-4 w-4 text-info" />
                 </Button>
-              )}
-              {candidate.phone && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const phoneNumber = candidate.phone?.replace(/\D/g, '');
-                    window.open(`https://wa.me/${phoneNumber}`, '_blank');
-                  }}
-                  title="Send WhatsApp"
-                >
-                  <MessageCircle className="h-4 w-4 text-green-500" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = `mailto:${candidate.email}`;
-                }}
-                title="Send Email"
-              >
-                <Mail className="h-4 w-4 text-info" />
-              </Button>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {candidate.skills.slice(0, 4).map((skill) => (
+                  <Badge key={skill} variant="secondary" className="text-xs bg-muted/50">
+                    {skill}
+                  </Badge>
+                ))}
+                {candidate.skills.length > 4 && (
+                  <Badge variant="secondary" className="text-xs bg-muted/50">
+                    +{candidate.skills.length - 4}
+                  </Badge>
+                )}
+              </div>
             </div>
             
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {candidate.skills.slice(0, 4).map((skill) => (
-                <Badge key={skill} variant="secondary" className="text-xs bg-muted/50">
-                  {skill}
-                </Badge>
-              ))}
-              {candidate.skills.length > 4 && (
-                <Badge variant="secondary" className="text-xs bg-muted/50">
-                  +{candidate.skills.length - 4}
-                </Badge>
-              )}
-            </div>
+            {showMatchScore && candidate.matchScore && (
+              <div className="flex-shrink-0">
+                <MatchScoreCircle score={candidate.matchScore} size="md" />
+              </div>
+            )}
           </div>
-          
-          {showMatchScore && candidate.matchScore && (
-            <div className="flex-shrink-0">
-              <MatchScoreCircle score={candidate.matchScore} size="md" />
-            </div>
-          )}
-        </div>
-      </Link>
-    </motion.div>
+        </Link>
+      </motion.div>
+
+      <SendEmailDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        recipientEmail={candidate.email}
+        recipientName={candidate.name}
+        context="candidate"
+        contextData={{ candidateName: candidate.name }}
+      />
+    </>
   );
 }

@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -20,7 +22,9 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
-  StickyNote
+  StickyNote,
+  MessageCircle,
+  Linkedin
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -77,6 +81,8 @@ const CandidateDetailPage = () => {
   const [jobCandidate, setJobCandidate] = useState<JobCandidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningMatch, setIsRunningMatch] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id && tenantId) {
@@ -290,6 +296,29 @@ const CandidateDetailPage = () => {
                   Run AI Match
                 </Button>
               </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEmailDialogOpen(true)}>
+                  <Mail className="w-4 h-4" />
+                  Send Email
+                </Button>
+                {candidate.phone && (
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setWhatsAppDialogOpen(true)}>
+                    <MessageCircle className="w-4 h-4 text-green-500" />
+                    WhatsApp
+                  </Button>
+                )}
+                {candidate.linkedin_url && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1.5"
+                    onClick={() => window.open(candidate.linkedin_url!, '_blank')}
+                  >
+                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                    LinkedIn
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -485,6 +514,28 @@ const CandidateDetailPage = () => {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Email Dialog */}
+      <SendEmailDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        recipientEmail={candidate.email}
+        recipientName={candidate.full_name}
+        context="candidate"
+        contextData={{ candidateName: candidate.full_name }}
+      />
+
+      {/* WhatsApp Dialog */}
+      {candidate.phone && (
+        <SendWhatsAppDialog
+          open={whatsAppDialogOpen}
+          onOpenChange={setWhatsAppDialogOpen}
+          recipientPhone={candidate.phone}
+          recipientName={candidate.full_name}
+          context="candidate"
+          contextData={{ candidateName: candidate.full_name }}
+        />
+      )}
     </AppLayout>
   );
 };

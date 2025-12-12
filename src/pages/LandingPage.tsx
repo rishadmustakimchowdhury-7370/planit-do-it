@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -78,24 +80,39 @@ const plans = [
   },
 ];
 
-const testimonials = [
+interface Testimonial {
+  id: string;
+  quote: string;
+  author_name: string;
+  author_role: string;
+  author_avatar: string | null;
+  rating: number | null;
+}
+
+const defaultTestimonials = [
   {
+    id: '1',
     quote: "Recruitsy cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
-    author: "Sarah Johnson",
-    role: "Head of Talent, TechCorp",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
+    author_name: "Sarah Johnson",
+    author_role: "Head of Talent, TechCorp",
+    author_avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
+    rating: 5,
   },
   {
+    id: '2',
     quote: "Finally, a recruitment tool that actually understands what we're looking for.",
-    author: "Michael Chen",
-    role: "CEO, Fintech Innovations",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
+    author_name: "Michael Chen",
+    author_role: "CEO, Fintech Innovations",
+    author_avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
+    rating: 5,
   },
   {
+    id: '3',
     quote: "The pipeline visualization changed how our team collaborates on hiring.",
-    author: "Emily Davis",
-    role: "HR Director, HealthTech Pro",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
+    author_name: "Emily Davis",
+    author_role: "HR Director, HealthTech Pro",
+    author_avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
+    rating: 5,
   },
 ];
 
@@ -106,6 +123,24 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setTestimonials(data);
+      }
+    };
+
+    fetchTestimonials();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -379,20 +414,20 @@ export default function LandingPage() {
                 <Card className="h-full">
                   <CardContent className="p-6">
                     <div className="flex gap-1 mb-4">
-                      {[...Array(5)].map((_, j) => (
+                      {[...Array(testimonial.rating || 5)].map((_, j) => (
                         <Star key={j} className="h-4 w-4 fill-warning text-warning" />
                       ))}
                     </div>
                     <p className="text-foreground mb-6">"{testimonial.quote}"</p>
                     <div className="flex items-center gap-3">
                       <img 
-                        src={testimonial.avatar} 
-                        alt={testimonial.author}
+                        src={testimonial.author_avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'} 
+                        alt={testimonial.author_name}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                       <div>
-                        <div className="font-medium">{testimonial.author}</div>
-                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
+                        <div className="font-medium">{testimonial.author_name}</div>
+                        <div className="text-sm text-muted-foreground">{testimonial.author_role}</div>
                       </div>
                     </div>
                   </CardContent>

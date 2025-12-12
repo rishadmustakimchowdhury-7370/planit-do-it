@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, DollarSign, TrendingUp, CreditCard, FileText, Plus, Send, Mail } from 'lucide-react';
+import { Loader2, DollarSign, TrendingUp, CreditCard, FileText, Plus, Send, Mail, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { InvoicePreview } from '@/components/invoices/InvoicePreview';
 
 interface Invoice {
   id: string;
@@ -52,6 +53,7 @@ export default function AdminBillingPage() {
   const [filter, setFilter] = useState('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
 
   const [invoiceForm, setInvoiceForm] = useState({
     tenant_id: '',
@@ -369,6 +371,14 @@ export default function AdminBillingPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setPreviewInvoice(invoice)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleSendInvoiceEmail(invoice)}
                         disabled={isSaving}
                       >
@@ -476,6 +486,21 @@ export default function AdminBillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Preview Dialog */}
+      {previewInvoice && (
+        <InvoicePreview
+          open={!!previewInvoice}
+          onOpenChange={(open) => !open && setPreviewInvoice(null)}
+          invoice={{
+            ...previewInvoice,
+            company_name: 'Recruitsy',
+            company_address: '123 Business Street, Suite 100',
+            company_phone: '+1 (555) 123-4567',
+          }}
+          tenant={{ name: getTenantName(previewInvoice.tenant_id) }}
+        />
+      )}
     </AdminLayout>
   );
 }
