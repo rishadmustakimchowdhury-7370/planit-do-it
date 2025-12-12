@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
+import { SuggestedCandidates } from '@/components/jobs/SuggestedCandidates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { 
@@ -765,6 +766,19 @@ const JobDetailPage = () => {
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      {/* Suggested Candidates Section */}
+      {job && (
+        <div className="mt-8">
+          <SuggestedCandidates
+            jobId={job.id}
+            jobTitle={job.title}
+            jobDescription={job.description}
+            jobSkills={Array.isArray((job as any).skills) ? (job as any).skills : []}
+            onCandidateAdded={fetchJobDetails}
+          />
+        </div>
+      )}
 
       {/* Add Candidate from Database Dialog */}
       {job && (
