@@ -115,7 +115,7 @@ export function SendEmailDialog({
         </div>
       `;
 
-      const { error } = await supabase.functions.invoke('send-email', {
+      const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: recipientEmail,
           subject,
@@ -123,7 +123,15 @@ export function SendEmailDialog({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to send email');
+      }
+
+      if (data?.error) {
+        console.error('Email service error:', data.error);
+        throw new Error(data.error);
+      }
 
       // Log the email
       await supabase.from('email_logs').insert({
