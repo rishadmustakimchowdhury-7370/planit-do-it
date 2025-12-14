@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Bell, Search, Plus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, Search, Plus, X, Briefcase, Users, Building2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -18,7 +17,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
@@ -59,7 +57,6 @@ export function Header({ title, subtitle }: HeaderProps) {
 
       setIsSearching(true);
       try {
-        // Get tenant ID
         let currentTenantId = tenantId;
         if (!currentTenantId && user) {
           const { data: profileData } = await supabase
@@ -77,29 +74,19 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         const query = searchQuery.toLowerCase().trim();
 
-        // Search jobs with proper query
-        const { data: jobs, error: jobsError } = await supabase
+        const { data: jobs } = await supabase
           .from('jobs')
           .select('id, title, location, status')
           .eq('tenant_id', currentTenantId)
           .or(`title.ilike.%${query}%,location.ilike.%${query}%,description.ilike.%${query}%`)
           .limit(5);
 
-        if (jobsError) {
-          console.error('Jobs search error:', jobsError);
-        }
-
-        // Search candidates with proper query
-        const { data: candidates, error: candidatesError } = await supabase
+        const { data: candidates } = await supabase
           .from('candidates')
           .select('id, full_name, email, current_title, location')
           .eq('tenant_id', currentTenantId)
           .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%,location.ilike.%${query}%`)
           .limit(5);
-
-        if (candidatesError) {
-          console.error('Candidates search error:', candidatesError);
-        }
 
         const results: SearchResult[] = [
           ...(jobs || []).map(job => ({
@@ -140,16 +127,16 @@ export function Header({ title, subtitle }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
+    <header className="h-16 border-b border-border bg-card sticky top-0 z-40">
       <div className="h-full px-6 flex items-center justify-between">
         {/* Title */}
         <div>
-          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
 
         {/* Right Side */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Global Search */}
           <Popover open={searchOpen} onOpenChange={setSearchOpen}>
             <PopoverTrigger asChild>
@@ -157,7 +144,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search jobs, candidates..."
-                  className="w-64 pl-9 bg-muted/50 border-transparent focus:border-border cursor-pointer"
+                  className="w-72 pl-9 h-9 bg-secondary border-transparent focus:bg-card focus:border-border"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -199,12 +186,14 @@ export function Header({ title, subtitle }: HeaderProps) {
                             <CommandItem
                               key={result.id}
                               onSelect={() => handleSelect(result)}
-                              className="cursor-pointer"
+                              className="cursor-pointer py-3"
                             >
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">Job</Badge>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                  <Briefcase className="w-4 h-4 text-primary" />
+                                </div>
                                 <div>
-                                  <p className="font-medium">{result.title}</p>
+                                  <p className="font-medium text-sm">{result.title}</p>
                                   <p className="text-xs text-muted-foreground">{result.subtitle}</p>
                                 </div>
                               </div>
@@ -218,12 +207,14 @@ export function Header({ title, subtitle }: HeaderProps) {
                             <CommandItem
                               key={result.id}
                               onSelect={() => handleSelect(result)}
-                              className="cursor-pointer"
+                              className="cursor-pointer py-3"
                             >
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="text-xs">Candidate</Badge>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                                  <Users className="w-4 h-4 text-success" />
+                                </div>
                                 <div>
-                                  <p className="font-medium">{result.title}</p>
+                                  <p className="font-medium text-sm">{result.title}</p>
                                   <p className="text-xs text-muted-foreground">{result.subtitle}</p>
                                 </div>
                               </div>
@@ -241,40 +232,42 @@ export function Header({ title, subtitle }: HeaderProps) {
           {/* Quick Add */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" className="gap-2">
+              <Button size="sm" className="gap-2 h-9 shadow-sm">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Quick Add</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate('/jobs/new')}>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => navigate('/jobs/new')} className="py-2.5">
+                <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
                 Add New Job
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/candidates/new')}>
+              <DropdownMenuItem onClick={() => navigate('/candidates/new')} className="py-2.5">
+                <Users className="w-4 h-4 mr-2 text-muted-foreground" />
                 Add Candidate
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/clients/new')}>
+              <DropdownMenuItem onClick={() => navigate('/clients/new')} className="py-2.5">
+                <Building2 className="w-4 h-4 mr-2 text-muted-foreground" />
                 Add Client
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/ai-match')}>
+              <DropdownMenuItem onClick={() => navigate('/ai-match')} className="py-2.5">
+                <Sparkles className="w-4 h-4 mr-2 text-muted-foreground" />
                 Run AI Match
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-medium rounded-full flex items-center justify-center">
-              3
-            </span>
+          <Button variant="ghost" size="icon" className="relative h-9 w-9">
+            <Bell className="w-5 h-5 text-muted-foreground" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
           </Button>
 
           {/* User Avatar - Mobile */}
-          <Avatar className="w-8 h-8 md:hidden">
+          <Avatar className="w-8 h-8 md:hidden ring-2 ring-border">
             <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
-            <AvatarFallback>
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               {userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
             </AvatarFallback>
           </Avatar>
