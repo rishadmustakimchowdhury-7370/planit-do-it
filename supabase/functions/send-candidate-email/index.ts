@@ -11,11 +11,14 @@ interface SendEmailRequest {
   job_id?: string;
   from_email: string;
   to_email: string;
+  cc_email?: string | null;
+  bcc_email?: string | null;
   subject: string;
   body_text: string;
   template_id?: string;
   ai_generated?: boolean;
   scheduled_at?: string;
+  timezone?: string | null;
   attachments?: Array<{ name: string; url: string }>;
   signature?: string | null;
 }
@@ -137,11 +140,14 @@ serve(async (req) => {
       job_id,
       from_email,
       to_email,
+      cc_email,
+      bcc_email,
       subject,
       body_text,
       template_id,
       ai_generated,
       scheduled_at,
+      timezone,
       attachments,
       signature,
     } = body;
@@ -207,19 +213,29 @@ serve(async (req) => {
         const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/track-email?id=${trackingId}&type=open" width="1" height="1" style="display:none" alt=""/>`;
         const emailWithTracking = emailHtml.replace('</body>', `${trackingPixel}</body>`);
 
+        // Build recipient lists
+        const toRecipients = [to_email];
+        const ccRecipients = cc_email ? cc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
+        const bccRecipients = bcc_email ? bcc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+        const emailPayload: Record<string, unknown> = {
+          from: `${senderName} <info@recruitifycrm.com>`,
+          reply_to: senderEmail,
+          to: toRecipients,
+          subject: subject,
+          html: emailWithTracking,
+        };
+        
+        if (ccRecipients.length > 0) emailPayload.cc = ccRecipients;
+        if (bccRecipients.length > 0) emailPayload.bcc = bccRecipients;
+
         const resendResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${RESEND_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            from: `${senderName} <info@recruitifycrm.com>`,
-            reply_to: senderEmail,
-            to: [to_email],
-            subject: subject,
-            html: emailWithTracking,
-          }),
+          body: JSON.stringify(emailPayload),
         });
 
         const resendData = await resendResponse.json();

@@ -45,13 +45,7 @@ serve(async (req) => {
       custom_instructions,
     } = body;
 
-    // Build the AI prompt
-    const lengthGuide = {
-      short: '2-3 sentences, under 100 words',
-      medium: '1-2 paragraphs, 100-200 words',
-      long: '2-3 paragraphs, 200-300 words',
-    };
-
+    // Build the AI prompt with strict structure enforcement
     const toneGuide = {
       brief: 'concise and to-the-point, no fluff',
       formal: 'professional and polished business tone',
@@ -68,26 +62,41 @@ serve(async (req) => {
       custom: custom_instructions || 'general outreach to the candidate',
     };
 
-    const systemPrompt = `You are a professional recruitment email writer. Generate plain-text emails that are ${toneGuide[tone]}.
-Use merge placeholders like {{candidate_first_name}}, {{job_title}}, {{company_name}}, {{recruiter_name}} where appropriate.
-Keep the email ${lengthGuide[length]}.
-Write a complete, ready-to-send email: greeting, short intro, 1-2 short paragraphs with clear value, a specific call-to-action, and a polite closing.
-Do NOT include HTML tags, markdown, or any instructional text like [insert here] or TODOs.
-Do NOT include a subject line - only the email body.
-End with a professional closing but do NOT include a signature block.`;
+    // Strict formatting rules for professional emails
+    const systemPrompt = `You are an expert recruitment email writer. You MUST follow this EXACT structure for every email:
 
-    const userPrompt = `Write an email for the purpose of: ${purposeGuide[purpose]}
+STRUCTURE (follow exactly):
+1. Greeting: "Hi {{candidate_first_name}}," (always on its own line)
+2. [blank line]
+3. Paragraph 1: Introduction and context (2-3 sentences explaining who you are and why you're reaching out)
+4. [blank line]
+5. Paragraph 2: Value proposition / main message (2-3 sentences about the opportunity or key information)
+6. [blank line]
+7. Paragraph 3: Call to action or closing (1-2 sentences with clear next steps)
+8. [blank line]
+9. Sign-off: "Best regards," (on its own line, NO signature block after - the system adds signature automatically)
 
-Details:
-- Candidate: ${candidate_first_name}${candidate_last_name ? ' ' + candidate_last_name : ''}
-- Job Title: ${job_title}
-- Location: ${location || 'Not specified'}
-- Company: ${company_name || 'our company'}
+RULES:
+- Tone: ${toneGuide[tone]}
+- Always use exactly 3 logical paragraphs with clear spacing between them
+- Use {{candidate_first_name}}, {{job_title}}, {{company_name}}, {{recruiter_name}} placeholders
+- NO markdown, NO HTML, NO bullet points, NO numbered lists
+- NO instructional text like [insert here] or placeholders in brackets
+- NO subject line - only the email body
+- End with "Best regards," - do NOT add any name or signature after it
+- Each paragraph should be substantial (2-3 complete sentences)`;
+
+    const userPrompt = `Write a recruitment email for: ${purposeGuide[purpose]}
+
+Context:
+- Candidate Name: {{candidate_first_name}} (use this placeholder)
+- Position: ${job_title}
+- Location: ${location || 'flexible/remote'}
+- Company: ${company_name || 'our client company'}
 - Recruiter: ${recruiter_name}
-${template_context ? `\nContext from template: ${template_context}` : ''}
-${custom_instructions ? `\nAdditional instructions: ${custom_instructions}` : ''}
+${custom_instructions ? `\nSpecial instructions: ${custom_instructions}` : ''}
 
-Generate a ${tone} email that is ${length} in length.`;
+Generate the email following the exact structure specified. Remember: 3 clear paragraphs, proper spacing, end with "Best regards," only.`;
 
     console.log("Calling Lovable AI for email composition...");
 
