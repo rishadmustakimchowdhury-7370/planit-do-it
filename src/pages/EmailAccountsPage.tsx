@@ -265,11 +265,35 @@ export default function EmailAccountsPage() {
   };
 
   const handleGmailConnect = () => {
-    toast.info('Gmail OAuth integration is coming soon. For now, please use SMTP with Gmail App Passwords.');
+    // Pre-fill Gmail SMTP settings
+    setFormData({
+      provider: 'smtp',
+      from_email: '',
+      display_name: 'Gmail Account',
+      smtp_host: 'smtp.gmail.com',
+      smtp_port: 587,
+      smtp_user: '',
+      smtp_password: '',
+      smtp_use_tls: true,
+    });
+    setShowAddDialog(true);
+    toast.info('Enter your Gmail address and App Password to connect.');
   };
 
   const handleOutlookConnect = () => {
-    toast.info('Outlook OAuth integration is coming soon. For now, please use SMTP with Outlook App Passwords.');
+    // Pre-fill Outlook SMTP settings
+    setFormData({
+      provider: 'smtp',
+      from_email: '',
+      display_name: 'Outlook Account',
+      smtp_host: 'smtp.office365.com',
+      smtp_port: 587,
+      smtp_user: '',
+      smtp_password: '',
+      smtp_use_tls: true,
+    });
+    setShowAddDialog(true);
+    toast.info('Enter your Outlook address and App Password to connect.');
   };
 
   const getStatusBadge = (status: string, errorMessage?: string | null) => {
@@ -337,48 +361,51 @@ export default function EmailAccountsPage() {
         {/* Quick Connect Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card 
-            className="cursor-pointer hover:shadow-md transition-all border-2 hover:border-primary/50"
+            className="cursor-pointer hover:shadow-md transition-all border-2 hover:border-red-500/50 group"
             onClick={handleGmailConnect}
           >
             <CardContent className="flex items-center gap-4 pt-6">
-              <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30">
+              <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
                 <Mail className="h-6 w-6 text-red-600" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Connect Gmail</h3>
-                <p className="text-sm text-muted-foreground">Use Google OAuth</p>
+                <p className="text-sm text-muted-foreground">Use App Password</p>
               </div>
-              <Badge variant="secondary" className="text-xs">Soon</Badge>
+              <Badge variant="default" className="text-xs bg-red-500">Quick Setup</Badge>
             </CardContent>
           </Card>
 
           <Card 
-            className="cursor-pointer hover:shadow-md transition-all border-2 hover:border-primary/50"
+            className="cursor-pointer hover:shadow-md transition-all border-2 hover:border-blue-500/50 group"
             onClick={handleOutlookConnect}
           >
             <CardContent className="flex items-center gap-4 pt-6">
-              <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+              <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
                 <Mail className="h-6 w-6 text-blue-600" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Connect Outlook</h3>
-                <p className="text-sm text-muted-foreground">Use Microsoft OAuth</p>
+                <p className="text-sm text-muted-foreground">Use App Password</p>
               </div>
-              <Badge variant="secondary" className="text-xs">Soon</Badge>
+              <Badge variant="default" className="text-xs bg-blue-500">Quick Setup</Badge>
             </CardContent>
           </Card>
 
           <Card 
-            className="cursor-pointer hover:shadow-md transition-all border-2 border-primary hover:border-primary"
-            onClick={() => setShowAddDialog(true)}
+            className="cursor-pointer hover:shadow-md transition-all border-2 border-primary hover:border-primary group"
+            onClick={() => {
+              resetForm();
+              setShowAddDialog(true);
+            }}
           >
             <CardContent className="flex items-center gap-4 pt-6">
-              <div className="p-3 rounded-lg bg-primary/10">
+              <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                 <Server className="h-6 w-6 text-primary" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold">SMTP Server</h3>
-                <p className="text-sm text-muted-foreground">Custom email server</p>
+                <h3 className="font-semibold">Custom SMTP</h3>
+                <p className="text-sm text-muted-foreground">Any email server</p>
               </div>
               <Badge variant="default" className="text-xs bg-primary">Available</Badge>
             </CardContent>
@@ -532,16 +559,56 @@ export default function EmailAccountsPage() {
         setShowAddDialog(open);
         if (!open) resetForm();
       }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Add SMTP Email Account
+              {formData.smtp_host === 'smtp.gmail.com' ? (
+                <>
+                  <Mail className="h-5 w-5 text-red-500" />
+                  Connect Gmail Account
+                </>
+              ) : formData.smtp_host === 'smtp.office365.com' ? (
+                <>
+                  <Mail className="h-5 w-5 text-blue-500" />
+                  Connect Outlook Account
+                </>
+              ) : (
+                <>
+                  <Settings className="h-5 w-5" />
+                  Add SMTP Email Account
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
-              Configure your email server to send emails from your own address
+              {formData.smtp_host === 'smtp.gmail.com' 
+                ? 'Enter your Gmail address and App Password to send emails'
+                : formData.smtp_host === 'smtp.office365.com'
+                ? 'Enter your Outlook address and App Password to send emails'
+                : 'Configure your email server to send emails from your own address'
+              }
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Quick Setup Instructions for Gmail/Outlook */}
+          {(formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com') && (
+            <Alert className="border-primary/50 bg-primary/5">
+              <AlertCircle className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-sm">
+                <strong>Quick Setup:</strong> You need an App Password, not your regular password.{' '}
+                <a 
+                  href={formData.smtp_host === 'smtp.gmail.com' 
+                    ? 'https://support.google.com/accounts/answer/185833'
+                    : 'https://support.microsoft.com/en-us/account-billing/manage-app-passwords'
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Learn how to create one →
+                </a>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-4 py-4">
             {/* Account Info */}
@@ -571,48 +638,81 @@ export default function EmailAccountsPage() {
               </div>
             </div>
 
-            {/* SMTP Configuration */}
-            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-              <h4 className="font-medium text-sm flex items-center gap-2">
-                <Server className="h-4 w-4" />
-                SMTP Server Configuration
-              </h4>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label>SMTP Host *</Label>
-                  <Input
-                    value={formData.smtp_host}
-                    onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
-                    placeholder="smtp.gmail.com"
-                  />
+            {/* SMTP Configuration - Hidden for Gmail/Outlook quick setup */}
+            {formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && (
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  SMTP Server Configuration
+                </h4>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label>SMTP Host *</Label>
+                    <Input
+                      value={formData.smtp_host}
+                      onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
+                      placeholder="smtp.gmail.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Port *</Label>
+                    <Input
+                      type="number"
+                      value={formData.smtp_port}
+                      onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Port *</Label>
-                  <Input
-                    type="number"
-                    value={formData.smtp_port}
-                    onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
+
+                <div className="flex items-center justify-between pt-2">
+                  <Label className="text-sm">Enable TLS/SSL Encryption</Label>
+                  <Switch
+                    checked={formData.smtp_use_tls}
+                    onCheckedChange={(v) => setFormData({ ...formData, smtp_use_tls: v })}
                   />
                 </div>
               </div>
+            )}
 
+            {/* Simplified Credentials for Gmail/Outlook */}
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Key className="h-4 w-4" />
+                {formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com'
+                  ? 'Login Credentials'
+                  : 'SMTP Credentials'
+                }
+              </h4>
+              
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
-                  <Key className="h-3 w-3" />
-                  SMTP Username *
+                  Email Address *
                 </Label>
                 <Input
+                  type="email"
                   value={formData.smtp_user}
-                  onChange={(e) => setFormData({ ...formData, smtp_user: e.target.value })}
-                  placeholder="your-email@gmail.com"
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    smtp_user: e.target.value,
+                    from_email: e.target.value // Auto-fill from_email
+                  })}
+                  placeholder={formData.smtp_host === 'smtp.gmail.com' 
+                    ? 'your-email@gmail.com'
+                    : formData.smtp_host === 'smtp.office365.com'
+                    ? 'your-email@outlook.com'
+                    : 'your-email@company.com'
+                  }
                 />
               </div>
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Lock className="h-3 w-3" />
-                  SMTP Password / App Password *
+                  {formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com'
+                    ? 'App Password *'
+                    : 'SMTP Password *'
+                  }
                 </Label>
                 <Input
                   type="password"
@@ -620,17 +720,15 @@ export default function EmailAccountsPage() {
                   onChange={(e) => setFormData({ ...formData, smtp_password: e.target.value })}
                   placeholder="••••••••••••••••"
                 />
-                <p className="text-xs text-muted-foreground">
-                  For Gmail/Outlook, use an App Password, not your regular password
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <Label className="text-sm">Enable TLS/SSL Encryption</Label>
-                <Switch
-                  checked={formData.smtp_use_tls}
-                  onCheckedChange={(v) => setFormData({ ...formData, smtp_use_tls: v })}
-                />
+                {formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com' ? (
+                  <p className="text-xs text-muted-foreground">
+                    Use an App Password, not your regular password. 16 characters, no spaces.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    For Gmail/Outlook, use an App Password, not your regular password
+                  </p>
+                )}
               </div>
             </div>
 
