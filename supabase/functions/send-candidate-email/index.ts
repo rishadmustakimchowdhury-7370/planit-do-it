@@ -6,10 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Attachment {
+  name: string;
+  url: string;
+  size?: number;
+  type?: string;
+}
+
 interface SendEmailRequest {
   candidate_id: string;
   job_id?: string;
   from_email: string;
+  from_account_id?: string;
   to_email: string;
   cc_email?: string | null;
   bcc_email?: string | null;
@@ -19,7 +27,7 @@ interface SendEmailRequest {
   ai_generated?: boolean;
   scheduled_at?: string;
   timezone?: string | null;
-  attachments?: Array<{ name: string; url: string }>;
+  attachments?: Attachment[];
   signature?: string | null;
 }
 
@@ -28,7 +36,8 @@ const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
   recruiterName: string,
-  recruiterEmail: string
+  recruiterEmail: string,
+  attachmentLinks?: Attachment[]
 ): string => {
   // Convert plain text line breaks to HTML
   const formattedBody = bodyText
@@ -46,6 +55,18 @@ const createEmailHtml = (
         <p style="margin: 0 0 4px 0; color: #374151; font-size: 14px; font-weight: 600;">${recruiterName}</p>
         <p style="margin: 0; color: #6b7280; font-size: 13px;">${recruiterEmail}</p>
       </div>`;
+
+  // Attachments section
+  let attachmentsHtml = '';
+  if (attachmentLinks && attachmentLinks.length > 0) {
+    attachmentsHtml = `
+      <div style="margin-top: 16px; padding: 12px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #374151;">Attachments (${attachmentLinks.length})</p>
+        ${attachmentLinks.map(att => `
+          <a href="${att.url}" style="display: inline-block; margin: 4px 8px 4px 0; padding: 6px 12px; background-color: #e5e7eb; color: #374151; text-decoration: none; border-radius: 4px; font-size: 12px;">📎 ${att.name}</a>
+        `).join('')}
+      </div>`;
+  }
 
   return `
 <!DOCTYPE html>
@@ -77,6 +98,7 @@ const createEmailHtml = (
             <td style="padding: 24px 32px 32px 32px; color: #1f2937; font-size: 15px; line-height: 1.6;">
               ${formattedBody}
               ${signatureHtml}
+              ${attachmentsHtml}
             </td>
           </tr>
           <!-- Footer -->
@@ -139,6 +161,7 @@ serve(async (req) => {
       candidate_id,
       job_id,
       from_email,
+      from_account_id,
       to_email,
       cc_email,
       bcc_email,
@@ -152,20 +175,49 @@ serve(async (req) => {
       signature,
     } = body;
 
-    // Use the user's registered email for the from field if available
+    // Determine sender email - prefer user's email
     const senderEmail = profile.email || from_email || "info@recruitifycrm.com";
     const senderName = profile.full_name || "RecruitifyCRM";
+
+    // Check if user has a configured email account to send from
+    let emailAccount = null;
+    if (from_account_id) {
+      const { data: account } = await supabaseAdmin
+        .from("email_accounts")
+        .select("*")
+        .eq("id", from_account_id)
+        .eq("user_id", user.id)
+        .single();
+      
+      if (account && account.status === "connected") {
+        emailAccount = account;
+      }
+    }
 
     // Create professional HTML email
     const emailHtml = createEmailHtml(
       body_text,
       signature ?? profile.email_signature,
       senderName,
-      senderEmail
+      senderEmail,
+      attachments
     );
 
+    // Calculate the actual scheduled datetime considering timezone
+    let scheduledDateTime: string | null = null;
+    if (scheduled_at) {
+      // The scheduled_at from frontend is in local format: YYYY-MM-DDTHH:MM:SS
+      // We store it as-is since it's already in the user's intended timezone
+      scheduledDateTime = scheduled_at;
+      
+      // If timezone is provided, append it for reference
+      if (timezone) {
+        console.log(`Scheduling email for ${scheduled_at} in timezone ${timezone}`);
+      }
+    }
+
     // If scheduled for later, save to database and return
-    if (scheduled_at && new Date(scheduled_at) > new Date()) {
+    if (scheduledDateTime && new Date(scheduledDateTime) > new Date()) {
       const { data: emailRecord, error: insertError } = await supabaseAdmin
         .from("candidate_emails")
         .insert({
@@ -174,27 +226,31 @@ serve(async (req) => {
           job_id,
           sent_by: user.id,
           from_email: senderEmail,
+          from_account_id: emailAccount?.id || null,
           to_email,
           subject,
           body_text: emailHtml,
           template_id,
           ai_generated: ai_generated || false,
           status: "scheduled",
-          scheduled_at,
+          scheduled_at: scheduledDateTime,
+          timezone: timezone || "UTC",
           attachments: attachments || [],
+          retry_count: 0,
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      console.log("Email scheduled for:", scheduled_at);
+      console.log(`Email ${emailRecord.id} scheduled for: ${scheduledDateTime} (${timezone || "UTC"})`);
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: "Email scheduled",
           email_id: emailRecord.id,
-          scheduled_at,
+          scheduled_at: scheduledDateTime,
+          timezone: timezone || "UTC",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -218,6 +274,12 @@ serve(async (req) => {
         const ccRecipients = cc_email ? cc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
         const bccRecipients = bcc_email ? bcc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
 
+        // Prepare attachments for Resend
+        const resendAttachments = attachments?.map(att => ({
+          filename: att.name,
+          path: att.url,
+        })) || [];
+
         const emailPayload: Record<string, unknown> = {
           from: `${senderName} <info@recruitifycrm.com>`,
           reply_to: senderEmail,
@@ -228,6 +290,9 @@ serve(async (req) => {
         
         if (ccRecipients.length > 0) emailPayload.cc = ccRecipients;
         if (bccRecipients.length > 0) emailPayload.bcc = bccRecipients;
+        if (resendAttachments.length > 0) emailPayload.attachments = resendAttachments;
+
+        console.log(`Sending email to ${to_email} from ${senderEmail}`);
 
         const resendResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -265,6 +330,7 @@ serve(async (req) => {
         job_id,
         sent_by: user.id,
         from_email: senderEmail,
+        from_account_id: emailAccount?.id || null,
         to_email,
         subject,
         body_text: emailHtml,
@@ -275,6 +341,8 @@ serve(async (req) => {
         provider_message_id: providerMessageId,
         error_message: errorMessage,
         attachments: attachments || [],
+        timezone: timezone || "UTC",
+        retry_count: 0,
       })
       .select()
       .single();
@@ -297,6 +365,8 @@ serve(async (req) => {
         ai_generated,
         email_record_id: emailRecord?.id,
         sender_email: senderEmail,
+        has_attachments: attachments && attachments.length > 0,
+        attachment_count: attachments?.length || 0,
       },
     });
 

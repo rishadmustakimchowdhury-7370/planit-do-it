@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,9 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  Paperclip,
+  X,
+  Upload,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -58,6 +61,23 @@ interface EmailTemplate {
   body_text: string;
 }
 
+interface EmailAccount {
+  id: string;
+  display_name: string;
+  from_email: string;
+  provider: string;
+  is_default: boolean;
+  status: string;
+}
+
+interface Attachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  file?: File;
+}
+
 interface SendCandidateEmailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -65,23 +85,61 @@ interface SendCandidateEmailModalProps {
   preSelectedJobId?: string;
 }
 
-// Common timezones
+// IANA Timezones - comprehensive list
 const TIMEZONES = [
   { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'Europe/London', label: 'London (GMT/BST)' },
-  { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
-  { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
-  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
-  { value: 'Asia/Kolkata', label: 'India (IST)' },
-  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
-  { value: 'Asia/Dhaka', label: 'Dhaka (BST)' },
+  { value: 'America/New_York', label: 'Eastern Time (ET) - New York' },
+  { value: 'America/Chicago', label: 'Central Time (CT) - Chicago' },
+  { value: 'America/Denver', label: 'Mountain Time (MT) - Denver' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT) - Los Angeles' },
+  { value: 'America/Anchorage', label: 'Alaska Time - Anchorage' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time - Honolulu' },
+  { value: 'America/Toronto', label: 'Eastern Time - Toronto' },
+  { value: 'America/Vancouver', label: 'Pacific Time - Vancouver' },
+  { value: 'America/Mexico_City', label: 'Central Time - Mexico City' },
+  { value: 'America/Sao_Paulo', label: 'Brasília Time - São Paulo' },
+  { value: 'America/Buenos_Aires', label: 'Argentina Time - Buenos Aires' },
+  { value: 'Europe/London', label: 'GMT/BST - London' },
+  { value: 'Europe/Paris', label: 'CET/CEST - Paris' },
+  { value: 'Europe/Berlin', label: 'CET/CEST - Berlin' },
+  { value: 'Europe/Amsterdam', label: 'CET/CEST - Amsterdam' },
+  { value: 'Europe/Madrid', label: 'CET/CEST - Madrid' },
+  { value: 'Europe/Rome', label: 'CET/CEST - Rome' },
+  { value: 'Europe/Moscow', label: 'Moscow Time - Moscow' },
+  { value: 'Europe/Istanbul', label: 'Turkey Time - Istanbul' },
+  { value: 'Asia/Dubai', label: 'Gulf Standard Time - Dubai' },
+  { value: 'Asia/Karachi', label: 'Pakistan Time - Karachi' },
+  { value: 'Asia/Kolkata', label: 'India Standard Time - Mumbai' },
+  { value: 'Asia/Dhaka', label: 'Bangladesh Time - Dhaka' },
+  { value: 'Asia/Bangkok', label: 'Indochina Time - Bangkok' },
+  { value: 'Asia/Singapore', label: 'Singapore Time - Singapore' },
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong Time - Hong Kong' },
+  { value: 'Asia/Shanghai', label: 'China Standard Time - Shanghai' },
+  { value: 'Asia/Tokyo', label: 'Japan Standard Time - Tokyo' },
+  { value: 'Asia/Seoul', label: 'Korea Standard Time - Seoul' },
+  { value: 'Australia/Perth', label: 'Australian Western - Perth' },
+  { value: 'Australia/Adelaide', label: 'Australian Central - Adelaide' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern - Sydney' },
+  { value: 'Australia/Melbourne', label: 'Australian Eastern - Melbourne' },
+  { value: 'Pacific/Auckland', label: 'New Zealand Time - Auckland' },
+  { value: 'Africa/Johannesburg', label: 'South Africa Time - Johannesburg' },
+  { value: 'Africa/Cairo', label: 'Eastern European Time - Cairo' },
+  { value: 'Africa/Lagos', label: 'West Africa Time - Lagos' },
 ];
+
+// Allowed file types
+const ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Merge placeholders in text
 const mergePlaceholders = (
@@ -109,7 +167,8 @@ export function SendCandidateEmailModal({
   candidate,
   preSelectedJobId,
 }: SendCandidateEmailModalProps) {
-  const { profile, tenantId } = useAuth();
+  const { profile, tenantId, user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'compose' | 'ai' | 'preview'>('compose');
   
   // Form state
@@ -123,11 +182,19 @@ export function SendCandidateEmailModal({
   const [signatureText, setSignatureText] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>(preSelectedJobId);
   
+  // Sender account state
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  
+  // Attachments state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  
   // Schedule state
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [timezone, setTimezone] = useState('UTC');
   
   // Data state
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -150,11 +217,12 @@ export function SendCandidateEmailModal({
   useEffect(() => {
     try {
       const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (userTz && TIMEZONES.some(tz => tz.value === userTz)) {
+      const found = TIMEZONES.find(tz => tz.value === userTz);
+      if (found) {
         setTimezone(userTz);
       }
     } catch (e) {
-      console.log('Could not detect timezone');
+      console.log('Could not detect timezone, using UTC');
     }
   }, []);
 
@@ -171,6 +239,7 @@ export function SendCandidateEmailModal({
     if (open && tenantId) {
       fetchTemplates();
       fetchJobs();
+      fetchEmailAccounts();
       setToEmail(candidate.email);
     }
   }, [open, tenantId, candidate.email]);
@@ -219,6 +288,27 @@ export function SendCandidateEmailModal({
     }
   };
 
+  const fetchEmailAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_accounts')
+        .select('id, display_name, from_email, provider, is_default, status')
+        .eq('status', 'connected')
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+      setEmailAccounts(data || []);
+      
+      // Auto-select default account if available
+      const defaultAccount = data?.find(a => a.is_default);
+      if (defaultAccount) {
+        setSelectedAccountId(defaultAccount.id);
+      }
+    } catch (error) {
+      console.error('Error fetching email accounts:', error);
+    }
+  };
+
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
@@ -227,6 +317,69 @@ export function SendCandidateEmailModal({
       setSubject(mergePlaceholders(template.subject, candidate, selectedJob, recruiterName));
       setBody(mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName));
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newAttachments: Attachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // Validate file type
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast.error(`${file.name}: File type not allowed`);
+        continue;
+      }
+      
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name}: File too large (max 10MB)`);
+        continue;
+      }
+
+      try {
+        // Upload to Supabase Storage
+        const fileName = `${Date.now()}-${file.name}`;
+        const filePath = `${tenantId}/email-attachments/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        newAttachments.push({
+          name: file.name,
+          url: urlData.publicUrl,
+          size: file.size,
+          type: file.type,
+        });
+      } catch (error: any) {
+        console.error('Error uploading file:', error);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+    setIsUploading(false);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleGenerateAI = async () => {
@@ -255,11 +408,9 @@ export function SendCandidateEmailModal({
       if (error) throw error;
 
       if (data?.email_body) {
-        // Merge placeholders in the AI-generated content
         const mergedBody = mergePlaceholders(data.email_body, candidate, selectedJob, profile?.full_name || 'Recruiter');
         setBody(mergedBody);
         
-        // Auto-generate subject based on purpose
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
           interview_invite: `Interview Invitation - ${selectedJob.title}`,
@@ -284,10 +435,7 @@ export function SendCandidateEmailModal({
 
   const getScheduledDateTime = (): string | null => {
     if (!scheduleEnabled || !scheduledDate || !scheduledTime) return null;
-    
-    // Create ISO string with timezone info
-    const dateTimeStr = `${scheduledDate}T${scheduledTime}:00`;
-    return dateTimeStr;
+    return `${scheduledDate}T${scheduledTime}:00`;
   };
 
   const handleSend = async () => {
@@ -308,11 +456,16 @@ export function SendCandidateEmailModal({
     try {
       const scheduledAt = getScheduledDateTime();
       
+      // Get selected account email
+      const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
+      const fromEmail = selectedAccount?.from_email || profile?.email || 'noreply@recruitifycrm.com';
+      
       const { data, error } = await supabase.functions.invoke('send-candidate-email', {
         body: {
           candidate_id: candidate.id,
           job_id: selectedJobId,
-          from_email: profile?.email || 'noreply@recruitifycrm.com',
+          from_email: fromEmail,
+          from_account_id: selectedAccountId || null,
           to_email: toEmail,
           cc_email: ccEmail || null,
           bcc_email: bccEmail || null,
@@ -323,6 +476,7 @@ export function SendCandidateEmailModal({
           scheduled_at: scheduledAt,
           timezone: scheduleEnabled ? timezone : null,
           signature: appendSignature ? signatureText : null,
+          attachments: attachments.map(a => ({ name: a.name, url: a.url, size: a.size, type: a.type })),
         },
       });
 
@@ -371,12 +525,18 @@ export function SendCandidateEmailModal({
     setScheduledDate('');
     setScheduledTime('');
     setActiveTab('compose');
+    setAttachments([]);
   };
 
-  // Generate preview content
   const getPreviewContent = () => {
     const sig = appendSignature && signatureText ? `\n\n${signatureText}` : '';
     return body + sig;
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const placeholders = [
@@ -385,6 +545,9 @@ export function SendCandidateEmailModal({
     '{{company_name}}',
     '{{recruiter_name}}',
   ];
+
+  const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
+  const displayFromEmail = selectedAccount?.from_email || profile?.email || 'System Email';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -417,14 +580,37 @@ export function SendCandidateEmailModal({
 
           <ScrollArea className="flex-1 mt-4">
             <TabsContent value="compose" className="space-y-4 m-0 pr-4">
-              {/* From Email */}
+              {/* From Email - Sender Selection */}
               <div className="space-y-2">
                 <Label>From</Label>
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{profile?.email || 'Your email'}</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">Reply-to</Badge>
-                </div>
+                {emailAccounts.length > 0 ? (
+                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sender account..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {emailAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{account.display_name}</span>
+                            <span className="text-muted-foreground text-sm">({account.from_email})</span>
+                            {account.is_default && <Badge variant="secondary" className="text-xs">Default</Badge>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{displayFromEmail}</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">Reply-to</Badge>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Emails sent from info@recruitifycrm.com with your email as reply-to. 
+                  <a href="/email-accounts" className="text-primary ml-1 hover:underline">Configure SMTP</a> to send from your domain.
+                </p>
               </div>
 
               {/* To Email */}
@@ -461,7 +647,7 @@ export function SendCandidateEmailModal({
                       type="email"
                       value={ccEmail}
                       onChange={(e) => setCcEmail(e.target.value)}
-                      placeholder="cc@email.com"
+                      placeholder="cc@email.com, cc2@email.com"
                     />
                   </div>
                   <div className="space-y-2">
@@ -557,6 +743,69 @@ Best regards,"
                 />
               </div>
 
+              {/* Attachments */}
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium">Attachments</Label>
+                    {attachments.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">{attachments.length}</Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="gap-2"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    Add Files
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+                
+                {attachments.length > 0 && (
+                  <div className="space-y-2">
+                    {attachments.map((att, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm truncate">{att.name}</span>
+                          <span className="text-xs text-muted-foreground">({formatFileSize(att.size)})</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeAttachment(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <p className="text-xs text-muted-foreground">
+                  Allowed: PDF, DOC, DOCX, XLS, XLSX, PNG, JPG. Max 10MB per file.
+                </p>
+              </div>
+
               {/* Signature */}
               <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
                 <div className="flex items-center justify-between">
@@ -601,23 +850,25 @@ your@email.com"
                 </div>
                 
                 {scheduleEnabled && (
-                  <div className="grid grid-cols-3 gap-3 animate-in fade-in-0 slide-in-from-top-2">
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Date</Label>
-                      <Input
-                        type="date"
-                        value={scheduledDate}
-                        onChange={(e) => setScheduledDate(e.target.value)}
-                        min={format(new Date(), 'yyyy-MM-dd')}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Time</Label>
-                      <Input
-                        type="time"
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                      />
+                  <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Date</Label>
+                        <Input
+                          type="date"
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Time</Label>
+                        <Input
+                          type="time"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -625,12 +876,12 @@ your@email.com"
                         Timezone
                       </Label>
                       <Select value={timezone} onValueChange={setTimezone}>
-                        <SelectTrigger className="text-xs">
+                        <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60">
                           {TIMEZONES.map((tz) => (
-                            <SelectItem key={tz.value} value={tz.value} className="text-xs">
+                            <SelectItem key={tz.value} value={tz.value}>
                               {tz.label}
                             </SelectItem>
                           ))}
@@ -667,7 +918,6 @@ your@email.com"
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  {/* Purpose */}
                   <div className="space-y-2">
                     <Label>Purpose</Label>
                     <Select value={aiPurpose} onValueChange={setAiPurpose}>
@@ -686,7 +936,6 @@ your@email.com"
                     </Select>
                   </div>
 
-                  {/* Tone */}
                   <div className="space-y-2">
                     <Label>Tone</Label>
                     <Select value={aiTone} onValueChange={setAiTone}>
@@ -701,7 +950,6 @@ your@email.com"
                     </Select>
                   </div>
 
-                  {/* Length */}
                   <div className="space-y-2">
                     <Label>Length</Label>
                     <Select value={aiLength} onValueChange={setAiLength}>
@@ -717,7 +965,6 @@ your@email.com"
                   </div>
                 </div>
 
-                {/* Custom Instructions */}
                 {aiPurpose === 'custom' && (
                   <div className="space-y-2">
                     <Label>Custom Instructions</Label>
@@ -761,7 +1008,7 @@ your@email.com"
                 <div className="bg-muted/50 p-4 space-y-2 border-b">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground w-16">From:</span>
-                    <span>{profile?.email || 'your@email.com'}</span>
+                    <span>{displayFromEmail}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground w-16">To:</span>
@@ -787,6 +1034,12 @@ your@email.com"
                     <div className="flex items-center gap-2 text-sm text-primary">
                       <Clock className="h-4 w-4" />
                       <span>Scheduled: {scheduledDate} at {scheduledTime} ({timezone})</span>
+                    </div>
+                  )}
+                  {attachments.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <span>{attachments.length} attachment{attachments.length > 1 ? 's' : ''}</span>
                     </div>
                   )}
                 </div>
