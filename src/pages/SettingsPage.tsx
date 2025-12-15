@@ -3,6 +3,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -110,6 +111,7 @@ export default function SettingsPage() {
     job_title: '',
     avatar_url: '',
     linkedin_url: '',
+    email_signature: '',
   });
 
   const [tenantData, setTenantData] = useState({
@@ -127,6 +129,7 @@ export default function SettingsPage() {
         job_title: profile.job_title || '',
         avatar_url: profile.avatar_url || '',
         linkedin_url: '',
+        email_signature: profile.email_signature || '',
       });
     }
     
@@ -319,6 +322,7 @@ export default function SettingsPage() {
           phone: profileData.phone || null,
           job_title: profileData.job_title || null,
           avatar_url: profileData.avatar_url || null,
+          email_signature: profileData.email_signature || null,
         })
         .eq('id', profile.id);
 
@@ -551,6 +555,41 @@ export default function SettingsPage() {
                         <p className="text-xs text-destructive">Please enter a valid LinkedIn URL</p>
                       )}
                     </div>
+                  </div>
+
+                  <Separator className="my-6" />
+
+                  {/* Email Signature Section */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">Email Signature</h3>
+                      <p className="text-sm text-muted-foreground">
+                        This signature will be automatically added to your outgoing emails
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email_signature">Signature</Label>
+                      <Textarea
+                        id="email_signature"
+                        value={profileData.email_signature}
+                        onChange={(e) => setProfileData({ ...profileData, email_signature: e.target.value })}
+                        placeholder="Best regards,&#10;John Doe&#10;Senior Recruiter&#10;+1 (555) 123-4567"
+                        rows={5}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Tip: Use line breaks to format your signature. HTML is supported.
+                      </p>
+                    </div>
+                    {profileData.email_signature && (
+                      <div className="p-4 rounded-lg bg-muted/50 border">
+                        <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                        <div 
+                          className="text-sm whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: profileData.email_signature.replace(/\n/g, '<br>') }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end pt-4">

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
 import { 
@@ -529,7 +529,7 @@ const CandidateDetailPage = () => {
       </Tabs>
 
       {/* Email Modal */}
-      <SendCandidateEmailModal
+      <GmailComposeModal
         open={emailDialogOpen}
         onOpenChange={setEmailDialogOpen}
         candidate={{
