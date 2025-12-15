@@ -38,6 +38,7 @@ import TutorialVideosPage from "./pages/TutorialVideosPage";
 import EmailAnalyticsPage from "./pages/EmailAnalyticsPage";
 import EmailAccountsPage from "./pages/EmailAccountsPage";
 import EventsPage from "./pages/EventsPage";
+import EventDetailPage from "./pages/EventDetailPage";
 import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
@@ -88,6 +89,7 @@ const AppRoutes = () => (
     <Route path="/email/analytics" element={<ProtectedRoute><EmailAnalyticsPage /></ProtectedRoute>} />
     <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />
     <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
+    <Route path="/events/:id" element={<ProtectedRoute><EventDetailPage /></ProtectedRoute>} />
     
     {/* Super Admin routes */}
     <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
