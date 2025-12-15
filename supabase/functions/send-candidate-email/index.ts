@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +14,23 @@ interface Attachment {
   type?: string;
 }
 
+interface EmailAccount {
+  id: string;
+  provider: string;
+  from_email: string;
+  display_name: string;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_user: string | null;
+  smtp_password: string | null;
+  smtp_use_tls: boolean | null;
+  status: string;
+}
+
 interface SendEmailRequest {
   candidate_id: string;
   job_id?: string;
-  from_email: string;
+  from_email?: string;
   from_account_id?: string;
   to_email: string;
   cc_email?: string | null;
@@ -29,6 +43,7 @@ interface SendEmailRequest {
   timezone?: string | null;
   attachments?: Attachment[];
   signature?: string | null;
+  use_system_fallback?: boolean; // If true, allows system email as fallback
 }
 
 // Professional HTML email template
@@ -39,7 +54,7 @@ const createEmailHtml = (
   recruiterEmail: string,
   attachmentLinks?: Attachment[]
 ): string => {
-  // Convert plain text line breaks to HTML
+  // Convert plain text line breaks to HTML paragraphs
   const formattedBody = bodyText
     .split('\n')
     .map(line => line.trim() ? `<p style="margin: 0 0 12px 0; line-height: 1.6;">${line}</p>` : '<br/>')
@@ -81,32 +96,12 @@ const createEmailHtml = (
     <tr>
       <td style="padding: 32px 16px;">
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-          <!-- Header -->
-          <tr>
-            <td style="padding: 32px 32px 0 32px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td>
-                    <img src="https://efdvolifacsnmiinifiq.supabase.co/storage/v1/object/public/documents/brand/logo.png" alt="RecruitifyCRM" height="36" style="display: block;" onerror="this.style.display='none'"/>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
           <!-- Body -->
           <tr>
-            <td style="padding: 24px 32px 32px 32px; color: #1f2937; font-size: 15px; line-height: 1.6;">
+            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.6;">
               ${formattedBody}
               ${signatureHtml}
               ${attachmentsHtml}
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
-              <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
-                This email was sent via <a href="https://recruitifycrm.com" style="color: #0052cc; text-decoration: none;">RecruitifyCRM</a>
-              </p>
             </td>
           </tr>
         </table>
@@ -116,6 +111,119 @@ const createEmailHtml = (
 </body>
 </html>`;
 };
+
+// Send email via SMTP
+async function sendViaSMTP(
+  account: EmailAccount,
+  toEmail: string,
+  ccEmail: string | null,
+  bccEmail: string | null,
+  subject: string,
+  htmlBody: string,
+  attachments?: Attachment[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!account.smtp_host || !account.smtp_user || !account.smtp_password) {
+    return { success: false, error: "SMTP account not properly configured" };
+  }
+
+  try {
+    const client = new SMTPClient({
+      connection: {
+        hostname: account.smtp_host,
+        port: account.smtp_port || 587,
+        tls: account.smtp_use_tls ?? true,
+        auth: {
+          username: account.smtp_user,
+          password: account.smtp_password,
+        },
+      },
+    });
+
+    const toList = toEmail.split(",").map(e => e.trim()).filter(Boolean);
+    const ccList = ccEmail ? ccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
+    const bccList = bccEmail ? bccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
+
+    await client.send({
+      from: `${account.display_name} <${account.from_email}>`,
+      to: toList,
+      cc: ccList.length > 0 ? ccList : undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
+      subject: subject,
+      content: "Please view this email in an HTML-compatible client.",
+      html: htmlBody,
+    });
+
+    await client.close();
+
+    console.log(`Email sent via SMTP from ${account.from_email} to ${toEmail}`);
+    return { success: true, messageId: crypto.randomUUID() };
+  } catch (error) {
+    console.error("SMTP send error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "SMTP send failed" };
+  }
+}
+
+// Send email via Resend (system fallback)
+async function sendViaResend(
+  resendApiKey: string,
+  supabaseUrl: string,
+  fromName: string,
+  replyToEmail: string,
+  toEmail: string,
+  ccEmail: string | null,
+  bccEmail: string | null,
+  subject: string,
+  htmlBody: string,
+  attachments?: Attachment[]
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const trackingId = crypto.randomUUID();
+    const trackingPixel = `<img src="${supabaseUrl}/functions/v1/track-email?id=${trackingId}&type=open" width="1" height="1" style="display:none" alt=""/>`;
+    const emailWithTracking = htmlBody.replace('</body>', `${trackingPixel}</body>`);
+
+    const toRecipients = [toEmail];
+    const ccRecipients = ccEmail ? ccEmail.split(',').map(e => e.trim()).filter(Boolean) : [];
+    const bccRecipients = bccEmail ? bccEmail.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+    const resendAttachments = attachments?.map(att => ({
+      filename: att.name,
+      path: att.url,
+    })) || [];
+
+    const emailPayload: Record<string, unknown> = {
+      from: `${fromName} <info@recruitifycrm.com>`,
+      reply_to: replyToEmail,
+      to: toRecipients,
+      subject: subject,
+      html: emailWithTracking,
+    };
+    
+    if (ccRecipients.length > 0) emailPayload.cc = ccRecipients;
+    if (bccRecipients.length > 0) emailPayload.bcc = bccRecipients;
+    if (resendAttachments.length > 0) emailPayload.attachments = resendAttachments;
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailPayload),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || "Resend API error");
+    }
+
+    console.log(`Email sent via Resend (system) to ${toEmail}, reply-to: ${replyToEmail}`);
+    return { success: true, messageId: data.id };
+  } catch (error) {
+    console.error("Resend send error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Resend send failed" };
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -160,7 +268,6 @@ serve(async (req) => {
     const {
       candidate_id,
       job_id,
-      from_email,
       from_account_id,
       to_email,
       cc_email,
@@ -173,26 +280,76 @@ serve(async (req) => {
       timezone,
       attachments,
       signature,
+      use_system_fallback = false,
     } = body;
 
-    // Determine sender email - prefer user's email
-    const senderEmail = profile.email || from_email || "info@recruitifycrm.com";
-    const senderName = profile.full_name || "RecruitifyCRM";
+    const recruiterName = profile.full_name || "Recruiter";
+    const recruiterEmail = profile.email || "noreply@recruitifycrm.com";
 
-    // Check if user has a configured email account to send from
-    let emailAccount = null;
+    // Try to get user's email account
+    let emailAccount: EmailAccount | null = null;
+    let sendingMethod: "smtp" | "resend" | "blocked" = "blocked";
+
+    // First, try to get the specified account
     if (from_account_id) {
       const { data: account } = await supabaseAdmin
         .from("email_accounts")
         .select("*")
         .eq("id", from_account_id)
         .eq("user_id", user.id)
+        .eq("status", "connected")
         .single();
       
-      if (account && account.status === "connected") {
-        emailAccount = account;
+      if (account) {
+        emailAccount = account as EmailAccount;
       }
     }
+
+    // If no specific account, try to get user's default account
+    if (!emailAccount) {
+      const { data: defaultAccount } = await supabaseAdmin
+        .from("email_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_default", true)
+        .eq("status", "connected")
+        .single();
+      
+      if (defaultAccount) {
+        emailAccount = defaultAccount as EmailAccount;
+      }
+    }
+
+    // If still no account, try any connected account for the user
+    if (!emailAccount) {
+      const { data: anyAccount } = await supabaseAdmin
+        .from("email_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "connected")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (anyAccount) {
+        emailAccount = anyAccount as EmailAccount;
+      }
+    }
+
+    // Determine sending method
+    if (emailAccount && emailAccount.provider === "smtp") {
+      sendingMethod = "smtp";
+    } else if (use_system_fallback && RESEND_API_KEY) {
+      sendingMethod = "resend";
+    } else if (!emailAccount && RESEND_API_KEY) {
+      // No user account configured - we'll still send but with clear warning
+      sendingMethod = "resend";
+      console.warn(`No email account configured for user ${user.id}, using system fallback`);
+    }
+
+    // Determine sender email for display/logging
+    const senderEmail = emailAccount?.from_email || profile.email || "info@recruitifycrm.com";
+    const senderName = emailAccount?.display_name || recruiterName;
 
     // Create professional HTML email
     const emailHtml = createEmailHtml(
@@ -203,21 +360,8 @@ serve(async (req) => {
       attachments
     );
 
-    // Calculate the actual scheduled datetime considering timezone
-    let scheduledDateTime: string | null = null;
-    if (scheduled_at) {
-      // The scheduled_at from frontend is in local format: YYYY-MM-DDTHH:MM:SS
-      // We store it as-is since it's already in the user's intended timezone
-      scheduledDateTime = scheduled_at;
-      
-      // If timezone is provided, append it for reference
-      if (timezone) {
-        console.log(`Scheduling email for ${scheduled_at} in timezone ${timezone}`);
-      }
-    }
-
-    // If scheduled for later, save to database and return
-    if (scheduledDateTime && new Date(scheduledDateTime) > new Date()) {
+    // Handle scheduled emails
+    if (scheduled_at && new Date(scheduled_at) > new Date()) {
       const { data: emailRecord, error: insertError } = await supabaseAdmin
         .from("candidate_emails")
         .insert({
@@ -233,92 +377,76 @@ serve(async (req) => {
           template_id,
           ai_generated: ai_generated || false,
           status: "scheduled",
-          scheduled_at: scheduledDateTime,
+          scheduled_at,
           timezone: timezone || "UTC",
           attachments: attachments || [],
           retry_count: 0,
+          metadata: {
+            cc_email,
+            bcc_email,
+            sending_method: sendingMethod,
+            has_user_account: !!emailAccount,
+          },
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      console.log(`Email ${emailRecord.id} scheduled for: ${scheduledDateTime} (${timezone || "UTC"})`);
+      console.log(`Email ${emailRecord.id} scheduled for: ${scheduled_at} (${timezone || "UTC"})`);
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: "Email scheduled",
           email_id: emailRecord.id,
-          scheduled_at: scheduledDateTime,
+          scheduled_at,
           timezone: timezone || "UTC",
+          sending_from: senderEmail,
+          sending_method: sendingMethod,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Send immediately
-    let emailSent = false;
-    let providerMessageId: string | null = null;
-    let errorMessage: string | null = null;
+    let sendResult: { success: boolean; messageId?: string; error?: string };
+    
+    if (sendingMethod === "smtp" && emailAccount) {
+      sendResult = await sendViaSMTP(
+        emailAccount,
+        to_email,
+        cc_email || null,
+        bcc_email || null,
+        subject,
+        emailHtml,
+        attachments
+      );
 
-    if (RESEND_API_KEY) {
-      // Send via Resend API
-      try {
-        // Add tracking pixel
-        const trackingId = crypto.randomUUID();
-        const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/track-email?id=${trackingId}&type=open" width="1" height="1" style="display:none" alt=""/>`;
-        const emailWithTracking = emailHtml.replace('</body>', `${trackingPixel}</body>`);
-
-        // Build recipient lists
-        const toRecipients = [to_email];
-        const ccRecipients = cc_email ? cc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
-        const bccRecipients = bcc_email ? bcc_email.split(',').map(e => e.trim()).filter(Boolean) : [];
-
-        // Prepare attachments for Resend
-        const resendAttachments = attachments?.map(att => ({
-          filename: att.name,
-          path: att.url,
-        })) || [];
-
-        const emailPayload: Record<string, unknown> = {
-          from: `${senderName} <info@recruitifycrm.com>`,
-          reply_to: senderEmail,
-          to: toRecipients,
-          subject: subject,
-          html: emailWithTracking,
-        };
-        
-        if (ccRecipients.length > 0) emailPayload.cc = ccRecipients;
-        if (bccRecipients.length > 0) emailPayload.bcc = bccRecipients;
-        if (resendAttachments.length > 0) emailPayload.attachments = resendAttachments;
-
-        console.log(`Sending email to ${to_email} from ${senderEmail}`);
-
-        const resendResponse = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(emailPayload),
-        });
-
-        const resendData = await resendResponse.json();
-        
-        if (!resendResponse.ok) {
-          throw new Error(resendData.message || "Resend API error");
-        }
-
-        providerMessageId = resendData.id || null;
-        emailSent = true;
-        console.log("Email sent via Resend:", providerMessageId);
-      } catch (resendError: any) {
-        console.error("Resend error:", resendError);
-        errorMessage = resendError.message;
+      // Update account last used
+      if (sendResult.success) {
+        await supabaseAdmin
+          .from("email_accounts")
+          .update({ last_sync_at: new Date().toISOString() })
+          .eq("id", emailAccount.id);
       }
+    } else if (sendingMethod === "resend" && RESEND_API_KEY) {
+      sendResult = await sendViaResend(
+        RESEND_API_KEY,
+        SUPABASE_URL,
+        senderName,
+        recruiterEmail,
+        to_email,
+        cc_email || null,
+        bcc_email || null,
+        subject,
+        emailHtml,
+        attachments
+      );
     } else {
-      errorMessage = "No email provider configured (RESEND_API_KEY missing)";
-      console.warn(errorMessage);
+      sendResult = { 
+        success: false, 
+        error: "No email account configured. Please configure your email in Settings → Email Integration." 
+      };
     }
 
     // Save email record
@@ -336,13 +464,19 @@ serve(async (req) => {
         body_text: emailHtml,
         template_id,
         ai_generated: ai_generated || false,
-        status: emailSent ? "sent" : "failed",
-        sent_at: emailSent ? new Date().toISOString() : null,
-        provider_message_id: providerMessageId,
-        error_message: errorMessage,
+        status: sendResult.success ? "sent" : "failed",
+        sent_at: sendResult.success ? new Date().toISOString() : null,
+        provider_message_id: sendResult.messageId || null,
+        error_message: sendResult.error || null,
         attachments: attachments || [],
         timezone: timezone || "UTC",
         retry_count: 0,
+        metadata: {
+          cc_email,
+          bcc_email,
+          sending_method: sendingMethod,
+          has_user_account: !!emailAccount,
+        },
       })
       .select()
       .single();
@@ -357,27 +491,29 @@ serve(async (req) => {
       sent_by: user.id,
       recipient_email: to_email,
       subject,
-      status: emailSent ? "sent" : "failed",
-      error_message: errorMessage,
+      status: sendResult.success ? "sent" : "failed",
+      error_message: sendResult.error || null,
       metadata: {
         candidate_id,
         job_id,
         ai_generated,
         email_record_id: emailRecord?.id,
         sender_email: senderEmail,
+        sending_method: sendingMethod,
         has_attachments: attachments && attachments.length > 0,
         attachment_count: attachments?.length || 0,
       },
     });
 
-    if (!emailSent) {
+    if (!sendResult.success) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: errorMessage || "Failed to send email",
+          error: sendResult.error || "Failed to send email",
           email_id: emailRecord?.id,
+          needs_configuration: sendingMethod === "blocked",
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: sendingMethod === "blocked" ? 400 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -386,8 +522,10 @@ serve(async (req) => {
         success: true, 
         message: "Email sent successfully",
         email_id: emailRecord?.id,
-        provider_message_id: providerMessageId,
+        provider_message_id: sendResult.messageId,
         sent_from: senderEmail,
+        sending_method: sendingMethod,
+        used_user_account: !!emailAccount,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
