@@ -35,6 +35,8 @@ import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
 import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
 import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
 import TutorialVideosPage from "./pages/TutorialVideosPage";
+import EmailAnalyticsPage from "./pages/EmailAnalyticsPage";
+import EmailAccountsPage from "./pages/EmailAccountsPage";
 import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
@@ -82,6 +84,8 @@ const AppRoutes = () => (
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
     <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
+    <Route path="/email/analytics" element={<ProtectedRoute><EmailAnalyticsPage /></ProtectedRoute>} />
+    <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />
     
     {/* Super Admin routes */}
     <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
