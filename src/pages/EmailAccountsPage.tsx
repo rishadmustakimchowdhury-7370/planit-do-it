@@ -143,13 +143,24 @@ export default function EmailAccountsPage() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Surface helpful error message coming from the edge function
+        const ctx: any = (error as any).context;
+        const serverError = ctx?.error as { error?: string; message?: string } | undefined;
+        const serverMessage = serverError?.error || serverError?.message;
+        const errorMessage = serverMessage || error.message || 'Connection test failed';
+        setTestResult({ success: false, message: errorMessage });
+        toast.error(errorMessage);
+        return;
+      }
 
       if (data?.success) {
         setTestResult({ success: true, message: data.message || 'Connection successful!' });
         toast.success('SMTP connection verified! Test email sent.');
       } else {
-        throw new Error(data?.error || 'Test failed');
+        const errorMessage = data?.error || 'Test failed';
+        setTestResult({ success: false, message: errorMessage });
+        toast.error(errorMessage);
       }
     } catch (error: any) {
       console.error('Test connection error:', error);
@@ -160,7 +171,6 @@ export default function EmailAccountsPage() {
       setIsTesting(false);
     }
   };
-
   const handleAddAccount = async () => {
     if (!formData.from_email || !formData.display_name) {
       toast.error('Please fill in all required fields');
