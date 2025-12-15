@@ -39,7 +39,9 @@ const statusLabels: Record<PipelineStage, string> = {
   rejected: 'Rejected',
 };
 
-export function CandidateCard({ candidate, showMatchScore = true, compact = false }: CandidateCardProps) {
+// AI Match Score should ONLY be shown in job-specific context, not in global candidate lists
+// showMatchScore is now false by default to prevent public exposure of scores
+export function CandidateCard({ candidate, showMatchScore = false, compact = false }: CandidateCardProps) {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   if (compact) {

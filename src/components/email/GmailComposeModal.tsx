@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import {
   X,
   Minus,
@@ -32,6 +33,7 @@ import {
   Sparkles,
   Loader2,
   Type,
+  Upload,
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -73,12 +75,31 @@ interface EmailTemplate {
   body_text: string;
 }
 
+interface Attachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+}
+
 interface GmailComposeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidate: Candidate;
   preSelectedJobId?: string;
 }
+
+const ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/png',
+  'image/jpeg',
+];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const mergePlaceholders = (
   text: string,
@@ -106,6 +127,7 @@ export function GmailComposeModal({
   preSelectedJobId,
 }: GmailComposeModalProps) {
   const { profile, tenantId } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [toEmail, setToEmail] = useState(candidate.email);
@@ -117,6 +139,10 @@ export function GmailComposeModal({
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>(preSelectedJobId);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Attachments state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   
   // Data state
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -237,6 +263,65 @@ export function GmailComposeModal({
     }
   };
 
+  // File upload handlers
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newAttachments: Attachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast.error(`${file.name}: File type not allowed`);
+        continue;
+      }
+      
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name}: File too large (max 10MB)`);
+        continue;
+      }
+
+      try {
+        const fileName = `${Date.now()}-${file.name}`;
+        const filePath = `${tenantId}/email-attachments/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        newAttachments.push({
+          name: file.name,
+          url: urlData.publicUrl,
+          size: file.size,
+          type: file.type,
+        });
+      } catch (error: any) {
+        console.error('Error uploading file:', error);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+    setIsUploading(false);
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleGenerateAI = async () => {
     if (!selectedJob) {
       toast.error('Please select a job first');
@@ -314,6 +399,7 @@ export function GmailComposeModal({
           body_text: finalBody,
           ai_generated: false,
           scheduled_at: scheduleType === 'later' ? scheduledAt : null,
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
       });
 
@@ -348,6 +434,7 @@ export function GmailComposeModal({
     setShowBcc(false);
     setScheduleType('now');
     setScheduledAt('');
+    setAttachments([]);
   };
 
   const setLink = useCallback(() => {
@@ -625,6 +712,36 @@ export function GmailComposeModal({
           </div>
         )}
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+        />
+
+        {/* Attachments Preview */}
+        {attachments.length > 0 && (
+          <div className="px-4 py-2 border-t bg-muted/30">
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((att, index) => (
+                <Badge key={index} variant="secondary" className="py-1 px-2 gap-1">
+                  <Paperclip className="h-3 w-3" />
+                  <span className="max-w-[150px] truncate">{att.name}</span>
+                  <button
+                    onClick={() => removeAttachment(index)}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Editor Area */}
         <div className="flex-1 overflow-y-auto">
           <EditorContent editor={editor} />
@@ -642,7 +759,7 @@ export function GmailComposeModal({
           <div className="flex items-center gap-1">
             <Button
               onClick={handleSend}
-              disabled={isSending}
+              disabled={isSending || isUploading}
               className="gap-2"
               size="sm"
             >
@@ -721,6 +838,21 @@ export function GmailComposeModal({
               tooltip="Redo"
             >
               <Redo className="h-4 w-4" />
+            </ToolbarButton>
+
+            <Separator orientation="vertical" className="h-6 mx-1" />
+
+            {/* Attachment Button */}
+            <ToolbarButton
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              tooltip="Attach files"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
             </ToolbarButton>
           </div>
 
