@@ -280,7 +280,7 @@ serve(async (req: Request) => {
     const organizerName = organizer?.full_name || 'Recruiter';
     const organizerEmail = organizer?.email || 'noreply@recruitifycrm.com';
 
-    // Fetch participants
+    // Fetch participants (without profiles join - fetch separately)
     let participantsQuery = supabase
       .from('event_participants')
       .select(`
@@ -293,8 +293,7 @@ serve(async (req: Request) => {
         external_name,
         external_email,
         candidates(full_name, email),
-        clients(name, contact_email),
-        profiles:user_id(full_name, email)
+        clients(name, contact_email)
       `)
       .eq('event_id', event_id);
 
@@ -308,6 +307,25 @@ serve(async (req: Request) => {
       throw new Error(`Failed to fetch participants: ${participantsError.message}`);
     }
 
+    // Fetch user profiles separately for user-type participants
+    const userIds = (rawParticipants || [])
+      .filter((p: any) => p.participant_type === 'user' && p.user_id)
+      .map((p: any) => p.user_id);
+    
+    let userProfiles: Record<string, { full_name: string; email: string }> = {};
+    
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+      
+      userProfiles = (profiles || []).reduce((acc: any, p: any) => {
+        acc[p.id] = { full_name: p.full_name, email: p.email };
+        return acc;
+      }, {});
+    }
+
     // Transform participants to a usable format
     const participants: Participant[] = (rawParticipants || []).map((p: any) => {
       let email = '';
@@ -319,9 +337,9 @@ serve(async (req: Request) => {
       } else if (p.participant_type === 'client' && p.clients) {
         email = p.clients.contact_email || '';
         name = p.clients.name;
-      } else if (p.participant_type === 'user' && p.profiles) {
-        email = p.profiles.email;
-        name = p.profiles.full_name;
+      } else if (p.participant_type === 'user' && p.user_id && userProfiles[p.user_id]) {
+        email = userProfiles[p.user_id].email;
+        name = userProfiles[p.user_id].full_name;
       } else if (p.participant_type === 'external') {
         email = p.external_email || '';
         name = p.external_name || 'Guest';
