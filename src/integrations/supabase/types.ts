@@ -519,55 +519,300 @@ export type Database = {
           },
         ]
       }
+      client_activities: {
+        Row: {
+          activity_type: string
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          activity_type: string
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          activity_type?: string
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_attachments: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          tenant_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          tenant_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          tenant_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_attachments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_attachments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_emails: {
+        Row: {
+          attachments: Json | null
+          body_text: string
+          client_id: string
+          created_at: string | null
+          direction: string | null
+          error_message: string | null
+          from_account_id: string | null
+          from_email: string
+          id: string
+          metadata: Json | null
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          subject: string
+          template_id: string | null
+          tenant_id: string
+          timezone: string | null
+          to_email: string
+          updated_at: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          body_text: string
+          client_id: string
+          created_at?: string | null
+          direction?: string | null
+          error_message?: string | null
+          from_account_id?: string | null
+          from_email: string
+          id?: string
+          metadata?: Json | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject: string
+          template_id?: string | null
+          tenant_id: string
+          timezone?: string | null
+          to_email: string
+          updated_at?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          body_text?: string
+          client_id?: string
+          created_at?: string | null
+          direction?: string | null
+          error_message?: string | null
+          from_account_id?: string | null
+          from_email?: string
+          id?: string
+          metadata?: Json | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string
+          template_id?: string | null
+          tenant_id?: string
+          timezone?: string | null
+          to_email?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_emails_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_from_account_id_fkey"
+            columns: ["from_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "user_email_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
+          address_line1: string | null
+          address_line2: string | null
+          billing_terms: string | null
+          city: string | null
+          company_size: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
+          country: string | null
           created_at: string | null
           created_by: string | null
+          custom_fields: Json | null
+          default_recruiter_id: string | null
+          headquarters: string | null
           id: string
           industry: string | null
           is_active: boolean | null
+          last_contact_at: string | null
+          linkedin_url: string | null
           logo_url: string | null
           name: string
           notes: string | null
+          postal_code: string | null
+          preferred_communication: string | null
+          state: string | null
+          tags: Json | null
           tenant_id: string
+          total_revenue: number | null
           updated_at: string | null
           website: string | null
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_terms?: string | null
+          city?: string | null
+          company_size?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_fields?: Json | null
+          default_recruiter_id?: string | null
+          headquarters?: string | null
           id?: string
           industry?: string | null
           is_active?: boolean | null
+          last_contact_at?: string | null
+          linkedin_url?: string | null
           logo_url?: string | null
           name: string
           notes?: string | null
+          postal_code?: string | null
+          preferred_communication?: string | null
+          state?: string | null
+          tags?: Json | null
           tenant_id: string
+          total_revenue?: number | null
           updated_at?: string | null
           website?: string | null
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_terms?: string | null
+          city?: string | null
+          company_size?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_fields?: Json | null
+          default_recruiter_id?: string | null
+          headquarters?: string | null
           id?: string
           industry?: string | null
           is_active?: boolean | null
+          last_contact_at?: string | null
+          linkedin_url?: string | null
           logo_url?: string | null
           name?: string
           notes?: string | null
+          postal_code?: string | null
+          preferred_communication?: string | null
+          state?: string | null
+          tags?: Json | null
           tenant_id?: string
+          total_revenue?: number | null
           updated_at?: string | null
           website?: string | null
         }
@@ -971,6 +1216,68 @@ export type Database = {
           },
           {
             foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          duplicate_policy: string | null
+          error_count: number | null
+          error_report_url: string | null
+          file_url: string | null
+          id: string
+          import_type: string
+          mapping_config: Json | null
+          processed_rows: number | null
+          status: string | null
+          success_count: number | null
+          tenant_id: string
+          total_rows: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          duplicate_policy?: string | null
+          error_count?: number | null
+          error_report_url?: string | null
+          file_url?: string | null
+          id?: string
+          import_type: string
+          mapping_config?: Json | null
+          processed_rows?: number | null
+          status?: string | null
+          success_count?: number | null
+          tenant_id: string
+          total_rows?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          duplicate_policy?: string | null
+          error_count?: number | null
+          error_report_url?: string | null
+          file_url?: string | null
+          id?: string
+          import_type?: string
+          mapping_config?: Json | null
+          processed_rows?: number | null
+          status?: string | null
+          success_count?: number | null
+          tenant_id?: string
+          total_rows?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
