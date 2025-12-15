@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.temp-login]
 verify_jwt = false
+
+[functions.ai-compose-email]
+verify_jwt = true
+
+[functions.send-candidate-email]
+verify_jwt = true

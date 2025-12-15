@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
 import { 
   ArrowLeft, 
@@ -24,7 +25,8 @@ import {
   Loader2,
   StickyNote,
   MessageCircle,
-  Linkedin
+  Linkedin,
+  Inbox
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -331,6 +333,10 @@ const CandidateDetailPage = () => {
             <Sparkles className="w-4 h-4" />
             AI Match Analysis
           </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Inbox className="w-4 h-4" />
+            Emails
+          </TabsTrigger>
           <TabsTrigger value="cv" className="gap-2">
             <FileText className="w-4 h-4" />
             CV & Experience
@@ -344,6 +350,13 @@ const CandidateDetailPage = () => {
             Activity
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="emails" className="mt-6">
+          <CandidateEmailsTab 
+            candidateId={candidate.id} 
+            onComposeClick={() => setEmailDialogOpen(true)} 
+          />
+        </TabsContent>
 
         <TabsContent value="match" className="mt-6">
           {jobCandidate && jobCandidate.match_score ? (
@@ -515,14 +528,17 @@ const CandidateDetailPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Email Dialog */}
-      <SendEmailDialog
+      {/* Email Modal */}
+      <SendCandidateEmailModal
         open={emailDialogOpen}
         onOpenChange={setEmailDialogOpen}
-        recipientEmail={candidate.email}
-        recipientName={candidate.full_name}
-        context="candidate"
-        contextData={{ candidateName: candidate.full_name }}
+        candidate={{
+          id: candidate.id,
+          full_name: candidate.full_name,
+          email: candidate.email,
+          phone: candidate.phone,
+          current_title: candidate.current_title,
+        }}
       />
 
       {/* WhatsApp Dialog */}
