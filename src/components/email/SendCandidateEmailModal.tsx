@@ -52,6 +52,7 @@ interface Job {
   title: string;
   location?: string | null;
   clients?: { name: string } | null;
+  jd_file_url?: string | null;
 }
 
 interface EmailTemplate {
@@ -272,7 +273,7 @@ export function SendCandidateEmailModal({
     try {
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, title, location, clients(name)')
+        .select('id, title, location, jd_file_url, clients(name)')
         .eq('status', 'open')
         .order('title');
 
@@ -380,6 +381,68 @@ export function SendCandidateEmailModal({
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAttachJD = async () => {
+    if (!selectedJob?.jd_file_url) {
+      toast.error('No JD file available for the selected job');
+      return;
+    }
+
+    // Check if JD is already attached
+    const jdAlreadyAttached = attachments.some(a => a.name.includes('JD_') || a.name.includes('Job_Description'));
+    if (jdAlreadyAttached) {
+      toast.info('Job Description is already attached');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Extract the file path from the URL
+      let filePath = selectedJob.jd_file_url;
+      if (filePath.includes('/documents/')) {
+        filePath = filePath.split('/documents/').pop() || filePath;
+      }
+      filePath = filePath.split('?')[0];
+
+      // Get the file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+
+      if (downloadError) throw downloadError;
+
+      // Determine file extension
+      const extension = filePath.split('.').pop() || 'pdf';
+      const fileName = `JD_${selectedJob.title.replace(/\s+/g, '_')}.${extension}`;
+
+      // Upload as email attachment
+      const attachmentPath = `${tenantId}/email-attachments/${Date.now()}-${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(attachmentPath, fileData);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(attachmentPath);
+
+      setAttachments(prev => [...prev, {
+        name: fileName,
+        url: urlData.publicUrl,
+        size: fileData.size,
+        type: fileData.type || 'application/pdf',
+      }]);
+
+      toast.success('Job Description attached');
+    } catch (error: any) {
+      console.error('Error attaching JD:', error);
+      toast.error('Failed to attach Job Description');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleGenerateAI = async () => {
@@ -753,21 +816,36 @@ Best regards,"
                       <Badge variant="secondary" className="text-xs">{attachments.length}</Badge>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="gap-2"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4" />
+                  <div className="flex items-center gap-2">
+                    {selectedJob?.jd_file_url && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAttachJD}
+                        disabled={isUploading}
+                        className="gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Attach JD
+                      </Button>
                     )}
-                    Add Files
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="gap-2"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      Add Files
+                    </Button>
+                  </div>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -803,6 +881,7 @@ Best regards,"
                 
                 <p className="text-xs text-muted-foreground">
                   Allowed: PDF, DOC, DOCX, XLS, XLSX, PNG, JPG. Max 10MB per file.
+                  {selectedJob?.jd_file_url && ' Use "Attach JD" to include the job description.'}
                 </p>
               </div>
 
