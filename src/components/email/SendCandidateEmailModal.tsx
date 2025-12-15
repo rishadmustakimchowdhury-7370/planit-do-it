@@ -817,17 +817,18 @@ Best regards,"
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedJob?.jd_file_url && (
+                    {selectedJob && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={handleAttachJD}
-                        disabled={isUploading}
+                        disabled={isUploading || !selectedJob.jd_file_url}
                         className="gap-2"
+                        title={!selectedJob.jd_file_url ? 'No JD file uploaded for this job' : 'Attach Job Description'}
                       >
                         <FileText className="h-4 w-4" />
-                        Attach JD
+                        {selectedJob.jd_file_url ? 'Attach JD' : 'No JD Available'}
                       </Button>
                     )}
                     <Button
