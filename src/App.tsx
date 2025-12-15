@@ -16,6 +16,7 @@ import CandidateDetailPage from "./pages/CandidateDetailPage";
 import AddCandidatePage from "./pages/AddCandidatePage";
 import ClientsPage from "./pages/ClientsPage";
 import AddClientPage from "./pages/AddClientPage";
+import ClientDetailPage from "./pages/ClientDetailPage";
 import AIMatchPage from "./pages/AIMatchPage";
 import SettingsPage from "./pages/SettingsPage";
 import BillingPage from "./pages/BillingPage";
@@ -81,6 +82,7 @@ const AppRoutes = () => (
     <Route path="/candidates/:id" element={<ProtectedRoute><CandidateDetailPage /></ProtectedRoute>} />
     <Route path="/clients" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
     <Route path="/clients/new" element={<ProtectedRoute><AddClientPage /></ProtectedRoute>} />
+    <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
     <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />

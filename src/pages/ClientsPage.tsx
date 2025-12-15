@@ -145,6 +145,8 @@ const ClientsPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
               whileHover={{ y: -2 }}
+              onClick={() => navigate(`/clients/${client.id}`)}
+              className="cursor-pointer"
             >
               <div className="bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all">
                 <div className="flex items-start gap-4">
