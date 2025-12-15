@@ -19,6 +19,78 @@ interface SendEmailRequest {
   attachments?: Array<{ name: string; url: string }>;
 }
 
+// Professional HTML email template
+const createEmailHtml = (
+  bodyText: string, 
+  signature: string | null, 
+  recruiterName: string,
+  recruiterEmail: string
+): string => {
+  // Convert plain text line breaks to HTML
+  const formattedBody = bodyText
+    .split('\n')
+    .map(line => line.trim() ? `<p style="margin: 0 0 12px 0; line-height: 1.6;">${line}</p>` : '<br/>')
+    .join('');
+
+  const signatureHtml = signature 
+    ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        ${signature.split('\n').map(line => 
+          line.trim() ? `<p style="margin: 0 0 4px 0; color: #374151; font-size: 14px;">${line}</p>` : ''
+        ).join('')}
+      </div>`
+    : `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <p style="margin: 0 0 4px 0; color: #374151; font-size: 14px; font-weight: 600;">${recruiterName}</p>
+        <p style="margin: 0; color: #6b7280; font-size: 13px;">${recruiterEmail}</p>
+      </div>`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+    <tr>
+      <td style="padding: 32px 16px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 32px 0 32px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td>
+                    <img src="https://efdvolifacsnmiinifiq.supabase.co/storage/v1/object/public/documents/brand/logo.png" alt="RecruitifyCRM" height="36" style="display: block;" onerror="this.style.display='none'"/>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 24px 32px 32px 32px; color: #1f2937; font-size: 15px; line-height: 1.6;">
+              ${formattedBody}
+              ${signatureHtml}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                This email was sent via <a href="https://recruitifycrm.com" style="color: #0052cc; text-decoration: none;">RecruitifyCRM</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,10 +118,10 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Get user's tenant
+    // Get user's tenant and profile details
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("tenant_id, full_name, email_signature")
+      .select("tenant_id, full_name, email_signature, email")
       .eq("id", user.id)
       .single();
 
@@ -71,6 +143,18 @@ serve(async (req) => {
       attachments,
     } = body;
 
+    // Use the user's registered email for the from field if available
+    const senderEmail = profile.email || from_email || "info@recruitifycrm.com";
+    const senderName = profile.full_name || "RecruitifyCRM";
+
+    // Create professional HTML email
+    const emailHtml = createEmailHtml(
+      body_text, 
+      profile.email_signature, 
+      senderName,
+      senderEmail
+    );
+
     // If scheduled for later, save to database and return
     if (scheduled_at && new Date(scheduled_at) > new Date()) {
       const { data: emailRecord, error: insertError } = await supabaseAdmin
@@ -80,10 +164,10 @@ serve(async (req) => {
           candidate_id,
           job_id,
           sent_by: user.id,
-          from_email,
+          from_email: senderEmail,
           to_email,
           subject,
-          body_text,
+          body_text: emailHtml,
           template_id,
           ai_generated: ai_generated || false,
           status: "scheduled",
@@ -115,10 +199,10 @@ serve(async (req) => {
     if (RESEND_API_KEY) {
       // Send via Resend API
       try {
-        // Add tracking pixel to HTML
-        const supabaseProjectUrl = SUPABASE_URL.replace('.supabase.co', '');
-        const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/track-email?id=${crypto.randomUUID()}&type=open" width="1" height="1" style="display:none" />`;
-        const bodyWithTracking = body_text + trackingPixel;
+        // Add tracking pixel
+        const trackingId = crypto.randomUUID();
+        const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/track-email?id=${trackingId}&type=open" width="1" height="1" style="display:none" alt=""/>`;
+        const emailWithTracking = emailHtml.replace('</body>', `${trackingPixel}</body>`);
 
         const resendResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -127,12 +211,11 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: from_email.includes("@") && !from_email.includes("resend.dev") && !from_email.includes("recruitsy") 
-              ? from_email 
-              : "RecruitifyCRM <info@recruitifycrm.com>",
+            from: `${senderName} <info@recruitifycrm.com>`,
+            reply_to: senderEmail,
             to: [to_email],
             subject: subject,
-            html: bodyWithTracking,
+            html: emailWithTracking,
           }),
         });
 
@@ -162,10 +245,10 @@ serve(async (req) => {
         candidate_id,
         job_id,
         sent_by: user.id,
-        from_email,
+        from_email: senderEmail,
         to_email,
         subject,
-        body_text,
+        body_text: emailHtml,
         template_id,
         ai_generated: ai_generated || false,
         status: emailSent ? "sent" : "failed",
@@ -194,6 +277,7 @@ serve(async (req) => {
         job_id,
         ai_generated,
         email_record_id: emailRecord?.id,
+        sender_email: senderEmail,
       },
     });
 
@@ -214,6 +298,7 @@ serve(async (req) => {
         message: "Email sent successfully",
         email_id: emailRecord?.id,
         provider_message_id: providerMessageId,
+        sent_from: senderEmail,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -335,6 +335,19 @@ export function SendCandidateEmailModal({
           </TabsList>
 
           <TabsContent value="compose" className="space-y-4 mt-4">
+            {/* From Email - User's registered email */}
+            <div className="space-y-2">
+              <Label>From</Label>
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{profile?.email || 'Your email'}</span>
+                <Badge variant="secondary" className="ml-auto text-xs">Reply-to</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Emails will be sent from RecruitifyCRM with your email as reply-to address
+              </p>
+            </div>
+
             {/* To Email */}
             <div className="space-y-2">
               <Label htmlFor="to">To</Label>
@@ -420,15 +433,36 @@ export function SendCandidateEmailModal({
             </div>
 
             {/* Signature Toggle */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="signature"
-                checked={appendSignature}
-                onCheckedChange={(checked) => setAppendSignature(checked as boolean)}
-              />
-              <Label htmlFor="signature" className="text-sm font-normal">
-                Append my email signature
-              </Label>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="signature"
+                  checked={appendSignature}
+                  onCheckedChange={(checked) => setAppendSignature(checked as boolean)}
+                />
+                <Label htmlFor="signature" className="text-sm font-normal">
+                  Append my email signature
+                </Label>
+              </div>
+              {appendSignature && profile?.email_signature && (
+                <div className="ml-6 p-3 bg-muted/50 rounded-md border-l-2 border-primary/30">
+                  <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">
+                    {profile.email_signature}
+                  </p>
+                </div>
+              )}
+              {appendSignature && !profile?.email_signature && (
+                <div className="ml-6 p-3 bg-muted/50 rounded-md border-l-2 border-amber-500/30">
+                  <p className="text-xs text-amber-600">
+                    No signature configured. A default signature with your name and email will be used.
+                    <br />
+                    <a href="/settings" className="underline hover:no-underline">
+                      Configure your signature in Settings
+                    </a>
+                  </p>
+                </div>
+              )}
             </div>
 
             <Separator />
