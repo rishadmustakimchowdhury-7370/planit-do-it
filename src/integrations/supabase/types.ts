@@ -166,6 +166,120 @@ export type Database = {
           },
         ]
       }
+      candidate_emails: {
+        Row: {
+          ai_generated: boolean | null
+          attachments: Json | null
+          body_text: string
+          candidate_id: string
+          created_at: string | null
+          direction: string
+          error_message: string | null
+          from_account_id: string | null
+          from_email: string
+          id: string
+          job_id: string | null
+          metadata: Json | null
+          provider_message_id: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          subject: string
+          template_id: string | null
+          tenant_id: string
+          thread_id: string | null
+          to_email: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          attachments?: Json | null
+          body_text: string
+          candidate_id: string
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          from_account_id?: string | null
+          from_email: string
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          provider_message_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject: string
+          template_id?: string | null
+          tenant_id: string
+          thread_id?: string | null
+          to_email: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          attachments?: Json | null
+          body_text?: string
+          candidate_id?: string
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          from_account_id?: string | null
+          from_email?: string
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          provider_message_id?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject?: string
+          template_id?: string | null
+          tenant_id?: string
+          thread_id?: string | null
+          to_email?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_emails_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_emails_from_account_id_fkey"
+            columns: ["from_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_emails_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_emails_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "user_email_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           avatar_url: string | null
@@ -502,6 +616,83 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      email_accounts: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          error_message: string | null
+          from_email: string
+          id: string
+          is_default: boolean | null
+          last_sync_at: string | null
+          oauth_access_token: string | null
+          oauth_expires_at: string | null
+          oauth_refresh_token: string | null
+          provider: string
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: number | null
+          smtp_use_tls: boolean | null
+          smtp_user: string | null
+          status: string
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          error_message?: string | null
+          from_email: string
+          id?: string
+          is_default?: boolean | null
+          last_sync_at?: string | null
+          oauth_access_token?: string | null
+          oauth_expires_at?: string | null
+          oauth_refresh_token?: string | null
+          provider: string
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_use_tls?: boolean | null
+          smtp_user?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          error_message?: string | null
+          from_email?: string
+          id?: string
+          is_default?: boolean | null
+          last_sync_at?: string | null
+          oauth_access_token?: string | null
+          oauth_expires_at?: string | null
+          oauth_refresh_token?: string | null
+          provider?: string
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: number | null
+          smtp_use_tls?: boolean | null
+          smtp_user?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_logs: {
         Row: {
@@ -1273,6 +1464,63 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      user_email_templates: {
+        Row: {
+          body_text: string
+          created_at: string | null
+          default_from_account_id: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          subject: string
+          tags: string[] | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body_text: string
+          created_at?: string | null
+          default_from_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          subject: string
+          tags?: string[] | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body_text?: string
+          created_at?: string | null
+          default_from_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          subject?: string
+          tags?: string[] | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_email_templates_default_from_account_id_fkey"
+            columns: ["default_from_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_invites: {
         Row: {
