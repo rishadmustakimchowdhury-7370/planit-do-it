@@ -83,18 +83,14 @@ export function SendWhatsAppDialog({
   };
 
   const formatPhoneNumber = (phone: string): string => {
-    // Remove all non-numeric characters
-    let cleaned = phone.replace(/\D/g, '');
+    // Remove all non-numeric characters except + at the start
+    let cleaned = phone.replace(/[^\d+]/g, '');
     
-    // If it starts with 0, remove it and add country code
-    if (cleaned.startsWith('0')) {
-      cleaned = '1' + cleaned.substring(1); // Default to US country code
-    }
+    // Remove + sign if present (wa.me doesn't need it)
+    cleaned = cleaned.replace(/^\+/, '');
     
-    // If no country code, assume US
-    if (cleaned.length === 10) {
-      cleaned = '1' + cleaned;
-    }
+    // Remove leading zeros (common in local formats)
+    cleaned = cleaned.replace(/^0+/, '');
     
     return cleaned;
   };

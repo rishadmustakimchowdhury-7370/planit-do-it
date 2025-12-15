@@ -5,10 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MapPin, Mail, Calendar, Linkedin, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
+import { toast } from 'sonner';
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -125,21 +128,38 @@ export function CandidateCard({ candidate, showMatchScore = true, compact = fals
                     <Linkedin className="h-4 w-4 text-[#0077B5]" />
                   </Button>
                 )}
-                {candidate.phone && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const phoneNumber = candidate.phone?.replace(/\D/g, '');
-                      window.open(`https://wa.me/${phoneNumber}`, '_blank');
-                    }}
-                    title="Send WhatsApp"
-                  >
-                    <MessageCircle className="h-4 w-4 text-green-500" />
-                  </Button>
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-8 w-8 transition-all duration-200",
+                          formatWhatsAppNumber(candidate.phone) 
+                            ? "hover:bg-green-100 hover:text-green-600 active:scale-95" 
+                            : "opacity-50 cursor-not-allowed"
+                        )}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!formatWhatsAppNumber(candidate.phone)) {
+                            toast.error('WhatsApp number not added');
+                            return;
+                          }
+                          openWhatsAppChat(candidate.phone);
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4 text-green-500" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {formatWhatsAppNumber(candidate.phone) 
+                        ? 'Open WhatsApp chat' 
+                        : 'WhatsApp number not added'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <Button
                   variant="ghost"
                   size="icon"
