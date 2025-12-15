@@ -181,6 +181,7 @@ export type Database = {
           job_id: string | null
           metadata: Json | null
           provider_message_id: string | null
+          retry_count: number | null
           scheduled_at: string | null
           sent_at: string | null
           sent_by: string | null
@@ -189,6 +190,7 @@ export type Database = {
           template_id: string | null
           tenant_id: string
           thread_id: string | null
+          timezone: string | null
           to_email: string
           updated_at: string | null
         }
@@ -206,6 +208,7 @@ export type Database = {
           job_id?: string | null
           metadata?: Json | null
           provider_message_id?: string | null
+          retry_count?: number | null
           scheduled_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -214,6 +217,7 @@ export type Database = {
           template_id?: string | null
           tenant_id: string
           thread_id?: string | null
+          timezone?: string | null
           to_email: string
           updated_at?: string | null
         }
@@ -231,6 +235,7 @@ export type Database = {
           job_id?: string | null
           metadata?: Json | null
           provider_message_id?: string | null
+          retry_count?: number | null
           scheduled_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
@@ -239,6 +244,7 @@ export type Database = {
           template_id?: string | null
           tenant_id?: string
           thread_id?: string | null
+          timezone?: string | null
           to_email?: string
           updated_at?: string | null
         }
