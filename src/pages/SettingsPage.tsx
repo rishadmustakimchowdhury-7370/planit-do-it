@@ -429,6 +429,10 @@ export default function SettingsPage() {
               <Users className="h-4 w-4" />
               Team
             </TabsTrigger>
+            <TabsTrigger value="email" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email
+            </TabsTrigger>
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
               Organization
@@ -797,6 +801,67 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="email">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    Email Integration
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your email accounts to send emails from your own address
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="text-center py-8">
+                    <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="font-semibold mb-2">Email Account Configuration</h3>
+                    <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                      Set up your email accounts (SMTP or Gmail) to send personalized emails from your own address to candidates.
+                    </p>
+                    <Button 
+                      onClick={() => window.location.href = '/email/accounts'}
+                      className="gap-2"
+                    >
+                      <Mail className="h-4 w-4" />
+                      Manage Email Accounts
+                    </Button>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Email Signature</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Your default email signature will be appended to all outgoing emails.
+                    </p>
+                    <Textarea
+                      value={profileData.email_signature}
+                      onChange={(e) => setProfileData({ ...profileData, email_signature: e.target.value })}
+                      placeholder="Best regards,&#10;Your Name&#10;Your Title&#10;your@email.com"
+                      className="min-h-[120px]"
+                    />
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveProfile} disabled={isSaving} size="sm">
+                        {isSaving ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        Save Signature
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
