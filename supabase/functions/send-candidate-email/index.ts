@@ -122,9 +122,9 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: from_email.includes("@") && !from_email.includes("resend.dev") 
+            from: from_email.includes("@") && !from_email.includes("resend.dev") && !from_email.includes("recruitsy") 
               ? from_email 
-              : "Recruitsy <onboarding@resend.dev>",
+              : "RecruitifyCRM <info@recruitifycrm.com>",
             to: [to_email],
             subject: subject,
             text: body_text,

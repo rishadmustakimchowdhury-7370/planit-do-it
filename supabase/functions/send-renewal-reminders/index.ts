@@ -91,9 +91,9 @@ Deno.serve(async (req) => {
       
       let htmlContent = template?.html_content || `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #0ea5e9;">Subscription Renewal Reminder</h1>
+          <h1 style="color: #0052CC;">Subscription Renewal Reminder</h1>
           <p>Hi {{name}},</p>
-          <p>This is a friendly reminder that your Recruitsy subscription for <strong>{{company}}</strong> will expire in <strong>{{days}} days</strong> on {{expiry_date}}.</p>
+          <p>This is a friendly reminder that your RecruitifyCRM subscription for <strong>{{company}}</strong> will expire in <strong>{{days}} days</strong> on {{expiry_date}}.</p>
           <p>To ensure uninterrupted access to all features, including:</p>
           <ul>
             <li>AI-powered candidate matching</li>
@@ -103,10 +103,10 @@ Deno.serve(async (req) => {
           </ul>
           <p>Please renew your subscription before it expires.</p>
           <p style="margin: 30px 0;">
-            <a href="{{renewal_link}}" style="background-color: #0ea5e9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Renew Now</a>
+            <a href="{{renewal_link}}" style="background-color: #0052CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Renew Now</a>
           </p>
           <p>If you have any questions or need assistance, our support team is here to help.</p>
-          <p>Best regards,<br>The Recruitsy Team</p>
+          <p>Best regards,<br>The RecruitifyCRM Team</p>
         </div>
       `;
 
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'Recruitsy <noreply@recruitsy.net>',
+              from: 'RecruitifyCRM <info@recruitifycrm.com>',
               to: profile.email,
               subject: subject.replace(/{{days}}/g, daysUntilExpiry.toString()),
               html: htmlContent,
