@@ -531,12 +531,15 @@ export function CreateEventDialog({
 
               {locationType === 'online' ? (
                 <div className="space-y-2">
-                  <Label>Meeting Link</Label>
+                  <Label>Meeting Link (Google Meet, Zoom, Teams)</Label>
                   <Input
                     value={meetingLink}
                     onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://zoom.us/j/... or Google Meet link"
+                    placeholder="https://meet.google.com/... or https://zoom.us/j/... or Teams link"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Paste your Google Meet, Zoom, or Microsoft Teams meeting link
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">

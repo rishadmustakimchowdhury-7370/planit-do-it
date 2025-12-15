@@ -115,6 +115,7 @@ export default function EventDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (id && tenantId) {
@@ -241,6 +242,39 @@ export default function EventDetailPage() {
     }
   };
 
+  const handleDeleteEvent = async () => {
+    setIsDeleting(true);
+    try {
+      // Delete participants first (due to FK constraint)
+      await supabase
+        .from('event_participants')
+        .delete()
+        .eq('event_id', id);
+
+      // Delete reminders
+      await supabase
+        .from('event_reminders')
+        .delete()
+        .eq('event_id', id);
+
+      // Delete the event
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Event deleted permanently');
+      navigate('/events');
+    } catch (error: any) {
+      console.error('Error deleting event:', error);
+      toast.error(error.message || 'Failed to delete event');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const copyMeetingLink = () => {
     if (event?.meeting_link) {
       navigator.clipboard.writeText(event.meeting_link);
@@ -344,44 +378,73 @@ export default function EventDetailPage() {
           </div>
         </div>
 
-        {isOrganizer && event.status === 'scheduled' && !isPast && (
+        {isOrganizer && (
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleSendInvitations}
-              disabled={isSendingInvites}
-              className="gap-2"
-            >
-              {isSendingInvites ? (
-                <Clock className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              Resend Invites
-            </Button>
+            {event.status === 'scheduled' && !isPast && (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSendInvitations}
+                  disabled={isSendingInvites}
+                  className="gap-2"
+                >
+                  {isSendingInvites ? (
+                    <Clock className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Resend Invites
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel this event?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will cancel the event and notify all participants via email.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep Event</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleCancelEvent}
+                        disabled={isCancelling}
+                        className="bg-warning text-warning-foreground hover:bg-warning/90"
+                      >
+                        {isCancelling ? 'Cancelling...' : 'Cancel Event'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="gap-2">
-                  <X className="w-4 h-4" />
-                  Cancel Event
+                  <Trash2 className="w-4 h-4" />
+                  Delete
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Cancel this event?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete this event permanently?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will cancel the event and notify all participants via email.
-                    This action cannot be undone.
+                    This will permanently delete the event and all associated data. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Keep Event</AlertDialogCancel>
                   <AlertDialogAction 
-                    onClick={handleCancelEvent}
-                    disabled={isCancelling}
+                    onClick={handleDeleteEvent}
+                    disabled={isDeleting}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    {isCancelling ? 'Cancelling...' : 'Cancel Event'}
+                    {isDeleting ? 'Deleting...' : 'Delete Permanently'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

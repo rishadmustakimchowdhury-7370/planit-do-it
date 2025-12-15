@@ -5,6 +5,54 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function fetchLinkedInProfile(linkedinUrl: string): Promise<string | null> {
+  try {
+    console.log('Attempting to fetch LinkedIn profile:', linkedinUrl);
+    
+    // Clean up the URL
+    let cleanUrl = linkedinUrl.trim();
+    if (!cleanUrl.startsWith('http')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+    
+    // Try to fetch the LinkedIn page
+    const response = await fetch(cleanUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    });
+
+    if (!response.ok) {
+      console.log('Failed to fetch LinkedIn page:', response.status);
+      return null;
+    }
+
+    const html = await response.text();
+    console.log('Fetched LinkedIn HTML length:', html.length);
+    
+    // Extract text content from HTML for AI processing
+    // Remove scripts and styles
+    let text = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Limit text length for AI processing
+    if (text.length > 15000) {
+      text = text.substring(0, 15000);
+    }
+    
+    return text;
+  } catch (error) {
+    console.error('Error fetching LinkedIn profile:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,6 +76,7 @@ Always respond with valid JSON in this exact format:
   "location": "string or null",
   "current_title": "string or null",
   "current_company": "string or null",
+  "linkedin_url": "string or null",
   "summary": "string - brief professional summary",
   "experience_years": number or null,
   "skills": ["skill1", "skill2", ...],
@@ -46,17 +95,53 @@ Always respond with valid JSON in this exact format:
       "description": "string"
     }
   ]
-}`;
+}
+
+Extract as much information as possible. For LinkedIn profiles, look for:
+- Name from the profile heading
+- Current job title and company
+- Location
+- Summary/About section
+- Experience history
+- Education
+- Skills
+
+If certain information is not available, use null for those fields.`;
 
     let messages: any[] = [{ role: 'system', content: systemPrompt }];
     
     if (linkedinUrl) {
-      messages.push({
-        role: 'user',
-        content: `Parse this LinkedIn profile URL and extract what information you can infer: ${linkedinUrl}
+      // First try to fetch the LinkedIn profile content
+      const linkedinContent = await fetchLinkedInProfile(linkedinUrl);
+      
+      if (linkedinContent && linkedinContent.length > 100) {
+        console.log('Successfully fetched LinkedIn content, sending to AI for parsing');
+        messages.push({
+          role: 'user',
+          content: `Parse this LinkedIn profile content and extract all structured information. The LinkedIn URL is: ${linkedinUrl}
 
-Note: I cannot access the URL directly, so please extract any information visible in the URL itself (like username) and provide a template structure. The user will need to provide actual profile data.`
-      });
+Content from the page:
+${linkedinContent}
+
+Please extract the person's name, title, company, location, summary, skills, experience, and education. Return only valid JSON.`
+        });
+      } else {
+        // Fallback: extract info from URL pattern
+        console.log('Could not fetch LinkedIn content, using URL-based extraction');
+        const urlParts = linkedinUrl.match(/linkedin\.com\/in\/([^\/\?]+)/i);
+        const username = urlParts ? urlParts[1] : '';
+        
+        messages.push({
+          role: 'user',
+          content: `I have a LinkedIn profile URL: ${linkedinUrl}
+          
+The username from the URL appears to be: ${username}
+
+Please create a template profile structure based on this URL. Set the linkedin_url field to "${linkedinUrl}" and try to infer the name from the username (${username}) by converting dashes/underscores to spaces and capitalizing appropriately.
+
+For other fields, set them to null since we cannot access the actual profile content. Return only valid JSON.`
+        });
+      }
     } else if (cvBase64 && mimeType) {
       // Use multimodal capability for PDF/document files
       console.log('Processing document with multimodal API, mimeType:', mimeType);
@@ -144,6 +229,11 @@ ${cvText}`
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse CV data from AI response');
+    }
+
+    // Ensure linkedin_url is set if we processed a LinkedIn URL
+    if (linkedinUrl && !parsedCV.linkedin_url) {
+      parsedCV.linkedin_url = linkedinUrl;
     }
 
     console.log('CV parsing complete');
