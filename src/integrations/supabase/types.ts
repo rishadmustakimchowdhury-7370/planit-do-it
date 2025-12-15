@@ -783,6 +783,201 @@ export type Database = {
         }
         Relationships: []
       }
+      event_participants: {
+        Row: {
+          candidate_id: string | null
+          client_id: string | null
+          created_at: string | null
+          event_id: string
+          external_email: string | null
+          external_name: string | null
+          id: string
+          invitation_sent_at: string | null
+          participant_type: string
+          reminder_1h_sent: boolean | null
+          reminder_24h_sent: boolean | null
+          role: Database["public"]["Enums"]["participant_role"]
+          rsvp_responded_at: string | null
+          rsvp_status: Database["public"]["Enums"]["rsvp_status"]
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          candidate_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          event_id: string
+          external_email?: string | null
+          external_name?: string | null
+          id?: string
+          invitation_sent_at?: string | null
+          participant_type: string
+          reminder_1h_sent?: boolean | null
+          reminder_24h_sent?: boolean | null
+          role?: Database["public"]["Enums"]["participant_role"]
+          rsvp_responded_at?: string | null
+          rsvp_status?: Database["public"]["Enums"]["rsvp_status"]
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          candidate_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          event_id?: string
+          external_email?: string | null
+          external_name?: string | null
+          id?: string
+          invitation_sent_at?: string | null
+          participant_type?: string
+          reminder_1h_sent?: boolean | null
+          reminder_24h_sent?: boolean | null
+          role?: Database["public"]["Enums"]["participant_role"]
+          rsvp_responded_at?: string | null
+          rsvp_status?: Database["public"]["Enums"]["rsvp_status"]
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_reminders: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          event_id: string
+          id: string
+          reminder_time: string
+          reminder_type: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          event_id: string
+          id?: string
+          reminder_time: string
+          reminder_type: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          event_id?: string
+          id?: string
+          reminder_time?: string
+          reminder_type?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reminders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          end_time: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id: string
+          internal_notes: string | null
+          job_id: string | null
+          location_address: string | null
+          location_type: string
+          meeting_link: string | null
+          organizer_id: string
+          start_time: string
+          status: Database["public"]["Enums"]["event_status"]
+          tenant_id: string
+          timezone: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          end_time: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          internal_notes?: string | null
+          job_id?: string | null
+          location_address?: string | null
+          location_type?: string
+          meeting_link?: string | null
+          organizer_id: string
+          start_time: string
+          status?: Database["public"]["Enums"]["event_status"]
+          tenant_id: string
+          timezone?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          end_time?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          internal_notes?: string | null
+          job_id?: string | null
+          location_address?: string | null
+          location_type?: string
+          meeting_link?: string | null
+          organizer_id?: string
+          start_time?: string
+          status?: Database["public"]["Enums"]["event_status"]
+          tenant_id?: string
+          timezone?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -1801,8 +1996,21 @@ export type Database = {
         | "rejected"
         | "withdrawn"
       chat_status: "pending" | "active" | "resolved" | "escalated"
+      event_status: "scheduled" | "completed" | "cancelled" | "rescheduled"
+      event_type:
+        | "interview"
+        | "client_meeting"
+        | "internal_meeting"
+        | "follow_up"
+        | "custom"
       invoice_status: "draft" | "sent" | "paid" | "overdue" | "canceled"
       job_status: "draft" | "open" | "paused" | "closed" | "filled"
+      participant_role:
+        | "candidate"
+        | "client"
+        | "interviewer"
+        | "observer"
+        | "organizer"
       pipeline_stage:
         | "applied"
         | "screening"
@@ -1811,6 +2019,7 @@ export type Database = {
         | "offer"
         | "hired"
         | "rejected"
+      rsvp_status: "pending" | "accepted" | "declined" | "tentative"
       subscription_status:
         | "trial"
         | "active"
@@ -1955,8 +2164,23 @@ export const Constants = {
         "withdrawn",
       ],
       chat_status: ["pending", "active", "resolved", "escalated"],
+      event_status: ["scheduled", "completed", "cancelled", "rescheduled"],
+      event_type: [
+        "interview",
+        "client_meeting",
+        "internal_meeting",
+        "follow_up",
+        "custom",
+      ],
       invoice_status: ["draft", "sent", "paid", "overdue", "canceled"],
       job_status: ["draft", "open", "paused", "closed", "filled"],
+      participant_role: [
+        "candidate",
+        "client",
+        "interviewer",
+        "observer",
+        "organizer",
+      ],
       pipeline_stage: [
         "applied",
         "screening",
@@ -1966,6 +2190,7 @@ export const Constants = {
         "hired",
         "rejected",
       ],
+      rsvp_status: ["pending", "accepted", "declined", "tentative"],
       subscription_status: [
         "trial",
         "active",
