@@ -34,9 +34,18 @@ const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
 });
 
+const resetPasswordSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -48,9 +57,12 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isTempLoginLoading, setIsTempLoginLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showNewConfirmPassword, setShowNewConfirmPassword] = useState(false);
   const { signIn, signUp, signInWithGoogle, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -101,11 +113,24 @@ export default function AuthPage() {
     handleTempLogin();
   }, [tempToken, tempUserId, toast, navigate]);
 
+  // Listen for PASSWORD_RECOVERY event
   useEffect(() => {
-    if (!authLoading && user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPassword(true);
+        setShowForgotPassword(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Don't redirect if we're in password recovery mode
+    if (!authLoading && user && !showResetPassword) {
       navigate('/dashboard');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, showResetPassword]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -120,6 +145,11 @@ export default function AuthPage() {
   const forgotPasswordForm = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: '' },
+  });
+
+  const resetPasswordForm = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: '', confirmPassword: '' },
   });
 
   const handleLogin = async (data: LoginFormData) => {
@@ -176,7 +206,7 @@ export default function AuthPage() {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth?mode=login`,
+        redirectTo: `${window.location.origin}/auth?mode=reset`,
       });
       
       if (error) throw error;
@@ -192,6 +222,56 @@ export default function AuthPage() {
         variant: 'destructive',
         title: 'Error',
         description: error.message || 'Failed to send password reset email.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (data: ResetPasswordFormData) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: data.password,
+      });
+      
+      if (error) throw error;
+      
+      // Send confirmation email
+      try {
+        await supabase.functions.invoke('send-email', {
+          body: {
+            to: user?.email,
+            subject: 'Password Changed Successfully - Recruitsy',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #0052CC;">Password Changed Successfully</h2>
+                <p>Hello,</p>
+                <p>Your password has been successfully changed for your Recruitsy account.</p>
+                <p>If you did not make this change, please contact our support team immediately.</p>
+                <br/>
+                <p>Best regards,<br/>The Recruitsy Team</p>
+              </div>
+            `,
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+      }
+      
+      toast({
+        title: 'Password updated!',
+        description: 'Your password has been successfully changed.',
+      });
+      
+      setShowResetPassword(false);
+      resetPasswordForm.reset();
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to update password.',
       });
     } finally {
       setIsLoading(false);
@@ -295,20 +375,96 @@ export default function AuthPage() {
           <Card className="border-0 shadow-xl">
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl font-bold">
-                {showForgotPassword 
-                  ? 'Reset your password'
-                  : activeTab === 'login' ? 'Welcome back' : 'Create an account'}
+                {showResetPassword 
+                  ? 'Set new password'
+                  : showForgotPassword 
+                    ? 'Reset your password'
+                    : activeTab === 'login' ? 'Welcome back' : 'Create an account'}
               </CardTitle>
               <CardDescription>
-                {showForgotPassword
-                  ? 'Enter your email and we\'ll send you a reset link'
-                  : activeTab === 'login' 
-                    ? 'Enter your credentials to access your account' 
-                    : 'Get started with your free trial today'}
+                {showResetPassword
+                  ? 'Enter your new password below'
+                  : showForgotPassword
+                    ? 'Enter your email and we\'ll send you a reset link'
+                    : activeTab === 'login' 
+                      ? 'Enter your credentials to access your account' 
+                      : 'Get started with your free trial today'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {showForgotPassword ? (
+              {showResetPassword ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="new-password"
+                          type={showNewPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          className="pl-10 pr-10"
+                          {...resetPasswordForm.register('password')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                      {resetPasswordForm.formState.errors.password && (
+                        <p className="text-sm text-destructive">{resetPasswordForm.formState.errors.password.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="confirm-new-password"
+                          type={showNewConfirmPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          className="pl-10 pr-10"
+                          {...resetPasswordForm.register('confirmPassword')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowNewConfirmPassword(!showNewConfirmPassword)}
+                        >
+                          {showNewConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                      {resetPasswordForm.formState.errors.confirmPassword && (
+                        <p className="text-sm text-destructive">{resetPasswordForm.formState.errors.confirmPassword.message}</p>
+                      )}
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Update Password
+                    </Button>
+                  </form>
+                </motion.div>
+              ) : showForgotPassword ? (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
