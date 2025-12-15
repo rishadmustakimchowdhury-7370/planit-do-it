@@ -265,19 +265,19 @@ export default function EmailAccountsPage() {
   };
 
   const handleGmailConnect = () => {
-    // Pre-fill Gmail SMTP settings
+    // Pre-fill Gmail SMTP settings (use port 465 for direct TLS)
     setFormData({
       provider: 'smtp',
       from_email: '',
       display_name: 'Gmail Account',
       smtp_host: 'smtp.gmail.com',
-      smtp_port: 587,
+      smtp_port: 465,
       smtp_user: '',
       smtp_password: '',
       smtp_use_tls: true,
     });
     setShowAddDialog(true);
-    toast.info('Enter your Gmail address and App Password to connect.');
+    toast.info('Enter your Gmail address and App Password to connect. Port 465 with SSL/TLS is recommended.');
   };
 
   const handleOutlookConnect = () => {

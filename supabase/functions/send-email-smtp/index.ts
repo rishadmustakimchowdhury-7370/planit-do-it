@@ -112,12 +112,24 @@ serve(async (req) => {
 
     console.log(`Sending email via SMTP to ${to_email} from ${config.from_email}`);
 
-    // Create SMTP client
+    // Determine TLS configuration based on port
+    // Port 465: Direct TLS (SSL) - tls: true
+    // Port 587: STARTTLS - tls: false (the library will upgrade via STARTTLS)
+    // Other ports: respect config.use_tls
+    const isDirectTLS = config.port === 465 || (config.use_tls && config.port !== 587);
+    const useStartTLS = config.port === 587;
+
+    console.log(`SMTP config: host=${config.host}, port=${config.port}, directTLS=${isDirectTLS}, startTLS=${useStartTLS}`);
+
+    // Create SMTP client with correct TLS settings
     const client = new SMTPClient({
       connection: {
         hostname: config.host,
         port: config.port,
-        tls: config.use_tls,
+        // For port 587 (STARTTLS), set tls to false - the library will upgrade via STARTTLS
+        // For port 465 (SSL/TLS), set tls to true for direct TLS connection
+        // For other ports, fall back to the user's TLS preference
+        tls: isDirectTLS,
         auth: {
           username: config.username,
           password: config.password,
