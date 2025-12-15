@@ -408,8 +408,8 @@ export function SendCandidateEmailModal({
       if (error) throw error;
 
       if (data?.email_body) {
-        const mergedBody = mergePlaceholders(data.email_body, candidate, selectedJob, profile?.full_name || 'Recruiter');
-        setBody(mergedBody);
+        // AI now uses actual values, no need to merge placeholders
+        setBody(data.email_body);
         
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
