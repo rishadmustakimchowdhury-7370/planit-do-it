@@ -62,12 +62,23 @@ serve(async (req) => {
       throw new Error("Missing required SMTP configuration fields");
     }
 
-    // Create SMTP client
+    // Determine TLS configuration based on port and host
+    // Port 465: Direct TLS (SSL) - tls: true
+    // Port 587: STARTTLS - tls: false (library handles STARTTLS automatically)
+    // Port 25: No encryption - tls: false
+    const isDirectTLS = smtp_port === 465;
+    const useStartTLS = smtp_port === 587;
+    
+    console.log(`Port: ${smtp_port}, Direct TLS: ${isDirectTLS}, STARTTLS: ${useStartTLS}`);
+
+    // Create SMTP client with correct TLS settings
     const client = new SMTPClient({
       connection: {
         hostname: smtp_host,
         port: smtp_port,
-        tls: smtp_use_tls,
+        // For port 587 (STARTTLS), set tls to false - the library will upgrade via STARTTLS
+        // For port 465 (SSL/TLS), set tls to true for direct TLS connection
+        tls: isDirectTLS,
         auth: {
           username: smtp_user,
           password: smtp_password,
@@ -122,10 +133,14 @@ serve(async (req) => {
       errorMessage = "Connection refused. Check your SMTP host and port.";
     } else if (errorMessage.includes("ETIMEDOUT")) {
       errorMessage = "Connection timed out. Check your SMTP host and port, and ensure your firewall allows outbound connections.";
-    } else if (errorMessage.includes("AUTH")) {
-      errorMessage = "Authentication failed. Check your username and password.";
+    } else if (errorMessage.includes("AUTH") || errorMessage.includes("535") || errorMessage.includes("authentication")) {
+      errorMessage = "Authentication failed. For Gmail/Outlook, use an App Password instead of your regular password. Go to your account security settings to generate one.";
     } else if (errorMessage.includes("certificate")) {
       errorMessage = "TLS/SSL certificate error. Try toggling the TLS setting.";
+    } else if (errorMessage.includes("InvalidContentType") || errorMessage.includes("corrupt message")) {
+      errorMessage = "TLS negotiation failed. For port 587 (Gmail/Outlook), this is usually handled automatically. Make sure you're using an App Password.";
+    } else if (errorMessage.includes("BadResource") || errorMessage.includes("closed")) {
+      errorMessage = "Connection was closed unexpectedly. Verify your SMTP credentials and try again.";
     }
 
     return new Response(
