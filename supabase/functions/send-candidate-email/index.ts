@@ -115,6 +115,11 @@ serve(async (req) => {
     if (RESEND_API_KEY) {
       // Send via Resend API
       try {
+        // Add tracking pixel to HTML
+        const supabaseProjectUrl = SUPABASE_URL.replace('.supabase.co', '');
+        const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/track-email?id=${crypto.randomUUID()}&type=open" width="1" height="1" style="display:none" />`;
+        const bodyWithTracking = body_text + trackingPixel;
+
         const resendResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -127,7 +132,7 @@ serve(async (req) => {
               : "RecruitifyCRM <info@recruitifycrm.com>",
             to: [to_email],
             subject: subject,
-            text: body_text,
+            html: bodyWithTracking,
           }),
         });
 
