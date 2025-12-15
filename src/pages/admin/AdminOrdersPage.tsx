@@ -1,0 +1,631 @@
+import { useState, useEffect } from 'react';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { 
+  Search, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Eye, 
+  Loader2,
+  DollarSign,
+  TrendingUp,
+  ShoppingCart,
+  Users,
+  ExternalLink,
+  RefreshCw
+} from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+
+interface Order {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  plan_id: string;
+  amount: number;
+  currency: string;
+  billing_cycle: string;
+  status: string;
+  approval_status: string;
+  stripe_customer_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_checkout_session_id: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  metadata: any;
+  created_at: string;
+  subscription_plans?: { name: string; slug: string } | null;
+  
+}
+
+interface RevenueMetrics {
+  total: number;
+  daily: number;
+  weekly: number;
+  monthly: number;
+  yearly: number;
+}
+
+export default function AdminOrdersPage() {
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [metrics, setMetrics] = useState<RevenueMetrics>({ total: 0, daily: 0, weekly: 0, monthly: 0, yearly: 0 });
+  const [chartData, setChartData] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchOrders();
+    fetchMetrics();
+  }, [statusFilter]);
+
+  const fetchOrders = async () => {
+    try {
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          subscription_plans(name, slug)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (statusFilter !== 'all') {
+        query = query.eq('approval_status', statusFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch orders');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMetrics = async () => {
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('amount, created_at, status')
+        .eq('status', 'completed');
+
+      if (allOrders) {
+        const total = allOrders.reduce((sum, o) => sum + Number(o.amount), 0);
+        const daily = allOrders
+          .filter(o => new Date(o.created_at) >= startOfDay)
+          .reduce((sum, o) => sum + Number(o.amount), 0);
+        const weekly = allOrders
+          .filter(o => new Date(o.created_at) >= startOfWeek)
+          .reduce((sum, o) => sum + Number(o.amount), 0);
+        const monthly = allOrders
+          .filter(o => new Date(o.created_at) >= startOfMonth)
+          .reduce((sum, o) => sum + Number(o.amount), 0);
+        const yearly = allOrders
+          .filter(o => new Date(o.created_at) >= startOfYear)
+          .reduce((sum, o) => sum + Number(o.amount), 0);
+
+        setMetrics({ total, daily, weekly, monthly, yearly });
+
+        // Generate chart data for last 7 days
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          const dayEnd = new Date(dayStart);
+          dayEnd.setDate(dayEnd.getDate() + 1);
+
+          const dayRevenue = allOrders
+            .filter(o => {
+              const orderDate = new Date(o.created_at);
+              return orderDate >= dayStart && orderDate < dayEnd;
+            })
+            .reduce((sum, o) => sum + Number(o.amount), 0);
+
+          last7Days.push({
+            date: format(dayStart, 'MMM dd'),
+            revenue: dayRevenue
+          });
+        }
+        setChartData(last7Days);
+      }
+    } catch (error) {
+      console.error('Failed to fetch metrics:', error);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedOrder || !user) return;
+    setProcessing(true);
+
+    try {
+      // Update order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({
+          approval_status: 'approved',
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', selectedOrder.id);
+
+      if (orderError) throw orderError;
+
+      // Update tenant subscription if we have plan info
+      if (selectedOrder.tenant_id && selectedOrder.plan_id) {
+        const subscriptionEnd = new Date();
+        subscriptionEnd.setMonth(subscriptionEnd.getMonth() + (selectedOrder.billing_cycle === 'yearly' ? 12 : 1));
+
+        await supabase
+          .from('tenants')
+          .update({
+            subscription_plan_id: selectedOrder.plan_id,
+            subscription_status: 'active',
+            subscription_ends_at: subscriptionEnd.toISOString(),
+            is_suspended: false,
+            is_paused: false
+          })
+          .eq('id', selectedOrder.tenant_id);
+      }
+
+      // Log audit
+      await supabase.from('audit_log').insert({
+        user_id: user.id,
+        action: 'order_approved',
+        entity_type: 'order',
+        entity_id: selectedOrder.id,
+        new_values: { approval_status: 'approved' }
+      });
+
+      toast.success('Order approved successfully');
+      setIsApprovalOpen(false);
+      setSelectedOrder(null);
+      fetchOrders();
+      fetchMetrics();
+    } catch (error: any) {
+      toast.error('Failed to approve order: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedOrder || !user || !rejectionReason.trim()) return;
+    setProcessing(true);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          approval_status: 'rejected',
+          rejection_reason: rejectionReason,
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', selectedOrder.id);
+
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        user_id: user.id,
+        action: 'order_rejected',
+        entity_type: 'order',
+        entity_id: selectedOrder.id,
+        new_values: { approval_status: 'rejected', rejection_reason: rejectionReason }
+      });
+
+      toast.success('Order rejected');
+      setIsApprovalOpen(false);
+      setSelectedOrder(null);
+      setRejectionReason('');
+      fetchOrders();
+    } catch (error: any) {
+      toast.error('Failed to reject order: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery || 
+      order.id.toLowerCase().includes(searchLower) ||
+      order.metadata?.user_email?.toLowerCase().includes(searchLower) ||
+      order.metadata?.user_name?.toLowerCase().includes(searchLower);
+    return matchesSearch;
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Completed</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Pending</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-500/10 text-red-600 border-red-500/20">Failed</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getApprovalBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
+      case 'pending_approval':
+        return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-500/10 text-red-600 border-red-500/20"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <AdminLayout title="Orders & Revenue" description="Manage orders and track revenue">
+      <Tabs defaultValue="orders" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orders" className="space-y-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by ID, email, or name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={() => { fetchOrders(); fetchMetrics(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Orders Table */}
+          <Card>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="text-center py-12">
+                  <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No orders found</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Approval</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono text-sm">
+                          {order.id.substring(0, 8)}...
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{order.metadata?.user_name || 'N/A'}</p>
+                            <p className="text-sm text-muted-foreground">{order.metadata?.user_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{order.subscription_plans?.name || order.metadata?.plan_name || 'N/A'}</p>
+                            <p className="text-sm text-muted-foreground capitalize">{order.billing_cycle}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          ${Number(order.amount).toFixed(2)} {order.currency?.toUpperCase()}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(order.status)}</TableCell>
+                        <TableCell>{getApprovalBadge(order.approval_status)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setSelectedOrder(order); setIsDetailOpen(true); }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {order.approval_status === 'pending_approval' && order.status === 'completed' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-green-600"
+                                onClick={() => { setSelectedOrder(order); setIsApprovalOpen(true); }}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-6">
+          {/* Revenue Metrics */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Revenue</p>
+                    <p className="text-2xl font-bold">${metrics.total.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                    <p className="text-2xl font-bold">${metrics.monthly.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <ShoppingCart className="h-6 w-6 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Weekly Revenue</p>
+                    <p className="text-2xl font-bold">${metrics.weekly.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <Users className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Today's Revenue</p>
+                    <p className="text-2xl font-bold">${metrics.daily.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Revenue Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trend (Last 7 Days)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs" />
+                    <YAxis className="text-xs" tickFormatter={(value) => `$${value}`} />
+                    <Tooltip 
+                      formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Order ID</p>
+                  <p className="font-mono">{selectedOrder.id}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Created</p>
+                  <p>{format(new Date(selectedOrder.created_at), 'PPpp')}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Customer</p>
+                  <p>{selectedOrder.metadata?.user_name}</p>
+                  <p className="text-muted-foreground">{selectedOrder.metadata?.user_email}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Plan</p>
+                  <p>{selectedOrder.subscription_plans?.name || selectedOrder.metadata?.plan_name}</p>
+                  <p className="capitalize text-muted-foreground">{selectedOrder.billing_cycle}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Amount</p>
+                  <p className="font-semibold">${Number(selectedOrder.amount).toFixed(2)} {selectedOrder.currency?.toUpperCase()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <div className="flex gap-2 mt-1">
+                    {getStatusBadge(selectedOrder.status)}
+                    {getApprovalBadge(selectedOrder.approval_status)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-2">
+                <p className="font-medium">Stripe References</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {selectedOrder.stripe_customer_id && (
+                    <div>
+                      <p className="text-muted-foreground">Customer ID</p>
+                      <p className="font-mono text-xs">{selectedOrder.stripe_customer_id}</p>
+                    </div>
+                  )}
+                  {selectedOrder.stripe_payment_intent_id && (
+                    <div>
+                      <p className="text-muted-foreground">Payment Intent</p>
+                      <p className="font-mono text-xs">{selectedOrder.stripe_payment_intent_id}</p>
+                    </div>
+                  )}
+                  {selectedOrder.stripe_subscription_id && (
+                    <div>
+                      <p className="text-muted-foreground">Subscription ID</p>
+                      <p className="font-mono text-xs">{selectedOrder.stripe_subscription_id}</p>
+                    </div>
+                  )}
+                  {selectedOrder.stripe_checkout_session_id && (
+                    <div>
+                      <p className="text-muted-foreground">Checkout Session</p>
+                      <p className="font-mono text-xs">{selectedOrder.stripe_checkout_session_id}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedOrder.rejection_reason && (
+                <div className="border-t pt-4">
+                  <p className="font-medium text-destructive">Rejection Reason</p>
+                  <p className="text-sm">{selectedOrder.rejection_reason}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Dialog */}
+      <Dialog open={isApprovalOpen} onOpenChange={setIsApprovalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve or Reject Order</DialogTitle>
+            <DialogDescription>
+              Review the order details and decide whether to approve or reject this purchase.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="font-medium">{selectedOrder.subscription_plans?.name || selectedOrder.metadata?.plan_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  ${Number(selectedOrder.amount).toFixed(2)} - {selectedOrder.billing_cycle}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Customer: {selectedOrder.metadata?.user_email}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Rejection Reason (optional for rejection)</p>
+                <Textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason for rejection..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setIsApprovalOpen(false); setRejectionReason(''); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={processing || !rejectionReason.trim()}
+            >
+              {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Reject
+            </Button>
+            <Button onClick={handleApprove} disabled={processing}>
+              {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  );
+}
