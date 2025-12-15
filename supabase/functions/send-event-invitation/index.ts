@@ -363,8 +363,15 @@ serve(async (req: Request) => {
           ? 'Reminder: '
           : '';
 
+        // Use verified domain or Resend test domain
+        const fromEmail = Deno.env.get("VERIFIED_EMAIL_DOMAIN") 
+          ? `${organizerName} <noreply@${Deno.env.get("VERIFIED_EMAIL_DOMAIN")}>`
+          : `RecruitifyCRM <onboarding@resend.dev>`;
+        
+        console.log(`Sending email from: ${fromEmail} to: ${participant.email}`);
+        
         const emailResult = await resend.emails.send({
-          from: `${organizerName} <info@recruitifycrm.com>`,
+          from: fromEmail,
           reply_to: organizerEmail,
           to: [participant.email],
           subject: `${subjectPrefix}${event.title}`,
@@ -376,6 +383,8 @@ serve(async (req: Request) => {
             }
           ] : undefined
         });
+        
+        console.log(`Email result:`, JSON.stringify(emailResult));
 
         // Update participant invitation status
         await supabase
