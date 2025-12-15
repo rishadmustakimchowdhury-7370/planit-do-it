@@ -15,6 +15,7 @@ import {
   Palette,
   ArrowLeft,
   Phone,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const adminNavItems = [
   { title: 'WhatsApp', url: '/admin/whatsapp', icon: Phone },
   { title: 'Billing', url: '/admin/billing', icon: CreditCard },
   { title: 'Videos', url: '/admin/videos', icon: Video },
+  { title: 'Events', url: '/events', icon: Calendar },
   { title: 'Live Chat', url: '/admin/chat', icon: MessageSquare },
   { title: 'Audit Logs', url: '/admin/logs', icon: ScrollText },
   { title: 'Settings', url: '/admin/settings', icon: Settings },

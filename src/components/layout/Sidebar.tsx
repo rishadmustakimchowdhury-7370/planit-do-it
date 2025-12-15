@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Video
+  Video,
+  Calendar
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Candidates', href: '/candidates', icon: Users },
   { name: 'Clients', href: '/clients', icon: Building2 },
+  { name: 'Events', href: '/events', icon: Calendar },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Tutorials', href: '/tutorials', icon: Video },
