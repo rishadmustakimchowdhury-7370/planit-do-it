@@ -638,42 +638,46 @@ export default function EmailAccountsPage() {
               </div>
             </div>
 
-            {/* SMTP Configuration - Hidden for Gmail/Outlook quick setup */}
-            {formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && (
-              <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
-                <h4 className="font-medium text-sm flex items-center gap-2">
-                  <Server className="h-4 w-4" />
-                  SMTP Server Configuration
-                </h4>
-                
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2 space-y-2">
-                    <Label>SMTP Host *</Label>
-                    <Input
-                      value={formData.smtp_host}
-                      onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
-                      placeholder="smtp.gmail.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Port *</Label>
-                    <Input
-                      type="number"
-                      value={formData.smtp_port}
-                      onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
-                    />
-                  </div>
+            {/* SMTP Configuration - always visible; Gmail/Outlook lock host but allow port change */}
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-medium text-sm flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                SMTP Server Configuration
+              </h4>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label>SMTP Host *</Label>
+                  <Input
+                    value={formData.smtp_host}
+                    disabled={formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com'}
+                    onChange={(e) => setFormData({ ...formData, smtp_host: e.target.value })}
+                    placeholder="smtp.gmail.com"
+                  />
+                  {(formData.smtp_host === 'smtp.gmail.com' || formData.smtp_host === 'smtp.office365.com') && (
+                    <p className="text-xs text-muted-foreground">
+                      Host is fixed for Gmail/Outlook. You can still change the port below if needed.
+                    </p>
+                  )}
                 </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <Label className="text-sm">Enable TLS/SSL Encryption</Label>
-                  <Switch
-                    checked={formData.smtp_use_tls}
-                    onCheckedChange={(v) => setFormData({ ...formData, smtp_use_tls: v })}
+                <div className="space-y-2">
+                  <Label>Port *</Label>
+                  <Input
+                    type="number"
+                    value={formData.smtp_port}
+                    onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
                   />
                 </div>
               </div>
-            )}
+
+              <div className="flex items-center justify-between pt-2">
+                <Label className="text-sm">Enable TLS/SSL Encryption</Label>
+                <Switch
+                  checked={formData.smtp_use_tls}
+                  onCheckedChange={(v) => setFormData({ ...formData, smtp_use_tls: v })}
+                />
+              </div>
+            </div>
 
             {/* Simplified Credentials for Gmail/Outlook */}
             <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
