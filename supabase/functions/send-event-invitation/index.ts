@@ -381,10 +381,8 @@ serve(async (req: Request) => {
           ? 'Reminder: '
           : '';
 
-        // Use verified domain or Resend test domain
-        const fromEmail = Deno.env.get("VERIFIED_EMAIL_DOMAIN") 
-          ? `${organizerName} <noreply@${Deno.env.get("VERIFIED_EMAIL_DOMAIN")}>`
-          : `RecruitifyCRM <onboarding@resend.dev>`;
+        // Use verified recruitifycrm.com domain
+        const fromEmail = `${organizerName} <info@recruitifycrm.com>`;
         
         console.log(`Sending email from: ${fromEmail} to: ${participant.email}`);
         
