@@ -1537,6 +1537,65 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_email_sent: boolean
+          is_read: boolean
+          link: string | null
+          message: string
+          metadata: Json | null
+          read_at: string | null
+          tenant_id: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_email_sent?: boolean
+          is_read?: boolean
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          read_at?: string | null
+          tenant_id: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_email_sent?: boolean
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          read_at?: string | null
+          tenant_id?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           description: string | null
@@ -1576,6 +1635,7 @@ export type Database = {
           job_title: string | null
           last_login_at: string | null
           must_reset_password: boolean | null
+          notification_preferences: Json | null
           phone: string | null
           tenant_id: string | null
           updated_at: string | null
@@ -1591,6 +1651,7 @@ export type Database = {
           job_title?: string | null
           last_login_at?: string | null
           must_reset_password?: boolean | null
+          notification_preferences?: Json | null
           phone?: string | null
           tenant_id?: string | null
           updated_at?: string | null
@@ -1606,6 +1667,7 @@ export type Database = {
           job_title?: string | null
           last_login_at?: string | null
           must_reset_password?: boolean | null
+          notification_preferences?: Json | null
           phone?: string | null
           tenant_id?: string | null
           updated_at?: string | null
