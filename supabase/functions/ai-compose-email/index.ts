@@ -65,10 +65,10 @@ serve(async (req) => {
     // Strict formatting rules for professional emails
     const systemPrompt = `You are an expert recruitment email writer. You MUST follow this EXACT structure for every email:
 
-STRUCTURE (follow exactly):
-1. Greeting: "Hi {{candidate_first_name}}," (always on its own line)
+STRUCTURE (follow exactly - use ACTUAL candidate name, job title, and location provided, NOT placeholders):
+1. Greeting: "Hi ${candidate_first_name}," (use the actual first name provided, on its own line)
 2. [blank line]
-3. Paragraph 1: Introduction and context (2-3 sentences explaining who you are and why you're reaching out)
+3. Paragraph 1: Introduction and context (2-3 sentences explaining who you are and why you're reaching out about the ${job_title} role${location ? ` in ${location}` : ''})
 4. [blank line]
 5. Paragraph 2: Value proposition / main message (2-3 sentences about the opportunity or key information)
 6. [blank line]
@@ -76,27 +76,39 @@ STRUCTURE (follow exactly):
 8. [blank line]
 9. Sign-off: "Best regards," (on its own line, NO signature block after - the system adds signature automatically)
 
-RULES:
+CRITICAL FORMATTING RULES:
 - Tone: ${toneGuide[tone]}
-- Always use exactly 3 logical paragraphs with clear spacing between them
-- Use {{candidate_first_name}}, {{job_title}}, {{company_name}}, {{recruiter_name}} placeholders
+- ALWAYS use the actual candidate name "${candidate_first_name}" in the greeting, NOT a placeholder
+- ALWAYS mention the actual job title "${job_title}"${location ? ` and location "${location}"` : ''} in the email body
+- Company name to use: ${company_name || 'our client company'}
+- Recruiter signing off: ${recruiter_name}
+- Use exactly 3 distinct paragraphs with DOUBLE LINE BREAKS between them for clear visual separation
 - NO markdown, NO HTML, NO bullet points, NO numbered lists
-- NO instructional text like [insert here] or placeholders in brackets
+- NO placeholder text like {{variable}}, [insert here], or brackets - use actual values provided
 - NO subject line - only the email body
 - End with "Best regards," - do NOT add any name or signature after it
-- Each paragraph should be substantial (2-3 complete sentences)`;
+- Each paragraph should be substantial (2-3 complete sentences)
+- IMPORTANT: Separate each paragraph with TWO newlines (blank line between them) for proper formatting`;
 
     const userPrompt = `Write a recruitment email for: ${purposeGuide[purpose]}
 
-Context:
-- Candidate Name: {{candidate_first_name}} (use this placeholder)
-- Position: ${job_title}
+ACTUAL VALUES TO USE (NOT placeholders):
+- Candidate First Name: ${candidate_first_name}
+- Candidate Last Name: ${candidate_last_name || ''}
+- Job Position: ${job_title}
 - Location: ${location || 'flexible/remote'}
-- Company: ${company_name || 'our client company'}
-- Recruiter: ${recruiter_name}
-${custom_instructions ? `\nSpecial instructions: ${custom_instructions}` : ''}
+- Company Name: ${company_name || 'our client company'}
+- Your Name (Recruiter): ${recruiter_name}
+${custom_instructions ? `\nAdditional Instructions: ${custom_instructions}` : ''}
 
-Generate the email following the exact structure specified. Remember: 3 clear paragraphs, proper spacing, end with "Best regards," only.`;
+REQUIREMENTS:
+1. Start with "Hi ${candidate_first_name}," as the greeting
+2. Write 3 distinct paragraphs separated by blank lines
+3. Mention the ${job_title} role${location ? ` in ${location}` : ''} naturally in the content
+4. End with "Best regards," only - no name or signature after
+5. Use actual values above, NOT template variables or placeholders
+
+Generate the email now:`;
 
     console.log("Calling Lovable AI for email composition...");
 
@@ -137,13 +149,23 @@ Generate the email following the exact structure specified. Remember: 3 clear pa
     }
 
     const data = await response.json();
-    const generatedText = data.choices?.[0]?.message?.content || "";
+    let generatedText = data.choices?.[0]?.message?.content || "";
+
+    // Clean up and ensure proper paragraph formatting
+    generatedText = generatedText
+      .trim()
+      // Remove any remaining placeholders
+      .replace(/\{\{[^}]+\}\}/g, '')
+      // Normalize line breaks - ensure double newlines between paragraphs
+      .replace(/\n{3,}/g, '\n\n')
+      // Ensure greeting has proper spacing
+      .replace(/^(Hi [^,]+,)\s*\n?/i, '$1\n\n');
 
     console.log("Email generated successfully");
 
     return new Response(
       JSON.stringify({ 
-        email_body: generatedText.trim(),
+        email_body: generatedText,
         ai_generated: true,
         purpose,
         tone,
