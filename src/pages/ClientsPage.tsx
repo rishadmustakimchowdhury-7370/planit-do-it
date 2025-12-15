@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Building2, Mail, Phone, Globe, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Plus, Search, Building2, Mail, Phone, Globe, MoreHorizontal, Loader2, Download, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { ExportClientsDialog } from '@/components/clients/ExportClientsDialog';
+import { ImportClientsWizard } from '@/components/clients/ImportClientsWizard';
 
 interface Client {
   id: string;
@@ -42,6 +44,8 @@ const ClientsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [clients, setClients] = useState<ClientWithJobCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   useEffect(() => {
     if (tenantId) {
@@ -123,10 +127,20 @@ const ClientsPage = () => {
             className="w-72 pl-9 bg-card"
           />
         </div>
-        <Button className="gap-2" onClick={() => navigate('/clients/new')}>
-          <Plus className="w-4 h-4" />
-          Add Client
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={() => setShowImportWizard(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+          <Button className="gap-2" onClick={() => navigate('/clients/new')}>
+            <Plus className="w-4 h-4" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {/* Clients Grid */}
@@ -178,13 +192,16 @@ const ClientsPage = () => {
                           {client.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleToggleActive(client.id, client.is_active)}>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActive(client.id, client.is_active);
+                            }}>
                               {client.is_active ? 'Deactivate' : 'Activate'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -241,6 +258,18 @@ const ClientsPage = () => {
           </Button>
         </div>
       )}
+
+      {/* Dialogs */}
+      <ExportClientsDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+      />
+      
+      <ImportClientsWizard
+        open={showImportWizard}
+        onOpenChange={setShowImportWizard}
+        onImportComplete={fetchClients}
+      />
     </AppLayout>
   );
 };
