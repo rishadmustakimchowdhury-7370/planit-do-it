@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -19,6 +20,8 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
+import { cn } from '@/lib/utils';
 
 interface Candidate {
   id: string;
@@ -234,16 +237,36 @@ export function SuggestedCandidates({
                       >
                         <Mail className="h-4 w-4 text-info" />
                       </Button>
-                      {candidate.phone && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setWhatsAppDialog({ open: true, candidate })}
-                          title="Send WhatsApp"
-                        >
-                          <MessageCircle className="h-4 w-4 text-green-500" />
-                        </Button>
-                      )}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "transition-all duration-200",
+                                formatWhatsAppNumber(candidate.phone) 
+                                  ? "hover:bg-green-100 hover:text-green-600 active:scale-95" 
+                                  : "opacity-50 cursor-not-allowed"
+                              )}
+                              onClick={() => {
+                                if (!formatWhatsAppNumber(candidate.phone)) {
+                                  toast.error('WhatsApp number not added');
+                                  return;
+                                }
+                                openWhatsAppChat(candidate.phone);
+                              }}
+                            >
+                              <MessageCircle className="h-4 w-4 text-green-500" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {formatWhatsAppNumber(candidate.phone) 
+                              ? 'Open WhatsApp chat' 
+                              : 'WhatsApp number not added'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button
                         size="sm"
                         onClick={() => handleAddToJob(candidate)}

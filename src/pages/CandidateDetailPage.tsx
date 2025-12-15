@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
@@ -34,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
+import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
 
 interface Candidate {
   id: string;
@@ -303,12 +305,37 @@ const CandidateDetailPage = () => {
                   <Mail className="w-4 h-4" />
                   Send Email
                 </Button>
-                {candidate.phone && (
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setWhatsAppDialogOpen(true)}>
-                    <MessageCircle className="w-4 h-4 text-green-500" />
-                    WhatsApp
-                  </Button>
-                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className={cn(
+                          "gap-1.5 transition-all duration-200",
+                          formatWhatsAppNumber(candidate.phone) 
+                            ? "hover:bg-green-50 hover:border-green-300 active:scale-95" 
+                            : "opacity-50 cursor-not-allowed"
+                        )}
+                        onClick={() => {
+                          if (!formatWhatsAppNumber(candidate.phone)) {
+                            toast.error('WhatsApp number not added');
+                            return;
+                          }
+                          openWhatsAppChat(candidate.phone);
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 text-green-500" />
+                        WhatsApp
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {formatWhatsAppNumber(candidate.phone) 
+                        ? `Open WhatsApp: ${candidate.phone}` 
+                        : 'WhatsApp number not added'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 {candidate.linkedin_url && (
                   <Button 
                     variant="outline" 
