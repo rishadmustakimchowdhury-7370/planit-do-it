@@ -94,6 +94,7 @@ export function SendCandidateEmailModal({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [appendSignature, setAppendSignature] = useState(true);
+  const [signatureText, setSignatureText] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>(preSelectedJobId);
   const [scheduleType, setScheduleType] = useState<'now' | 'later'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -115,6 +116,13 @@ export function SendCandidateEmailModal({
   const [isSending, setIsSending] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+  // Initialize default signature per-open
+  useEffect(() => {
+    if (open) {
+      const defaultSig = (profile?.email_signature || `${profile?.full_name || ''}\n${profile?.email || ''}`).trim();
+      setSignatureText(defaultSig || '');
+    }
+  }, [open, profile]);
   useEffect(() => {
     if (open && tenantId) {
       fetchTemplates();
@@ -239,11 +247,6 @@ export function SendCandidateEmailModal({
 
     setIsSending(true);
     try {
-      const signature = appendSignature && profile?.email_signature 
-        ? `\n\n${profile.email_signature}`
-        : '';
-      const finalBody = body + signature;
-
       const { data, error } = await supabase.functions.invoke('send-candidate-email', {
         body: {
           candidate_id: candidate.id,
@@ -251,10 +254,11 @@ export function SendCandidateEmailModal({
           from_email: profile?.email || 'noreply@recruitsy.net',
           to_email: toEmail,
           subject,
-          body_text: finalBody,
+          body_text: body,
           template_id: selectedTemplate || null,
           ai_generated: false,
           scheduled_at: scheduleType === 'later' ? scheduledAt : null,
+          signature: appendSignature ? signatureText : null,
         },
       });
 
@@ -280,8 +284,8 @@ export function SendCandidateEmailModal({
   };
 
   const handleMailtoFallback = () => {
-    const signature = appendSignature && profile?.email_signature 
-      ? `\n\n${profile.email_signature}`
+    const signature = appendSignature && signatureText
+      ? `\n\n${signatureText}`
       : '';
     const finalBody = body + signature;
     const mailtoUrl = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
@@ -441,25 +445,20 @@ export function SendCandidateEmailModal({
                   onCheckedChange={(checked) => setAppendSignature(checked as boolean)}
                 />
                 <Label htmlFor="signature" className="text-sm font-normal">
-                  Append my email signature
+                  Append and edit email signature
                 </Label>
               </div>
-              {appendSignature && profile?.email_signature && (
-                <div className="ml-6 p-3 bg-muted/50 rounded-md border-l-2 border-primary/30">
-                  <p className="text-xs text-muted-foreground mb-1">Preview:</p>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">
-                    {profile.email_signature}
-                  </p>
-                </div>
-              )}
-              {appendSignature && !profile?.email_signature && (
-                <div className="ml-6 p-3 bg-muted/50 rounded-md border-l-2 border-amber-500/30">
-                  <p className="text-xs text-amber-600">
-                    No signature configured. A default signature with your name and email will be used.
-                    <br />
-                    <a href="/settings" className="underline hover:no-underline">
-                      Configure your signature in Settings
-                    </a>
+              {appendSignature && (
+                <div className="ml-6 space-y-2">
+                  <Textarea
+                    value={signatureText}
+                    onChange={(e) => setSignatureText(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                    placeholder="Your name\nYour title\nYour company\nYour contact details"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This signature applies only to this email. Configure a default signature in Settings.
                   </p>
                 </div>
               )}
