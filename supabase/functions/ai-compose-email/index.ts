@@ -68,10 +68,11 @@ serve(async (req) => {
       custom: custom_instructions || 'general outreach to the candidate',
     };
 
-    const systemPrompt = `You are a professional recruitment email writer. Generate plain-text emails that are ${toneGuide[tone]}. 
+    const systemPrompt = `You are a professional recruitment email writer. Generate plain-text emails that are ${toneGuide[tone]}.
 Use merge placeholders like {{candidate_first_name}}, {{job_title}}, {{company_name}}, {{recruiter_name}} where appropriate.
 Keep the email ${lengthGuide[length]}.
-Do NOT include HTML tags. Use simple line breaks for formatting.
+Write a complete, ready-to-send email: greeting, short intro, 1-2 short paragraphs with clear value, a specific call-to-action, and a polite closing.
+Do NOT include HTML tags, markdown, or any instructional text like [insert here] or TODOs.
 Do NOT include a subject line - only the email body.
 End with a professional closing but do NOT include a signature block.`;
 

@@ -17,6 +17,7 @@ interface SendEmailRequest {
   ai_generated?: boolean;
   scheduled_at?: string;
   attachments?: Array<{ name: string; url: string }>;
+  signature?: string | null;
 }
 
 // Professional HTML email template
@@ -100,6 +101,7 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
@@ -108,7 +110,7 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const supabaseUser = createClient(SUPABASE_URL, authHeader.replace("Bearer ", ""), {
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -141,6 +143,7 @@ serve(async (req) => {
       ai_generated,
       scheduled_at,
       attachments,
+      signature,
     } = body;
 
     // Use the user's registered email for the from field if available
@@ -149,8 +152,8 @@ serve(async (req) => {
 
     // Create professional HTML email
     const emailHtml = createEmailHtml(
-      body_text, 
-      profile.email_signature, 
+      body_text,
+      signature ?? profile.email_signature,
       senderName,
       senderEmail
     );
