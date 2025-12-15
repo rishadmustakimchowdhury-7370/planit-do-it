@@ -1,0 +1,173 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
+  try {
+    logStep("Function started");
+    
+    const { planId, billingCycle } = await req.json();
+    logStep("Request params", { planId, billingCycle });
+
+    if (!planId || !billingCycle) {
+      throw new Error("Missing planId or billingCycle");
+    }
+
+    // Get authenticated user
+    const authHeader = req.headers.get("Authorization")!;
+    const token = authHeader.replace("Bearer ", "");
+    const { data } = await supabaseClient.auth.getUser(token);
+    const user = data.user;
+    if (!user?.email) throw new Error("User not authenticated or email not available");
+    logStep("User authenticated", { userId: user.id, email: user.email });
+
+    // Fetch plan details
+    const { data: plan, error: planError } = await supabaseClient
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', planId)
+      .single();
+
+    if (planError || !plan) {
+      throw new Error("Plan not found");
+    }
+    logStep("Plan fetched", { planName: plan.name, priceMonthly: plan.price_monthly });
+
+    // Get price ID based on billing cycle
+    const priceId = billingCycle === 'yearly' 
+      ? plan.stripe_price_id_yearly 
+      : plan.stripe_price_id_monthly;
+
+    if (!priceId) {
+      throw new Error(`Stripe price ID not configured for ${plan.name} (${billingCycle}). Please configure Stripe prices in Admin panel.`);
+    }
+
+    // Initialize Stripe
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
+    
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    logStep("Stripe initialized");
+
+    // Check for existing Stripe customer
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    let customerId;
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
+      logStep("Existing customer found", { customerId });
+    }
+
+    // Get user's profile and tenant
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('tenant_id, full_name')
+      .eq('id', user.id)
+      .single();
+
+    const amount = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+
+    // Create order record (pending)
+    const { data: order, error: orderError } = await supabaseClient
+      .from('orders')
+      .insert({
+        user_id: user.id,
+        tenant_id: profile?.tenant_id,
+        plan_id: planId,
+        amount: amount,
+        currency: 'usd',
+        billing_cycle: billingCycle,
+        status: 'pending',
+        approval_status: 'pending_approval',
+        metadata: {
+          plan_name: plan.name,
+          user_email: user.email,
+          user_name: profile?.full_name
+        }
+      })
+      .select()
+      .single();
+
+    if (orderError) {
+      logStep("Order creation failed", { error: orderError });
+      throw new Error("Failed to create order record");
+    }
+    logStep("Order created", { orderId: order.id });
+
+    // Determine if subscription or one-time
+    const isSubscription = true; // For recurring plans
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      customer_email: customerId ? undefined : user.email,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: isSubscription ? "subscription" : "payment",
+      success_url: `${req.headers.get("origin")}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
+      cancel_url: `${req.headers.get("origin")}/checkout/cancel?order_id=${order.id}`,
+      metadata: {
+        order_id: order.id,
+        plan_id: planId,
+        user_id: user.id,
+        tenant_id: profile?.tenant_id || '',
+        billing_cycle: billingCycle
+      },
+      payment_intent_data: isSubscription ? undefined : {
+        metadata: {
+          order_id: order.id,
+          plan_id: planId,
+        }
+      },
+      subscription_data: isSubscription ? {
+        metadata: {
+          order_id: order.id,
+          plan_id: planId,
+          user_id: user.id,
+        }
+      } : undefined,
+    });
+
+    logStep("Checkout session created", { sessionId: session.id, url: session.url });
+
+    // Update order with checkout session ID
+    await supabaseClient
+      .from('orders')
+      .update({ stripe_checkout_session_id: session.id })
+      .eq('id', order.id);
+
+    return new Response(JSON.stringify({ url: session.url, orderId: order.id }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
+  }
+});

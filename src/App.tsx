@@ -40,6 +40,10 @@ import EmailAnalyticsPage from "./pages/EmailAnalyticsPage";
 import EmailAccountsPage from "./pages/EmailAccountsPage";
 import EventsPage from "./pages/EventsPage";
 import EventDetailPage from "./pages/EventDetailPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
+import CheckoutCancelPage from "./pages/CheckoutCancelPage";
+import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
@@ -107,6 +111,12 @@ const AppRoutes = () => (
     <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
     <Route path="/admin/testimonials" element={<ProtectedRoute><AdminTestimonialsPage /></ProtectedRoute>} />
+    <Route path="/admin/orders" element={<ProtectedRoute><AdminOrdersPage /></ProtectedRoute>} />
+    
+    {/* Checkout routes */}
+    <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+    <Route path="/checkout/success" element={<ProtectedRoute><CheckoutSuccessPage /></ProtectedRoute>} />
+    <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
     
     {/* 404 */}
     <Route path="*" element={<NotFound />} />

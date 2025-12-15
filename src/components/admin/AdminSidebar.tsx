@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Users', url: '/admin/users', icon: Users },
+  { title: 'Orders', url: '/admin/orders', icon: CreditCard },
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
