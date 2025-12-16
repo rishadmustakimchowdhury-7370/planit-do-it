@@ -280,20 +280,22 @@ serve(async (req: Request) => {
     const organizerName = organizer?.full_name || 'Recruiter';
     const organizerEmail = organizer?.email || 'noreply@recruitifycrm.com';
 
-    // Fetch organizer's configured email account (user-owned email identity)
+    // Fetch organizer's configured email account for reply-to (user-owned email identity)
     const { data: emailAccount } = await supabase
       .from('email_accounts')
-      .select('from_email, display_name, smtp_host, smtp_user, smtp_password, smtp_port, smtp_use_tls')
+      .select('from_email, display_name')
       .eq('user_id', event.organizer_id)
       .eq('status', 'connected')
       .order('is_default', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Use user's configured email or fall back to system email
-    const senderEmail = emailAccount?.from_email || 'info@recruitifycrm.com';
+    // IMPORTANT: Always use system email for sending via Resend (unverified domains like gmail.com don't work)
+    // Use organizer's email only for reply-to header
+    const senderEmail = 'info@recruitifycrm.com';
     const senderName = emailAccount?.display_name || organizerName;
-    console.log(`Using sender: ${senderName} <${senderEmail}>`);
+    const replyToEmail = emailAccount?.from_email || organizerEmail;
+    console.log(`Using sender: ${senderName} <${senderEmail}>, reply-to: ${replyToEmail}`);
 
     // Fetch participants (without profiles join - fetch separately)
     let participantsQuery = supabase
@@ -396,14 +398,15 @@ serve(async (req: Request) => {
           ? 'Reminder: '
           : '';
 
-        // Use user's configured email account (user-owned identity)
+        // Always use system email as sender (Resend requires verified domain)
+        // Use organizer's email for reply-to so replies go to the actual person
         const fromEmail = `${senderName} <${senderEmail}>`;
         
-        console.log(`Sending email from: ${fromEmail} to: ${participant.email}`);
+        console.log(`Sending email from: ${fromEmail} to: ${participant.email}, reply-to: ${replyToEmail}`);
         
         const emailResult = await resend.emails.send({
           from: fromEmail,
-          reply_to: organizerEmail,
+          reply_to: replyToEmail,
           to: [participant.email],
           subject: `${subjectPrefix}${event.title}`,
           html: htmlContent,
