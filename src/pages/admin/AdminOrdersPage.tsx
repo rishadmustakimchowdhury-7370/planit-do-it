@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -25,7 +27,9 @@ import {
   ShoppingCart,
   Users,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  Download
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
@@ -49,7 +53,6 @@ interface Order {
   metadata: any;
   created_at: string;
   subscription_plans?: { name: string; slug: string } | null;
-  
 }
 
 interface RevenueMetrics {
@@ -73,6 +76,10 @@ export default function AdminOrdersPage() {
   const [processing, setProcessing] = useState(false);
   const [metrics, setMetrics] = useState<RevenueMetrics>({ total: 0, daily: 0, weekly: 0, monthly: 0, yearly: 0 });
   const [chartData, setChartData] = useState<any[]>([]);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -263,6 +270,151 @@ export default function AdminOrdersPage() {
     return matchesSearch;
   });
 
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete || !user) return;
+    setProcessing(true);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderToDelete.id);
+
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        user_id: user.id,
+        action: 'order_deleted',
+        entity_type: 'order',
+        entity_id: orderToDelete.id,
+        old_values: { order_id: orderToDelete.id, amount: orderToDelete.amount }
+      });
+
+      toast.success('Order deleted successfully');
+      setIsDeleteDialogOpen(false);
+      setOrderToDelete(null);
+      fetchOrders();
+      fetchMetrics();
+    } catch (error: any) {
+      toast.error('Failed to delete order: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOrders.length === 0 || !user) return;
+    setProcessing(true);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .in('id', selectedOrders);
+
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        user_id: user.id,
+        action: 'orders_bulk_deleted',
+        entity_type: 'order',
+        new_values: { deleted_count: selectedOrders.length }
+      });
+
+      toast.success(`${selectedOrders.length} orders deleted successfully`);
+      setSelectedOrders([]);
+      setIsDeleteDialogOpen(false);
+      fetchOrders();
+      fetchMetrics();
+    } catch (error: any) {
+      toast.error('Failed to delete orders: ' + error.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleExportOrders = async () => {
+    setIsExporting(true);
+    try {
+      const ordersToExport = selectedOrders.length > 0
+        ? filteredOrders.filter(o => selectedOrders.includes(o.id))
+        : filteredOrders;
+
+      const csvHeaders = [
+        'Order ID',
+        'Customer Name',
+        'Customer Email',
+        'Plan',
+        'Amount',
+        'Currency',
+        'Billing Cycle',
+        'Payment Status',
+        'Approval Status',
+        'Stripe Customer ID',
+        'Stripe Payment Intent',
+        'Stripe Subscription ID',
+        'Created At',
+        'Approved At',
+        'Rejection Reason'
+      ];
+
+      const csvRows = ordersToExport.map(order => [
+        order.id,
+        order.metadata?.user_name || 'N/A',
+        order.metadata?.user_email || 'N/A',
+        order.subscription_plans?.name || order.metadata?.plan_name || 'N/A',
+        order.amount.toString(),
+        order.currency?.toUpperCase() || 'USD',
+        order.billing_cycle,
+        order.status,
+        order.approval_status,
+        order.stripe_customer_id || '',
+        order.stripe_payment_intent_id || '',
+        order.stripe_subscription_id || '',
+        format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss'),
+        order.approved_at ? format(new Date(order.approved_at), 'yyyy-MM-dd HH:mm:ss') : '',
+        order.rejection_reason || ''
+      ]);
+
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `orders-export-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${ordersToExport.length} orders`);
+    } catch (error: any) {
+      toast.error('Failed to export orders: ' + error.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrders(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const toggleAllOrders = () => {
+    if (selectedOrders.length === filteredOrders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(filteredOrders.map(o => o.id));
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -320,10 +472,33 @@ export default function AdminOrdersPage() {
                 <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={() => { fetchOrders(); fetchMetrics(); }}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              {selectedOrders.length > 0 && (
+                <Button
+                  variant="destructive"
+                  onClick={() => { setOrderToDelete(null); setIsDeleteDialogOpen(true); }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete ({selectedOrders.length})
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleExportOrders}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Export {selectedOrders.length > 0 ? `(${selectedOrders.length})` : 'All'}
+              </Button>
+              <Button variant="outline" onClick={() => { fetchOrders(); fetchMetrics(); }}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Orders Table */}
@@ -342,6 +517,12 @@ export default function AdminOrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                          onCheckedChange={toggleAllOrders}
+                        />
+                      </TableHead>
                       <TableHead>Order ID</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Plan</TableHead>
@@ -355,6 +536,12 @@ export default function AdminOrdersPage() {
                   <TableBody>
                     {filteredOrders.map((order) => (
                       <TableRow key={order.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedOrders.includes(order.id)}
+                            onCheckedChange={() => toggleOrderSelection(order.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {order.id.substring(0, 8)}...
                         </TableCell>
@@ -397,6 +584,14 @@ export default function AdminOrdersPage() {
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => { setOrderToDelete(order); setIsDeleteDialogOpen(true); }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -626,6 +821,32 @@ export default function AdminOrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order{selectedOrders.length > 0 && !orderToDelete ? 's' : ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderToDelete
+                ? `Are you sure you want to delete order ${orderToDelete.id.substring(0, 8)}...? This action cannot be undone.`
+                : `Are you sure you want to delete ${selectedOrders.length} selected order(s)? This action cannot be undone.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={orderToDelete ? handleDeleteOrder : handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={processing}
+            >
+              {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
