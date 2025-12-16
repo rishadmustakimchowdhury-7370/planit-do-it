@@ -31,6 +31,20 @@ interface JobAIMatchSectionProps {
   candidateResume?: string | null;
 }
 
+interface CandidateData {
+  full_name: string;
+  current_title: string | null;
+  current_company: string | null;
+  location: string | null;
+  experience_years: number | null;
+  summary: string | null;
+  skills: any;
+  work_history: any;
+  education: any;
+  cv_parsed_data: any;
+  cv_file_url: string | null;
+}
+
 export function JobAIMatchSection({ 
   candidateId, 
   candidateName, 
@@ -44,6 +58,8 @@ export function JobAIMatchSection({
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [isLoadingMatch, setIsLoadingMatch] = useState(false);
   const [isRunningMatch, setIsRunningMatch] = useState(false);
+  const [candidateData, setCandidateData] = useState<CandidateData | null>(null);
+  const [cvContent, setCvContent] = useState<string>('');
 
   useEffect(() => {
     if (tenantId) {
@@ -52,12 +68,51 @@ export function JobAIMatchSection({
   }, [tenantId]);
 
   useEffect(() => {
+    if (candidateId) {
+      fetchCandidateData();
+    }
+  }, [candidateId]);
+
+  useEffect(() => {
     if (selectedJobId && candidateId) {
       fetchMatchForJob(selectedJobId);
     } else {
       setMatchResult(null);
     }
   }, [selectedJobId, candidateId]);
+
+  const fetchCandidateData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('candidates')
+        .select('full_name, current_title, current_company, location, experience_years, summary, skills, work_history, education, cv_parsed_data, cv_file_url')
+        .eq('id', candidateId)
+        .single();
+
+      if (error) throw error;
+      setCandidateData(data);
+
+      // If CV file exists but no parsed data, try to download content
+      if (data?.cv_file_url && !data?.cv_parsed_data) {
+        try {
+          const { data: fileData, error: fileError } = await supabase.storage
+            .from('documents')
+            .download(data.cv_file_url);
+          
+          if (!fileError && fileData) {
+            const text = await fileData.text().catch(() => '');
+            if (text && text.length > 100) {
+              setCvContent(text.substring(0, 10000));
+            }
+          }
+        } catch (e) {
+          console.log('Could not fetch CV file content:', e);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching candidate data:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     setIsLoadingJobs(true);
@@ -133,13 +188,40 @@ export function JobAIMatchSection({
       const selectedJob = jobs.find(j => j.id === selectedJobId);
       if (!selectedJob) throw new Error('Job not found');
 
+      // Build comprehensive resume from candidate data
+      const resumeParts: string[] = [];
+      if (candidateData?.full_name) resumeParts.push(`Name: ${candidateData.full_name}`);
+      if (candidateData?.current_title) resumeParts.push(`Current Title: ${candidateData.current_title}`);
+      if (candidateData?.current_company) resumeParts.push(`Current Company: ${candidateData.current_company}`);
+      if (candidateData?.location) resumeParts.push(`Location: ${candidateData.location}`);
+      if (candidateData?.experience_years) resumeParts.push(`Years of Experience: ${candidateData.experience_years}`);
+      if (candidateData?.summary) resumeParts.push(`Summary: ${candidateData.summary}`);
+      
+      const skills = Array.isArray(candidateData?.skills) ? candidateData.skills : candidateSkills;
+      if (skills?.length) resumeParts.push(`Skills: ${skills.join(', ')}`);
+      
+      if (candidateData?.work_history && Array.isArray(candidateData.work_history) && candidateData.work_history.length > 0) {
+        resumeParts.push(`Work History: ${JSON.stringify(candidateData.work_history)}`);
+      }
+      if (candidateData?.education && Array.isArray(candidateData.education) && candidateData.education.length > 0) {
+        resumeParts.push(`Education: ${JSON.stringify(candidateData.education)}`);
+      }
+      if (candidateData?.cv_parsed_data) {
+        resumeParts.push(`CV Data: ${JSON.stringify(candidateData.cv_parsed_data)}`);
+      }
+      if (cvContent) {
+        resumeParts.push(`CV Content: ${cvContent}`);
+      }
+
+      const fullResume = resumeParts.join('\n');
+
       // Call AI match function
       const { data, error } = await supabase.functions.invoke('ai-match', {
         body: {
           jobDescription: selectedJob.description || selectedJob.title,
           jobTitle: selectedJob.title,
-          candidateResume: candidateResume || '',
-          candidateSkills: candidateSkills || []
+          candidateResume: fullResume,
+          candidateSkills: skills || []
         }
       });
 

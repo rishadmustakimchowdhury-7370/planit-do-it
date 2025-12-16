@@ -27,6 +27,7 @@ interface Candidate {
   skills: string[] | null;
   summary: string | null;
   cv_parsed_data: any;
+  cv_file_url: string | null;
   work_history: any[];
   education: any[];
   experience_years: number | null;
@@ -61,7 +62,7 @@ const AIMatchPage = () => {
     try {
       const [jobsRes, candidatesRes] = await Promise.all([
         supabase.from('jobs').select('id, title, description, client_id, requirements').eq('tenant_id', tenantId),
-        supabase.from('candidates').select('id, full_name, current_title, current_company, skills, summary, cv_parsed_data, work_history, education, experience_years, location').eq('tenant_id', tenantId)
+        supabase.from('candidates').select('id, full_name, current_title, current_company, skills, summary, cv_parsed_data, cv_file_url, work_history, education, experience_years, location').eq('tenant_id', tenantId)
       ]);
 
       if (jobsRes.data) setJobs(jobsRes.data);
@@ -114,6 +115,28 @@ const AIMatchPage = () => {
       }
       if (candidate.cv_parsed_data) {
         resumeParts.push(`CV Data: ${JSON.stringify(candidate.cv_parsed_data)}`);
+      }
+
+      // If CV file exists but no parsed data, try to download and extract text
+      if (candidate.cv_file_url && !candidate.cv_parsed_data) {
+        try {
+          const { data: fileData, error: fileError } = await supabase.storage
+            .from('documents')
+            .download(candidate.cv_file_url);
+          
+          if (!fileError && fileData) {
+            // For PDF/text files, try to extract text content
+            const fileText = await fileData.text().catch(() => null);
+            if (fileText && fileText.length > 100) {
+              resumeParts.push(`CV Content: ${fileText.substring(0, 10000)}`);
+            } else {
+              // If can't extract text, at least note that CV exists
+              resumeParts.push(`CV File: Uploaded (${candidate.cv_file_url})`);
+            }
+          }
+        } catch (e) {
+          console.log('Could not fetch CV file content:', e);
+        }
       }
 
       const candidateResume = resumeParts.join('\n');
