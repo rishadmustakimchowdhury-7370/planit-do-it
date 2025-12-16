@@ -194,17 +194,24 @@ export default function AdminLiveChatPage() {
 
       if (error) throw error;
       
-      // Send system message
-      await supabase.from('chat_messages').insert({
+      // Send system message and add it immediately
+      const { data: systemMsg } = await supabase.from('chat_messages').insert({
         conversation_id: selectedConversation.id,
         message: "A support agent has joined the conversation. How can I help you?",
         sender_type: 'agent',
         sender_id: user.id,
-      });
+      }).select().single();
+      
+      // Add message immediately
+      if (systemMsg) {
+        setMessages(prev => {
+          if (prev.find(m => m.id === systemMsg.id)) return prev;
+          return [...prev, systemMsg];
+        });
+      }
       
       toast.success('You are now handling this conversation');
       fetchConversations();
-      fetchMessages(selectedConversation.id);
     } catch (error: any) {
       toast.error('Failed to take over: ' + error.message);
     }
@@ -213,16 +220,37 @@ export default function AdminLiveChatPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user) return;
 
+    const messageText = newMessage.trim();
+    setNewMessage('');
     setSending(true);
+    
+    // Create optimistic message for immediate display
+    const optimisticMsg: ChatMessage = {
+      id: `temp_${Date.now()}`,
+      conversation_id: selectedConversation.id,
+      message: messageText,
+      sender_type: 'agent',
+      sender_id: user.id,
+      created_at: new Date().toISOString(),
+    };
+    
+    // Add message immediately (optimistic update)
+    setMessages(prev => [...prev, optimisticMsg]);
+    
     try {
-      const { error } = await supabase.from('chat_messages').insert({
+      const { data: sentMsg, error } = await supabase.from('chat_messages').insert({
         conversation_id: selectedConversation.id,
-        message: newMessage,
+        message: messageText,
         sender_type: 'agent',
         sender_id: user.id,
-      });
+      }).select().single();
 
       if (error) throw error;
+      
+      // Replace optimistic message with real one
+      if (sentMsg) {
+        setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? sentMsg : m));
+      }
       
       // Update conversation
       await supabase
@@ -234,8 +262,10 @@ export default function AdminLiveChatPage() {
         })
         .eq('id', selectedConversation.id);
       
-      setNewMessage('');
     } catch (error: any) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+      setNewMessage(messageText);
       toast.error('Failed to send message: ' + error.message);
     } finally {
       setSending(false);
