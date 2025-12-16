@@ -173,10 +173,10 @@ export default function BillingPage() {
       });
 
       if (error) throw error;
-      
+
       if (data?.url) {
-        // Open Stripe checkout in new tab
-        window.open(data.url, '_blank');
+        // Use same-tab navigation to avoid popup blockers
+        window.location.assign(data.url);
       } else {
         throw new Error('No checkout URL returned');
       }
@@ -191,17 +191,18 @@ export default function BillingPage() {
   const handleManageSubscription = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('customer-portal', {});
-      
+
       if (error) throw error;
-      
+
       if (data?.url) {
-        window.open(data.url, '_blank');
-      } else {
-        toast.info('Subscription management is coming soon');
+        window.location.assign(data.url);
+        return;
       }
+
+      throw new Error('No portal URL returned');
     } catch (error: any) {
       console.error('Portal error:', error);
-      toast.info('Subscription management is coming soon');
+      toast.error(error?.message || 'Unable to open subscription management');
     }
   };
 
