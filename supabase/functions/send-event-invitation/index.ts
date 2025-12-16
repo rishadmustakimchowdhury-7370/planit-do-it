@@ -99,6 +99,15 @@ END:VEVENT
 END:VCALENDAR`.replace(/\n/g, '\r\n');
 }
 
+// Minify HTML to prevent quoted-printable encoding artifacts like "=20"
+function minifyHTML(html: string): string {
+  return html
+    .replace(/\n\s*/g, '') // Remove newlines and leading whitespace
+    .replace(/>\s+</g, '><') // Remove whitespace between tags
+    .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+    .trim();
+}
+
 // Generate modern HTML email content with logo
 function generateEmailHTML(
   event: any, 
@@ -111,19 +120,6 @@ function generateEmailHTML(
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   
-  const formatDateTime = (date: Date, timezone: string) => {
-    return date.toLocaleString('en-US', { 
-      timeZone: timezone,
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    });
-  };
-
   const formatTime = (date: Date, timezone: string) => {
     return date.toLocaleString('en-US', { 
       timeZone: timezone,
@@ -144,11 +140,11 @@ function generateEmailHTML(
   };
 
   const eventTypeLabels: Record<string, string> = {
-    interview: '🎯 Interview',
-    client_meeting: '🤝 Client Meeting',
-    internal_meeting: '👥 Internal Meeting',
-    follow_up: '📞 Follow-up Call',
-    custom: '📅 Event'
+    interview: 'Interview',
+    client_meeting: 'Client Meeting',
+    internal_meeting: 'Internal Meeting',
+    follow_up: 'Follow-up Call',
+    custom: 'Event'
   };
 
   const eventTypeColors: Record<string, string> = {
@@ -159,20 +155,17 @@ function generateEmailHTML(
     custom: '#6366f1'
   };
 
-  const actionColors: Record<string, { bg: string; text: string; icon: string }> = {
-    invite: { bg: '#0052CC', text: '#ffffff', icon: '📩' },
-    update: { bg: '#f59e0b', text: '#ffffff', icon: '🔄' },
-    cancel: { bg: '#dc2626', text: '#ffffff', icon: '❌' },
-    reminder: { bg: '#8b5cf6', text: '#ffffff', icon: '⏰' }
+  const actionColors: Record<string, { bg: string; text: string }> = {
+    invite: { bg: '#0052CC', text: '#ffffff' },
+    update: { bg: '#f59e0b', text: '#ffffff' },
+    cancel: { bg: '#dc2626', text: '#ffffff' },
+    reminder: { bg: '#8b5cf6', text: '#ffffff' }
   };
 
-  const actionTitle = action === 'cancel' 
-    ? 'Event Cancelled' 
-    : action === 'update' 
-    ? 'Event Updated' 
-    : action === 'reminder'
-    ? 'Event Reminder'
-    : 'You\'re Invited!';
+  const actionTitle = action === 'cancel' ? 'Event Cancelled' 
+    : action === 'update' ? 'Event Updated' 
+    : action === 'reminder' ? 'Event Reminder'
+    : "You're Invited!";
 
   const actionMessage = action === 'cancel'
     ? `We regret to inform you that this event has been cancelled by <strong>${organizerName}</strong>.`
@@ -180,284 +173,36 @@ function generateEmailHTML(
     ? `<strong>${organizerName}</strong> has updated the event details. Please review the new information below.`
     : action === 'reminder'
     ? `This is a friendly reminder about your upcoming event with <strong>${organizerName}</strong>.`
-    : `<strong>${organizerName}</strong> has invited you to an exciting event. We look forward to seeing you there!`;
+    : `<strong>${companyName || organizerName}</strong> has invited you to an exciting event. We look forward to seeing you there!`;
 
   const actionColor = actionColors[action] || actionColors.invite;
   const eventTypeColor = eventTypeColors[event.event_type] || '#6366f1';
+  const displayCompanyName = companyName || 'Recruitify CRM';
+  const firstName = participant.name.split(' ')[0];
 
   const logoHTML = companyLogoUrl 
-    ? `<img src="${companyLogoUrl}" alt="${companyName || 'Company'} Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
-    : DEFAULT_LOGO_HTML;
-
-  const displayCompanyName = companyName || 'Recruitify CRM';
+    ? `<img src="${companyLogoUrl}" alt="${displayCompanyName} Logo" style="max-height:50px;max-width:200px;object-fit:contain;" />`
+    : `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:linear-gradient(135deg,#0052CC 0%,#0066FF 100%);border-radius:10px;padding:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg></td><td style="padding-left:10px;font-family:Segoe UI,Arial,sans-serif;font-weight:700;font-size:22px;"><span style="color:#0052CC;">Recruitify</span><span style="color:#64748b;font-weight:500;">CRM</span></td></tr></table>`;
 
   const meetingLinkButton = event.location_type === 'online' && event.meeting_link
-    ? `<a href="${event.meeting_link}" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 10px 0;">🔗 Join Meeting</a>`
+    ? `<tr><td align="center" style="padding:20px 0;"><a href="${event.meeting_link}" style="display:inline-block;background:linear-gradient(135deg,#0052CC 0%,#0066FF 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;">Join Meeting</a></td></tr>`
     : '';
 
   const locationDisplay = event.location_type === 'online' 
-    ? `<span style="color: #059669; font-weight: 500;">🌐 Online Meeting</span>${event.meeting_link ? `<br><a href="${event.meeting_link}" style="color: #0052CC; text-decoration: none; font-size: 13px; word-break: break-all;">${event.meeting_link}</a>` : ''}`
-    : `<span style="color: #374151;">📍 ${event.location_address || 'Location TBD'}</span>`;
+    ? `<span style="color:#059669;font-weight:500;">Online Meeting</span>${event.meeting_link ? `<br/><a href="${event.meeting_link}" style="color:#0052CC;text-decoration:none;font-size:13px;">${event.meeting_link}</a>` : ''}`
+    : `<span style="color:#374151;">${event.location_address || 'Location TBD'}</span>`;
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${actionTitle}: ${event.title}</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9;">
-    <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
-          
-          <!-- Logo Header -->
-          <tr>
-            <td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    ${logoHTML}
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+  const descriptionBlock = event.description 
+    ? `<tr><td style="padding:0 24px 24px;"><div style="background-color:#ffffff;border-radius:10px;padding:16px;border:1px solid #e2e8f0;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Details</div><div style="color:#475569;font-size:14px;line-height:1.6;">${event.description}</div></div></td></tr>`
+    : '';
 
-          <!-- Action Banner -->
-          <tr>
-            <td style="background: linear-gradient(135deg, ${actionColor.bg} 0%, ${actionColor.bg}dd 100%); padding: 35px 40px; text-align: center;">
-              <h1 style="margin: 0; color: ${actionColor.text}; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                ${actionColor.icon} ${actionTitle}
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Main Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <!-- Greeting -->
-              <p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">
-                Hello ${participant.name.split(' ')[0]}! 👋
-              </p>
-              <p style="margin: 0 0 30px; color: #475569; font-size: 16px; line-height: 1.7;">
-                ${actionMessage}
-              </p>
-              
-              <!-- Event Card -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 30px; overflow: hidden;">
-                <!-- Event Type Badge -->
-                <tr>
-                  <td style="padding: 20px 24px 0;">
-                    <span style="display: inline-block; background-color: ${eventTypeColor}15; color: ${eventTypeColor}; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">
-                      ${eventTypeLabels[event.event_type] || '📅 Event'}
-                    </span>
-                  </td>
-                </tr>
-                
-                <!-- Event Title -->
-                <tr>
-                  <td style="padding: 16px 24px 8px;">
-                    <h2 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700; line-height: 1.3;">
-                      ${event.title}
-                    </h2>
-                  </td>
-                </tr>
+  const calendarNote = action !== 'cancel' 
+    ? `<tr><td style="padding:0 40px 25px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border-radius:12px;border:1px solid #bfdbfe;"><tr><td style="padding:16px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top" style="font-size:24px;">📆</td><td style="padding-left:12px;"><p style="margin:0;color:#1e40af;font-size:14px;font-weight:600;">Add to your calendar</p><p style="margin:4px 0 0;color:#3b82f6;font-size:13px;">Open the attached .ics file to add this event to your calendar.</p></td></tr></table></td></tr></table></td></tr>`
+    : '';
 
-                <!-- Event Details -->
-                <tr>
-                  <td style="padding: 16px 24px 24px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                      <!-- Date -->
-                      <tr>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="40" valign="top">
-                                <div style="width: 36px; height: 36px; background-color: #dbeafe; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
-                                  📅
-                                </div>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date</div>
-                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${formatDate(startDate, event.timezone)}</div>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      
-                      <!-- Time -->
-                      <tr>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="40" valign="top">
-                                <div style="width: 36px; height: 36px; background-color: #fce7f3; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
-                                  ⏰
-                                </div>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Time</div>
-                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${formatTime(startDate, event.timezone)} - ${formatTime(endDate, event.timezone)}</div>
-                                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">${event.timezone}</div>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      
-                      <!-- Location -->
-                      <tr>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="40" valign="top">
-                                <div style="width: 36px; height: 36px; background-color: #dcfce7; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
-                                  ${event.location_type === 'online' ? '🌐' : '📍'}
-                                </div>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Location</div>
-                                <div style="font-size: 15px;">${locationDisplay}</div>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                      
-                      <!-- Organizer -->
-                      <tr>
-                        <td style="padding: 12px 0;">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td width="40" valign="top">
-                                <div style="width: 36px; height: 36px; background-color: #fef3c7; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
-                                  👤
-                                </div>
-                              </td>
-                              <td style="padding-left: 12px;">
-                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Organizer</div>
-                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${organizerName}</div>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>${actionTitle}: ${event.title}</title></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background-color:#f1f5f9;-webkit-font-smoothing:antialiased;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;"><tr><td align="center" style="padding:40px 20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:30px 40px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">${logoHTML}</td></tr></table></td></tr><tr><td style="background:linear-gradient(135deg,${actionColor.bg} 0%,${actionColor.bg}dd 100%);padding:35px 40px;text-align:center;"><h1 style="margin:0;color:${actionColor.text};font-size:28px;font-weight:700;letter-spacing:-0.5px;">${actionTitle}</h1></td></tr><tr><td style="padding:40px;"><p style="margin:0 0 20px;color:#1e293b;font-size:18px;font-weight:600;">Hello ${firstName}!</p><p style="margin:0 0 30px;color:#475569;font-size:16px;line-height:1.7;">${actionMessage}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(145deg,#f8fafc 0%,#f1f5f9 100%);border-radius:16px;border:1px solid #e2e8f0;margin-bottom:30px;overflow:hidden;"><tr><td style="padding:20px 24px 0;"><span style="display:inline-block;background-color:${eventTypeColor}15;color:${eventTypeColor};padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${eventTypeLabels[event.event_type] || 'Event'}</span></td></tr><tr><td style="padding:16px 24px 8px;"><h2 style="margin:0;color:#0f172a;font-size:24px;font-weight:700;line-height:1.3;">${event.title}</h2></td></tr><tr><td style="padding:16px 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dbeafe;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">📅</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Date</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatDate(startDate, event.timezone)}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fce7f3;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">⏰</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Time</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatTime(startDate, event.timezone)} - ${formatTime(endDate, event.timezone)}</div><div style="color:#94a3b8;font-size:12px;margin-top:2px;">${event.timezone}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dcfce7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">${event.location_type === 'online' ? '🌐' : '📍'}</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Location</div><div style="font-size:15px;">${locationDisplay}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fef3c7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">👤</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Organizer</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${organizerName}</div></td></tr></table></td></tr></table></td></tr>${descriptionBlock}</table>${meetingLinkButton ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">${meetingLinkButton}</table>` : ''}${calendarNote}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e2e8f0;padding-top:25px;"><tr><td><p style="margin:0 0 5px;color:#475569;font-size:15px;line-height:1.6;">Looking forward to connecting with you!</p><p style="margin:15px 0 0;color:#1e293b;font-size:15px;">Best regards,<br/><strong style="color:#0052CC;">${organizerName}</strong><br/><span style="color:#64748b;font-size:13px;">${displayCompanyName}</span></p></td></tr></table></td></tr><tr><td style="background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);padding:24px 40px;border-top:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><p style="margin:0 0 8px;color:#64748b;font-size:13px;">Powered by <strong style="color:#0052CC;">Recruitify CRM</strong></p><p style="margin:0;color:#94a3b8;font-size:11px;">&copy; ${new Date().getFullYear()} ${displayCompanyName}. All rights reserved.</p></td></tr></table></td></tr></table><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin-top:20px;"><tr><td align="center"><p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">If you have any questions, please reply to this email or contact the organizer directly.</p></td></tr></table></td></tr></table></body></html>`;
 
-                ${event.description ? `
-                <!-- Description -->
-                <tr>
-                  <td style="padding: 0 24px 24px;">
-                    <div style="background-color: #ffffff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0;">
-                      <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📝 Details</div>
-                      <div style="color: #475569; font-size: 14px; line-height: 1.6;">${event.description}</div>
-                    </div>
-                  </td>
-                </tr>
-                ` : ''}
-              </table>
-
-              ${action !== 'cancel' && meetingLinkButton ? `
-              <!-- Meeting Link Button -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
-                <tr>
-                  <td align="center">
-                    ${meetingLinkButton}
-                  </td>
-                </tr>
-              </table>
-              ` : ''}
-
-              ${action !== 'cancel' ? `
-              <!-- Calendar Note -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 12px; padding: 0; margin-bottom: 25px; border: 1px solid #bfdbfe;">
-                <tr>
-                  <td style="padding: 16px 20px;">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td width="40" valign="top">
-                          <span style="font-size: 24px;">📆</span>
-                        </td>
-                        <td style="padding-left: 12px;">
-                          <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 600;">Add to your calendar</p>
-                          <p style="margin: 4px 0 0; color: #3b82f6; font-size: 13px;">Open the attached <strong>.ics file</strong> to add this event to Google Calendar, Outlook, or Apple Calendar.</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              ` : ''}
-              
-              <!-- Signature -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 25px;">
-                <tr>
-                  <td>
-                    <p style="margin: 0 0 5px; color: #475569; font-size: 15px; line-height: 1.6;">
-                      Looking forward to connecting with you!
-                    </p>
-                    <p style="margin: 15px 0 0; color: #1e293b; font-size: 15px;">
-                      Best regards,<br>
-                      <strong style="color: #0052CC;">${organizerName}</strong><br>
-                      <span style="color: #64748b; font-size: 13px;">${displayCompanyName}</span>
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                      Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
-                    </p>
-                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                      © ${new Date().getFullYear()} ${displayCompanyName}. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Help Text -->
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; margin-top: 20px;">
-          <tr>
-            <td align="center">
-              <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.5;">
-                If you have any questions, please reply to this email or contact the organizer directly.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `;
+  return html;
 }
 
 // Send email via SMTP
