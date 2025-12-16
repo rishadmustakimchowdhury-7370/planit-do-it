@@ -38,6 +38,7 @@ export default function AddCandidatePage() {
   const [bulkResults, setBulkResults] = useState<BulkUploadResult[]>([]);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkCompleted, setBulkCompleted] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -341,6 +342,7 @@ export default function AddCandidatePage() {
     }
 
     setIsBulkProcessing(false);
+    setBulkCompleted(true);
     
     if (successCount > 0) {
       toast.success(`Successfully added ${successCount} candidate(s)`);
@@ -535,23 +537,54 @@ export default function AddCandidatePage() {
                   </div>
                 )}
 
-                <Button 
-                  onClick={processBulkUpload} 
-                  disabled={bulkFiles.length === 0 || isBulkProcessing}
-                  className="w-full"
-                >
-                  {isBulkProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Process {bulkFiles.length} Resume(s)
-                    </>
-                  )}
-                </Button>
+                {bulkCompleted ? (
+                  <div className="text-center space-y-4 py-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/20 mb-2">
+                      <CheckCircle className="h-8 w-8 text-success" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">Upload Complete!</h3>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        {bulkResults.filter(r => r.status === 'success').length} of {bulkResults.length} candidate(s) processed successfully
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setBulkFiles([]);
+                          setBulkResults([]);
+                          setBulkProgress(0);
+                          setBulkCompleted(false);
+                        }}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload More CVs
+                      </Button>
+                      <Button onClick={() => navigate('/candidates')}>
+                        View All Candidates
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={processBulkUpload} 
+                    disabled={bulkFiles.length === 0 || isBulkProcessing}
+                    className="w-full"
+                  >
+                    {isBulkProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Process {bulkFiles.length} Resume(s)
+                      </>
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
