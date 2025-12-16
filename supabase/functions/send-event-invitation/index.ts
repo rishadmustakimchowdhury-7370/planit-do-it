@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +20,16 @@ interface SendEventInvitationRequest {
   event_id: string;
   action: 'invite' | 'update' | 'cancel' | 'reminder';
   participant_ids?: string[];
+}
+
+interface SMTPConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  use_tls: boolean;
+  from_email: string;
+  from_name: string;
 }
 
 // Generate ICS calendar file content
@@ -234,6 +245,51 @@ function generateEmailHTML(event: any, participant: Participant, action: string,
   `;
 }
 
+// Send email via SMTP
+async function sendViaSMTP(
+  config: SMTPConfig,
+  to: string,
+  subject: string,
+  html: string,
+  icsContent?: string
+): Promise<void> {
+  const isDirectTLS = config.port === 465 || (config.use_tls && config.port !== 587);
+  
+  console.log(`SMTP config: host=${config.host}, port=${config.port}, directTLS=${isDirectTLS}`);
+
+  const client = new SMTPClient({
+    connection: {
+      hostname: config.host,
+      port: config.port,
+      tls: isDirectTLS,
+      auth: {
+        username: config.username,
+        password: config.password,
+      },
+    },
+  });
+
+  const emailOptions: any = {
+    from: `${config.from_name} <${config.from_email}>`,
+    to: [to],
+    subject: subject,
+    content: "Please view this email in an HTML-compatible client.",
+    html: html,
+  };
+
+  // Add ICS attachment if provided
+  if (icsContent) {
+    emailOptions.attachments = [{
+      filename: 'invite.ics',
+      content: icsContent,
+      contentType: 'text/calendar; method=REQUEST',
+    }];
+  }
+
+  await client.send(emailOptions);
+  await client.close();
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -243,13 +299,8 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const resend = new Resend(resendApiKey);
 
     const body: SendEventInvitationRequest = await req.json();
     const { event_id, action, participant_ids } = body;
@@ -280,24 +331,40 @@ serve(async (req: Request) => {
     const organizerName = organizer?.full_name || 'Recruiter';
     const organizerEmail = organizer?.email || 'noreply@recruitifycrm.com';
 
-    // Fetch organizer's configured email account for reply-to (user-owned email identity)
+    // Fetch organizer's configured SMTP email account (user-owned email identity)
     const { data: emailAccount } = await supabase
       .from('email_accounts')
-      .select('from_email, display_name')
+      .select('*')
       .eq('user_id', event.organizer_id)
       .eq('status', 'connected')
+      .eq('provider', 'smtp')
       .order('is_default', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // IMPORTANT: Always use system email for sending via Resend (unverified domains like gmail.com don't work)
-    // Use organizer's email only for reply-to header
-    const senderEmail = 'info@recruitifycrm.com';
-    const senderName = emailAccount?.display_name || organizerName;
-    const replyToEmail = emailAccount?.from_email || organizerEmail;
-    console.log(`Using sender: ${senderName} <${senderEmail}>, reply-to: ${replyToEmail}`);
+    // Determine if we can use SMTP
+    const canUseSMTP = emailAccount && 
+      emailAccount.smtp_host && 
+      emailAccount.smtp_user && 
+      emailAccount.smtp_password;
 
-    // Fetch participants (without profiles join - fetch separately)
+    let smtpConfig: SMTPConfig | null = null;
+    if (canUseSMTP) {
+      smtpConfig = {
+        host: emailAccount.smtp_host,
+        port: emailAccount.smtp_port || 587,
+        username: emailAccount.smtp_user,
+        password: emailAccount.smtp_password,
+        use_tls: emailAccount.smtp_use_tls ?? true,
+        from_email: emailAccount.from_email,
+        from_name: emailAccount.display_name || organizerName,
+      };
+      console.log(`Using user's SMTP account: ${smtpConfig.from_email}`);
+    } else {
+      console.log(`No SMTP account configured, falling back to Resend with system email`);
+    }
+
+    // Fetch participants
     let participantsQuery = supabase
       .from('event_participants')
       .select(`
@@ -377,7 +444,7 @@ serve(async (req: Request) => {
     const eventWithOrganizer = {
       ...event,
       organizer_name: organizerName,
-      organizer_email: organizerEmail
+      organizer_email: smtpConfig?.from_email || organizerEmail
     };
 
     // Generate ICS file
@@ -398,27 +465,41 @@ serve(async (req: Request) => {
           ? 'Reminder: '
           : '';
 
-        // Always use system email as sender (Resend requires verified domain)
-        // Use organizer's email for reply-to so replies go to the actual person
-        const fromEmail = `${senderName} <${senderEmail}>`;
-        
-        console.log(`Sending email from: ${fromEmail} to: ${participant.email}, reply-to: ${replyToEmail}`);
-        
-        const emailResult = await resend.emails.send({
-          from: fromEmail,
-          reply_to: replyToEmail,
-          to: [participant.email],
-          subject: `${subjectPrefix}${event.title}`,
-          html: htmlContent,
-          attachments: action !== 'cancel' ? [
-            {
-              filename: 'invite.ics',
-              content: icsBase64
-            }
-          ] : undefined
-        });
-        
-        console.log(`Email result:`, JSON.stringify(emailResult));
+        const subject = `${subjectPrefix}${event.title}`;
+
+        if (smtpConfig) {
+          // Send via user's SMTP account
+          console.log(`Sending via SMTP from: ${smtpConfig.from_email} to: ${participant.email}`);
+          await sendViaSMTP(
+            smtpConfig,
+            participant.email,
+            subject,
+            htmlContent,
+            action !== 'cancel' ? icsContent : undefined
+          );
+        } else if (resendApiKey) {
+          // Fallback to Resend with system email
+          const resend = new Resend(resendApiKey);
+          const fromEmail = `${organizerName} <info@recruitifycrm.com>`;
+          
+          console.log(`Sending via Resend from: ${fromEmail} to: ${participant.email}, reply-to: ${organizerEmail}`);
+          
+          await resend.emails.send({
+            from: fromEmail,
+            reply_to: organizerEmail,
+            to: [participant.email],
+            subject: subject,
+            html: htmlContent,
+            attachments: action !== 'cancel' ? [
+              {
+                filename: 'invite.ics',
+                content: icsBase64
+              }
+            ] : undefined
+          });
+        } else {
+          throw new Error("No email sending method available. Please configure SMTP or RESEND_API_KEY.");
+        }
 
         // Update participant invitation status
         await supabase
@@ -434,10 +515,11 @@ serve(async (req: Request) => {
         results.push({ 
           participant_id: participant.id, 
           email: participant.email, 
-          success: true 
+          success: true,
+          method: smtpConfig ? 'smtp' : 'resend'
         });
 
-        console.log(`Email sent to ${participant.email}`);
+        console.log(`Email sent to ${participant.email} via ${smtpConfig ? 'SMTP' : 'Resend'}`);
       } catch (emailError: any) {
         console.error(`Failed to send to ${participant.email}:`, emailError);
         results.push({ 
