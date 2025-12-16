@@ -28,7 +28,9 @@ import {
   UserPlus,
   Trash2,
   Crown,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -103,6 +105,7 @@ export default function SettingsPage() {
   const [inviteRole, setInviteRole] = useState<string>('recruiter');
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -362,6 +365,53 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !tenantId) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo must be less than 5MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${tenantId}/logo-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(fileName);
+
+      const logoUrl = urlData.publicUrl;
+      setTenantData({ ...tenantData, logo_url: logoUrl });
+
+      // Auto-save the logo
+      const { error: updateError } = await supabase
+        .from('tenants')
+        .update({ logo_url: logoUrl })
+        .eq('id', tenantId);
+
+      if (updateError) throw updateError;
+      toast.success('Logo uploaded successfully');
+    } catch (error: any) {
+      console.error('Error uploading logo:', error);
+      toast.error(error.message || 'Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile?.id) return;
@@ -893,13 +943,52 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="org_logo">Logo URL</Label>
-                      <Input
-                        id="org_logo"
-                        value={tenantData.logo_url}
-                        onChange={(e) => setTenantData({ ...tenantData, logo_url: e.target.value })}
-                        placeholder="https://example.com/logo.png"
-                      />
+                      <Label>Company Logo</Label>
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30 overflow-hidden">
+                          {tenantData.logo_url ? (
+                            <img
+                              src={tenantData.logo_url}
+                              alt="Company logo"
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label htmlFor="logo_upload" className="cursor-pointer">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+                              {isUploadingLogo ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Upload className="h-4 w-4" />
+                              )}
+                              {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                            </div>
+                            <input
+                              id="logo_upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleLogoUpload}
+                              className="hidden"
+                              disabled={isUploadingLogo}
+                            />
+                          </label>
+                          {tenantData.logo_url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setTenantData({ ...tenantData, logo_url: '' })}
+                              className="text-xs"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                          )}
+                          <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
