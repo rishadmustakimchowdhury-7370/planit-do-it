@@ -1,9 +1,270 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { Resend } from 'https://esm.sh/resend@2.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Professional renewal reminder email template
+function generateRenewalReminderHTML(
+  data: {
+    userName: string;
+    companyName: string;
+    daysUntilExpiry: number;
+    expiryDate: string;
+    planName: string;
+    renewalLink: string;
+    companyLogo?: string;
+  }
+): string {
+  const logoHTML = data.companyLogo 
+    ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
+    : `<div style="display: inline-flex; align-items: center; gap: 10px;">
+        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            <rect width="20" height="14" x="2" y="6" rx="2"/>
+          </svg>
+        </div>
+        <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
+          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+        </span>
+      </div>`;
+
+  const urgencyColor = data.daysUntilExpiry <= 3 ? '#dc2626' : data.daysUntilExpiry <= 5 ? '#f59e0b' : '#0052CC';
+  const urgencyEmoji = data.daysUntilExpiry <= 3 ? '🚨' : data.daysUntilExpiry <= 5 ? '⚠️' : '📅';
+  const urgencyTitle = data.daysUntilExpiry <= 3 ? 'Urgent: Subscription Expiring Soon!' : 
+                       data.daysUntilExpiry <= 5 ? 'Reminder: Subscription Expiring' : 
+                       'Subscription Renewal Reminder';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${urgencyTitle}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
+          
+          <!-- Logo Header -->
+          <tr>
+            <td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    ${logoHTML}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Urgency Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, ${urgencyColor} 0%, ${urgencyColor}dd 100%); padding: 35px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">
+                ${urgencyEmoji} ${urgencyTitle}
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">
+                Hi ${data.userName}! 👋
+              </p>
+              <p style="margin: 0 0 25px; color: #475569; font-size: 16px; line-height: 1.7;">
+                This is a friendly reminder that your <strong>${data.planName}</strong> subscription for <strong>${data.companyName}</strong> will expire in <strong style="color: ${urgencyColor};">${data.daysUntilExpiry} day${data.daysUntilExpiry !== 1 ? 's' : ''}</strong>.
+              </p>
+              
+              <!-- Expiry Card -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; border: 2px solid ${urgencyColor}20; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 24px; text-align: center;">
+                    <p style="margin: 0 0 8px; color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Expires On</p>
+                    <p style="margin: 0; color: ${urgencyColor}; font-size: 28px; font-weight: 700;">${data.expiryDate}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- What You'll Lose Section -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px; color: #92400e; font-size: 14px; font-weight: 600;">⚠️ Without renewal, you'll lose access to:</p>
+                    <ul style="margin: 0; padding-left: 20px; color: #b45309; font-size: 14px; line-height: 1.8;">
+                      <li>AI-powered candidate matching</li>
+                      <li>All your saved candidates and jobs data</li>
+                      <li>Email communication features</li>
+                      <li>Analytics and reporting tools</li>
+                      <li>Team collaboration features</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Data Retention Notice -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0; color: #1e40af; font-size: 14px;">
+                      💡 <strong>Good news:</strong> Your data will be safely retained for 3 months after expiry. Renew anytime during this period to restore full access!
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
+                <tr>
+                  <td align="center">
+                    <a href="${data.renewalLink}" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 82, 204, 0.4);">
+                      🔄 Renew Now
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center; line-height: 1.6;">
+                Need help or have questions? Reply to this email or contact our support team.
+              </p>
+              
+              <!-- Signature -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 25px;">
+                <tr>
+                  <td>
+                    <p style="margin: 0; color: #1e293b; font-size: 15px;">
+                      Best regards,<br>
+                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
+                      Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                      © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
+// Admin expiry notification email
+function generateAdminExpiryNotificationHTML(
+  data: {
+    tenantName: string;
+    userName: string;
+    userEmail: string;
+    planName: string;
+    daysUntilExpiry: number;
+    expiryDate: string;
+  }
+): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Subscription Expiring - Admin Alert</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f1f5f9;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px;">⚠️ Subscription Expiring Alert</h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 30px;">
+              <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
+                A customer's subscription is expiring soon:
+              </p>
+              
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 8px 0; color: #92400e; font-size: 14px;">Company</td>
+                        <td style="padding: 8px 0; color: #78350f; font-size: 14px; font-weight: 600;">${data.tenantName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #92400e; font-size: 14px;">Contact</td>
+                        <td style="padding: 8px 0; color: #78350f; font-size: 14px;">${data.userName} (${data.userEmail})</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #92400e; font-size: 14px;">Plan</td>
+                        <td style="padding: 8px 0; color: #78350f; font-size: 14px; font-weight: 600;">${data.planName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #92400e; font-size: 14px;">Expires In</td>
+                        <td style="padding: 8px 0; color: #dc2626; font-size: 16px; font-weight: 700;">${data.daysUntilExpiry} day${data.daysUntilExpiry !== 1 ? 's' : ''}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #92400e; font-size: 14px;">Expiry Date</td>
+                        <td style="padding: 8px 0; color: #78350f; font-size: 14px;">${data.expiryDate}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 20px 0 0; color: #64748b; font-size: 14px;">
+                💡 Consider reaching out to offer assistance or a grace period if needed.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+                Recruitify CRM Admin Alert
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -18,14 +279,16 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find tenants expiring in the next 7 days
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-    
+    // Find tenants expiring in the next 7 days (and send reminders at 7, 5, 3 days)
+    const reminderDays = [7, 5, 3];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    console.log('Looking for tenants expiring between', today.toISOString(), 'and', sevenDaysFromNow.toISOString());
+    console.log('Checking for expiring subscriptions...');
+
+    // Get tenants expiring within 7 days
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 8); // Include 7th day
 
     const { data: expiringTenants, error: tenantsError } = await supabase
       .from('tenants')
@@ -33,11 +296,14 @@ Deno.serve(async (req) => {
         id,
         name,
         subscription_ends_at,
-        subscription_status
+        subscription_status,
+        subscription_plan_id,
+        logo_url,
+        subscription_plans(name)
       `)
       .gte('subscription_ends_at', today.toISOString())
       .lte('subscription_ends_at', sevenDaysFromNow.toISOString())
-      .eq('subscription_status', 'active');
+      .in('subscription_status', ['active', 'past_due']);
 
     if (tenantsError) {
       console.error('Error fetching tenants:', tenantsError);
@@ -53,6 +319,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get super admin emails for notifications
+    let adminEmails: string[] = [];
+    const { data: superAdmins } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'super_admin');
+
+    if (superAdmins && superAdmins.length > 0) {
+      const adminUserIds = superAdmins.map(sa => sa.user_id);
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('id', adminUserIds);
+      adminEmails = adminProfiles?.map(p => p.email).filter(Boolean) || [];
+    }
+
     // Get users for these tenants
     const tenantIds = expiringTenants.map(t => t.id);
     const { data: profiles, error: profilesError } = await supabase
@@ -65,114 +347,115 @@ Deno.serve(async (req) => {
       throw profilesError;
     }
 
-    console.log('Found profiles to notify:', profiles?.length || 0);
-
-    // Get the renewal reminder email template
-    const { data: template } = await supabase
-      .from('email_templates')
-      .select('*')
-      .eq('name', 'renewal_reminder')
-      .eq('is_active', true)
-      .single();
+    console.log('Found profiles to potentially notify:', profiles?.length || 0);
 
     let sentCount = 0;
+    let adminNotificationCount = 0;
     const errors: string[] = [];
+    const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-    for (const profile of profiles || []) {
-      const tenant = expiringTenants.find(t => t.id === profile.tenant_id);
-      if (!tenant) continue;
-
+    for (const tenant of expiringTenants) {
       const daysUntilExpiry = Math.ceil(
         (new Date(tenant.subscription_ends_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       );
 
-      // Generate AI-style personalized email content
-      const subject = template?.subject || `Your Recruitify CRM subscription expires in ${daysUntilExpiry} days`;
-      
-      let htmlContent = template?.html_content || `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #0052CC;">Subscription Renewal Reminder</h1>
-          <p>Hi {{name}},</p>
-          <p>This is a friendly reminder that your RecruitifyCRM subscription for <strong>{{company}}</strong> will expire in <strong>{{days}} days</strong> on {{expiry_date}}.</p>
-          <p>To ensure uninterrupted access to all features, including:</p>
-          <ul>
-            <li>AI-powered candidate matching</li>
-            <li>Unlimited job postings</li>
-            <li>Advanced analytics and reporting</li>
-            <li>Team collaboration tools</li>
-          </ul>
-          <p>Please renew your subscription before it expires.</p>
-          <p style="margin: 30px 0;">
-            <a href="{{renewal_link}}" style="background-color: #0052CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Renew Now</a>
-          </p>
-          <p>If you have any questions or need assistance, our support team is here to help.</p>
-          <p>Best regards,<br>The RecruitifyCRM Team</p>
-        </div>
-      `;
-
-      // Replace template variables
-      htmlContent = htmlContent
-        .replace(/{{name}}/g, profile.full_name || 'there')
-        .replace(/{{company}}/g, tenant.name)
-        .replace(/{{days}}/g, daysUntilExpiry.toString())
-        .replace(/{{expiry_date}}/g, new Date(tenant.subscription_ends_at!).toLocaleDateString())
-        .replace(/{{renewal_link}}/g, `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/billing`);
-
-      // Send email via Resend if API key is available
-      if (resendApiKey) {
-        try {
-          const emailResponse = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: 'RecruitifyCRM <info@recruitifycrm.com>',
-              to: profile.email,
-              subject: subject.replace(/{{days}}/g, daysUntilExpiry.toString()),
-              html: htmlContent,
-            }),
-          });
-
-          if (emailResponse.ok) {
-            sentCount++;
-            console.log('Email sent to:', profile.email);
-          } else {
-            const errorText = await emailResponse.text();
-            console.error('Failed to send email to', profile.email, ':', errorText);
-            errors.push(`Failed to send to ${profile.email}`);
-          }
-        } catch (emailError) {
-          console.error('Email error for', profile.email, ':', emailError);
-          errors.push(`Error sending to ${profile.email}`);
-        }
-      } else {
-        // Log the email that would be sent
-        console.log('Would send email to:', profile.email, 'Subject:', subject);
-        sentCount++;
+      // Only send on specific days: 7, 5, 3
+      if (!reminderDays.includes(daysUntilExpiry)) {
+        continue;
       }
 
-      // Log the action
-      await supabase.from('audit_log').insert({
-        action: 'send_renewal_reminder',
-        entity_type: 'tenant',
-        entity_id: tenant.id,
-        new_values: { 
-          email: profile.email, 
-          days_until_expiry: daysUntilExpiry,
-          sent: resendApiKey ? true : false 
-        },
+      const tenantProfiles = profiles?.filter(p => p.tenant_id === tenant.id) || [];
+      const planName = (tenant as any).subscription_plans?.name || 'Subscription';
+      const expiryDate = new Date(tenant.subscription_ends_at!).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
+
+      // Send to each user in the tenant
+      for (const profile of tenantProfiles) {
+        if (!profile.email) continue;
+
+        const htmlContent = generateRenewalReminderHTML({
+          userName: profile.full_name || 'Valued Customer',
+          companyName: tenant.name,
+          daysUntilExpiry,
+          expiryDate,
+          planName,
+          renewalLink: 'https://recruitifycrm.com/billing',
+          companyLogo: tenant.logo_url || undefined
+        });
+
+        if (resend) {
+          try {
+            await resend.emails.send({
+              from: 'Recruitify CRM <info@recruitifycrm.com>',
+              to: [profile.email],
+              subject: daysUntilExpiry <= 3 
+                ? `🚨 Urgent: Your subscription expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}!`
+                : `📅 Reminder: Your subscription expires in ${daysUntilExpiry} days`,
+              html: htmlContent,
+            });
+            sentCount++;
+            console.log(`Reminder sent to: ${profile.email} (${daysUntilExpiry} days)`);
+          } catch (emailError) {
+            console.error(`Failed to send to ${profile.email}:`, emailError);
+            errors.push(`Failed to send to ${profile.email}`);
+          }
+        } else {
+          console.log(`Would send reminder to: ${profile.email} (${daysUntilExpiry} days)`);
+          sentCount++;
+        }
+
+        // Log the action
+        await supabase.from('audit_log').insert({
+          action: 'send_renewal_reminder',
+          entity_type: 'tenant',
+          entity_id: tenant.id,
+          new_values: { 
+            email: profile.email, 
+            days_until_expiry: daysUntilExpiry,
+            sent: !!resend 
+          },
+        });
+      }
+
+      // Send admin notification (only once per tenant, only on 3-day warning)
+      if (daysUntilExpiry <= 3 && adminEmails.length > 0 && resend && tenantProfiles.length > 0) {
+        const primaryProfile = tenantProfiles[0];
+        const adminHtml = generateAdminExpiryNotificationHTML({
+          tenantName: tenant.name,
+          userName: primaryProfile.full_name || 'Unknown',
+          userEmail: primaryProfile.email,
+          planName,
+          daysUntilExpiry,
+          expiryDate
+        });
+
+        try {
+          await resend.emails.send({
+            from: 'Recruitify CRM <info@recruitifycrm.com>',
+            to: adminEmails,
+            subject: `⚠️ Subscription Expiring: ${tenant.name} (${daysUntilExpiry} days)`,
+            html: adminHtml,
+          });
+          adminNotificationCount++;
+          console.log(`Admin notification sent for tenant: ${tenant.name}`);
+        } catch (emailError) {
+          console.error(`Failed to send admin notification for ${tenant.name}:`, emailError);
+        }
+      }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         sent: sentCount, 
-        total: profiles?.length || 0,
+        admin_notifications: adminNotificationCount,
+        total_tenants: expiringTenants.length,
         errors: errors.length > 0 ? errors : undefined,
-        message: resendApiKey ? 'Emails sent' : 'Emails logged (RESEND_API_KEY not configured)'
+        message: resend ? 'Reminder emails sent' : 'Emails logged (RESEND_API_KEY not configured)'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
