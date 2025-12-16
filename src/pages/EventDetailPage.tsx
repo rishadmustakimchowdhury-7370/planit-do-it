@@ -36,7 +36,8 @@ import {
   HelpCircle,
   Copy,
   CalendarPlus,
-  Link2
+  Link2,
+  Pencil
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -44,6 +45,7 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { EditEventDialog } from '@/components/events/EditEventDialog';
 
 interface Event {
   id: string;
@@ -117,6 +119,7 @@ export default function EventDetailPage() {
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id && tenantId) {
@@ -385,6 +388,14 @@ export default function EventDetailPage() {
               <>
                 <Button 
                   variant="outline" 
+                  onClick={() => setEditDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </Button>
+                <Button 
+                  variant="outline" 
                   onClick={handleSendInvitations}
                   disabled={isSendingInvites}
                   className="gap-2"
@@ -644,6 +655,17 @@ export default function EventDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Edit Event Dialog */}
+      <EditEventDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        eventId={id || ''}
+        onEventUpdated={() => {
+          setEditDialogOpen(false);
+          fetchEventDetails();
+        }}
+      />
     </AppLayout>
   );
 }
