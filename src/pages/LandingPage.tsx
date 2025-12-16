@@ -389,19 +389,19 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 pt-6 sm:pt-8 text-xs sm:text-sm text-muted-foreground"
+              className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-6 sm:pt-8 text-xs sm:text-sm text-muted-foreground"
             >
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-success" />
-                No credit card required
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                <span>No credit card required</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-success" />
-                14-day free trial
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                <span>14-day free trial</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-success" />
-                Cancel anytime
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                <span>Cancel anytime</span>
               </div>
             </motion.div>
           </div>
@@ -420,18 +420,18 @@ export default function LandingPage() {
                 <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-warning/50" />
                 <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-success/50" />
               </div>
-              <div className="p-3 sm:p-6 bg-gradient-to-br from-card to-muted/30">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              <div className="p-4 sm:p-6 bg-gradient-to-br from-card to-muted/30">
+                <div className="grid grid-cols-4 gap-2 sm:gap-4">
                   {[
-                    { label: 'Open Jobs', value: '12', icon: Briefcase },
+                    { label: 'Jobs', value: '12', icon: Briefcase },
                     { label: 'Candidates', value: '284', icon: Users },
                     { label: 'Interviews', value: '8', icon: BarChart3 },
                     { label: 'AI Matches', value: '156', icon: Brain },
                   ].map((stat, i) => (
-                    <div key={i} className="p-3 sm:p-4 rounded-lg bg-background/50 border border-border">
-                      <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 text-accent mb-1 sm:mb-2" />
-                      <div className="text-lg sm:text-2xl font-bold">{stat.value}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
+                    <div key={i} className="p-2 sm:p-4 rounded-lg bg-background/50 border border-border text-center">
+                      <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 text-accent mb-1 sm:mb-2 mx-auto" />
+                      <div className="text-base sm:text-2xl font-bold">{stat.value}</div>
+                      <div className="text-[10px] sm:text-sm text-muted-foreground truncate">{stat.label}</div>
                     </div>
                   ))}
                 </div>
