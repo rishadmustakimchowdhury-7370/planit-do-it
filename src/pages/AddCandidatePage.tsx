@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User, Files, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User, Files, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 interface BulkUploadResult {
   fileName: string;
-  status: 'pending' | 'parsing' | 'success' | 'error';
+  status: 'pending' | 'parsing' | 'success' | 'error' | 'duplicate';
   candidateName?: string;
   error?: string;
 }
@@ -207,6 +207,11 @@ export default function AddCandidatePage() {
 
     const results = [...bulkResults];
     let successCount = 0;
+    let duplicateCount = 0;
+    
+    // Track processed emails and names within this batch to detect duplicates
+    const processedEmails = new Set<string>();
+    const processedNames = new Set<string>();
 
     for (let i = 0; i < bulkFiles.length; i++) {
       const file = bulkFiles[i];
@@ -240,13 +245,85 @@ export default function AddCandidatePage() {
           throw new Error('Could not extract name and email from CV');
         }
 
-        // Check if candidate already exists
-        const { data: existing } = await supabase
+        const emailLower = data.email.toLowerCase().trim();
+        const nameLower = data.full_name.toLowerCase().trim();
+
+        // Check for duplicate within this batch
+        if (processedEmails.has(emailLower)) {
+          results[i] = { 
+            ...results[i], 
+            status: 'duplicate', 
+            candidateName: data.full_name,
+            error: `Duplicate email: ${data.email}` 
+          };
+          duplicateCount++;
+          setBulkResults([...results]);
+          setBulkProgress(((i + 1) / bulkFiles.length) * 100);
+          continue;
+        }
+
+        if (processedNames.has(nameLower)) {
+          results[i] = { 
+            ...results[i], 
+            status: 'duplicate', 
+            candidateName: data.full_name,
+            error: `Duplicate name: ${data.full_name}` 
+          };
+          duplicateCount++;
+          setBulkResults([...results]);
+          setBulkProgress(((i + 1) / bulkFiles.length) * 100);
+          continue;
+        }
+
+        // Check if candidate already exists in database
+        const { data: existingByEmail } = await supabase
           .from('candidates')
-          .select('id')
+          .select('id, full_name')
           .eq('tenant_id', tenantId)
           .eq('email', data.email)
           .maybeSingle();
+
+        if (existingByEmail) {
+          results[i] = { 
+            ...results[i], 
+            status: 'duplicate', 
+            candidateName: data.full_name,
+            error: `Already exists in database (email: ${data.email})` 
+          };
+          duplicateCount++;
+          processedEmails.add(emailLower);
+          processedNames.add(nameLower);
+          setBulkResults([...results]);
+          setBulkProgress(((i + 1) / bulkFiles.length) * 100);
+          continue;
+        }
+
+        // Check if name already exists in database
+        const { data: existingByName } = await supabase
+          .from('candidates')
+          .select('id, email')
+          .eq('tenant_id', tenantId)
+          .ilike('full_name', data.full_name)
+          .maybeSingle();
+
+        if (existingByName) {
+          results[i] = { 
+            ...results[i], 
+            status: 'duplicate', 
+            candidateName: data.full_name,
+            error: `Name already exists in database` 
+          };
+          duplicateCount++;
+          processedEmails.add(emailLower);
+          processedNames.add(nameLower);
+          setBulkResults([...results]);
+          setBulkProgress(((i + 1) / bulkFiles.length) * 100);
+          continue;
+        }
+
+        // Mark as processed
+        processedEmails.add(emailLower);
+        processedNames.add(nameLower);
 
         // Upload CV file to storage
         const fileExt = file.name.split('.').pop();
@@ -265,69 +342,33 @@ export default function AddCandidatePage() {
           console.error('CV upload error:', uploadErr);
         }
 
-        if (existing) {
-          // Update existing candidate instead of showing error
-          const skillsArray = Array.isArray(data.skills) ? data.skills : [];
-          
-          const updateData: any = {
-            full_name: data.full_name,
-            phone: data.phone || null,
-            location: data.location || null,
-            current_title: data.current_title || null,
-            current_company: data.current_company || null,
-            linkedin_url: data.linkedin_url || null,
-            summary: data.summary || null,
-            skills: skillsArray.length > 0 ? skillsArray : null,
-            experience_years: data.experience_years || null,
-            updated_at: new Date().toISOString(),
-          };
-          
-          if (cvFileUrl) {
-            updateData.cv_file_url = cvFileUrl;
-          }
-          
-          const { error: updateError } = await supabase
-            .from('candidates')
-            .update(updateData)
-            .eq('id', existing.id);
+        // Insert new candidate
+        const skillsArray = Array.isArray(data.skills) ? data.skills : [];
+        
+        const { error: insertError } = await supabase.from('candidates').insert({
+          tenant_id: tenantId,
+          full_name: data.full_name,
+          email: data.email,
+          phone: data.phone || null,
+          location: data.location || null,
+          current_title: data.current_title || null,
+          current_company: data.current_company || null,
+          linkedin_url: data.linkedin_url || null,
+          summary: data.summary || null,
+          skills: skillsArray.length > 0 ? skillsArray : null,
+          experience_years: data.experience_years || null,
+          cv_file_url: cvFileUrl,
+          status: 'new',
+        });
 
-          if (updateError) throw updateError;
+        if (insertError) throw insertError;
 
-          results[i] = { 
-            ...results[i], 
-            status: 'success', 
-            candidateName: `${data.full_name} (updated)` 
-          };
-          successCount++;
-        } else {
-          // Insert candidate
-          const skillsArray = Array.isArray(data.skills) ? data.skills : [];
-          
-          const { error: insertError } = await supabase.from('candidates').insert({
-            tenant_id: tenantId,
-            full_name: data.full_name,
-            email: data.email,
-            phone: data.phone || null,
-            location: data.location || null,
-            current_title: data.current_title || null,
-            current_company: data.current_company || null,
-            linkedin_url: data.linkedin_url || null,
-            summary: data.summary || null,
-            skills: skillsArray.length > 0 ? skillsArray : null,
-            experience_years: data.experience_years || null,
-            cv_file_url: cvFileUrl,
-            status: 'new',
-          });
-
-          if (insertError) throw insertError;
-
-          results[i] = { 
-            ...results[i], 
-            status: 'success', 
-            candidateName: data.full_name 
-          };
-          successCount++;
-        }
+        results[i] = { 
+          ...results[i], 
+          status: 'success', 
+          candidateName: data.full_name 
+        };
+        successCount++;
       } catch (error: any) {
         console.error(`Error processing ${file.name}:`, error);
         results[i] = { 
@@ -347,8 +388,11 @@ export default function AddCandidatePage() {
     if (successCount > 0) {
       toast.success(`Successfully added ${successCount} candidate(s)`);
     }
-    if (successCount < bulkFiles.length) {
-      toast.warning(`${bulkFiles.length - successCount} file(s) had errors`);
+    if (duplicateCount > 0) {
+      toast.warning(`${duplicateCount} duplicate(s) skipped`);
+    }
+    if (bulkFiles.length - successCount - duplicateCount > 0) {
+      toast.error(`${bulkFiles.length - successCount - duplicateCount} file(s) had errors`);
     }
   };
 
@@ -512,6 +556,7 @@ export default function AddCandidatePage() {
                             "flex items-center justify-between p-3 rounded-lg border",
                             result.status === 'success' && "bg-success/10 border-success/30",
                             result.status === 'error' && "bg-destructive/10 border-destructive/30",
+                            result.status === 'duplicate' && "bg-warning/10 border-warning/30",
                             result.status === 'parsing' && "bg-info/10 border-info/30",
                             result.status === 'pending' && "bg-muted"
                           )}
@@ -519,6 +564,7 @@ export default function AddCandidatePage() {
                           <div className="flex items-center gap-2 min-w-0">
                             {result.status === 'success' && <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />}
                             {result.status === 'error' && <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />}
+                            {result.status === 'duplicate' && <AlertCircle className="h-4 w-4 text-warning flex-shrink-0" />}
                             {result.status === 'parsing' && <Loader2 className="h-4 w-4 animate-spin text-info flex-shrink-0" />}
                             {result.status === 'pending' && <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                             <div className="min-w-0">
@@ -527,7 +573,10 @@ export default function AddCandidatePage() {
                                 <p className="text-xs text-muted-foreground">{result.candidateName}</p>
                               )}
                               {result.error && (
-                                <p className="text-xs text-destructive">{result.error}</p>
+                                <p className={cn(
+                                  "text-xs",
+                                  result.status === 'duplicate' ? "text-warning" : "text-destructive"
+                                )}>{result.error}</p>
                               )}
                             </div>
                           </div>
@@ -545,8 +594,18 @@ export default function AddCandidatePage() {
                     <div>
                       <h3 className="text-lg font-semibold text-foreground">Upload Complete!</h3>
                       <p className="text-muted-foreground text-sm mt-1">
-                        {bulkResults.filter(r => r.status === 'success').length} of {bulkResults.length} candidate(s) processed successfully
+                        {bulkResults.filter(r => r.status === 'success').length} candidate(s) added successfully
                       </p>
+                      {bulkResults.filter(r => r.status === 'duplicate').length > 0 && (
+                        <p className="text-warning text-sm">
+                          {bulkResults.filter(r => r.status === 'duplicate').length} duplicate(s) skipped
+                        </p>
+                      )}
+                      {bulkResults.filter(r => r.status === 'error').length > 0 && (
+                        <p className="text-destructive text-sm">
+                          {bulkResults.filter(r => r.status === 'error').length} error(s)
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                       <Button 
