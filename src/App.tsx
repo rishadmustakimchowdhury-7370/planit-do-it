@@ -45,6 +45,7 @@ import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
 import CheckoutCancelPage from "./pages/CheckoutCancelPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import AdminSEOPage from "./pages/admin/AdminSEOPage";
+import AdminPromoCodesPage from "./pages/admin/AdminPromoCodesPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import FeaturesPage from "./pages/FeaturesPage";
@@ -126,6 +127,7 @@ const AppRoutes = () => (
     <Route path="/admin/testimonials" element={<ProtectedRoute><AdminTestimonialsPage /></ProtectedRoute>} />
     <Route path="/admin/orders" element={<ProtectedRoute><AdminOrdersPage /></ProtectedRoute>} />
     <Route path="/admin/seo" element={<ProtectedRoute><AdminSEOPage /></ProtectedRoute>} />
+    <Route path="/admin/promo-codes" element={<ProtectedRoute><AdminPromoCodesPage /></ProtectedRoute>} />
     
     {/* Checkout routes */}
     <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />

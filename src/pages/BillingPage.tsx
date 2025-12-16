@@ -359,7 +359,7 @@ export default function BillingPage() {
                           <h3 className="text-xl font-semibold">{plan.name}</h3>
                         </div>
                         <div className="mb-6">
-                          <span className="text-4xl font-bold">${plan.price_monthly}</span>
+                          <span className="text-4xl font-bold">£{plan.price_monthly}</span>
                           <span className="text-muted-foreground">/month</span>
                         </div>
                         <ul className="space-y-3 mb-6">
