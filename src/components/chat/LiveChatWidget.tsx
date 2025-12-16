@@ -167,12 +167,19 @@ export function LiveChatWidget() {
       
       setShowForm(false);
 
-      // Send welcome message from bot
-      await supabase.from('chat_messages').insert({
+      // Send welcome message from bot and add it immediately
+      const welcomeMessage = `Hello ${visitorInfo.name}! 👋 I'm the Recruitify AI assistant. How can I help you today?\n\nI can answer questions about:\n• Our pricing plans\n• Features & capabilities\n• Getting started\n\nOr type "agent" to connect with a live support agent.`;
+      
+      const { data: welcomeMsg } = await supabase.from('chat_messages').insert({
         conversation_id: newConversation.id,
-        message: `Hello ${visitorInfo.name}! 👋 I'm the Recruitify AI assistant. How can I help you today?\n\nI can answer questions about:\n• Our pricing plans\n• Features & capabilities\n• Getting started\n\nOr type "agent" to connect with a live support agent.`,
+        message: welcomeMessage,
         sender_type: 'bot',
-      });
+      }).select().single();
+      
+      // Add message immediately
+      if (welcomeMsg) {
+        setMessages([welcomeMsg]);
+      }
       
     } catch (error) {
       console.error('Failed to start conversation:', error);
@@ -223,12 +230,19 @@ export function LiveChatWidget() {
         })
         .eq('id', conversationId);
 
-      // Send system message
-      await supabase.from('chat_messages').insert({
+      // Send system message and add immediately
+      const { data: systemMsg } = await supabase.from('chat_messages').insert({
         conversation_id: conversationId,
         message: "You've requested to speak with a live agent. Please wait, someone will be with you shortly.",
         sender_type: 'bot',
-      });
+      }).select().single();
+      
+      if (systemMsg) {
+        setMessages(prev => {
+          if (prev.find(m => m.id === systemMsg.id)) return prev;
+          return [...prev, systemMsg];
+        });
+      }
 
       // Trigger notification edge function
       await supabase.functions.invoke('notify-chat-escalation', {
@@ -252,17 +266,33 @@ export function LiveChatWidget() {
     const messageText = newMessage.trim();
     setNewMessage('');
 
+    // Create optimistic message for immediate display
+    const optimisticMsg: ChatMessage = {
+      id: `temp_${Date.now()}`,
+      message: messageText,
+      sender_type: 'visitor',
+      created_at: new Date().toISOString(),
+    };
+    
+    // Add message immediately (optimistic update)
+    setMessages(prev => [...prev, optimisticMsg]);
+
     try {
       // Check if user wants live agent
       const wantsAgent = /\b(agent|human|support|help me|speak to someone|real person|live chat)\b/i.test(messageText);
       
       if (wantsAgent && !isAgentMode) {
         // Send user message first
-        await supabase.from('chat_messages').insert({
+        const { data: sentMsg } = await supabase.from('chat_messages').insert({
           conversation_id: conversationId,
           message: messageText,
           sender_type: 'visitor',
-        });
+        }).select().single();
+        
+        // Replace optimistic message with real one
+        if (sentMsg) {
+          setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? sentMsg : m));
+        }
         
         await requestLiveAgent();
         setSending(false);
@@ -270,13 +300,18 @@ export function LiveChatWidget() {
       }
 
       // Send user message
-      const { error: sendError } = await supabase.from('chat_messages').insert({
+      const { data: sentMsg, error: sendError } = await supabase.from('chat_messages').insert({
         conversation_id: conversationId,
         message: messageText,
         sender_type: 'visitor',
-      });
+      }).select().single();
 
       if (sendError) throw sendError;
+      
+      // Replace optimistic message with real one
+      if (sentMsg) {
+        setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? sentMsg : m));
+      }
 
       // Update conversation
       await supabase
@@ -301,36 +336,59 @@ export function LiveChatWidget() {
           });
 
           if (!botError && botResponse) {
-            // Add bot response
-            await supabase.from('chat_messages').insert({
+            // Add bot response with optimistic update
+            const { data: botMsg } = await supabase.from('chat_messages').insert({
               conversation_id: conversationId,
               message: botResponse.response || "I'm here to help! Could you please rephrase your question?",
               sender_type: 'bot',
-            });
+            }).select().single();
+            
+            if (botMsg) {
+              setMessages(prev => {
+                if (prev.find(m => m.id === botMsg.id)) return prev;
+                return [...prev, botMsg];
+              });
+            }
 
             // If AI suggests escalation
             if (botResponse.shouldEscalate) {
               setTimeout(async () => {
-                await supabase.from('chat_messages').insert({
+                const { data: escalateMsg } = await supabase.from('chat_messages').insert({
                   conversation_id: conversationId,
                   message: "Would you like me to connect you with a live support agent? Just type 'agent' and I'll get someone for you.",
                   sender_type: 'bot',
-                });
+                }).select().single();
+                
+                if (escalateMsg) {
+                  setMessages(prev => {
+                    if (prev.find(m => m.id === escalateMsg.id)) return prev;
+                    return [...prev, escalateMsg];
+                  });
+                }
               }, 1000);
             }
           }
         } catch (aiError) {
           console.error('AI response error:', aiError);
           // Fallback response
-          await supabase.from('chat_messages').insert({
+          const { data: fallbackMsg } = await supabase.from('chat_messages').insert({
             conversation_id: conversationId,
             message: "Thanks for your message! I'm processing your request. Would you like to speak with a live agent? Just type 'agent'.",
             sender_type: 'bot',
-          });
+          }).select().single();
+          
+          if (fallbackMsg) {
+            setMessages(prev => {
+              if (prev.find(m => m.id === fallbackMsg.id)) return prev;
+              return [...prev, fallbackMsg];
+            });
+          }
         }
       }
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       setNewMessage(messageText);
     } finally {
       setSending(false);
