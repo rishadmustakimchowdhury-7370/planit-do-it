@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User, Files, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Loader2, FileText, Link as LinkIcon, User, Files, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -517,15 +517,49 @@ export default function AddCandidatePage() {
                     onChange={handleBulkFileChange}
                     className="hidden"
                   />
-                  {bulkFiles.length > 0 ? (
-                    <div className="space-y-2">
-                      <Files className="h-12 w-12 mx-auto text-accent" />
-                      <p className="font-medium">{bulkFiles.length} file(s) selected</p>
-                      <Button variant="outline" size="sm" onClick={() => { setBulkFiles([]); setBulkResults([]); }}>
-                        Clear All
-                      </Button>
+                  {bulkFiles.length > 0 && !isBulkProcessing && !bulkCompleted ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{bulkFiles.length} file(s) selected</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => bulkFileInputRef.current?.click()}>
+                            Add More
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setBulkFiles([]); setBulkResults([]); }}>
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {bulkFiles.map((file, idx) => (
+                          <div 
+                            key={idx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({(file.size / 1024).toFixed(1)} KB)
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                const newFiles = bulkFiles.filter((_, i) => i !== idx);
+                                setBulkFiles(newFiles);
+                                setBulkResults(newFiles.map(f => ({ fileName: f.name, status: 'pending' })));
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : (
+                  ) : !bulkCompleted && !isBulkProcessing ? (
                     <div className="space-y-2">
                       <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
                       <p className="text-muted-foreground">Drag & drop multiple CVs or click to upload</p>
@@ -534,7 +568,7 @@ export default function AddCandidatePage() {
                         Select Files
                       </Button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {bulkResults.length > 0 && (
