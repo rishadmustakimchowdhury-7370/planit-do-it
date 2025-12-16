@@ -289,7 +289,7 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Recruitify CRM <info@recruitifycrm.com>",
+          from: "Recruitify CRM <onboarding@resend.dev>",
           to: [data.email],
           subject: "🎉 Your Demo Booking is Confirmed - Recruitify CRM",
           html: getVisitorEmailTemplate(data),
@@ -311,7 +311,7 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Recruitify CRM <info@recruitifycrm.com>",
+          from: "Recruitify CRM <onboarding@resend.dev>",
           to: ["info@recruitifycrm.com"],
           subject: `🔔 New Demo Request from ${data.name}`,
           html: getAdminEmailTemplate(data),
