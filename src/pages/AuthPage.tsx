@@ -315,15 +315,15 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
+        <div className="relative z-10 flex flex-col justify-between p-8 xl:p-12 text-primary-foreground">
           <div>
             <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold">
               <Sparkles className="h-8 w-8" />
-              Recruitsy
+              Recruitify CRM
             </Link>
           </div>
           
@@ -332,7 +332,7 @@ export default function AuthPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-4xl font-bold leading-tight"
+              className="text-3xl xl:text-4xl font-bold leading-tight"
             >
               AI-Powered Recruitment<br />Made Simple
             </motion.h1>
@@ -340,7 +340,7 @@ export default function AuthPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-lg text-primary-foreground/80 max-w-md"
+              className="text-base xl:text-lg text-primary-foreground/80 max-w-md"
             >
               Streamline your hiring process with intelligent candidate matching, 
               automated pipelines, and powerful analytics.
@@ -349,35 +349,35 @@ export default function AuthPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="flex gap-8 text-sm"
+              className="flex gap-6 xl:gap-8 text-sm"
             >
               <div>
-                <div className="text-3xl font-bold">10k+</div>
-                <div className="text-primary-foreground/70">Candidates Matched</div>
+                <div className="text-2xl xl:text-3xl font-bold">10k+</div>
+                <div className="text-primary-foreground/70 text-xs xl:text-sm">Candidates Matched</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">500+</div>
-                <div className="text-primary-foreground/70">Companies Trust Us</div>
+                <div className="text-2xl xl:text-3xl font-bold">500+</div>
+                <div className="text-primary-foreground/70 text-xs xl:text-sm">Companies Trust Us</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">95%</div>
-                <div className="text-primary-foreground/70">Match Accuracy</div>
+                <div className="text-2xl xl:text-3xl font-bold">95%</div>
+                <div className="text-primary-foreground/70 text-xs xl:text-sm">Match Accuracy</div>
               </div>
             </motion.div>
           </div>
           
           <div className="text-sm text-primary-foreground/60">
-            © 2024 Recruitsy. All rights reserved.
+            © 2024 Recruitify CRM. All rights reserved.
           </div>
         </div>
       </div>
 
       {/* Right side - Auth forms */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-background min-h-screen lg:min-h-0">
         <div className="w-full max-w-md">
           <Link 
             to="/" 
-            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 sm:mb-8 transition-colors text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to home
