@@ -11,18 +11,18 @@ import {
   Download, 
   CheckCircle, 
   Clock,
-  AlertTriangle,
   Sparkles,
   Zap,
   Crown,
   ArrowUpRight,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { formatCurrency, getCurrency } from '@/lib/currencies';
+import { formatCurrency } from '@/lib/currencies';
 import { format } from 'date-fns';
 
 interface Invoice {
@@ -55,38 +55,16 @@ interface SubscriptionPlan {
   max_candidates: number | null;
   match_credits_monthly: number | null;
   price_monthly: number;
-  price_yearly: number;
+  stripe_price_id_monthly: string | null;
+  features: any;
+  description: string | null;
 }
 
-const plans = [
-  {
-    name: 'Starter',
-    price: 9,
-    period: 'month',
-    icon: Zap,
-    teamLimit: 2,
-    features: ['2 Team Members', '5 Active Jobs', '50 Candidates', '50 AI Matches/month', 'Email Support'],
-    popular: false,
-  },
-  {
-    name: 'Pro',
-    price: 29,
-    period: 'month',
-    icon: Sparkles,
-    teamLimit: 5,
-    features: ['5 Team Members', '25 Active Jobs', '500 Candidates', '200 AI Matches/month', 'Priority Support', 'API Access'],
-    popular: true,
-  },
-  {
-    name: 'Agency',
-    price: 79,
-    period: 'month',
-    icon: Crown,
-    teamLimit: -1, // Unlimited
-    features: ['Unlimited Team Members', 'Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'White Label'],
-    popular: false,
-  },
-];
+const planIcons: Record<string, any> = {
+  starter: Zap,
+  pro: Sparkles,
+  agency: Crown,
+};
 
 const statusColors: Record<string, string> = {
   paid: 'bg-success/10 text-success border-success/30',
@@ -97,11 +75,13 @@ const statusColors: Record<string, string> = {
 };
 
 export default function BillingPage() {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [currentPlanData, setCurrentPlanData] = useState<SubscriptionPlan | null>(null);
+  const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -112,6 +92,17 @@ export default function BillingPage() {
   const fetchBillingData = async () => {
     setIsLoading(true);
     try {
+      // Fetch all subscription plans
+      const { data: plansData, error: plansError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (!plansError && plansData) {
+        setAllPlans(plansData);
+      }
+
       // Fetch tenant subscription info with plan_id
       const { data: tenantData, error: tenantError } = await supabase
         .from('tenants')
@@ -126,7 +117,7 @@ export default function BillingPage() {
       if (tenantData?.subscription_plan_id) {
         const { data: planData, error: planError } = await supabase
           .from('subscription_plans')
-          .select('id, name, slug, max_users, max_jobs, max_candidates, match_credits_monthly, price_monthly, price_yearly')
+          .select('*')
           .eq('id', tenantData.subscription_plan_id)
           .single();
 
@@ -157,10 +148,63 @@ export default function BillingPage() {
     // In a real app, this would generate/download a PDF
   };
 
-  // Use actual plan data from database, fallback to matching from static plans
-  const currentPlan = currentPlanData 
-    ? plans.find(p => p.name.toLowerCase() === currentPlanData.name.toLowerCase()) || plans[0]
-    : plans[0];
+  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+    if (!user) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
+    // Check if trying to select current plan
+    if (currentPlanData?.id === plan.id) {
+      toast.info('You are already on this plan');
+      return;
+    }
+
+    // Check if Stripe price ID is configured
+    if (!plan.stripe_price_id_monthly) {
+      toast.error('This plan is not available for purchase yet. Please contact support.');
+      return;
+    }
+
+    setProcessingPlanId(plan.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { planId: plan.id, billingCycle: 'monthly' }
+      });
+
+      if (error) throw error;
+      
+      if (data?.url) {
+        // Open Stripe checkout in new tab
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      toast.error(error.message || 'Failed to start checkout');
+    } finally {
+      setProcessingPlanId(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal', {});
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        toast.info('Subscription management is coming soon');
+      }
+    } catch (error: any) {
+      console.error('Portal error:', error);
+      toast.info('Subscription management is coming soon');
+    }
+  };
+
   const creditsUsed = (tenant?.match_credits_limit || 100) - (tenant?.match_credits_remaining || 0);
   const creditsPercent = Math.round((creditsUsed / (tenant?.match_credits_limit || 100)) * 100);
 
@@ -174,6 +218,8 @@ export default function BillingPage() {
       </AppLayout>
     );
   }
+
+  const PlanIcon = currentPlanData ? planIcons[currentPlanData.slug] || Zap : Zap;
 
   return (
     <AppLayout title="Billing" subtitle="Manage your subscription and invoices">
@@ -192,7 +238,7 @@ export default function BillingPage() {
                   <CardDescription>
                     {tenant?.subscription_status === 'trial' 
                       ? 'You are currently on a free trial'
-                      : `Your ${currentPlanData?.name || currentPlan.name} subscription`}
+                      : `Your ${currentPlanData?.name || 'Free'} subscription`}
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="capitalize">
@@ -206,23 +252,23 @@ export default function BillingPage() {
                 <div className="p-4 rounded-lg border bg-muted/30">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 rounded-lg bg-accent/10">
-                      <currentPlan.icon className="h-5 w-5 text-accent" />
+                      <PlanIcon className="h-5 w-5 text-accent" />
                     </div>
                     <div>
-                      <p className="font-semibold">{currentPlanData?.name || currentPlan.name} Plan</p>
+                      <p className="font-semibold">{currentPlanData?.name || 'Free'} Plan</p>
                       <p className="text-sm text-muted-foreground">
-                        ${currentPlanData?.price_monthly || currentPlan.price}/{currentPlan.period}
+                        ${currentPlanData?.price_monthly || 0}/month
                       </p>
                     </div>
                   </div>
                   {/* Plan Features */}
                   <div className="space-y-1 mb-3 text-xs text-muted-foreground">
-                    <p>• {currentPlanData?.max_users === -1 ? 'Unlimited' : currentPlanData?.max_users || currentPlan.teamLimit} Team Members</p>
-                    <p>• {currentPlanData?.max_jobs === -1 ? 'Unlimited' : currentPlanData?.max_jobs || 'Limited'} Jobs</p>
-                    <p>• {currentPlanData?.match_credits_monthly || 100} AI Credits/month</p>
+                    <p>• {currentPlanData?.max_users === -1 ? 'Unlimited' : currentPlanData?.max_users || 1} Team Members</p>
+                    <p>• {currentPlanData?.max_jobs === -1 ? 'Unlimited' : currentPlanData?.max_jobs || 5} Jobs</p>
+                    <p>• {currentPlanData?.match_credits_monthly || 10} AI Credits/month</p>
                   </div>
-                  {currentPlan.name !== 'Agency' && (
-                    <Button size="sm" className="w-full gap-2">
+                  {(!currentPlanData || currentPlanData.slug !== 'agency') && (
+                    <Button size="sm" className="w-full gap-2" onClick={() => document.getElementById('plans-tab')?.click()}>
                       <ArrowUpRight className="h-4 w-4" />
                       Upgrade Plan
                     </Button>
@@ -258,9 +304,9 @@ export default function BillingPage() {
                         : 'No active subscription'}
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
+                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleManageSubscription}>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Manage Payment Method
+                    Manage Subscription
                   </Button>
                 </div>
               </div>
@@ -268,18 +314,102 @@ export default function BillingPage() {
           </Card>
         </motion.div>
 
-        {/* Plans Comparison */}
-        <Tabs defaultValue="invoices">
+        {/* Plans & Invoices Tabs */}
+        <Tabs defaultValue="plans">
           <TabsList>
+            <TabsTrigger id="plans-tab" value="plans" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Available Plans
+            </TabsTrigger>
             <TabsTrigger value="invoices" className="gap-2">
               <FileText className="h-4 w-4" />
               Invoices
             </TabsTrigger>
-            <TabsTrigger value="plans" className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              Available Plans
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="plans" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {allPlans.map((plan, i) => {
+                const Icon = planIcons[plan.slug] || Zap;
+                const isCurrentPlan = currentPlanData?.id === plan.id;
+                const isProcessing = processingPlanId === plan.id;
+                const isPopular = plan.slug === 'pro';
+
+                return (
+                  <motion.div
+                    key={plan.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: i * 0.1 }}
+                  >
+                    <Card className={`relative ${isPopular ? 'border-accent shadow-lg' : ''} ${isCurrentPlan ? 'ring-2 ring-primary' : ''}`}>
+                      {isPopular && (
+                        <div className="bg-accent text-accent-foreground text-center py-1 text-sm font-medium rounded-t-lg">
+                          Most Popular
+                        </div>
+                      )}
+                      {isCurrentPlan && (
+                        <Badge className="absolute top-2 right-2 bg-primary">Current</Badge>
+                      )}
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 rounded-lg bg-accent/10">
+                            <Icon className="h-5 w-5 text-accent" />
+                          </div>
+                          <h3 className="text-xl font-semibold">{plan.name}</h3>
+                        </div>
+                        <div className="mb-6">
+                          <span className="text-4xl font-bold">${plan.price_monthly}</span>
+                          <span className="text-muted-foreground">/month</span>
+                        </div>
+                        <ul className="space-y-3 mb-6">
+                          <li className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                            {plan.max_users === -1 ? 'Unlimited' : plan.max_users} Team Members
+                          </li>
+                          <li className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                            {plan.max_jobs === -1 ? 'Unlimited' : plan.max_jobs} Active Jobs
+                          </li>
+                          <li className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                            {plan.max_candidates === -1 ? 'Unlimited' : plan.max_candidates} Candidates
+                          </li>
+                          <li className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                            {plan.match_credits_monthly} AI Matches/month
+                          </li>
+                          {Array.isArray(plan.features) && plan.features.slice(0, 2).map((feature: string, j: number) => (
+                            <li key={j} className="flex items-center gap-2 text-sm">
+                              <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                        <Button 
+                          className="w-full" 
+                          variant={isCurrentPlan ? 'outline' : isPopular ? 'default' : 'outline'}
+                          disabled={isCurrentPlan || isProcessing}
+                          onClick={() => handleSelectPlan(plan)}
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : isCurrentPlan ? (
+                            'Current Plan'
+                          ) : (
+                            'Choose Plan'
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </TabsContent>
 
           <TabsContent value="invoices" className="mt-6">
             <Card>
@@ -336,53 +466,6 @@ export default function BillingPage() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="plans" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {plans.map((plan, i) => (
-                <motion.div
-                  key={plan.name}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.1 }}
-                >
-                  <Card className={plan.popular ? 'border-accent shadow-glow' : ''}>
-                    {plan.popular && (
-                      <div className="bg-accent text-accent-foreground text-center py-1 text-sm font-medium">
-                        Most Popular
-                      </div>
-                    )}
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-accent/10">
-                          <plan.icon className="h-5 w-5 text-accent" />
-                        </div>
-                        <h3 className="text-xl font-semibold">{plan.name}</h3>
-                      </div>
-                      <div className="mb-6">
-                        <span className="text-4xl font-bold">${plan.price}</span>
-                        <span className="text-muted-foreground">/{plan.period}</span>
-                      </div>
-                      <ul className="space-y-3 mb-6">
-                        {plan.features.map((feature, j) => (
-                          <li key={j} className="flex items-center gap-2 text-sm">
-                            <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                      <Button 
-                        className="w-full" 
-                        variant={plan.popular ? 'default' : 'outline'}
-                      >
-                        {currentPlan.name === plan.name ? 'Current Plan' : 'Choose Plan'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
           </TabsContent>
         </Tabs>
       </div>
