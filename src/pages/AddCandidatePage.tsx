@@ -144,6 +144,13 @@ export default function AddCandidatePage() {
       return;
     }
 
+    // Validate LinkedIn URL format
+    const linkedinRegex = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?/i;
+    if (!linkedinRegex.test(linkedinUrl.trim())) {
+      toast.error('Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/username)');
+      return;
+    }
+
     setIsParsing(true);
     try {
       const { data, error } = await supabase.functions.invoke('parse-cv', {
@@ -153,19 +160,26 @@ export default function AddCandidatePage() {
       if (error) throw error;
 
       if (data) {
+        // Map response fields correctly - API returns full_name, not name
         setFormData({
-          fullName: data.name || '',
+          fullName: data.full_name || '',
           email: data.email || '',
           phone: data.phone || '',
           location: data.location || '',
           currentTitle: data.current_title || '',
           currentCompany: data.current_company || '',
-          linkedinUrl: linkedinUrl.trim(),
+          linkedinUrl: data.linkedin_url || linkedinUrl.trim(),
           summary: data.summary || '',
           skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
           experienceYears: data.experience_years?.toString() || '',
         });
-        toast.success('LinkedIn profile parsed!');
+        
+        // Show appropriate message based on what was extracted
+        if (data.full_name) {
+          toast.success(`LinkedIn profile imported! Name: ${data.full_name}. Please fill in any missing details manually.`);
+        } else {
+          toast.info('LinkedIn URL saved. Please fill in candidate details manually.');
+        }
         setActiveTab('manual');
       }
     } catch (error: any) {
