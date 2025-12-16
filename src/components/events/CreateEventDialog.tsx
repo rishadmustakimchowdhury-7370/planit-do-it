@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Calendar, 
@@ -391,7 +391,7 @@ export function CreateEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-accent" />
@@ -399,8 +399,8 @@ export function CreateEventDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'participants')} className="flex-1">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'participants')} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 shrink-0">
             <TabsTrigger value="details">Event Details</TabsTrigger>
             <TabsTrigger value="participants" className="gap-2">
               Participants
@@ -410,8 +410,8 @@ export function CreateEventDialog({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4 pr-4" style={{ maxHeight: 'calc(90vh - 220px)' }}>
-            <TabsContent value="details" className="space-y-4 m-0">
+          <div className="flex-1 overflow-y-auto mt-4 pr-2">
+            <TabsContent value="details" className="space-y-4 m-0 pb-4">
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Event Title *</Label>
@@ -503,7 +503,7 @@ export function CreateEventDialog({
               </div>
 
               {/* Location Type */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label>Location</Label>
                 <div className="flex gap-2">
                   <Button
@@ -527,40 +527,41 @@ export function CreateEventDialog({
                     In Person
                   </Button>
                 </div>
-
-                {/* Meeting Link or Address Input - always visible based on location type */}
-                {locationType === 'online' && (
-                  <div className="space-y-2 pt-2">
-                    <Label className="flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5" />
-                      Meeting Link *
-                    </Label>
-                    <Input
-                      value={meetingLink}
-                      onChange={(e) => setMeetingLink(e.target.value)}
-                      placeholder="https://meet.google.com/... or https://zoom.us/j/..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Paste your Google Meet, Zoom, or Microsoft Teams meeting link
-                    </p>
-                  </div>
-                )}
-
-                {locationType === 'physical' && (
-                  <div className="space-y-2 pt-2">
-                    <Label className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5" />
-                      Location Address *
-                    </Label>
-                    <Textarea
-                      value={locationAddress}
-                      onChange={(e) => setLocationAddress(e.target.value)}
-                      placeholder="Enter full address (e.g., 123 Main St, Suite 100, City, Country)"
-                      rows={2}
-                    />
-                  </div>
-                )}
               </div>
+
+              {/* Meeting Link - shown when Online is selected */}
+              {locationType === 'online' && (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                  <Label className="flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-primary" />
+                    Meeting Link *
+                  </Label>
+                  <Input
+                    value={meetingLink}
+                    onChange={(e) => setMeetingLink(e.target.value)}
+                    placeholder="https://meet.google.com/... or https://zoom.us/j/..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste your Google Meet, Zoom, or Microsoft Teams meeting link
+                  </p>
+                </div>
+              )}
+
+              {/* Location Address - shown when In Person is selected */}
+              {locationType === 'physical' && (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                  <Label className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                    Location Address *
+                  </Label>
+                  <Textarea
+                    value={locationAddress}
+                    onChange={(e) => setLocationAddress(e.target.value)}
+                    placeholder="Enter full address (e.g., 123 Main St, Suite 100, City, Country)"
+                    rows={2}
+                  />
+                </div>
+              )}
 
               {/* Description */}
               <div className="space-y-2">
@@ -719,7 +720,7 @@ export function CreateEventDialog({
                 )}
               </div>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
