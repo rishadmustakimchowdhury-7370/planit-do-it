@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
+import { JobAIMatchSection } from '@/components/matching/JobAIMatchSection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,9 +20,6 @@ import {
   Sparkles, 
   FileText,
   Download,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   Loader2,
   StickyNote,
   MessageCircle,
@@ -57,16 +54,6 @@ interface Candidate {
   private_notes: string | null;
 }
 
-interface JobCandidate {
-  id: string;
-  job_id: string;
-  match_score: number | null;
-  match_strengths: string[] | null;
-  match_gaps: string[] | null;
-  match_explanation: string | null;
-  stage: string;
-}
-
 const statusColors: Record<string, string> = {
   new: 'bg-muted text-muted-foreground',
   screening: 'bg-info/10 text-info border-info/30',
@@ -82,9 +69,7 @@ const CandidateDetailPage = () => {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
-  const [jobCandidate, setJobCandidate] = useState<JobCandidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRunningMatch, setIsRunningMatch] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
 
@@ -109,23 +94,6 @@ const CandidateDetailPage = () => {
         ...data,
         skills: Array.isArray(data.skills) ? data.skills as string[] : null,
       });
-
-      // Fetch job_candidates for match data
-      const { data: jcData } = await supabase
-        .from('job_candidates')
-        .select('*')
-        .eq('candidate_id', id)
-        .order('match_score', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (jcData) {
-        setJobCandidate({
-          ...jcData,
-          match_strengths: Array.isArray(jcData.match_strengths) ? jcData.match_strengths as string[] : null,
-          match_gaps: Array.isArray(jcData.match_gaps) ? jcData.match_gaps as string[] : null,
-        });
-      }
     } catch (error) {
       console.error('Error fetching candidate:', error);
       toast.error('Failed to load candidate');
@@ -181,9 +149,6 @@ const CandidateDetailPage = () => {
     }
   };
 
-  const handleRunAIMatch = () => {
-    navigate(`/ai-match?candidateId=${id}`);
-  };
 
   if (isLoading) {
     return (
@@ -210,7 +175,6 @@ const CandidateDetailPage = () => {
     );
   }
 
-  const matchScore = jobCandidate?.match_score || null;
 
   return (
     <AppLayout title={candidate.full_name} subtitle={candidate.current_title || undefined}>
@@ -287,17 +251,10 @@ const CandidateDetailPage = () => {
             </div>
 
             <div className="flex flex-col items-center gap-3">
-              {matchScore && (
-                <MatchScoreCircle score={matchScore} size="lg" />
-              )}
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
                   <Download className="w-4 h-4" />
                   Download CV
-                </Button>
-                <Button size="sm" className="gap-1.5" onClick={handleRunAIMatch}>
-                  <Sparkles className="w-4 h-4" />
-                  Run AI Match
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -386,81 +343,12 @@ const CandidateDetailPage = () => {
         </TabsContent>
 
         <TabsContent value="match" className="mt-6">
-          {jobCandidate && jobCandidate.match_score ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Score Summary */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="lg:col-span-1 bg-card rounded-xl border border-border p-6 text-center"
-              >
-                <h3 className="text-lg font-semibold mb-4">Match Score</h3>
-                <div className="flex justify-center mb-4">
-                  <MatchScoreCircle score={jobCandidate.match_score} size="lg" />
-                </div>
-                {jobCandidate.match_explanation && (
-                  <p className="text-sm text-muted-foreground">{jobCandidate.match_explanation}</p>
-                )}
-              </motion.div>
-
-              {/* Strengths & Gaps */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="lg:col-span-2 space-y-4"
-              >
-                {/* Strengths */}
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                    <CheckCircle className="w-5 h-5 text-success" />
-                    Strengths
-                  </h3>
-                  {jobCandidate.match_strengths && jobCandidate.match_strengths.length > 0 ? (
-                    <ul className="space-y-2">
-                      {jobCandidate.match_strengths.map((strength, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <span className="w-1.5 h-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
-                          {strength}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No strengths data available.</p>
-                  )}
-                </div>
-
-                {/* Skill Gaps */}
-                <div className="bg-card rounded-xl border border-border p-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                    <XCircle className="w-5 h-5 text-destructive" />
-                    Skill Gaps
-                  </h3>
-                  {jobCandidate.match_gaps && jobCandidate.match_gaps.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {jobCandidate.match_gaps.map((gap, i) => (
-                        <Badge key={i} variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
-                          {gap}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No skill gaps identified.</p>
-                  )}
-                </div>
-              </motion.div>
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No AI Match Results</h3>
-              <p className="text-muted-foreground mb-4">Run an AI match to see how this candidate fits your jobs.</p>
-              <Button className="gap-2" onClick={handleRunAIMatch}>
-                <Sparkles className="w-4 h-4" />
-                Run AI Match
-              </Button>
-            </div>
-          )}
+          <JobAIMatchSection
+            candidateId={candidate.id}
+            candidateName={candidate.full_name}
+            candidateSkills={candidate.skills}
+            candidateResume={candidate.summary}
+          />
         </TabsContent>
 
         <TabsContent value="cv" className="mt-6">
@@ -532,15 +420,6 @@ const CandidateDetailPage = () => {
                   <p className="text-xs text-muted-foreground">Current status</p>
                 </div>
               </div>
-              {matchScore && (
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-info mt-2" />
-                  <div>
-                    <p className="text-sm font-medium">AI Match completed - {matchScore}% match</p>
-                    <p className="text-xs text-muted-foreground">Match score calculated</p>
-                  </div>
-                </div>
-              )}
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-success mt-2" />
                 <div>
