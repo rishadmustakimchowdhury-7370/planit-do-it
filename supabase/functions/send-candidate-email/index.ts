@@ -28,7 +28,8 @@ interface EmailAccount {
 }
 
 interface SendEmailRequest {
-  candidate_id: string;
+  candidate_id?: string;
+  client_id?: string;
   job_id?: string;
   from_email?: string;
   from_account_id?: string;
@@ -267,6 +268,7 @@ serve(async (req) => {
     const body: SendEmailRequest = await req.json();
     const {
       candidate_id,
+      client_id,
       job_id,
       from_account_id,
       to_email,
@@ -282,6 +284,9 @@ serve(async (req) => {
       signature,
       use_system_fallback = false,
     } = body;
+
+    // Determine if this is a client or candidate email
+    const isClientEmail = !!client_id && !candidate_id;
 
     const recruiterName = profile.full_name || "Recruiter";
     const recruiterEmail = profile.email || "noreply@recruitifycrm.com";
@@ -362,32 +367,40 @@ serve(async (req) => {
 
     // Handle scheduled emails
     if (scheduled_at && new Date(scheduled_at) > new Date()) {
+      const tableName = isClientEmail ? "client_emails" : "candidate_emails";
+      const emailData: Record<string, unknown> = {
+        tenant_id: profile.tenant_id,
+        sent_by: user.id,
+        from_email: senderEmail,
+        from_account_id: emailAccount?.id || null,
+        to_email,
+        subject,
+        body_text: emailHtml,
+        status: "scheduled",
+        scheduled_at,
+        timezone: timezone || "UTC",
+        attachments: attachments || [],
+      };
+
+      if (isClientEmail) {
+        emailData.client_id = client_id;
+      } else {
+        emailData.candidate_id = candidate_id;
+        emailData.job_id = job_id;
+        emailData.template_id = template_id;
+        emailData.ai_generated = ai_generated || false;
+        emailData.retry_count = 0;
+        emailData.metadata = {
+          cc_email,
+          bcc_email,
+          sending_method: sendingMethod,
+          has_user_account: !!emailAccount,
+        };
+      }
+
       const { data: emailRecord, error: insertError } = await supabaseAdmin
-        .from("candidate_emails")
-        .insert({
-          tenant_id: profile.tenant_id,
-          candidate_id,
-          job_id,
-          sent_by: user.id,
-          from_email: senderEmail,
-          from_account_id: emailAccount?.id || null,
-          to_email,
-          subject,
-          body_text: emailHtml,
-          template_id,
-          ai_generated: ai_generated || false,
-          status: "scheduled",
-          scheduled_at,
-          timezone: timezone || "UTC",
-          attachments: attachments || [],
-          retry_count: 0,
-          metadata: {
-            cc_email,
-            bcc_email,
-            sending_method: sendingMethod,
-            has_user_account: !!emailAccount,
-          },
-        })
+        .from(tableName)
+        .insert(emailData)
         .select()
         .single();
 
@@ -450,34 +463,42 @@ serve(async (req) => {
     }
 
     // Save email record
+    const tableName = isClientEmail ? "client_emails" : "candidate_emails";
+    const emailData: Record<string, unknown> = {
+      tenant_id: profile.tenant_id,
+      sent_by: user.id,
+      from_email: senderEmail,
+      from_account_id: emailAccount?.id || null,
+      to_email,
+      subject,
+      body_text: emailHtml,
+      status: sendResult.success ? "sent" : "failed",
+      sent_at: sendResult.success ? new Date().toISOString() : null,
+      error_message: sendResult.error || null,
+      attachments: attachments || [],
+      timezone: timezone || "UTC",
+    };
+
+    if (isClientEmail) {
+      emailData.client_id = client_id;
+    } else {
+      emailData.candidate_id = candidate_id;
+      emailData.job_id = job_id;
+      emailData.template_id = template_id;
+      emailData.ai_generated = ai_generated || false;
+      emailData.provider_message_id = sendResult.messageId || null;
+      emailData.retry_count = 0;
+      emailData.metadata = {
+        cc_email,
+        bcc_email,
+        sending_method: sendingMethod,
+        has_user_account: !!emailAccount,
+      };
+    }
+
     const { data: emailRecord, error: insertError } = await supabaseAdmin
-      .from("candidate_emails")
-      .insert({
-        tenant_id: profile.tenant_id,
-        candidate_id,
-        job_id,
-        sent_by: user.id,
-        from_email: senderEmail,
-        from_account_id: emailAccount?.id || null,
-        to_email,
-        subject,
-        body_text: emailHtml,
-        template_id,
-        ai_generated: ai_generated || false,
-        status: sendResult.success ? "sent" : "failed",
-        sent_at: sendResult.success ? new Date().toISOString() : null,
-        provider_message_id: sendResult.messageId || null,
-        error_message: sendResult.error || null,
-        attachments: attachments || [],
-        timezone: timezone || "UTC",
-        retry_count: 0,
-        metadata: {
-          cc_email,
-          bcc_email,
-          sending_method: sendingMethod,
-          has_user_account: !!emailAccount,
-        },
-      })
+      .from(tableName)
+      .insert(emailData)
       .select()
       .single();
 
@@ -495,6 +516,7 @@ serve(async (req) => {
       error_message: sendResult.error || null,
       metadata: {
         candidate_id,
+        client_id,
         job_id,
         ai_generated,
         email_record_id: emailRecord?.id,

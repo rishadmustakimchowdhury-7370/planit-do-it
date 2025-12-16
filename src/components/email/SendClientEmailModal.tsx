@@ -430,15 +430,16 @@ export function SendClientEmailModal({
       if (!scheduledAtValue) {
         const { error: sendError } = await supabase.functions.invoke('send-candidate-email', {
           body: {
-            to: toEmail,
-            cc: ccEmail || undefined,
-            bcc: bccEmail || undefined,
+            client_id: client.id,
+            to_email: toEmail,
+            cc_email: ccEmail || undefined,
+            bcc_email: bccEmail || undefined,
             subject,
-            body: finalBody,
-            from_email: fromEmail,
-            from_name: fromName,
+            body_text: finalBody,
+            from_account_id: selectedAccountId || undefined,
             attachments: attachments.length > 0 ? attachments : undefined,
-            account_id: selectedAccountId || undefined,
+            signature: includeSignature ? signature : null,
+            use_system_fallback: true,
           },
         });
 

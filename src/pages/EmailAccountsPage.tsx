@@ -104,9 +104,11 @@ export default function EmailAccountsPage() {
   const fetchAccounts = async () => {
     setIsLoading(true);
     try {
+      // Filter by current user's ID to only show their own accounts
       const { data, error } = await supabase
         .from('email_accounts')
         .select('*')
+        .eq('user_id', user?.id)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false });
 
