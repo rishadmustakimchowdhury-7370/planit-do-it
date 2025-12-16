@@ -65,104 +65,105 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border py-4 px-6">
+      <header className="border-b border-border py-4 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl flex items-center justify-between">
           <Link to="/">
             <Logo size="md" />
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link to="/auth">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link to="/auth">
-              <Button>Get Started</Button>
+            <Link to="/auth" className="hidden sm:block">
+              <Button size="sm">Get Started</Button>
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="py-16 px-6 bg-gradient-to-b from-primary/5 to-background">
+      <section className="py-10 sm:py-16 px-4 sm:px-6 bg-gradient-to-b from-primary/5 to-background">
         <div className="container mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">Contact Us</h1>
-          <p className="text-xl text-muted-foreground">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6">Contact Us</h1>
+          <p className="text-base sm:text-xl text-muted-foreground px-2">
             Have questions? We'd love to hear from you. Our support team is available 24/7.
           </p>
         </div>
       </section>
 
       {/* Contact Content */}
-      <section className="py-16 px-6">
+      <section className="py-10 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
-          <div className="grid lg:grid-cols-2 gap-12">
+          <div className="grid lg:grid-cols-2 gap-8 sm:gap-12">
             {/* Contact Info */}
             <div>
-              <h2 className="text-2xl font-bold mb-8">Get in Touch</h2>
+              <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">Get in Touch</h2>
               
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Phone className="h-6 w-6 text-primary" />
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Phone className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Phone</h3>
-                    <p className="text-muted-foreground">+44 7426 468550</p>
-                    <p className="text-sm text-muted-foreground">Available for calls and WhatsApp</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Phone</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">+44 7426 468550</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Available for calls and WhatsApp</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Mail className="h-6 w-6 text-primary" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Mail className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Email</h3>
-                    <p className="text-muted-foreground">{BRAND.email}</p>
-                    <p className="text-sm text-muted-foreground">We reply within 24 hours</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Email</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground break-all">{BRAND.email}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">We reply within 24 hours</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-6 w-6 text-primary" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Live Support</h3>
-                    <p className="text-muted-foreground">Open Every Day</p>
-                    <p className="text-sm text-muted-foreground">24/7 customer support available</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Live Support</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">Open Every Day</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">24/7 customer support available</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-6 w-6 text-primary" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">Company</h3>
-                    <p className="text-muted-foreground">Tasaru Ventures Ltd</p>
-                    <p className="text-sm text-muted-foreground">Business License: 16399822</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Company</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">Tasaru Ventures Ltd</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Business License: 16399822</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Contact Form */}
-            <div className="bg-card border border-border rounded-xl p-8">
-              <h2 className="text-2xl font-bold mb-6">Send us a Message</h2>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-card border border-border rounded-xl p-5 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Send us a Message</h2>
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
+                    <Label htmlFor="name" className="text-sm">Full Name *</Label>
                     <Input
                       id="name"
                       placeholder="John Doe"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      className="h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email" className="text-sm">Email *</Label>
                     <Input
                       id="email"
                       type="email"
@@ -170,41 +171,45 @@ export default function ContactPage() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       required
+                      className="h-10"
                     />
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone" className="text-sm">Phone Number</Label>
                     <Input
                       id="phone"
                       placeholder="+44 1234 567890"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="subject">Subject *</Label>
+                    <Label htmlFor="subject" className="text-sm">Subject *</Label>
                     <Input
                       id="subject"
                       placeholder="How can we help?"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                       required
+                      className="h-10"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="message">Message *</Label>
+                  <Label htmlFor="message" className="text-sm">Message *</Label>
                   <Textarea
                     id="message"
                     placeholder="Tell us more about your inquiry..."
-                    rows={5}
+                    rows={4}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     required
+                    className="resize-none"
                   />
                 </div>
 
@@ -228,9 +233,9 @@ export default function ContactPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 px-6">
+      <footer className="border-t border-border py-6 sm:py-8 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
           </p>
         </div>
