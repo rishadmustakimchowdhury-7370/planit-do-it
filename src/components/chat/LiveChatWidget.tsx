@@ -39,16 +39,36 @@ export function LiveChatWidget() {
   };
 
   useEffect(() => {
-    // Check for existing conversation in localStorage
+    // Check for existing conversation in localStorage and validate it still exists
     const savedConvId = localStorage.getItem('chat_conversation_id');
     const savedName = localStorage.getItem('chat_visitor_name');
     const savedEmail = localStorage.getItem('chat_visitor_email');
     
-    if (savedConvId && savedName) {
-      setConversationId(savedConvId);
-      setVisitorInfo({ name: savedName, email: savedEmail || '' });
-      setShowForm(false);
-    }
+    const validateConversation = async () => {
+      if (savedConvId) {
+        const { data, error } = await supabase
+          .from('chat_conversations')
+          .select('id, status')
+          .eq('id', savedConvId)
+          .maybeSingle();
+        
+        if (error || !data || data.status === 'resolved') {
+          // Clear invalid/resolved conversation
+          localStorage.removeItem('chat_conversation_id');
+          localStorage.removeItem('chat_visitor_name');
+          localStorage.removeItem('chat_visitor_email');
+          return;
+        }
+      }
+      
+      if (savedConvId && savedName) {
+        setConversationId(savedConvId);
+        setVisitorInfo({ name: savedName, email: savedEmail || '' });
+        setShowForm(false);
+      }
+    };
+    
+    validateConversation();
   }, []);
 
   useEffect(() => {
