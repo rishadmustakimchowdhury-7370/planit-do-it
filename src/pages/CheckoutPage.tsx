@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -17,7 +18,9 @@ import {
   ArrowLeft,
   Zap,
   Sparkles,
-  Crown
+  Crown,
+  Tag,
+  X
 } from 'lucide-react';
 
 interface SubscriptionPlan {
@@ -31,6 +34,14 @@ interface SubscriptionPlan {
   max_jobs: number | null;
   max_candidates: number | null;
   match_credits_monthly: number | null;
+}
+
+interface PromoCodeValidation {
+  valid: boolean;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  discount_amount: number;
 }
 
 const planIcons: Record<string, any> = {
@@ -49,6 +60,9 @@ export default function CheckoutPage() {
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [validatingPromo, setValidatingPromo] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<PromoCodeValidation | null>(null);
 
   useEffect(() => {
     if (planId) {
@@ -76,6 +90,67 @@ export default function CheckoutPage() {
     }
   };
 
+  const validatePromoCode = async () => {
+    if (!promoCode.trim() || !plan) return;
+    
+    setValidatingPromo(true);
+    try {
+      const { data, error } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .eq('code', promoCode.toUpperCase().trim())
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) {
+        toast.error('Invalid promo code');
+        return;
+      }
+
+      // Check validity
+      const now = new Date();
+      const validUntil = data.valid_until ? new Date(data.valid_until) : null;
+      const withinUsageLimit = !data.max_uses || data.uses_count < data.max_uses;
+      
+      if (!withinUsageLimit) {
+        toast.error('Promo code has reached its usage limit');
+        return;
+      }
+      
+      if (validUntil && validUntil < now) {
+        toast.error('Promo code has expired');
+        return;
+      }
+
+      // Calculate discount
+      let discountAmount = 0;
+      if (data.discount_type === 'percentage') {
+        discountAmount = (plan.price_monthly * data.discount_value) / 100;
+      } else {
+        discountAmount = Math.min(data.discount_value, plan.price_monthly);
+      }
+
+      setAppliedPromo({
+        valid: true,
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
+        discount_amount: discountAmount,
+      });
+      
+      toast.success(`Promo code applied! You save £${discountAmount.toFixed(2)}`);
+    } catch (error: any) {
+      toast.error('Failed to validate promo code');
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const removePromoCode = () => {
+    setAppliedPromo(null);
+    setPromoCode('');
+  };
+
   const handleCheckout = async () => {
     if (!user) {
       toast.error('Please log in to continue');
@@ -86,13 +161,12 @@ export default function CheckoutPage() {
     setProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId, billingCycle: 'monthly' }
+        body: { planId, billingCycle: 'monthly', promoCode: appliedPromo?.code }
       });
 
       if (error) throw error;
       
       if (data?.url) {
-        // Open Stripe checkout
         window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
@@ -103,6 +177,8 @@ export default function CheckoutPage() {
       setProcessing(false);
     }
   };
+
+  const finalPrice = plan ? (appliedPromo ? plan.price_monthly - appliedPromo.discount_amount : plan.price_monthly) : 0;
 
   if (loading || authLoading) {
     return (
@@ -229,19 +305,60 @@ export default function CheckoutPage() {
                 <CardTitle>Payment Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Promo Code */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Promo Code</label>
+                  {appliedPromo ? (
+                    <div className="flex items-center gap-2 p-2 bg-success/10 rounded-lg border border-success/30">
+                      <Tag className="h-4 w-4 text-success" />
+                      <span className="text-sm font-medium text-success">{appliedPromo.code}</span>
+                      <span className="text-sm text-muted-foreground">
+                        -{appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}%` : `£${appliedPromo.discount_value}`}
+                      </span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={removePromoCode}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter code"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        className="font-mono"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={validatePromoCode}
+                        disabled={!promoCode.trim() || validatingPromo}
+                      >
+                        {validatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
                 {/* Price Breakdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>{plan.name} Plan (Monthly)</span>
-                    <span>${plan.price_monthly.toFixed(2)}</span>
+                    <span>£{plan.price_monthly.toFixed(2)}</span>
                   </div>
+                  {appliedPromo && (
+                    <div className="flex justify-between text-sm text-success">
+                      <span>Discount ({appliedPromo.code})</span>
+                      <span>-£{appliedPromo.discount_amount.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
 
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span>${plan.price_monthly.toFixed(2)} USD/month</span>
+                  <span>£{finalPrice.toFixed(2)} GBP/month</span>
                 </div>
 
                 {/* Checkout Button */}

@@ -26,8 +26,8 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { planId } = await req.json();
-    logStep("Request params", { planId });
+    const { planId, promoCode } = await req.json();
+    logStep("Request params", { planId, promoCode });
 
     if (!planId) {
       throw new Error("Missing planId");
@@ -52,6 +52,36 @@ serve(async (req) => {
       throw new Error("Plan not found");
     }
     logStep("Plan fetched", { planName: plan.name, priceMonthly: plan.price_monthly });
+
+    // Validate promo code if provided
+    let validPromoCode = null;
+    let discountAmount = 0;
+    
+    if (promoCode) {
+      const { data: promo } = await supabaseClient
+        .from('promo_codes')
+        .select('*')
+        .eq('code', promoCode.toUpperCase())
+        .eq('is_active', true)
+        .single();
+      
+      if (promo) {
+        // Check if promo is still valid
+        const now = new Date();
+        const validUntil = promo.valid_until ? new Date(promo.valid_until) : null;
+        const withinUsageLimit = !promo.max_uses || promo.uses_count < promo.max_uses;
+        
+        if (withinUsageLimit && (!validUntil || validUntil > now)) {
+          validPromoCode = promo;
+          if (promo.discount_type === 'percentage') {
+            discountAmount = (plan.price_monthly * promo.discount_value) / 100;
+          } else {
+            discountAmount = promo.discount_value;
+          }
+          logStep("Promo code validated", { code: promo.code, discount: discountAmount });
+        }
+      }
+    }
 
     // Get monthly price ID only
     const priceId = plan.stripe_price_id_monthly;
@@ -90,15 +120,18 @@ serve(async (req) => {
         user_id: user.id,
         tenant_id: profile?.tenant_id,
         plan_id: planId,
-        amount: plan.price_monthly,
-        currency: 'usd',
+        amount: plan.price_monthly - discountAmount,
+        currency: 'gbp',
         billing_cycle: 'monthly',
         status: 'pending',
         approval_status: 'pending_approval',
         metadata: {
           plan_name: plan.name,
           user_email: user.email,
-          user_name: profile?.full_name
+          user_name: profile?.full_name,
+          promo_code: validPromoCode?.code || null,
+          discount_amount: discountAmount,
+          original_amount: plan.price_monthly,
         }
       })
       .select()
@@ -110,8 +143,8 @@ serve(async (req) => {
     }
     logStep("Order created", { orderId: order.id });
 
-    // Create checkout session for subscription
-    const session = await stripe.checkout.sessions.create({
+    // Build checkout session options
+    const checkoutOptions: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
@@ -128,6 +161,7 @@ serve(async (req) => {
         plan_id: planId,
         user_id: user.id,
         tenant_id: profile?.tenant_id || '',
+        promo_code: validPromoCode?.code || '',
       },
       subscription_data: {
         metadata: {
@@ -136,7 +170,14 @@ serve(async (req) => {
           user_id: user.id,
         }
       },
-    });
+    };
+
+    // Apply Stripe coupon if promo code discount exists
+    // Note: You need to create corresponding Stripe coupons for each promo code
+    // For now, we store the discount in metadata for manual processing
+    
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create(checkoutOptions);
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
 
