@@ -44,6 +44,12 @@ import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
 import CheckoutCancelPage from "./pages/CheckoutCancelPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import FeaturesPage from "./pages/FeaturesPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import ReturnPolicyPage from "./pages/ReturnPolicyPage";
 import { LiveChatWidget } from "./components/chat/LiveChatWidget";
 import { Loader2 } from "lucide-react";
 
@@ -73,6 +79,12 @@ const AppRoutes = () => (
     {/* Public routes */}
     <Route path="/" element={<Index />} />
     <Route path="/auth" element={<AuthPage />} />
+    <Route path="/about" element={<AboutPage />} />
+    <Route path="/contact" element={<ContactPage />} />
+    <Route path="/features" element={<FeaturesPage />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/terms" element={<TermsPage />} />
+    <Route path="/return-policy" element={<ReturnPolicyPage />} />
     
     {/* Protected routes */}
     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
