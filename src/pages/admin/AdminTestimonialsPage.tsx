@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Star, Loader2, Quote, GripVertical, CheckCircle, XCircle, Clock, Users, Building } from 'lucide-react';
+import { Plus, Edit, Trash2, Star, Loader2, Quote, GripVertical, CheckCircle, XCircle, Clock, Users, Building, Upload, User } from 'lucide-react';
 
 interface Testimonial {
   id: string;
@@ -38,6 +39,9 @@ export default function AdminTestimonialsPage() {
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [uploading, setUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     quote: '',
@@ -50,6 +54,44 @@ export default function AdminTestimonialsPage() {
     order_index: 0,
     status: 'approved',
   });
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be less than 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => setAvatarPreview(reader.result as string);
+      reader.readAsDataURL(file);
+
+      const fileName = `testimonials/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+      setFormData({ ...formData, author_avatar: urlData.publicUrl });
+      toast.success('Avatar uploaded');
+    } catch (error: any) {
+      toast.error('Failed to upload: ' + error.message);
+      setAvatarPreview(null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     fetchTestimonials();
@@ -85,6 +127,7 @@ export default function AdminTestimonialsPage() {
         order_index: testimonial.order_index,
         status: testimonial.status || 'approved',
       });
+      setAvatarPreview(testimonial.author_avatar || null);
     } else {
       setEditingTestimonial(null);
       setFormData({
@@ -98,6 +141,7 @@ export default function AdminTestimonialsPage() {
         order_index: testimonials.length,
         status: 'approved',
       });
+      setAvatarPreview(null);
     }
     setIsDialogOpen(true);
   };
@@ -434,12 +478,44 @@ export default function AdminTestimonialsPage() {
               </div>
             </div>
             <div>
-              <Label>Author Avatar URL</Label>
-              <Input
-                value={formData.author_avatar}
-                onChange={(e) => setFormData({ ...formData, author_avatar: e.target.value })}
-                placeholder="https://..."
-              />
+              <Label>Author Avatar</Label>
+              <div className="flex items-center gap-4 mt-2">
+                <Avatar className="h-16 w-16 border-2 border-dashed border-border">
+                  <AvatarImage src={avatarPreview || formData.author_avatar} />
+                  <AvatarFallback>
+                    <User className="h-6 w-6 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    Upload Photo
+                  </Button>
+                  <Input
+                    value={formData.author_avatar}
+                    onChange={(e) => setFormData({ ...formData, author_avatar: e.target.value })}
+                    placeholder="Or paste URL..."
+                    className="text-xs h-8"
+                  />
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
