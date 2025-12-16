@@ -15,6 +15,7 @@ interface Job {
   id: string;
   title: string;
   description: string | null;
+  requirements: string | null;
   client_id: string | null;
 }
 
@@ -22,7 +23,14 @@ interface Candidate {
   id: string;
   full_name: string;
   current_title: string | null;
+  current_company: string | null;
   skills: string[] | null;
+  summary: string | null;
+  cv_parsed_data: any;
+  work_history: any[];
+  education: any[];
+  experience_years: number | null;
+  location: string | null;
 }
 
 interface MatchResult {
@@ -52,15 +60,17 @@ const AIMatchPage = () => {
     setIsLoading(true);
     try {
       const [jobsRes, candidatesRes] = await Promise.all([
-        supabase.from('jobs').select('id, title, description, client_id').eq('tenant_id', tenantId),
-        supabase.from('candidates').select('id, full_name, current_title, skills').eq('tenant_id', tenantId)
+        supabase.from('jobs').select('id, title, description, client_id, requirements').eq('tenant_id', tenantId),
+        supabase.from('candidates').select('id, full_name, current_title, current_company, skills, summary, cv_parsed_data, work_history, education, experience_years, location').eq('tenant_id', tenantId)
       ]);
 
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) {
         setCandidates(candidatesRes.data.map(c => ({
           ...c,
-          skills: Array.isArray(c.skills) ? c.skills as string[] : null
+          skills: Array.isArray(c.skills) ? c.skills as string[] : null,
+          work_history: Array.isArray(c.work_history) ? c.work_history : [],
+          education: Array.isArray(c.education) ? c.education : []
         })));
       }
     } catch (error) {
@@ -87,11 +97,40 @@ const AIMatchPage = () => {
         throw new Error('Selected job or candidate not found');
       }
 
+      // Build candidate resume from available profile data
+      const resumeParts: string[] = [];
+      if (candidate.full_name) resumeParts.push(`Name: ${candidate.full_name}`);
+      if (candidate.current_title) resumeParts.push(`Current Title: ${candidate.current_title}`);
+      if (candidate.current_company) resumeParts.push(`Current Company: ${candidate.current_company}`);
+      if (candidate.location) resumeParts.push(`Location: ${candidate.location}`);
+      if (candidate.experience_years) resumeParts.push(`Years of Experience: ${candidate.experience_years}`);
+      if (candidate.summary) resumeParts.push(`Summary: ${candidate.summary}`);
+      if (candidate.skills?.length) resumeParts.push(`Skills: ${candidate.skills.join(', ')}`);
+      if (candidate.work_history?.length) {
+        resumeParts.push(`Work History: ${JSON.stringify(candidate.work_history)}`);
+      }
+      if (candidate.education?.length) {
+        resumeParts.push(`Education: ${JSON.stringify(candidate.education)}`);
+      }
+      if (candidate.cv_parsed_data) {
+        resumeParts.push(`CV Data: ${JSON.stringify(candidate.cv_parsed_data)}`);
+      }
+
+      const candidateResume = resumeParts.join('\n');
+
+      // Build job description from available data
+      const jobDescParts: string[] = [];
+      if (job.title) jobDescParts.push(`Job Title: ${job.title}`);
+      if (job.description) jobDescParts.push(`Description: ${job.description}`);
+      if (job.requirements) jobDescParts.push(`Requirements: ${job.requirements}`);
+      
+      const fullJobDescription = jobDescParts.join('\n');
+
       const { data, error } = await supabase.functions.invoke('ai-match', {
         body: {
-          jobDescription: job.description || '',
+          jobDescription: fullJobDescription,
           jobTitle: job.title,
-          candidateResume: '',
+          candidateResume: candidateResume,
           candidateSkills: candidate.skills || []
         }
       });
