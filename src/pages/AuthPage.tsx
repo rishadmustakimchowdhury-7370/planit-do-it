@@ -242,15 +242,26 @@ export default function AuthPage() {
         await supabase.functions.invoke('send-email', {
           body: {
             to: user?.email,
-            subject: 'Password Changed Successfully - Recruitsy',
+            subject: 'Password Changed Successfully - Recruitify CRM',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                  <div style="background: linear-gradient(135deg, #0052CC 0%, #0052CC80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                      <rect width="20" height="14" x="2" y="6" rx="2"/>
+                    </svg>
+                  </div>
+                  <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px;">
+                    <span style="color: #0052CC;">Recruitify</span><span style="color: #6b7280; font-weight: 500;">CRM</span>
+                  </span>
+                </div>
                 <h2 style="color: #0052CC;">Password Changed Successfully</h2>
                 <p>Hello,</p>
-                <p>Your password has been successfully changed for your Recruitsy account.</p>
-                <p>If you did not make this change, please contact our support team immediately.</p>
+                <p>Your password has been successfully changed for your Recruitify CRM account.</p>
+                <p>If you did not make this change, please contact our support team immediately at info@recruitifycrm.com.</p>
                 <br/>
-                <p>Best regards,<br/>The Recruitsy Team</p>
+                <p>Best regards,<br/>The Recruitify CRM Team</p>
               </div>
             `,
           },

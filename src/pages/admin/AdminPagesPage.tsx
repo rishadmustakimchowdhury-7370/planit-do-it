@@ -54,7 +54,7 @@ const DEFAULT_TEMPLATES = [
 <p>We'd love to hear from you. Reach out to us through any of the channels below.</p>
 
 <h2>Get in Touch</h2>
-<p><strong>Email:</strong> support@recruitsy.net</p>
+<p><strong>Email:</strong> info@recruitifycrm.com</p>
 <p><strong>Phone:</strong> +1 (555) 123-4567</p>
 
 <h2>Office Location</h2>
@@ -84,7 +84,7 @@ const DEFAULT_TEMPLATES = [
 <p>We use your information to provide and improve our services, communicate with you, and ensure security.</p>
 
 <h2>Contact Us</h2>
-<p>If you have questions about this policy, please contact us at privacy@recruitsy.net.</p>`,
+<p>If you have questions about this policy, please contact us at info@recruitifycrm.com.</p>`,
   },
   {
     name: 'Terms of Service',

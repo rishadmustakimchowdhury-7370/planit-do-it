@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       );
 
       // Generate AI-style personalized email content
-      const subject = template?.subject || `Your Recruitsy subscription expires in ${daysUntilExpiry} days`;
+      const subject = template?.subject || `Your Recruitify CRM subscription expires in ${daysUntilExpiry} days`;
       
       let htmlContent = template?.html_content || `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

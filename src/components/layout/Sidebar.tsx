@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Logo } from '@/components/brand/Logo';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -64,22 +65,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border/50">
         <Link to="/dashboard" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center shadow-md">
-            <Sparkles className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                className="font-bold text-lg text-sidebar-foreground whitespace-nowrap overflow-hidden"
-              >
-                Recruitsy
-              </motion.span>
-            )}
-          </AnimatePresence>
+          <Logo size={collapsed ? 'sm' : 'md'} showText={!collapsed} />
         </Link>
       </div>
 
