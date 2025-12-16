@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -82,6 +82,16 @@ export default function BillingPage() {
   const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'plans' | 'invoices'>('plans');
+
+  const plansSectionRef = useRef<HTMLDivElement | null>(null);
+
+  const goToPlans = () => {
+    setActiveTab('plans');
+    setTimeout(() => {
+      plansSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  };
 
   useEffect(() => {
     if (tenantId) {
@@ -269,7 +279,7 @@ export default function BillingPage() {
                     <p>• {currentPlanData?.match_credits_monthly || 10} AI Credits/month</p>
                   </div>
                   {(!currentPlanData || currentPlanData.slug !== 'agency') && (
-                    <Button size="sm" className="w-full gap-2" onClick={() => document.getElementById('plans-tab')?.click()}>
+                    <Button size="sm" className="w-full gap-2" onClick={goToPlans}>
                       <ArrowUpRight className="h-4 w-4" />
                       Upgrade Plan
                     </Button>
@@ -316,9 +326,9 @@ export default function BillingPage() {
         </motion.div>
 
         {/* Plans & Invoices Tabs */}
-        <Tabs defaultValue="plans">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'plans' | 'invoices')}>
           <TabsList>
-            <TabsTrigger id="plans-tab" value="plans" className="gap-2">
+            <TabsTrigger value="plans" className="gap-2">
               <Sparkles className="h-4 w-4" />
               Available Plans
             </TabsTrigger>
@@ -329,7 +339,7 @@ export default function BillingPage() {
           </TabsList>
 
           <TabsContent value="plans" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div ref={plansSectionRef} className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {allPlans.map((plan, i) => {
                 const Icon = planIcons[plan.slug] || Zap;
                 const isCurrentPlan = currentPlanData?.id === plan.id;
