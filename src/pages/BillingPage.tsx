@@ -16,7 +16,8 @@ import {
   Crown,
   ArrowUpRight,
   FileText,
-  Loader2
+  Loader2,
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +25,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/currencies';
 import { format } from 'date-fns';
+import { ManageSubscriptionDialog } from '@/components/billing/ManageSubscriptionDialog';
 
 interface Invoice {
   id: string;
@@ -83,6 +85,7 @@ export default function BillingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'plans' | 'invoices'>('plans');
+  const [showManageDialog, setShowManageDialog] = useState(false);
 
   const plansSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -198,22 +201,8 @@ export default function BillingPage() {
     }
   };
 
-  const handleManageSubscription = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('customer-portal', {});
-
-      if (error) throw error;
-
-      if (data?.url) {
-        window.location.assign(data.url);
-        return;
-      }
-
-      throw new Error('No portal URL returned');
-    } catch (error: any) {
-      console.error('Portal error:', error);
-      toast.error(error?.message || 'Unable to open subscription management');
-    }
+  const handleManageSubscription = () => {
+    setShowManageDialog(true);
   };
 
   const creditsUsed = (tenant?.match_credits_limit || 100) - (tenant?.match_credits_remaining || 0);
@@ -316,7 +305,7 @@ export default function BillingPage() {
                     </span>
                   </div>
                   <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleManageSubscription}>
-                    <CreditCard className="h-4 w-4 mr-2" />
+                    <Settings className="h-4 w-4 mr-2" />
                     Manage Subscription
                   </Button>
                 </div>
@@ -479,6 +468,17 @@ export default function BillingPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Manage Subscription Dialog */}
+        <ManageSubscriptionDialog
+          open={showManageDialog}
+          onOpenChange={setShowManageDialog}
+          currentPlan={currentPlanData}
+          tenant={tenant}
+          allPlans={allPlans}
+          onUpgrade={handleSelectPlan}
+          onRefresh={fetchBillingData}
+        />
       </div>
     </AppLayout>
   );
