@@ -868,6 +868,48 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_bookings: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          name: string
+          preferred_date: string
+          preferred_time: string
+          status: string
+          timezone: string
+          updated_at: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          name: string
+          preferred_date: string
+          preferred_time: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          name?: string
+          preferred_date?: string
+          preferred_time?: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       email_accounts: {
         Row: {
           created_at: string | null

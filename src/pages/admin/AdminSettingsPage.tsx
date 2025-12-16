@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Settings, Bell, Shield, Globe, Database } from 'lucide-react';
+import { Loader2, Settings, Bell, Shield, Globe, Database, Play } from 'lucide-react';
 
 interface PlatformSettings {
   maintenance_mode: boolean;
@@ -17,6 +17,7 @@ interface PlatformSettings {
   support_email: string;
   max_file_size_mb: number;
   allowed_file_types: string;
+  demo_video_url: string;
 }
 
 export default function AdminSettingsPage() {
@@ -29,6 +30,7 @@ export default function AdminSettingsPage() {
     support_email: 'info@recruitifycrm.com',
     max_file_size_mb: 10,
     allowed_file_types: 'pdf,doc,docx',
+    demo_video_url: '',
   });
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function AdminSettingsPage() {
           support_email: settingsMap.support_email ?? 'info@recruitifycrm.com',
           max_file_size_mb: settingsMap.max_file_size_mb ?? 10,
           allowed_file_types: settingsMap.allowed_file_types ?? 'pdf,doc,docx',
+          demo_video_url: typeof settingsMap.demo_video_url === 'string' ? settingsMap.demo_video_url.replace(/^"|"$/g, '') : '',
         });
       }
     } catch (error: any) {
@@ -75,6 +78,7 @@ export default function AdminSettingsPage() {
         { key: 'support_email', value: settings.support_email, description: 'Support email address' },
         { key: 'max_file_size_mb', value: settings.max_file_size_mb, description: 'Maximum file upload size in MB' },
         { key: 'allowed_file_types', value: settings.allowed_file_types, description: 'Allowed file extensions' },
+        { key: 'demo_video_url', value: settings.demo_video_url, description: 'YouTube demo video URL for landing page Watch Demo button' },
       ];
 
       for (const setting of settingsToSave) {
@@ -155,6 +159,31 @@ export default function AdminSettingsPage() {
                 placeholder="support@example.com"
                 className="mt-2"
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Demo Video Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="h-5 w-5" />
+              Demo Video
+            </CardTitle>
+            <CardDescription>Configure the Watch Demo button on the landing page</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>YouTube Video URL</Label>
+              <Input
+                value={settings.demo_video_url}
+                onChange={(e) => setSettings({ ...settings, demo_video_url: e.target.value })}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="mt-2"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Paste the YouTube URL for the product demo video. If empty, the button will open the Book Demo form instead.
+              </p>
             </div>
           </CardContent>
         </Card>
