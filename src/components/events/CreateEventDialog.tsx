@@ -503,7 +503,7 @@ export function CreateEventDialog({
               </div>
 
               {/* Location Type */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>Location</Label>
                 <div className="flex gap-2">
                   <Button
@@ -527,30 +527,40 @@ export function CreateEventDialog({
                     In Person
                   </Button>
                 </div>
-              </div>
 
-              {locationType === 'online' ? (
-                <div className="space-y-2">
-                  <Label>Meeting Link (Google Meet, Zoom, Teams)</Label>
-                  <Input
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://meet.google.com/... or https://zoom.us/j/... or Teams link"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Paste your Google Meet, Zoom, or Microsoft Teams meeting link
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Address</Label>
-                  <Input
-                    value={locationAddress}
-                    onChange={(e) => setLocationAddress(e.target.value)}
-                    placeholder="Enter meeting location address"
-                  />
-                </div>
-              )}
+                {/* Meeting Link or Address Input - always visible based on location type */}
+                {locationType === 'online' && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5" />
+                      Meeting Link *
+                    </Label>
+                    <Input
+                      value={meetingLink}
+                      onChange={(e) => setMeetingLink(e.target.value)}
+                      placeholder="https://meet.google.com/... or https://zoom.us/j/..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Paste your Google Meet, Zoom, or Microsoft Teams meeting link
+                    </p>
+                  </div>
+                )}
+
+                {locationType === 'physical' && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" />
+                      Location Address *
+                    </Label>
+                    <Textarea
+                      value={locationAddress}
+                      onChange={(e) => setLocationAddress(e.target.value)}
+                      placeholder="Enter full address (e.g., 123 Main St, Suite 100, City, Country)"
+                      rows={2}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Description */}
               <div className="space-y-2">
