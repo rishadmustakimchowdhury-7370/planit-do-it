@@ -478,6 +478,103 @@ Deno.serve(async (req) => {
         );
       }
 
+      case 'check_expired_grace_periods': {
+        // Find tenants whose grace period has ended and they don't have an active subscription
+        const now = new Date();
+        
+        const { data: expiredGraceTenants, error: fetchError } = await supabase
+          .from('tenants')
+          .select(`
+            id,
+            name,
+            logo_url,
+            grace_until,
+            subscription_status
+          `)
+          .lt('grace_until', now.toISOString())
+          .eq('is_paused', false)
+          .not('subscription_status', 'eq', 'active');
+
+        if (fetchError) throw fetchError;
+
+        console.log(`Found ${expiredGraceTenants?.length || 0} tenants with expired grace periods`);
+
+        let processed = 0;
+        let emailsSent = 0;
+
+        for (const tenant of expiredGraceTenants || []) {
+          // Auto-pause the tenant
+          await supabase
+            .from('tenants')
+            .update({
+              is_paused: true,
+              paused_at: now.toISOString(),
+              paused_reason: 'Grace period expired without subscription renewal',
+              subscription_status: 'expired',
+              updated_at: now.toISOString()
+            })
+            .eq('id', tenant.id);
+
+          processed++;
+
+          // Notify users
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('tenant_id', tenant.id);
+
+          if (resend && profiles) {
+            for (const profile of profiles) {
+              if (!profile.email) continue;
+              
+              const html = generateExpiredNotificationHTML({
+                userName: profile.full_name || 'Valued Customer',
+                companyName: tenant.name,
+                dataRetentionDays: 30,
+                dataDeleteDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                }),
+                companyLogo: tenant.logo_url
+              });
+
+              try {
+                await resend.emails.send({
+                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  to: [profile.email],
+                  subject: `⚠️ Your Grace Period Has Ended - Account Paused`,
+                  html
+                });
+                emailsSent++;
+              } catch (emailError) {
+                console.error(`Failed to send grace expiry email to ${profile.email}:`, emailError);
+              }
+            }
+          }
+
+          // Log audit
+          await supabase.from('audit_log').insert({
+            action: 'grace_period_expired_auto_pause',
+            entity_type: 'tenant',
+            entity_id: tenant.id,
+            new_values: { 
+              paused_at: now.toISOString(),
+              reason: 'Grace period expired without subscription renewal'
+            }
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            processed,
+            emails_sent: emailsSent
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'cleanup_expired_grace_periods': {
         // Find tenants whose grace period has ended (for future: actually delete data)
         // For now, just mark them for deletion review

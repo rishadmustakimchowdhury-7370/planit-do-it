@@ -680,7 +680,8 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Grant Grace Period</DialogTitle>
             <DialogDescription>
-              Extend access for {selectedUser?.full_name || selectedUser?.email}
+              Extend access for {selectedUser?.full_name || selectedUser?.email}. 
+              After the grace period ends, if they don't subscribe, their account will be automatically paused.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -690,11 +691,15 @@ export default function AdminUsersPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="3">3 Days</SelectItem>
                 <SelectItem value="7">7 Days</SelectItem>
                 <SelectItem value="15">15 Days</SelectItem>
                 <SelectItem value="30">30 Days</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-sm text-muted-foreground mt-3">
+              Grace until: {new Date(Date.now() + parseInt(graceDays) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowGraceDialog(false)}>
