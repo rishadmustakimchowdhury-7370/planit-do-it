@@ -44,6 +44,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutSuccessPage from "./pages/CheckoutSuccessPage";
 import CheckoutCancelPage from "./pages/CheckoutCancelPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AdminSEOPage from "./pages/admin/AdminSEOPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import FeaturesPage from "./pages/FeaturesPage";
@@ -124,6 +125,7 @@ const AppRoutes = () => (
     <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
     <Route path="/admin/testimonials" element={<ProtectedRoute><AdminTestimonialsPage /></ProtectedRoute>} />
     <Route path="/admin/orders" element={<ProtectedRoute><AdminOrdersPage /></ProtectedRoute>} />
+    <Route path="/admin/seo" element={<ProtectedRoute><AdminSEOPage /></ProtectedRoute>} />
     
     {/* Checkout routes */}
     <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />

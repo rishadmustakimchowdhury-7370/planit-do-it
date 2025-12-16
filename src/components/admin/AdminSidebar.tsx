@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Phone,
   Calendar,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ const adminNavItems = [
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
+  { title: 'SEO Settings', url: '/admin/seo', icon: Search },
   { title: 'Email Templates', url: '/admin/emails', icon: Mail },
   { title: 'WhatsApp', url: '/admin/whatsapp', icon: Phone },
   { title: 'Billing', url: '/admin/billing', icon: CreditCard },
