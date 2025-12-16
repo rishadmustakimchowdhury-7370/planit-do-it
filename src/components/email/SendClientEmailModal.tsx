@@ -172,7 +172,7 @@ export function SendClientEmailModal({
   
   // AI state
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiPurpose, setAiPurpose] = useState('introduction');
+  const [aiPrompt, setAiPrompt] = useState('');
   const [aiTone, setAiTone] = useState('professional');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   
@@ -341,6 +341,11 @@ export function SendClientEmailModal({
   };
 
   const handleGenerateAI = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error('Please describe what you want the AI to write');
+      return;
+    }
+    
     setIsGeneratingAI(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-compose-email', {
@@ -351,10 +356,11 @@ export function SendClientEmailModal({
           location: '',
           company_name: client.name,
           recruiter_name: profile?.full_name || 'Recruiter',
-          purpose: aiPurpose,
+          purpose: 'custom',
           tone: aiTone,
           length: 'medium',
           is_client_email: true,
+          custom_instructions: aiPrompt,
         },
       });
 
@@ -362,18 +368,11 @@ export function SendClientEmailModal({
 
       if (data?.email_body && editor) {
         editor.commands.setContent(data.email_body);
-        const subjectMap: Record<string, string> = {
-          introduction: `Introduction - ${profile?.full_name || 'Recruiter'}`,
-          follow_up: `Following Up - ${client.name}`,
-          partnership: `Partnership Opportunity - ${client.name}`,
-          proposal: `Proposal for ${client.name}`,
-          thank_you: `Thank You - ${client.name}`,
-          meeting_request: `Meeting Request - ${client.name}`,
-        };
         if (!subject) {
-          setSubject(subjectMap[aiPurpose] || `Regarding ${client.name}`);
+          setSubject(`Regarding ${client.name}`);
         }
         setShowAiPanel(false);
+        setAiPrompt('');
         toast.success('AI email generated!');
       }
     } catch (error: any) {
@@ -725,49 +724,44 @@ export function SendClientEmailModal({
         {/* AI Panel */}
         {showAiPanel && (
           <div className="px-4 py-3 border-b bg-accent/5">
-            <div className="flex items-end gap-3">
-              <div className="flex-1 space-y-1">
-                <label className="text-xs text-muted-foreground">Purpose</label>
-                <Select value={aiPurpose} onValueChange={setAiPurpose}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="introduction">Introduction</SelectItem>
-                    <SelectItem value="follow_up">Follow Up</SelectItem>
-                    <SelectItem value="partnership">Partnership Proposal</SelectItem>
-                    <SelectItem value="proposal">Business Proposal</SelectItem>
-                    <SelectItem value="thank_you">Thank You</SelectItem>
-                    <SelectItem value="meeting_request">Meeting Request</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Describe what you want AI to write</label>
+                <Textarea
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g., Write a follow-up email asking about partnership opportunities, or Write a thank you email for the recent meeting..."
+                  className="min-h-[80px] text-sm resize-none"
+                />
               </div>
-              <div className="flex-1 space-y-1">
-                <label className="text-xs text-muted-foreground">Tone</label>
-                <Select value={aiTone} onValueChange={setAiTone}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="brief">Brief & Direct</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="friendly">Warm & Friendly</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex items-end gap-3">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs text-muted-foreground">Tone</label>
+                  <Select value={aiTone} onValueChange={setAiTone}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="brief">Brief & Direct</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="friendly">Warm & Friendly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={handleGenerateAI}
+                  disabled={isGeneratingAI || !aiPrompt.trim()}
+                >
+                  {isGeneratingAI ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  Generate
+                </Button>
               </div>
-              <Button
-                size="sm"
-                className="h-8 gap-1.5"
-                onClick={handleGenerateAI}
-                disabled={isGeneratingAI}
-              >
-                {isGeneratingAI ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
-                Generate
-              </Button>
             </div>
           </div>
         )}
