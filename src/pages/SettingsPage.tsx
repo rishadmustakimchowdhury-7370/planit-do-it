@@ -106,6 +106,7 @@ export default function SettingsPage() {
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoSignedUrl, setLogoSignedUrl] = useState<string | null>(null);
   
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -157,6 +158,18 @@ export default function SettingsPage() {
           logo_url: data.logo_url || '',
           primary_color: data.primary_color || '#0ea5e9',
         });
+
+        // Generate signed URL for logo if it exists (stored as file path)
+        if (data.logo_url) {
+          const { data: signedData } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(data.logo_url, 60 * 60 * 24 * 365); // 1 year
+          if (signedData?.signedUrl) {
+            setLogoSignedUrl(signedData.signedUrl);
+          }
+        } else {
+          setLogoSignedUrl(null);
+        }
         
         // Fetch plan details if subscription_plan_id exists
         if (data.subscription_plan_id) {
@@ -390,17 +403,22 @@ export default function SettingsPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // Store the file path (not public URL) in database
+      setTenantData({ ...tenantData, logo_url: fileName });
+
+      // Generate signed URL for immediate display
+      const { data: signedData } = await supabase.storage
         .from('documents')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year
+      
+      if (signedData?.signedUrl) {
+        setLogoSignedUrl(signedData.signedUrl);
+      }
 
-      const logoUrl = urlData.publicUrl;
-      setTenantData({ ...tenantData, logo_url: logoUrl });
-
-      // Auto-save the logo
+      // Auto-save the file path to database
       const { error: updateError } = await supabase
         .from('tenants')
-        .update({ logo_url: logoUrl })
+        .update({ logo_url: fileName })
         .eq('id', tenantId);
 
       if (updateError) throw updateError;
@@ -946,9 +964,9 @@ export default function SettingsPage() {
                       <Label>Company Logo</Label>
                       <div className="flex items-center gap-4">
                         <div className="relative h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30 overflow-hidden">
-                          {tenantData.logo_url ? (
+                          {logoSignedUrl ? (
                             <img
-                              src={tenantData.logo_url}
+                              src={logoSignedUrl}
                               alt="Company logo"
                               className="h-full w-full object-contain"
                             />
@@ -979,7 +997,10 @@ export default function SettingsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setTenantData({ ...tenantData, logo_url: '' })}
+                              onClick={() => {
+                                setTenantData({ ...tenantData, logo_url: '' });
+                                setLogoSignedUrl(null);
+                              }}
                               className="text-xs"
                             >
                               <Trash2 className="h-3 w-3 mr-1" />
