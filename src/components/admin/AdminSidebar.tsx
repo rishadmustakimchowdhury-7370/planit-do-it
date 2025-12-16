@@ -28,6 +28,7 @@ const adminNavItems = [
   { title: 'Orders', url: '/admin/orders', icon: CreditCard },
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
+  { title: 'Testimonials', url: '/admin/testimonials', icon: MessageSquare },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
   { title: 'SEO Settings', url: '/admin/seo', icon: Search },
   { title: 'Email Templates', url: '/admin/emails', icon: Mail },
