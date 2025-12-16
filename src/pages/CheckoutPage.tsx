@@ -14,7 +14,9 @@ import {
   CreditCard, 
   Loader2, 
   ArrowLeft,
-  Zap
+  Zap,
+  Sparkles,
+  Crown
 } from 'lucide-react';
 
 interface SubscriptionPlan {
@@ -23,7 +25,6 @@ interface SubscriptionPlan {
   slug: string;
   description: string | null;
   price_monthly: number;
-  price_yearly: number;
   features: any;
   max_users: number | null;
   max_jobs: number | null;
@@ -31,16 +32,20 @@ interface SubscriptionPlan {
   match_credits_monthly: number | null;
 }
 
+const planIcons: Record<string, any> = {
+  starter: Zap,
+  pro: Sparkles,
+  agency: Crown,
+};
+
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   
   const planId = searchParams.get('plan');
-  const cycle = searchParams.get('cycle') || 'monthly';
   
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(cycle as 'monthly' | 'yearly');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -48,7 +53,7 @@ export default function CheckoutPage() {
     if (planId) {
       fetchPlan();
     } else {
-      navigate('/pricing');
+      navigate('/billing');
     }
   }, [planId]);
 
@@ -64,7 +69,7 @@ export default function CheckoutPage() {
       setPlan(data);
     } catch (error: any) {
       toast.error('Failed to load plan details');
-      navigate('/pricing');
+      navigate('/billing');
     } finally {
       setLoading(false);
     }
@@ -73,14 +78,14 @@ export default function CheckoutPage() {
   const handleCheckout = async () => {
     if (!user) {
       toast.error('Please log in to continue');
-      navigate('/auth?redirect=/checkout?plan=' + planId + '&cycle=' + billingCycle);
+      navigate('/auth?redirect=/checkout?plan=' + planId);
       return;
     }
 
     setProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId, billingCycle }
+        body: { planId, billingCycle: 'monthly' }
       });
 
       if (error) throw error;
@@ -98,10 +103,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const price = billingCycle === 'yearly' ? plan?.price_yearly : plan?.price_monthly;
-  const monthlyEquivalent = billingCycle === 'yearly' && plan ? (plan.price_yearly / 12).toFixed(2) : null;
-  const savings = plan ? ((plan.price_monthly * 12 - plan.price_yearly) / (plan.price_monthly * 12) * 100).toFixed(0) : 0;
-
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -114,6 +115,8 @@ export default function CheckoutPage() {
     return null;
   }
 
+  const Icon = planIcons[plan.slug] || Zap;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container max-w-5xl mx-auto px-4 py-8">
@@ -121,11 +124,11 @@ export default function CheckoutPage() {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/pricing')}
+            onClick={() => navigate('/billing')}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Pricing
+            Back to Billing
           </Button>
           <h1 className="text-3xl font-bold">Complete Your Purchase</h1>
           <p className="text-muted-foreground mt-1">Secure checkout powered by Stripe</p>
@@ -144,42 +147,14 @@ export default function CheckoutPage() {
                 <div className="flex items-start justify-between p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Zap className="h-6 w-6 text-primary" />
+                      <Icon className="h-6 w-6 text-primary" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-lg">{plan.name} Plan</h3>
                       <p className="text-sm text-muted-foreground">{plan.description}</p>
                     </div>
                   </div>
-                  <Badge variant="secondary">{billingCycle === 'yearly' ? 'Annual' : 'Monthly'}</Badge>
-                </div>
-
-                {/* Billing Cycle Toggle */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Billing Cycle</label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={billingCycle === 'monthly' ? 'default' : 'outline'}
-                      onClick={() => setBillingCycle('monthly')}
-                      className="flex-1"
-                    >
-                      Monthly
-                      <span className="ml-2 text-muted-foreground">${plan.price_monthly}/mo</span>
-                    </Button>
-                    <Button
-                      variant={billingCycle === 'yearly' ? 'default' : 'outline'}
-                      onClick={() => setBillingCycle('yearly')}
-                      className="flex-1 relative"
-                    >
-                      Yearly
-                      <span className="ml-2 text-muted-foreground">${plan.price_yearly}/yr</span>
-                      {Number(savings) > 0 && (
-                        <Badge className="absolute -top-2 -right-2 bg-green-500">
-                          Save {savings}%
-                        </Badge>
-                      )}
-                    </Button>
-                  </div>
+                  <Badge variant="secondary">Monthly</Badge>
                 </div>
 
                 <Separator />
@@ -188,7 +163,23 @@ export default function CheckoutPage() {
                 <div>
                   <h4 className="font-medium mb-3">Features Included</h4>
                   <div className="grid sm:grid-cols-2 gap-2">
-                    {Array.isArray(plan.features) && plan.features.map((feature, i) => (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                      <span>{plan.max_users === -1 ? 'Unlimited' : plan.max_users} Team Members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                      <span>{plan.max_jobs === -1 ? 'Unlimited' : plan.max_jobs} Active Jobs</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                      <span>{plan.max_candidates === -1 ? 'Unlimited' : plan.max_candidates} Candidates</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-500 shrink-0" />
+                      <span>{plan.match_credits_monthly} AI Matches/month</span>
+                    </div>
+                    {Array.isArray(plan.features) && plan.features.map((feature: string, i: number) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <Check className="h-4 w-4 text-green-500 shrink-0" />
                         <span>{feature}</span>
@@ -238,31 +229,17 @@ export default function CheckoutPage() {
                 {/* Price Breakdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>{plan.name} Plan ({billingCycle})</span>
-                    <span>${price?.toFixed(2)}</span>
+                    <span>{plan.name} Plan (Monthly)</span>
+                    <span>${plan.price_monthly.toFixed(2)}</span>
                   </div>
-                  {billingCycle === 'yearly' && monthlyEquivalent && (
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Monthly equivalent</span>
-                      <span>${monthlyEquivalent}/mo</span>
-                    </div>
-                  )}
                 </div>
 
                 <Separator />
 
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span>${price?.toFixed(2)} USD</span>
+                  <span>${plan.price_monthly.toFixed(2)} USD/month</span>
                 </div>
-
-                {billingCycle === 'yearly' && Number(savings) > 0 && (
-                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-                      You save ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)} with annual billing!
-                    </p>
-                  </div>
-                )}
 
                 {/* Checkout Button */}
                 <Button 
@@ -278,7 +255,7 @@ export default function CheckoutPage() {
                   ) : (
                     <>
                       <CreditCard className="h-5 w-5 mr-2" />
-                      Complete Secure Payment
+                      Complete Payment
                     </>
                   )}
                 </Button>

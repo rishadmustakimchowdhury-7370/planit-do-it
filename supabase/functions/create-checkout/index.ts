@@ -19,17 +19,18 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
   );
 
   try {
     logStep("Function started");
     
-    const { planId, billingCycle } = await req.json();
-    logStep("Request params", { planId, billingCycle });
+    const { planId } = await req.json();
+    logStep("Request params", { planId });
 
-    if (!planId || !billingCycle) {
-      throw new Error("Missing planId or billingCycle");
+    if (!planId) {
+      throw new Error("Missing planId");
     }
 
     // Get authenticated user
@@ -52,14 +53,13 @@ serve(async (req) => {
     }
     logStep("Plan fetched", { planName: plan.name, priceMonthly: plan.price_monthly });
 
-    // Get price ID based on billing cycle
-    const priceId = billingCycle === 'yearly' 
-      ? plan.stripe_price_id_yearly 
-      : plan.stripe_price_id_monthly;
+    // Get monthly price ID only
+    const priceId = plan.stripe_price_id_monthly;
 
     if (!priceId) {
-      throw new Error(`Stripe price ID not configured for ${plan.name} (${billingCycle}). Please configure Stripe prices in Admin panel.`);
+      throw new Error(`Stripe price ID not configured for ${plan.name}. Please add the stripe_price_id_monthly in the subscription_plans table.`);
     }
+    logStep("Using price ID", { priceId });
 
     // Initialize Stripe
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -83,8 +83,6 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    const amount = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-
     // Create order record (pending)
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
@@ -92,9 +90,9 @@ serve(async (req) => {
         user_id: user.id,
         tenant_id: profile?.tenant_id,
         plan_id: planId,
-        amount: amount,
+        amount: plan.price_monthly,
         currency: 'usd',
-        billing_cycle: billingCycle,
+        billing_cycle: 'monthly',
         status: 'pending',
         approval_status: 'pending_approval',
         metadata: {
@@ -112,10 +110,7 @@ serve(async (req) => {
     }
     logStep("Order created", { orderId: order.id });
 
-    // Determine if subscription or one-time
-    const isSubscription = true; // For recurring plans
-
-    // Create checkout session
+    // Create checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -125,7 +120,7 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      mode: isSubscription ? "subscription" : "payment",
+      mode: "subscription",
       success_url: `${req.headers.get("origin")}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
       cancel_url: `${req.headers.get("origin")}/checkout/cancel?order_id=${order.id}`,
       metadata: {
@@ -133,21 +128,14 @@ serve(async (req) => {
         plan_id: planId,
         user_id: user.id,
         tenant_id: profile?.tenant_id || '',
-        billing_cycle: billingCycle
       },
-      payment_intent_data: isSubscription ? undefined : {
-        metadata: {
-          order_id: order.id,
-          plan_id: planId,
-        }
-      },
-      subscription_data: isSubscription ? {
+      subscription_data: {
         metadata: {
           order_id: order.id,
           plan_id: planId,
           user_id: user.id,
         }
-      } : undefined,
+      },
     });
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
