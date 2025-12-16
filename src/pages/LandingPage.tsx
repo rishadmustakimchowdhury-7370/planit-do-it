@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { Logo, BRAND } from '@/components/brand/Logo';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -92,7 +93,7 @@ interface Testimonial {
 const defaultTestimonials = [
   {
     id: '1',
-    quote: "Recruitsy cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
+    quote: "Recruitify CRM cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
     author_name: "Sarah Johnson",
     author_role: "Head of Talent, TechCorp",
     author_avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
@@ -146,9 +147,8 @@ export default function LandingPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-foreground">
-            <Sparkles className="h-6 w-6 text-accent" />
-            Recruitsy CRM
+          <Link to="/" className="flex items-center gap-2">
+            <Logo size="md" />
           </Link>
           
           <nav className="hidden md:flex items-center gap-8">
@@ -202,7 +202,7 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="text-xl text-muted-foreground max-w-2xl mx-auto"
             >
-              Recruitsy uses AI to match candidates to jobs, automate your pipeline, 
+              Recruitify CRM uses AI to match candidates to jobs, automate your pipeline, 
               and give you insights that help you make better hiring decisions.
             </motion.p>
             
@@ -445,7 +445,7 @@ export default function LandingPage() {
             <CardContent className="p-12 text-center">
               <h2 className="text-4xl font-bold mb-4">Ready to transform your hiring?</h2>
               <p className="text-xl text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-                Join thousands of teams using Recruitsy to find and hire the best talent.
+                Join thousands of teams using Recruitify CRM to find and hire the best talent.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/auth?mode=signup">
@@ -468,9 +468,8 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <Link to="/" className="flex items-center gap-2 text-xl font-bold mb-4">
-                <Sparkles className="h-6 w-6 text-accent" />
-                Recruitsy
+              <Link to="/" className="flex items-center gap-2 mb-4">
+                <Logo size="md" />
               </Link>
               <p className="text-sm text-muted-foreground">
                 AI-powered recruitment platform for modern teams.
@@ -509,7 +508,7 @@ export default function LandingPage() {
           
           <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 Recruitsy. All rights reserved.
+              © 2024 Recruitify CRM. All rights reserved.
             </p>
             <div className="flex gap-4">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">

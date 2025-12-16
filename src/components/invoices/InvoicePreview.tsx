@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Briefcase } from 'lucide-react';
+import { BRAND } from '@/components/brand/Logo';
 
 interface InvoicePreviewProps {
   open: boolean;
@@ -55,13 +56,20 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
               {invoice.company_logo ? (
                 <img src={invoice.company_logo} alt="Company Logo" className="h-16 w-auto mb-2" />
               ) : (
-                <div className="text-2xl font-bold text-primary mb-2">
-                  {invoice.company_name || 'Recruitsy'}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center justify-center rounded-lg bg-gradient-to-br from-[#0052CC] to-[#0052CC]/80 p-2">
+                    <Briefcase className="text-white" size={24} />
+                  </div>
+                  <span className="text-2xl font-bold">
+                    <span style={{ color: '#0052CC' }}>Recruitify</span>
+                    <span style={{ color: '#6b7280' }}>CRM</span>
+                  </span>
                 </div>
               )}
               <div className="text-sm text-gray-600">
                 {invoice.company_address && <p>{invoice.company_address}</p>}
                 {invoice.company_phone && <p>Phone: {invoice.company_phone}</p>}
+                <p>Email: {BRAND.email}</p>
               </div>
             </div>
             <div className="text-right">

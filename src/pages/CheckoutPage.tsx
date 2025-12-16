@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { Logo } from '@/components/brand/Logo';
 import { 
   Check, 
   Shield, 
@@ -122,14 +123,16 @@ export default function CheckoutPage() {
       <div className="container max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/billing')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Billing
-          </Button>
+          <div className="flex items-center justify-between mb-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/billing')}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Billing
+            </Button>
+            <Logo size="md" />
+          </div>
           <h1 className="text-3xl font-bold">Complete Your Purchase</h1>
           <p className="text-muted-foreground mt-1">Secure checkout powered by Stripe</p>
         </div>

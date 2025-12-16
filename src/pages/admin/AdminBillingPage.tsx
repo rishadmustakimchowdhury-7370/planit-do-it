@@ -194,7 +194,18 @@ export default function AdminBillingPage() {
           subject: `Invoice ${invoice.invoice_number} - ${invoice.currency} $${Number(invoice.amount).toLocaleString()}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1 style="color: #0ea5e9;">Invoice from Recruitsy</h1>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #0052CC 0%, #0052CC80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    <rect width="20" height="14" x="2" y="6" rx="2"/>
+                  </svg>
+                </div>
+                <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px;">
+                  <span style="color: #0052CC;">Recruitify</span><span style="color: #6b7280; font-weight: 500;">CRM</span>
+                </span>
+              </div>
+              <h1 style="color: #0052CC;">Invoice from Recruitify CRM</h1>
               <p>Dear ${tenantName},</p>
               <p>Please find your invoice details below:</p>
               <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -205,7 +216,7 @@ export default function AdminBillingPage() {
               </div>
               <p>Thank you for your business!</p>
               <p style="color: #64748b; font-size: 12px; margin-top: 40px;">
-                This email was sent from Recruitsy. If you have any questions, please contact support.
+                This email was sent from Recruitify CRM. If you have any questions, please contact info@recruitifycrm.com.
               </p>
             </div>
           `,

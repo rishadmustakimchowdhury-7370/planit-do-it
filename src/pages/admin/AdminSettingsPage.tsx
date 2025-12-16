@@ -26,7 +26,7 @@ export default function AdminSettingsPage() {
     maintenance_mode: false,
     registration_enabled: true,
     trial_days: 14,
-    support_email: 'support@recruitsy.net',
+    support_email: 'info@recruitifycrm.com',
     max_file_size_mb: 10,
     allowed_file_types: 'pdf,doc,docx',
   });
@@ -53,7 +53,7 @@ export default function AdminSettingsPage() {
           maintenance_mode: settingsMap.maintenance_mode ?? false,
           registration_enabled: settingsMap.registration_enabled ?? true,
           trial_days: settingsMap.trial_days ?? 14,
-          support_email: settingsMap.support_email ?? 'support@recruitsy.net',
+          support_email: settingsMap.support_email ?? 'info@recruitifycrm.com',
           max_file_size_mb: settingsMap.max_file_size_mb ?? 10,
           allowed_file_types: settingsMap.allowed_file_types ?? 'pdf,doc,docx',
         });
