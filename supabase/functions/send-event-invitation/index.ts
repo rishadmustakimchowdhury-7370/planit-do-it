@@ -32,6 +32,21 @@ interface SMTPConfig {
   from_name: string;
 }
 
+// Default Recruitify CRM logo (base64 encoded SVG)
+const DEFAULT_LOGO_HTML = `
+<div style="display: inline-flex; align-items: center; gap: 10px;">
+  <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+      <rect width="20" height="14" x="2" y="6" rx="2"/>
+    </svg>
+  </div>
+  <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
+    <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+  </span>
+</div>
+`;
+
 // Generate ICS calendar file content
 function generateICS(event: any, participants: Participant[], action: string): string {
   const formatDate = (date: Date): string => {
@@ -84,8 +99,15 @@ END:VEVENT
 END:VCALENDAR`.replace(/\n/g, '\r\n');
 }
 
-// Generate HTML email content
-function generateEmailHTML(event: any, participant: Participant, action: string, organizerName: string): string {
+// Generate modern HTML email content with logo
+function generateEmailHTML(
+  event: any, 
+  participant: Participant, 
+  action: string, 
+  organizerName: string,
+  companyLogoUrl: string | null,
+  companyName: string | null
+): string {
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   
@@ -102,16 +124,46 @@ function generateEmailHTML(event: any, participant: Participant, action: string,
     });
   };
 
-  const location = event.location_type === 'online' 
-    ? `<a href="${event.meeting_link}" style="color: #0052CC;">${event.meeting_link || 'Online Meeting'}</a>`
-    : event.location_address || 'TBD';
+  const formatTime = (date: Date, timezone: string) => {
+    return date.toLocaleString('en-US', { 
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const formatDate = (date: Date, timezone: string) => {
+    return date.toLocaleString('en-US', { 
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const eventTypeLabels: Record<string, string> = {
-    interview: 'Interview',
-    client_meeting: 'Client Meeting',
-    internal_meeting: 'Internal Meeting',
-    follow_up: 'Follow-up Call',
-    custom: 'Event'
+    interview: '🎯 Interview',
+    client_meeting: '🤝 Client Meeting',
+    internal_meeting: '👥 Internal Meeting',
+    follow_up: '📞 Follow-up Call',
+    custom: '📅 Event'
+  };
+
+  const eventTypeColors: Record<string, string> = {
+    interview: '#059669',
+    client_meeting: '#7c3aed',
+    internal_meeting: '#0284c7',
+    follow_up: '#d97706',
+    custom: '#6366f1'
+  };
+
+  const actionColors: Record<string, { bg: string; text: string; icon: string }> = {
+    invite: { bg: '#0052CC', text: '#ffffff', icon: '📩' },
+    update: { bg: '#f59e0b', text: '#ffffff', icon: '🔄' },
+    cancel: { bg: '#dc2626', text: '#ffffff', icon: '❌' },
+    reminder: { bg: '#8b5cf6', text: '#ffffff', icon: '⏰' }
   };
 
   const actionTitle = action === 'cancel' 
@@ -120,119 +172,282 @@ function generateEmailHTML(event: any, participant: Participant, action: string,
     ? 'Event Updated' 
     : action === 'reminder'
     ? 'Event Reminder'
-    : 'Event Invitation';
+    : 'You\'re Invited!';
 
   const actionMessage = action === 'cancel'
-    ? `This event has been cancelled by ${organizerName}.`
+    ? `We regret to inform you that this event has been cancelled by <strong>${organizerName}</strong>.`
     : action === 'update'
-    ? `This event has been updated by ${organizerName}. Please review the new details below.`
+    ? `<strong>${organizerName}</strong> has updated the event details. Please review the new information below.`
     : action === 'reminder'
-    ? `This is a reminder for your upcoming event.`
-    : `You have been invited to the following event by ${organizerName}.`;
+    ? `This is a friendly reminder about your upcoming event with <strong>${organizerName}</strong>.`
+    : `<strong>${organizerName}</strong> has invited you to an exciting event. We look forward to seeing you there!`;
+
+  const actionColor = actionColors[action] || actionColors.invite;
+  const eventTypeColor = eventTypeColors[event.event_type] || '#6366f1';
+
+  const logoHTML = companyLogoUrl 
+    ? `<img src="${companyLogoUrl}" alt="${companyName || 'Company'} Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
+    : DEFAULT_LOGO_HTML;
+
+  const displayCompanyName = companyName || 'Recruitify CRM';
+
+  const meetingLinkButton = event.location_type === 'online' && event.meeting_link
+    ? `<a href="${event.meeting_link}" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 10px 0;">🔗 Join Meeting</a>`
+    : '';
+
+  const locationDisplay = event.location_type === 'online' 
+    ? `<span style="color: #059669; font-weight: 500;">🌐 Online Meeting</span>${event.meeting_link ? `<br><a href="${event.meeting_link}" style="color: #0052CC; text-decoration: none; font-size: 13px; word-break: break-all;">${event.meeting_link}</a>` : ''}`
+    : `<span style="color: #374151;">📍 ${event.location_address || 'Location TBD'}</span>`;
 
   return `
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${actionTitle}: ${event.title}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9;">
     <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-          <!-- Header -->
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
+          
+          <!-- Logo Header -->
           <tr>
-            <td style="background-color: ${action === 'cancel' ? '#dc2626' : '#0052CC'}; padding: 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${actionTitle}</h1>
+            <td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    ${logoHTML}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Action Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, ${actionColor.bg} 0%, ${actionColor.bg}dd 100%); padding: 35px 40px; text-align: center;">
+              <h1 style="margin: 0; color: ${actionColor.text}; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                ${actionColor.icon} ${actionTitle}
+              </h1>
             </td>
           </tr>
           
-          <!-- Content -->
+          <!-- Main Content -->
           <tr>
-            <td style="padding: 30px;">
-              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.5;">
-                Hi ${participant.name.split(' ')[0]},
+            <td style="padding: 40px;">
+              <!-- Greeting -->
+              <p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">
+                Hello ${participant.name.split(' ')[0]}! 👋
               </p>
-              <p style="margin: 0 0 25px; color: #374151; font-size: 16px; line-height: 1.5;">
+              <p style="margin: 0 0 30px; color: #475569; font-size: 16px; line-height: 1.7;">
                 ${actionMessage}
               </p>
               
               <!-- Event Card -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 25px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 30px; overflow: hidden;">
+                <!-- Event Type Badge -->
                 <tr>
-                  <td style="padding: 20px;">
-                    <h2 style="margin: 0 0 15px; color: #1e293b; font-size: 20px; font-weight: 600;">${event.title}</h2>
-                    <table width="100%" cellpadding="0" cellspacing="0">
+                  <td style="padding: 20px 24px 0;">
+                    <span style="display: inline-block; background-color: ${eventTypeColor}15; color: ${eventTypeColor}; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">
+                      ${eventTypeLabels[event.event_type] || '📅 Event'}
+                    </span>
+                  </td>
+                </tr>
+                
+                <!-- Event Title -->
+                <tr>
+                  <td style="padding: 16px 24px 8px;">
+                    <h2 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 700; line-height: 1.3;">
+                      ${event.title}
+                    </h2>
+                  </td>
+                </tr>
+
+                <!-- Event Details -->
+                <tr>
+                  <td style="padding: 16px 24px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <!-- Date -->
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 120px; vertical-align: top;">
-                          <strong>Type:</strong>
-                        </td>
-                        <td style="padding: 8px 0; color: #374151; font-size: 14px;">
-                          ${eventTypeLabels[event.event_type] || 'Event'}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="40" valign="top">
+                                <div style="width: 36px; height: 36px; background-color: #dbeafe; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
+                                  📅
+                                </div>
+                              </td>
+                              <td style="padding-left: 12px;">
+                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date</div>
+                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${formatDate(startDate, event.timezone)}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
+                      
+                      <!-- Time -->
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 120px; vertical-align: top;">
-                          <strong>Date & Time:</strong>
-                        </td>
-                        <td style="padding: 8px 0; color: #374151; font-size: 14px;">
-                          ${formatDateTime(startDate, event.timezone)}<br>
-                          to ${formatDateTime(endDate, event.timezone)}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="40" valign="top">
+                                <div style="width: 36px; height: 36px; background-color: #fce7f3; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
+                                  ⏰
+                                </div>
+                              </td>
+                              <td style="padding-left: 12px;">
+                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Time</div>
+                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${formatTime(startDate, event.timezone)} - ${formatTime(endDate, event.timezone)}</div>
+                                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">${event.timezone}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
+                      
+                      <!-- Location -->
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 120px; vertical-align: top;">
-                          <strong>Location:</strong>
-                        </td>
-                        <td style="padding: 8px 0; color: #374151; font-size: 14px;">
-                          ${location}
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="40" valign="top">
+                                <div style="width: 36px; height: 36px; background-color: #dcfce7; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
+                                  ${event.location_type === 'online' ? '🌐' : '📍'}
+                                </div>
+                              </td>
+                              <td style="padding-left: 12px;">
+                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Location</div>
+                                <div style="font-size: 15px;">${locationDisplay}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
+                      
+                      <!-- Organizer -->
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 120px; vertical-align: top;">
-                          <strong>Organizer:</strong>
-                        </td>
-                        <td style="padding: 8px 0; color: #374151; font-size: 14px;">
-                          ${organizerName}
+                        <td style="padding: 12px 0;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td width="40" valign="top">
+                                <div style="width: 36px; height: 36px; background-color: #fef3c7; border-radius: 10px; text-align: center; line-height: 36px; font-size: 18px;">
+                                  👤
+                                </div>
+                              </td>
+                              <td style="padding-left: 12px;">
+                                <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Organizer</div>
+                                <div style="color: #1e293b; font-size: 15px; font-weight: 500;">${organizerName}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
-                      ${event.description ? `
+                    </table>
+                  </td>
+                </tr>
+
+                ${event.description ? `
+                <!-- Description -->
+                <tr>
+                  <td style="padding: 0 24px 24px;">
+                    <div style="background-color: #ffffff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0;">
+                      <div style="color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📝 Details</div>
+                      <div style="color: #475569; font-size: 14px; line-height: 1.6;">${event.description}</div>
+                    </div>
+                  </td>
+                </tr>
+                ` : ''}
+              </table>
+
+              ${action !== 'cancel' && meetingLinkButton ? `
+              <!-- Meeting Link Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
+                <tr>
+                  <td align="center">
+                    ${meetingLinkButton}
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              ${action !== 'cancel' ? `
+              <!-- Calendar Note -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 12px; padding: 0; margin-bottom: 25px; border: 1px solid #bfdbfe;">
+                <tr>
+                  <td style="padding: 16px 20px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 120px; vertical-align: top;">
-                          <strong>Details:</strong>
+                        <td width="40" valign="top">
+                          <span style="font-size: 24px;">📆</span>
                         </td>
-                        <td style="padding: 8px 0; color: #374151; font-size: 14px;">
-                          ${event.description}
+                        <td style="padding-left: 12px;">
+                          <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 600;">Add to your calendar</p>
+                          <p style="margin: 4px 0 0; color: #3b82f6; font-size: 13px;">Open the attached <strong>.ics file</strong> to add this event to Google Calendar, Outlook, or Apple Calendar.</p>
                         </td>
                       </tr>
-                      ` : ''}
                     </table>
                   </td>
                 </tr>
               </table>
-              
-              ${action !== 'cancel' ? `
-              <p style="margin: 0 0 15px; color: #64748b; font-size: 14px;">
-                📅 Use the attached .ics file to add this event to your calendar.
-              </p>
               ` : ''}
               
-              <p style="margin: 25px 0 0; color: #64748b; font-size: 14px; line-height: 1.5;">
-                Best regards,<br>
-                <strong>${organizerName}</strong><br>
-                RecruitifyCRM
-              </p>
+              <!-- Signature -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 25px;">
+                <tr>
+                  <td>
+                    <p style="margin: 0 0 5px; color: #475569; font-size: 15px; line-height: 1.6;">
+                      Looking forward to connecting with you!
+                    </p>
+                    <p style="margin: 15px 0 0; color: #1e293b; font-size: 15px;">
+                      Best regards,<br>
+                      <strong style="color: #0052CC;">${organizerName}</strong><br>
+                      <span style="color: #64748b; font-size: 13px;">${displayCompanyName}</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-              <p style="margin: 0; color: #94a3b8; font-size: 12px;">
-                This email was sent from RecruitifyCRM
+            <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
+                      Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                      © ${new Date().getFullYear()} ${displayCompanyName}. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Help Text -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; margin-top: 20px;">
+          <tr>
+            <td align="center">
+              <p style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.5;">
+                If you have any questions, please reply to this email or contact the organizer directly.
               </p>
             </td>
           </tr>
@@ -324,12 +539,32 @@ serve(async (req: Request) => {
     // Fetch organizer details
     const { data: organizer } = await supabase
       .from('profiles')
-      .select('full_name, email')
+      .select('full_name, email, tenant_id')
       .eq('id', event.organizer_id)
       .single();
 
     const organizerName = organizer?.full_name || 'Recruiter';
     const organizerEmail = organizer?.email || 'noreply@recruitifycrm.com';
+    const tenantId = organizer?.tenant_id || event.tenant_id;
+
+    // Fetch tenant branding (logo and company name)
+    let companyLogoUrl: string | null = null;
+    let companyName: string | null = null;
+
+    if (tenantId) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('logo_url, name')
+        .eq('id', tenantId)
+        .single();
+      
+      if (tenant) {
+        companyLogoUrl = tenant.logo_url;
+        companyName = tenant.name;
+      }
+    }
+
+    console.log(`Tenant branding: logo=${companyLogoUrl ? 'yes' : 'no'}, name=${companyName || 'Recruitify CRM'}`);
 
     // Fetch organizer's configured SMTP email account (user-owned email identity)
     const { data: emailAccount } = await supabase
@@ -455,15 +690,22 @@ serve(async (req: Request) => {
     const results = [];
     for (const participant of participants) {
       try {
-        const htmlContent = generateEmailHTML(eventWithOrganizer, participant, action, organizerName);
+        const htmlContent = generateEmailHTML(
+          eventWithOrganizer, 
+          participant, 
+          action, 
+          organizerName,
+          companyLogoUrl,
+          companyName
+        );
         
         const subjectPrefix = action === 'cancel' 
-          ? 'Cancelled: ' 
+          ? '❌ Cancelled: ' 
           : action === 'update' 
-          ? 'Updated: ' 
+          ? '🔄 Updated: ' 
           : action === 'reminder'
-          ? 'Reminder: '
-          : '';
+          ? '⏰ Reminder: '
+          : '📩 ';
 
         const subject = `${subjectPrefix}${event.title}`;
 
