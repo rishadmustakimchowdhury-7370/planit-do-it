@@ -41,6 +41,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -465,15 +466,15 @@ export default function EventDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Date & Time */}
+              {/* Date & Time - Display in event's timezone */}
               <div className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium">
-                    {format(new Date(event.start_time), 'EEEE, MMMM d, yyyy')}
+                    {format(toZonedTime(new Date(event.start_time), event.timezone), 'EEEE, MMMM d, yyyy')}
                   </p>
                   <p className="text-muted-foreground">
-                    {format(new Date(event.start_time), 'h:mm a')} - {format(new Date(event.end_time), 'h:mm a')}
+                    {format(toZonedTime(new Date(event.start_time), event.timezone), 'h:mm a')} - {format(toZonedTime(new Date(event.end_time), event.timezone), 'h:mm a')}
                     <span className="ml-2">({event.timezone})</span>
                   </p>
                 </div>

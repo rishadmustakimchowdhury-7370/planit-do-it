@@ -33,6 +33,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { format, addHours } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -285,9 +286,13 @@ export function CreateEventDialog({
 
     setIsSubmitting(true);
     try {
-      // Create event
-      const startDateTime = `${startDate}T${startTime}:00`;
-      const endDateTime = `${startDate}T${endTime}:00`;
+      // Create event - convert local time in selected timezone to UTC
+      const localStartDate = new Date(`${startDate}T${startTime}:00`);
+      const localEndDate = new Date(`${startDate}T${endTime}:00`);
+      
+      // fromZonedTime converts a time that's expressed in a specific timezone to UTC
+      const startDateTime = fromZonedTime(localStartDate, timezone).toISOString();
+      const endDateTime = fromZonedTime(localEndDate, timezone).toISOString();
 
       const { data: event, error: eventError } = await supabase
         .from('events')
