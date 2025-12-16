@@ -42,15 +42,20 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
+    // Find or create Stripe customer
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    if (customers.data.length === 0) {
-      throw new Error(
-        "No Stripe customer found for this account yet. Please subscribe to a plan first."
-      );
-    }
+    const customerId =
+      customers.data.length > 0
+        ? customers.data[0].id
+        : (await stripe.customers.create({
+            email: user.email,
+            name: (user.user_metadata?.full_name as string | undefined) || undefined,
+            metadata: {
+              supabase_user_id: user.id,
+            },
+          })).id;
 
-    const customerId = customers.data[0].id;
-    logStep("Customer found", { customerId });
+    logStep(customers.data.length > 0 ? "Customer found" : "Customer created", { customerId });
 
     const origin = req.headers.get("origin") || "http://localhost:5173";
     const portalSession = await stripe.billingPortal.sessions.create({
