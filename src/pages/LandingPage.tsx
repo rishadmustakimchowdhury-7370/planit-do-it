@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -6,21 +6,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo, BRAND } from '@/components/brand/Logo';
 import { useToast } from '@/hooks/use-toast';
+import { TestimonialsCarousel } from '@/components/testimonials/TestimonialsCarousel';
+import { CustomerFeedbackForm } from '@/components/testimonials/CustomerFeedbackForm';
 import { 
   Sparkles, 
   ArrowRight, 
   Users, 
-  Briefcase, 
+  Briefcase,
   Brain, 
   BarChart3, 
   Shield, 
   Zap,
   CheckCircle,
-  Star,
   Play,
   MessageCircle,
   Phone,
@@ -89,42 +89,6 @@ const plans = [
     description: 'For agencies and large teams',
     features: ['Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'Full Analytics', 'API Access', 'White Label', 'Dedicated Account Manager'],
     popular: false,
-  },
-];
-
-interface Testimonial {
-  id: string;
-  quote: string;
-  author_name: string;
-  author_role: string;
-  author_avatar: string | null;
-  rating: number | null;
-}
-
-const defaultTestimonials = [
-  {
-    id: '1',
-    quote: "Recruitify CRM cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
-    author_name: "Sarah Johnson",
-    author_role: "Head of Talent, TechCorp",
-    author_avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
-    rating: 5,
-  },
-  {
-    id: '2',
-    quote: "Finally, a recruitment tool that actually understands what we're looking for.",
-    author_name: "Michael Chen",
-    author_role: "CEO, Fintech Innovations",
-    author_avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    rating: 5,
-  },
-  {
-    id: '3',
-    quote: "The pipeline visualization changed how our team collaborates on hiring.",
-    author_name: "Emily Davis",
-    author_role: "HR Director, HealthTech Pro",
-    author_avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-    rating: 5,
   },
 ];
 
@@ -248,24 +212,7 @@ function Footer() {
 }
 
 export default function LandingPage() {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchTestimonials = async () => {
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('is_active', true)
-        .order('order_index', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        setTestimonials(data);
-      }
-    };
-
-    fetchTestimonials();
-  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -561,41 +508,11 @@ export default function LandingPage() {
           <div className="text-center mb-10 sm:mb-16">
             <Badge variant="outline" className="mb-4">Testimonials</Badge>
             <h2 className="text-2xl sm:text-4xl font-bold mb-4">Loved by recruiters worldwide</h2>
+            <p className="text-muted-foreground mb-6">See what our customers have to say</p>
+            <CustomerFeedbackForm />
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-            {testimonials.map((testimonial, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="h-full">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex gap-1 mb-3 sm:mb-4">
-                      {[...Array(testimonial.rating || 5)].map((_, j) => (
-                        <Star key={j} className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-warning text-warning" />
-                      ))}
-                    </div>
-                    <p className="text-sm sm:text-base text-foreground mb-4 sm:mb-6">"{testimonial.quote}"</p>
-                    <div className="flex items-center gap-3">
-                      <img 
-                        src={testimonial.author_avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'} 
-                        alt={testimonial.author_name}
-                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover"
-                      />
-                      <div>
-                        <div className="font-medium text-sm sm:text-base">{testimonial.author_name}</div>
-                        <div className="text-xs sm:text-sm text-muted-foreground">{testimonial.author_role}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+          <TestimonialsCarousel />
         </div>
       </section>
 

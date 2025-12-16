@@ -2212,6 +2212,10 @@ export type Database = {
           order_index: number | null
           quote: string
           rating: number | null
+          source: string | null
+          status: string | null
+          submitted_company: string | null
+          submitted_email: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2225,6 +2229,10 @@ export type Database = {
           order_index?: number | null
           quote: string
           rating?: number | null
+          source?: string | null
+          status?: string | null
+          submitted_company?: string | null
+          submitted_email?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2238,6 +2246,10 @@ export type Database = {
           order_index?: number | null
           quote?: string
           rating?: number | null
+          source?: string | null
+          status?: string | null
+          submitted_company?: string | null
+          submitted_email?: string | null
           updated_at?: string | null
         }
         Relationships: []
