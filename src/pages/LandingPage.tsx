@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { Logo, BRAND } from '@/components/brand/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { TestimonialsCarousel } from '@/components/testimonials/TestimonialsCarousel';
 import { CustomerFeedbackForm } from '@/components/testimonials/CustomerFeedbackForm';
+import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
+import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { 
   Sparkles, 
   ArrowRight, 
@@ -29,7 +31,8 @@ import {
   Send,
   Loader2,
   Menu,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
 
 const features = [
@@ -213,6 +216,26 @@ function Footer() {
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [watchDemoOpen, setWatchDemoOpen] = useState(false);
+  const [bookDemoOpen, setBookDemoOpen] = useState(false);
+  const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDemoVideoUrl = async () => {
+      const { data } = await supabase
+        .from('platform_settings')
+        .select('value')
+        .eq('key', 'demo_video_url')
+        .single();
+      
+      if (data?.value) {
+        const rawValue = data.value;
+        const url = typeof rawValue === 'string' ? rawValue.replace(/^"|"$/g, '') : String(rawValue);
+        setDemoVideoUrl(url || null);
+      }
+    };
+    fetchDemoVideoUrl();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -326,9 +349,14 @@ export default function LandingPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto gap-2">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full sm:w-auto gap-2"
+                onClick={() => demoVideoUrl ? setWatchDemoOpen(true) : setBookDemoOpen(true)}
+              >
                 <Play className="h-4 w-4" />
-                Watch Demo
+                {demoVideoUrl ? 'Watch Demo' : 'Book a Demo'}
               </Button>
             </motion.div>
             
@@ -532,7 +560,13 @@ export default function LandingPage() {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Button size="lg" variant="outline" className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 gap-2"
+                  onClick={() => setBookDemoOpen(true)}
+                >
+                  <Calendar className="h-4 w-4" />
                   Request Demo
                 </Button>
               </div>
@@ -542,8 +576,18 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      {/* Footer */}
       <Footer />
+
+      {/* Dialogs */}
+      <WatchDemoDialog 
+        open={watchDemoOpen} 
+        onOpenChange={setWatchDemoOpen} 
+        videoUrl={demoVideoUrl} 
+      />
+      <BookDemoDialog 
+        open={bookDemoOpen} 
+        onOpenChange={setBookDemoOpen} 
+      />
     </div>
   );
 }

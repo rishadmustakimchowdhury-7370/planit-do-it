@@ -59,3 +59,9 @@ verify_jwt = true
 
 [functions.notify-chat-escalation]
 verify_jwt = false
+
+[functions.send-demo-booking-email]
+verify_jwt = false
+
+[functions.subscription-lifecycle]
+verify_jwt = false
