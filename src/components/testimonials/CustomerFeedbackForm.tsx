@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Star, Loader2, MessageSquarePlus } from 'lucide-react';
+import { Star, Loader2, MessageSquarePlus, Upload, User } from 'lucide-react';
 
 export function CustomerFeedbackForm() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     quote: '',
     author_name: '',
@@ -18,7 +22,48 @@ export function CustomerFeedbackForm() {
     submitted_email: '',
     submitted_company: '',
     rating: 5,
+    author_avatar: '',
   });
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be less than 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => setAvatarPreview(reader.result as string);
+      reader.readAsDataURL(file);
+
+      // Upload to Supabase
+      const fileName = `testimonials/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+      setFormData({ ...formData, author_avatar: urlData.publicUrl });
+      toast.success('Photo uploaded');
+    } catch (error: any) {
+      toast.error('Failed to upload: ' + error.message);
+      setAvatarPreview(null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +79,7 @@ export function CustomerFeedbackForm() {
         quote: formData.quote,
         author_name: formData.author_name,
         author_role: formData.author_role,
+        author_avatar: formData.author_avatar || null,
         submitted_email: formData.submitted_email || null,
         submitted_company: formData.submitted_company || null,
         rating: formData.rating,
@@ -54,7 +100,9 @@ export function CustomerFeedbackForm() {
         submitted_email: '',
         submitted_company: '',
         rating: 5,
+        author_avatar: '',
       });
+      setAvatarPreview(null);
       setIsOpen(false);
     } catch (error: any) {
       toast.error('Failed to submit feedback: ' + error.message);
@@ -76,6 +124,37 @@ export function CustomerFeedbackForm() {
           <DialogTitle>Share Your Experience</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Profile Picture Upload */}
+          <div className="flex flex-col items-center gap-3">
+            <Avatar className="h-20 w-20 border-2 border-dashed border-border">
+              <AvatarImage src={avatarPreview || formData.author_avatar} />
+              <AvatarFallback>
+                <User className="h-8 w-8 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              Upload Photo
+            </Button>
+          </div>
+
           <div>
             <Label>Your Review *</Label>
             <Textarea
@@ -159,7 +238,7 @@ export function CustomerFeedbackForm() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
+            <Button type="submit" disabled={isSubmitting || uploading} className="flex-1">
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Submit Review
             </Button>
