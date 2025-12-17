@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Shield,
   Video,
-  Calendar
+  Calendar,
+  UsersRound
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ const navigation = [
 ];
 
 const bottomNav = [
+  { name: 'Team', href: '/team', icon: UsersRound },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];

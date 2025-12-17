@@ -166,6 +166,56 @@ export type Database = {
           },
         ]
       }
+      branding_settings: {
+        Row: {
+          apply_to_cv: boolean | null
+          apply_to_jd: boolean | null
+          company_name: string | null
+          created_at: string | null
+          footer_text: string | null
+          id: string
+          logo_position: string | null
+          logo_url: string | null
+          primary_color: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          apply_to_cv?: boolean | null
+          apply_to_jd?: boolean | null
+          company_name?: string | null
+          created_at?: string | null
+          footer_text?: string | null
+          id?: string
+          logo_position?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          apply_to_cv?: boolean | null
+          apply_to_jd?: boolean | null
+          company_name?: string | null
+          created_at?: string | null
+          footer_text?: string | null
+          id?: string
+          logo_position?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_emails: {
         Row: {
           ai_generated: boolean | null
@@ -1980,6 +2030,71 @@ export type Database = {
         }
         Relationships: []
       }
+      recruiter_activities: {
+        Row: {
+          action_type: string
+          candidate_id: string | null
+          client_id: string | null
+          created_at: string | null
+          id: string
+          job_id: string | null
+          metadata: Json | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          candidate_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          candidate_id?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruiter_activities_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_activities_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_activities_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduled_actions: {
         Row: {
           action_type: string
@@ -2239,6 +2354,56 @@ export type Database = {
           },
           {
             foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          tenant_id: string
+          token: string
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id: string
+          token: string
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id?: string
+          token?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2725,7 +2890,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "recruiter" | "support" | "viewer"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "recruiter"
+        | "support"
+        | "viewer"
+        | "manager"
       candidate_status:
         | "new"
         | "screening"
@@ -2892,7 +3063,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "recruiter", "support", "viewer"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "recruiter",
+        "support",
+        "viewer",
+        "manager",
+      ],
       candidate_status: [
         "new",
         "screening",
