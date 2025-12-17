@@ -19,6 +19,10 @@ import AddClientPage from "./pages/AddClientPage";
 import ClientDetailPage from "./pages/ClientDetailPage";
 import AIMatchPage from "./pages/AIMatchPage";
 import SettingsPage from "./pages/SettingsPage";
+import TeamMembersPage from "./pages/TeamMembersPage";
+import TeamKPIDashboardPage from "./pages/TeamKPIDashboardPage";
+import BrandingSettingsPage from "./pages/BrandingSettingsPage";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import BillingPage from "./pages/BillingPage";
 import ReportsPage from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
@@ -81,6 +85,7 @@ const AppRoutes = () => (
     {/* Public routes */}
     <Route path="/" element={<Index />} />
     <Route path="/auth" element={<AuthPage />} />
+    <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
     <Route path="/about" element={<AboutPage />} />
     <Route path="/contact" element={<ContactPage />} />
     <Route path="/features" element={<FeaturesPage />} />
@@ -103,6 +108,9 @@ const AppRoutes = () => (
     <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
     <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
+    <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
+    <Route path="/branding" element={<ProtectedRoute><BrandingSettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
     <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
