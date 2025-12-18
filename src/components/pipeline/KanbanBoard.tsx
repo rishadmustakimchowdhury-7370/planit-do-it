@@ -8,6 +8,7 @@ import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Link } from 'react-router-dom';
 import { X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRecruiterActivity, ActivityType } from '@/hooks/useRecruiterActivity';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +81,7 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
   const [draggedCandidate, setDraggedCandidate] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<KanbanCandidate | null>(null);
+  const { logActivity } = useRecruiterActivity();
 
   const getCandidatesForStage = (stage: DatabasePipelineStage) => {
     return candidates.filter(c => c.stage === stage);
@@ -137,6 +139,27 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
         .eq('id', candidate.candidateId);
 
       toast.success(`Moved to ${stageLabels[stage]}`);
+
+      // Log KPI activity based on stage
+      const stageActivityMap: Record<DatabasePipelineStage, ActivityType | null> = {
+        applied: null,
+        screening: 'screening_completed',
+        interview: 'interview_scheduled',
+        technical: 'interview_scheduled',
+        offer: 'offer_sent',
+        hired: 'candidate_hired',
+        rejected: 'candidate_rejected',
+      };
+      
+      const activityType = stageActivityMap[stage];
+      if (activityType) {
+        await logActivity({
+          action_type: activityType,
+          candidate_id: candidate.candidateId,
+          job_id: candidate.jobId,
+          metadata: { new_stage: stage }
+        });
+      }
       
       if (onMoveCandidate) {
         onMoveCandidate(draggedCandidate, stage);

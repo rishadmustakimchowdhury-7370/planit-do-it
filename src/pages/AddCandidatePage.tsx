@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 
 interface BulkUploadResult {
   fileName: string;
@@ -24,7 +25,8 @@ interface BulkUploadResult {
 export default function AddCandidatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -363,6 +365,12 @@ export default function AddCandidatePage() {
 
         if (insertError) throw insertError;
 
+        // Log activity for KPI tracking
+        await logActivity({
+          action_type: 'cv_uploaded',
+          metadata: { candidate_name: data.full_name, source: 'bulk_upload' }
+        });
+
         results[i] = { 
           ...results[i], 
           status: 'success', 
@@ -453,6 +461,12 @@ export default function AddCandidatePage() {
       });
 
       if (error) throw error;
+
+      // Log activity for KPI tracking
+      await logActivity({
+        action_type: 'cv_uploaded',
+        metadata: { candidate_name: formData.fullName, source: 'manual_entry' }
+      });
 
       toast.success('Candidate added successfully');
       navigate('/candidates');
