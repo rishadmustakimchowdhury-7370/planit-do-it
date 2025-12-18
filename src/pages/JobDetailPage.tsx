@@ -37,6 +37,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,6 +134,7 @@ const JobDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { tenantId } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [job, setJob] = useState<Job | null>(null);
   const [candidates, setCandidates] = useState<JobCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -296,6 +298,27 @@ const JobDetailPage = () => {
         .eq('id', candidate.candidate_id);
 
       toast.success(`Status updated to ${stageLabels[newStage]}`);
+
+      // Log KPI activity based on stage
+      const stageActivityMap: Record<string, string | null> = {
+        screening: 'screening_completed',
+        interview: 'interview_scheduled',
+        technical: 'interview_scheduled',
+        offer: 'offer_sent',
+        hired: 'candidate_hired',
+        rejected: 'candidate_rejected',
+      };
+      
+      const activityType = stageActivityMap[newStage];
+      if (activityType) {
+        await logActivity({
+          action_type: activityType as any,
+          candidate_id: candidate.candidate_id,
+          job_id: id,
+          metadata: { new_stage: newStage }
+        });
+      }
+
       fetchJobDetails();
     } catch (error) {
       console.error('Error updating stage:', error);

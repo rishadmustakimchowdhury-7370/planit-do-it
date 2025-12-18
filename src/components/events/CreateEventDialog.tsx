@@ -34,6 +34,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { format, addHours } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -105,6 +106,7 @@ export function CreateEventDialog({
   preSelectedJobId
 }: CreateEventDialogProps) {
   const { user, tenantId, profile } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [activeTab, setActiveTab] = useState<'details' | 'participants'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendInvites, setSendInvites] = useState(true);
@@ -366,6 +368,17 @@ export function CreateEventDialog({
         }
       } else {
         toast.success('Event created successfully!');
+      }
+
+      // Log activity for KPI tracking if this is an interview
+      if (eventType === 'interview') {
+        const candidateParticipant = participants.find(p => p.type === 'candidate');
+        await logActivity({
+          action_type: 'interview_scheduled',
+          candidate_id: candidateParticipant?.candidateId,
+          job_id: selectedJobId || undefined,
+          metadata: { event_id: event.id, event_type: eventType }
+        });
       }
 
       resetForm();

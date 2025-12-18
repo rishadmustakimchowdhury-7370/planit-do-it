@@ -37,6 +37,7 @@ const navigation = [
 
 const bottomNav = [
   { name: 'Team', href: '/team', icon: UsersRound },
+  { name: 'Team KPIs', href: '/team/kpi', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];
