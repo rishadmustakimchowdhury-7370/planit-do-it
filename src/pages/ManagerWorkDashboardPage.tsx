@@ -1,3 +1,4 @@
+import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -115,11 +116,8 @@ export default function ManagerWorkDashboardPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Team Work Dashboard</h1>
-        <p className="text-muted-foreground">Monitor your team's work tracking</p>
-      </div>
+    <AppLayout title="Team Work Dashboard" subtitle="Monitor your team's work tracking">
+      <div className="space-y-6">
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -277,6 +275,7 @@ export default function ManagerWorkDashboardPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
