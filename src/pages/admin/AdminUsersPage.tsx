@@ -332,20 +332,20 @@ export default function AdminUsersPage() {
     try {
       setIsProcessing(true);
 
-      // First, delete the user's data from profiles and user_roles
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id);
+      // Call the delete-user edge function to permanently delete from auth.users
+      // This will cascade delete from profiles and user_roles due to FK constraints
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { user_id: user.id }
+      });
 
-      if (profileError) throw profileError;
+      if (error) throw error;
 
-      // Note: Due to foreign key constraints and RLS policies,
-      // deleting from auth.users requires service role access
-      // This should ideally be done via an edge function
-      toast.success('User profile deleted. Auth account removal requires manual cleanup.');
-      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       await logAuditAction('delete_user', user.id);
+      toast.success('User permanently deleted from the system');
       fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);

@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   Play, 
   Pause, 
@@ -8,12 +10,14 @@ import {
   StopCircle, 
   Loader2,
   Clock,
-  Timer
+  Timer,
+  Save
 } from 'lucide-react';
 import { useWorkTracking, formatDuration, WorkAction, WorkStatus } from '@/hooks/useWorkTracking';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 const statusConfig: Record<WorkStatus, { label: string; color: string; icon: React.ElementType }> = {
   'working': { label: 'Working', color: 'bg-success text-success-foreground', icon: Play },
@@ -38,11 +42,15 @@ export function WorkStatusControls() {
     getAvailableActions,
     fetchTodayLogs,
     calculateMinutesFromLogs,
+    saveSummary,
   } = useWorkTracking();
 
   const [liveMinutes, setLiveMinutes] = useState({ workMinutes: 0, breakMinutes: 0 });
+  const [bodSummary, setBodSummary] = useState('');
+  const [eodSummary, setEodSummary] = useState('');
+  const [isSavingSummary, setIsSavingSummary] = useState(false);
 
-  // Update live time every minute
+  // Update live time every minute and load summaries
   useEffect(() => {
     const updateLiveTime = async () => {
       const logs = await fetchTodayLogs();
@@ -54,6 +62,27 @@ export function WorkStatusControls() {
     const interval = setInterval(updateLiveTime, 60000); // Update every minute
     return () => clearInterval(interval);
   }, [currentStatus, fetchTodayLogs, calculateMinutesFromLogs]);
+
+  // Load summaries when session changes
+  useEffect(() => {
+    if (todaySession) {
+      setBodSummary(todaySession.bod_summary || '');
+      setEodSummary(todaySession.eod_summary || '');
+    }
+  }, [todaySession]);
+
+  const handleSaveSummary = async (type: 'bod' | 'eod') => {
+    setIsSavingSummary(true);
+    try {
+      const summary = type === 'bod' ? bodSummary : eodSummary;
+      await saveSummary(type, summary);
+      toast.success(`${type === 'bod' ? 'BOD' : 'EOD'} summary saved`);
+    } catch (error) {
+      toast.error('Failed to save summary');
+    } finally {
+      setIsSavingSummary(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -150,6 +179,64 @@ export function WorkStatusControls() {
             );
           })}
         </div>
+
+        {/* BOD Summary */}
+        {currentStatus !== 'ended' && (
+          <div className="space-y-2 pt-4 border-t">
+            <Label htmlFor="bod-summary">Beginning of Day Summary</Label>
+            <Textarea
+              id="bod-summary"
+              placeholder="What are your goals for today?"
+              value={bodSummary}
+              onChange={(e) => setBodSummary(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+            <Button
+              onClick={() => handleSaveSummary('bod')}
+              disabled={isSavingSummary}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              {isSavingSummary ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              ) : (
+                <Save className="h-3 w-3 mr-2" />
+              )}
+              Save BOD Summary
+            </Button>
+          </div>
+        )}
+
+        {/* EOD Summary */}
+        {todaySession?.started_at && (
+          <div className="space-y-2 pt-4 border-t">
+            <Label htmlFor="eod-summary">End of Day Summary</Label>
+            <Textarea
+              id="eod-summary"
+              placeholder="What did you accomplish today?"
+              value={eodSummary}
+              onChange={(e) => setEodSummary(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+            <Button
+              onClick={() => handleSaveSummary('eod')}
+              disabled={isSavingSummary}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              {isSavingSummary ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-2" />
+              ) : (
+                <Save className="h-3 w-3 mr-2" />
+              )}
+              Save EOD Summary
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
