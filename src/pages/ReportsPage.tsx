@@ -19,7 +19,8 @@ import {
   BarChart3,
   PieChart,
   Loader2,
-  RefreshCcw
+  RefreshCcw,
+  FileText
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -67,24 +68,49 @@ const COLORS = {
 };
 
 const ReportsPage = () => {
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [statusCounts, setStatusCounts] = useState<StatusCount[]>([]);
   const [dateRange, setDateRange] = useState('12');
+  const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalCandidates: 0,
     totalJobs: 0,
     totalHired: 0,
     conversionRate: 0,
     avgTimeToHire: 0,
+    totalSubmissions: 0,
   });
 
   useEffect(() => {
-    if (tenantId) {
+    if (tenantId && user) {
+      fetchUserRole();
+    }
+  }, [tenantId, user]);
+
+  useEffect(() => {
+    if (tenantId && userRole) {
       fetchReportData();
     }
-  }, [tenantId, dateRange]);
+  }, [tenantId, dateRange, selectedMember, userRole]);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user?.id)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      setUserRole(data?.role || null);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const fetchReportData = async () => {
     setIsLoading(true);
@@ -93,20 +119,55 @@ const ReportsPage = () => {
       const startDate = startOfMonth(subMonths(new Date(), months - 1));
       const endDate = endOfMonth(new Date());
 
-      // Fetch job candidates with stage info
-      const { data: jobCandidates, error: jcError } = await supabase
+      // Fetch team members if owner/manager
+      if (userRole === 'owner' || userRole === 'manager') {
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('tenant_id', tenantId);
+
+        if (rolesData) {
+          const userIds = rolesData.map(r => r.user_id);
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', userIds);
+
+          setTeamMembers(profilesData || []);
+        }
+      }
+
+      // Build query based on role and selected member
+      let candidateQuery = supabase
         .from('job_candidates')
-        .select('stage, created_at, stage_updated_at')
+        .select('stage, created_at, stage_updated_at, candidates(created_by)')
         .eq('tenant_id', tenantId)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
+      // Filter by selected team member if applicable
+      if (selectedMember && (userRole === 'owner' || userRole === 'manager')) {
+        candidateQuery = candidateQuery.eq('candidates.created_by', selectedMember);
+      }
+
+      const { data: jobCandidates, error: jcError } = await candidateQuery;
+
       if (jcError) throw jcError;
 
-      // Fetch totals
-      const [candidatesRes, jobsRes] = await Promise.all([
-        supabase.from('candidates').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
-        supabase.from('jobs').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+      // Fetch totals (filtered by member if selected)
+      let candidatesQuery = supabase.from('candidates').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
+      let jobsQuery = supabase.from('jobs').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
+      let submissionsQuery = supabase.from('cv_submissions').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
+
+      if (selectedMember && (userRole === 'owner' || userRole === 'manager')) {
+        candidatesQuery = candidatesQuery.eq('created_by', selectedMember);
+        submissionsQuery = submissionsQuery.eq('submitted_by', selectedMember);
+      }
+
+      const [candidatesRes, jobsRes, submissionsRes] = await Promise.all([
+        candidatesQuery,
+        jobsQuery,
+        submissionsQuery,
       ]);
 
       // Process monthly data
@@ -183,6 +244,7 @@ const ReportsPage = () => {
         totalHired,
         conversionRate: Math.round((totalHired / totalApplications) * 100),
         avgTimeToHire: 14, // Placeholder - would need actual calculation
+        totalSubmissions: submissionsRes.count || 0,
       });
 
     } catch (error) {
@@ -227,7 +289,7 @@ const ReportsPage = () => {
       <AppLayout title="Reports" subtitle="Hiring funnel and recruitment analytics">
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Date range" />
@@ -239,6 +301,24 @@ const ReportsPage = () => {
               <SelectItem value="24">Last 24 months</SelectItem>
             </SelectContent>
           </Select>
+          
+          {(userRole === 'owner' || userRole === 'manager') && teamMembers.length > 0 && (
+            <Select value={selectedMember || 'all'} onValueChange={(v) => setSelectedMember(v === 'all' ? null : v)}>
+              <SelectTrigger className="w-[200px]">
+                <Users className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="All members" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team Members</SelectItem>
+                {teamMembers.map(member => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.full_name || member.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
           <Button variant="outline" size="icon" onClick={fetchReportData} disabled={isLoading}>
             <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
@@ -256,7 +336,7 @@ const ReportsPage = () => {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="p-4">
                 <div className="flex items-center gap-3">
@@ -322,6 +402,20 @@ const ReportsPage = () => {
                   <div>
                     <p className="text-2xl font-bold">{stats.avgTimeToHire}d</p>
                     <p className="text-sm text-muted-foreground">Avg Time to Hire</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+            
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-accent/10">
+                    <FileText className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalSubmissions}</p>
+                    <p className="text-sm text-muted-foreground">CV Submissions</p>
                   </div>
                 </div>
               </Card>
