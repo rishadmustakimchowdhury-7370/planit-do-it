@@ -32,12 +32,24 @@ interface Invoice {
   paid_at: string | null;
   created_at: string | null;
   notes: string | null;
+  company_name?: string | null;
+  company_logo?: string | null;
+  company_address?: string | null;
+  company_phone?: string | null;
+  line_items?: any;
 }
 
 interface Tenant {
   id: string;
   name: string;
   slug: string;
+}
+
+interface BrandingSettings {
+  logo_url: string | null;
+  company_name: string | null;
+  primary_color: string | null;
+  footer_text: string | null;
 }
 
 export default function AdminBillingPage() {
@@ -61,7 +73,9 @@ export default function AdminBillingPage() {
     currency: 'GBP',
     due_date: '',
     notes: '',
+    line_items: [] as Array<{description: string, quantity: number, rate: number, amount: number}>,
   });
+  const [selectedTenantBranding, setSelectedTenantBranding] = useState<BrandingSettings | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -142,6 +156,22 @@ export default function AdminBillingPage() {
     }
   };
 
+  const fetchTenantBranding = async (tenantId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('branding_settings')
+        .select('logo_url, company_name, primary_color, footer_text')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setSelectedTenantBranding(data);
+    } catch (error: any) {
+      console.error('Error fetching branding:', error);
+      setSelectedTenantBranding(null);
+    }
+  };
+
   const handleCreateInvoice = async () => {
     if (!invoiceForm.tenant_id || !invoiceForm.amount) {
       toast.error('Tenant and amount are required');
@@ -153,6 +183,12 @@ export default function AdminBillingPage() {
       // Generate invoice number
       const { data: invoiceNumber } = await supabase.rpc('generate_invoice_number');
 
+      // Get CRM branding for sender info
+      const { data: siteBranding } = await supabase
+        .from('site_branding')
+        .select('logo_url')
+        .single();
+
       const { error } = await supabase.from('invoices').insert({
         tenant_id: invoiceForm.tenant_id,
         invoice_number: invoiceNumber || `INV-${Date.now()}`,
@@ -161,13 +197,19 @@ export default function AdminBillingPage() {
         due_date: invoiceForm.due_date || null,
         notes: invoiceForm.notes || null,
         status: 'draft',
+        company_name: selectedTenantBranding?.company_name || getTenantName(invoiceForm.tenant_id),
+        company_logo: selectedTenantBranding?.logo_url || siteBranding?.logo_url || null,
+        company_address: 'Recruitify CRM, 123 Business Street, London, UK',
+        company_phone: '+44 20 1234 5678',
+        line_items: invoiceForm.line_items.length > 0 ? invoiceForm.line_items : null,
       });
 
       if (error) throw error;
 
       toast.success('Invoice created');
       setShowCreateDialog(false);
-      setInvoiceForm({ tenant_id: '', amount: '', currency: 'GBP', due_date: '', notes: '' });
+      setInvoiceForm({ tenant_id: '', amount: '', currency: 'GBP', due_date: '', notes: '', line_items: [] });
+      setSelectedTenantBranding(null);
       fetchData();
     } catch (error: any) {
       toast.error('Failed to create invoice: ' + error.message);
@@ -191,7 +233,7 @@ export default function AdminBillingPage() {
       const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: tenantEmail,
-          subject: `Invoice ${invoice.invoice_number} - ${invoice.currency} $${Number(invoice.amount).toLocaleString()}`,
+          subject: `Invoice ${invoice.invoice_number} - £${Number(invoice.amount).toLocaleString()}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
@@ -210,7 +252,7 @@ export default function AdminBillingPage() {
               <p>Please find your invoice details below:</p>
               <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p><strong>Invoice Number:</strong> ${invoice.invoice_number}</p>
-                <p><strong>Amount:</strong> ${invoice.currency} $${Number(invoice.amount).toLocaleString()}</p>
+                <p><strong>Amount:</strong> £${Number(invoice.amount).toLocaleString()}</p>
                 <p><strong>Due Date:</strong> ${invoice.due_date ? format(new Date(invoice.due_date), 'MMMM d, yyyy') : 'Upon receipt'}</p>
                 ${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}
               </div>
@@ -270,7 +312,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">MRR</p>
-                  <p className="text-2xl font-bold">${stats.mrr.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">£{stats.mrr.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -283,7 +325,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">£{stats.totalRevenue.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -296,7 +338,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-2xl font-bold">${stats.pendingInvoices.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">£{stats.pendingInvoices.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -370,7 +412,7 @@ export default function AdminBillingPage() {
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="font-medium">
-                          {invoice.currency} ${Number(invoice.amount).toLocaleString()}
+                          £{Number(invoice.amount).toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'No due date'}
@@ -429,13 +471,16 @@ export default function AdminBillingPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Tenant *</Label>
+              <Label>Customer *</Label>
               <Select
                 value={invoiceForm.tenant_id}
-                onValueChange={(value) => setInvoiceForm({ ...invoiceForm, tenant_id: value })}
+                onValueChange={(value) => {
+                  setInvoiceForm({ ...invoiceForm, tenant_id: value });
+                  fetchTenantBranding(value);
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select tenant" />
+                  <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
                   {tenants.map((t) => (
@@ -443,10 +488,16 @@ export default function AdminBillingPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedTenantBranding && (
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
+                  <p>✓ Customer logo: {selectedTenantBranding.logo_url ? 'Available' : 'Not set'}</p>
+                  <p>✓ Company name: {selectedTenantBranding.company_name || 'Will use tenant name'}</p>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Amount *</Label>
+                <Label>Amount (£) *</Label>
                 <Input
                   type="number"
                   value={invoiceForm.amount}
