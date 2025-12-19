@@ -61,6 +61,7 @@ export type Database = {
       ai_usage: {
         Row: {
           action_type: string
+          allocated_from_user_credits: boolean | null
           candidate_id: string | null
           created_at: string | null
           credits_used: number | null
@@ -72,6 +73,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          allocated_from_user_credits?: boolean | null
           candidate_id?: string | null
           created_at?: string | null
           credits_used?: number | null
@@ -83,6 +85,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          allocated_from_user_credits?: boolean | null
           candidate_id?: string | null
           created_at?: string | null
           credits_used?: number | null
@@ -2848,6 +2851,8 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          ai_credits_allocated: number | null
+          ai_credits_used: number | null
           created_at: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
@@ -2855,6 +2860,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_credits_allocated?: number | null
+          ai_credits_used?: number | null
           created_at?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
@@ -2862,6 +2869,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_credits_allocated?: number | null
+          ai_credits_used?: number | null
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
@@ -3172,6 +3181,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      deduct_user_ai_credits: {
+        Args: {
+          _action_type: string
+          _credits: number
+          _metadata?: Json
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       generate_invoice_number: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
@@ -3191,6 +3210,10 @@ export type Database = {
       }
       has_sufficient_credits: {
         Args: { p_required_credits: number; p_tenant_id: string }
+        Returns: boolean
+      }
+      has_user_ai_credits: {
+        Args: { _credits_needed: number; _user_id: string }
         Returns: boolean
       }
       is_manager: { Args: { _user_id: string }; Returns: boolean }

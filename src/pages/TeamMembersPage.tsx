@@ -20,13 +20,15 @@ import {
   UserX,
   Search,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { AssignAICreditsDialog } from '@/components/team/AssignAICreditsDialog';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,8 @@ interface TeamMember {
   user_id: string;
   role: string;
   tenant_id: string;
+  ai_credits_allocated?: number;
+  ai_credits_used?: number;
   profile?: {
     id: string;
     full_name: string | null;
@@ -104,6 +108,7 @@ export default function TeamMembersPage() {
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
   const [memberToDeactivate, setMemberToDeactivate] = useState<TeamMember | null>(null);
   const [inviteToCancel, setInviteToCancel] = useState<TeamInvitation | null>(null);
+  const [memberForCredits, setMemberForCredits] = useState<TeamMember | null>(null);
 
   useEffect(() => {
     if (tenantId) {
@@ -143,7 +148,7 @@ export default function TeamMembersPage() {
       // Fetch team members with profiles
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
-        .select('id, user_id, role, tenant_id')
+        .select('id, user_id, role, tenant_id, ai_credits_allocated, ai_credits_used')
         .eq('tenant_id', tenantId);
 
       if (rolesError) throw rolesError;
@@ -388,6 +393,7 @@ export default function TeamMembersPage() {
 
   const currentUserRole = teamMembers.find(m => m.user_id === user?.id)?.role;
   const canManageTeam = currentUserRole === 'owner' || currentUserRole === 'manager';
+  const isOwner = currentUserRole === 'owner';
 
   return (
     <AppLayout title="Team Members" subtitle="Manage your recruitment team">
@@ -566,6 +572,15 @@ export default function TeamMembersPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                {isOwner && member.role === 'recruiter' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => setMemberForCredits(member)}>
+                                      <Sparkles className="h-4 w-4 mr-2" />
+                                      Assign AI Credits
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem onClick={() => handleChangeRole(member.id, 'manager')}>
                                   Make Manager
                                 </DropdownMenuItem>
@@ -778,6 +793,14 @@ export default function TeamMembersPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Assign AI Credits Dialog */}
+        <AssignAICreditsDialog
+          open={!!memberForCredits}
+          onOpenChange={(open) => !open && setMemberForCredits(null)}
+          member={memberForCredits}
+          onSuccess={fetchTeamData}
+        />
       </div>
     </AppLayout>
   );
