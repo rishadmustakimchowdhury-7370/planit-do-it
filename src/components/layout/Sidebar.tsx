@@ -183,6 +183,10 @@ export function Sidebar() {
               <BarChart3 className="w-5 h-5" />
               {!collapsed && <span className="text-sm">KPI Dashboard</span>}
             </Link>
+            <Link to="/jobs/assignments" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/jobs/assignments' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+              <Briefcase className="w-5 h-5" />
+              {!collapsed && <span className="text-sm">Job Assignments</span>}
+            </Link>
           </>
         )}
         
