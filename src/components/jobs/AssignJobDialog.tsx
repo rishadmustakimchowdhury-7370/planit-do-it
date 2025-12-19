@@ -110,20 +110,23 @@ export function AssignJobDialog({
       if (!recruiter) throw new Error('Recruiter not found');
 
       // Send notification email via edge function
-      const { error: emailError } = await supabase.functions.invoke('send-job-assignment', {
-        body: {
-          job_id: jobId,
-          job_title: jobTitle,
-          recruiter_email: recruiter.email,
-          recruiter_name: recruiter.full_name,
-        }
-      });
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-job-assignment', {
+          body: {
+            job_id: jobId,
+            job_title: jobTitle,
+            recruiter_email: recruiter.email,
+            recruiter_name: recruiter.full_name,
+          }
+        });
 
-      if (emailError) {
-        console.error('Email error:', emailError);
+        if (emailError) {
+          console.error('Email error:', emailError);
+          toast.warning('Job assigned, but notification email failed to send');
+        }
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
         toast.warning('Job assigned, but notification email failed to send');
-      } else {
-        toast.success(`Job assigned to ${recruiter.full_name} and notification sent`);
       }
 
       // Log activity
@@ -136,6 +139,7 @@ export function AssignJobDialog({
         metadata: { assigned_to: selectedRecruiterId, assigned_to_name: recruiter.full_name }
       });
 
+      toast.success(`Job assigned to ${recruiter.full_name}`);
       onAssignmentComplete();
       onOpenChange(false);
     } catch (error: any) {
@@ -146,13 +150,52 @@ export function AssignJobDialog({
     }
   };
 
+  const handleUnassign = async () => {
+    setIsLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('jobs')
+        .update({ 
+          assigned_to: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (updateError) throw updateError;
+
+      // Log activity
+      await supabase.from('activities').insert({
+        tenant_id: tenantId,
+        action: 'job_unassigned',
+        entity_type: 'job',
+        entity_id: jobId,
+        entity_name: jobTitle,
+        metadata: { previously_assigned_to: currentAssigneeId }
+      });
+
+      toast.success('Job unassigned successfully');
+      onAssignmentComplete();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Error unassigning job:', error);
+      toast.error(error.message || 'Failed to unassign job');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Job to Recruiter</DialogTitle>
+          <DialogTitle>
+            {currentAssigneeId ? 'Reassign or Unassign Job' : 'Assign Job to Recruiter'}
+          </DialogTitle>
           <DialogDescription>
-            Assign "{jobTitle}" to a recruiter. They will receive an email notification.
+            {currentAssigneeId 
+              ? `Change the assignment for "${jobTitle}" or unassign it completely.`
+              : `Assign "${jobTitle}" to a recruiter. They will receive an email notification.`
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -182,16 +225,28 @@ export function AssignJobDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancel
-          </Button>
+        <div className="flex justify-between gap-2">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            {currentAssigneeId && (
+              <Button 
+                variant="destructive" 
+                onClick={handleUnassign} 
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Unassign
+              </Button>
+            )}
+          </div>
           <Button 
             onClick={handleAssign} 
             disabled={isLoading || !selectedRecruiterId || recruiters.length === 0}
           >
             {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Assign Job
+            {currentAssigneeId ? 'Reassign' : 'Assign'} Job
           </Button>
         </div>
       </DialogContent>
