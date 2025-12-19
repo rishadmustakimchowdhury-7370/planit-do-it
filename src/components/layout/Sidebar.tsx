@@ -38,8 +38,6 @@ const navigation = [
 
 const bottomNav = [
   { name: 'Team', href: '/team', icon: UsersRound },
-  { name: 'Team KPIs', href: '/team/kpi', icon: BarChart3 },
-  { name: 'Work Tracking', href: '/team/work-tracking', icon: Clock },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];
@@ -49,7 +47,7 @@ const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut, isOwner } = useAuth();
+  const { profile, signOut, isOwner, isManager, isRecruiter } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleSignOut = async () => {
@@ -146,6 +144,37 @@ export function Sidebar() {
             </motion.p>
           )}
         </AnimatePresence>
+        
+        {/* Work Tracking Links based on role */}
+        {isRecruiter && (
+          <Link to="/team/work-tracking" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-tracking' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+            <Clock className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">Work Tracking</span>}
+          </Link>
+        )}
+        {isRecruiter && !isOwner && !isManager && (
+          <Link to="/team/work-dashboard" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-dashboard' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+            <BarChart3 className="w-5 h-5" />
+            {!collapsed && <span className="text-sm">My History</span>}
+          </Link>
+        )}
+        {(isOwner || isManager) && (
+          <>
+            <Link to="/team/work-tracking" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-tracking' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+              <Clock className="w-5 h-5" />
+              {!collapsed && <span className="text-sm">Work Tracking</span>}
+            </Link>
+            <Link to="/team/manager-dashboard" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/manager-dashboard' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+              <BarChart3 className="w-5 h-5" />
+              {!collapsed && <span className="text-sm">Team Dashboard</span>}
+            </Link>
+            <Link to="/team/kpi" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/kpi' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
+              <BarChart3 className="w-5 h-5" />
+              {!collapsed && <span className="text-sm">KPI Dashboard</span>}
+            </Link>
+          </>
+        )}
+        
         {bottomNav.map((item) => {
           const isActive = location.pathname === item.href;
           

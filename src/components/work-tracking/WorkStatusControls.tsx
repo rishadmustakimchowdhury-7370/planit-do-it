@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Play, 
   Pause, 
@@ -11,13 +14,17 @@ import {
   Loader2,
   Clock,
   Timer,
-  Save
+  Save,
+  Calendar as CalendarIcon,
+  Globe
 } from 'lucide-react';
 import { useWorkTracking, formatDuration, WorkAction, WorkStatus } from '@/hooks/useWorkTracking';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { COMMON_TIMEZONES, getUserTimezone } from '@/lib/timezones';
 
 const statusConfig: Record<WorkStatus, { label: string; color: string; icon: React.ElementType }> = {
   'working': { label: 'Working', color: 'bg-success text-success-foreground', icon: Play },
@@ -49,6 +56,8 @@ export function WorkStatusControls() {
   const [bodSummary, setBodSummary] = useState('');
   const [eodSummary, setEodSummary] = useState('');
   const [isSavingSummary, setIsSavingSummary] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(getUserTimezone());
 
   // Update live time every minute and load summaries
   useEffect(() => {
@@ -154,6 +163,49 @@ export function WorkStatusControls() {
           </div>
         )}
 
+        {/* Date and Timezone Selectors */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+          <div className="space-y-2">
+            <Label>Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, 'PPP')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Timezone</Label>
+            <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+              <SelectTrigger>
+                <Globe className="mr-2 h-4 w-4" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COMMON_TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* Action buttons */}
         <div className="flex flex-wrap gap-3 justify-center">
           {availableActions.map((action) => {
@@ -166,7 +218,7 @@ export function WorkStatusControls() {
                 variant={config.variant}
                 size="lg"
                 className="gap-2 min-w-[140px]"
-                onClick={() => logAction(action)}
+                onClick={() => logAction(action, selectedDate, selectedTimezone)}
                 disabled={isActionLoading}
               >
                 {isActionLoading ? (

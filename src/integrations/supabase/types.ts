@@ -2419,6 +2419,7 @@ export type Database = {
       team_invitations: {
         Row: {
           accepted_at: string | null
+          accepted_by: string | null
           created_at: string | null
           email: string
           expires_at: string
@@ -2432,6 +2433,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string | null
           email: string
           expires_at: string
@@ -2445,6 +2447,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string | null
           email?: string
           expires_at?: string
@@ -2970,6 +2973,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["work_status"] | null
           tenant_id: string
+          timezone: string
           total_break_minutes: number | null
           total_work_minutes: number | null
           updated_at: string | null
@@ -2985,6 +2989,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["work_status"] | null
           tenant_id: string
+          timezone?: string
           total_break_minutes?: number | null
           total_work_minutes?: number | null
           updated_at?: string | null
@@ -3000,6 +3005,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["work_status"] | null
           tenant_id?: string
+          timezone?: string
           total_break_minutes?: number | null
           total_work_minutes?: number | null
           updated_at?: string | null
@@ -3023,7 +3029,9 @@ export type Database = {
           metadata: Json | null
           tenant_id: string
           timestamp: string
+          timezone: string
           user_id: string
+          user_role: Database["public"]["Enums"]["app_role"] | null
         }
         Insert: {
           action: string
@@ -3032,7 +3040,9 @@ export type Database = {
           metadata?: Json | null
           tenant_id: string
           timestamp?: string
+          timezone?: string
           user_id: string
+          user_role?: Database["public"]["Enums"]["app_role"] | null
         }
         Update: {
           action?: string
@@ -3041,7 +3051,9 @@ export type Database = {
           metadata?: Json | null
           tenant_id?: string
           timestamp?: string
+          timezone?: string
           user_id?: string
+          user_role?: Database["public"]["Enums"]["app_role"] | null
         }
         Relationships: [
           {

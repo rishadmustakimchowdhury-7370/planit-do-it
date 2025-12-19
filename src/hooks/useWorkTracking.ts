@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { getUserTimezone } from '@/lib/timezones';
 
 export type WorkAction = 'start_work' | 'start_break' | 'resume_work' | 'end_work';
 export type WorkStatus = 'working' | 'on_break' | 'ended';
@@ -79,7 +80,7 @@ export function useWorkTracking() {
   }, [fetchTodaySession]);
 
   // Log a work status action
-  const logAction = async (action: WorkAction) => {
+  const logAction = async (action: WorkAction, selectedDate?: Date, selectedTimezone?: string) => {
     if (!user?.id || !tenantId) {
       toast.error('User not authenticated');
       return false;
@@ -88,8 +89,18 @@ export function useWorkTracking() {
     setIsActionLoading(true);
 
     try {
-      const now = new Date();
+      const now = selectedDate || new Date();
       const today = now.toISOString().split('T')[0];
+      const timezone = selectedTimezone || getUserTimezone();
+      
+      // Get user role for audit
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      const userRole = roleData?.role || 'recruiter';
 
       // Validate action based on current status
       const validTransitions: Record<WorkStatus, WorkAction[]> = {
@@ -103,7 +114,7 @@ export function useWorkTracking() {
         return false;
       }
 
-      // Insert log entry (immutable)
+      // Insert log entry (immutable with timezone and role)
       const { error: logError } = await supabase
         .from('work_status_logs')
         .insert({
@@ -111,6 +122,8 @@ export function useWorkTracking() {
           user_id: user.id,
           action: action,
           timestamp: now.toISOString(),
+          timezone: timezone,
+          user_role: userRole,
         });
 
       if (logError) throw logError;
@@ -127,6 +140,7 @@ export function useWorkTracking() {
         user_id: user.id,
         date: today,
         status: newStatus,
+        timezone: timezone,
       };
 
       if (action === 'start_work') {
