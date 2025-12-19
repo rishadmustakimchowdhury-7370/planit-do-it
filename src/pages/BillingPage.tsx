@@ -17,7 +17,8 @@ import {
   ArrowUpRight,
   FileText,
   Loader2,
-  Settings
+  Settings,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -26,6 +27,7 @@ import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/currencies';
 import { format } from 'date-fns';
 import { ManageSubscriptionDialog } from '@/components/billing/ManageSubscriptionDialog';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface Invoice {
   id: string;
@@ -86,6 +88,7 @@ export default function BillingPage() {
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'plans' | 'invoices'>('plans');
   const [showManageDialog, setShowManageDialog] = useState(false);
+  const { usageStats, isLoading: isLoadingUsage } = useUsageLimits();
 
   const plansSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -205,10 +208,12 @@ export default function BillingPage() {
     setShowManageDialog(true);
   };
 
-  const creditsUsed = (tenant?.match_credits_limit || 100) - (tenant?.match_credits_remaining || 0);
-  const creditsPercent = Math.round((creditsUsed / (tenant?.match_credits_limit || 100)) * 100);
+  const creditsUsed = usageStats?.usage.aiCredits.used || 0;
+  const creditsLimit = usageStats?.usage.aiCredits.limit || 100;
+  const creditsRemaining = usageStats?.usage.aiCredits.remaining || 0;
+  const creditsPercent = usageStats?.usage.aiCredits.percent || 0;
 
-  if (isLoading) {
+  if (isLoading || isLoadingUsage) {
     return (
       <AppLayout title="Billing" subtitle="Manage your subscription and invoices">
         <div className="space-y-6">
@@ -277,20 +282,34 @@ export default function BillingPage() {
 
                 {/* AI Credits */}
                 <div className="p-4 rounded-lg border">
-                  <p className="text-sm font-medium mb-2">AI Match Credits</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium">AI Match Credits</p>
+                    {usageStats?.usage.aiCredits.warning && (
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                    )}
+                  </div>
                   <div className="flex items-end gap-2 mb-2">
-                    <span className="text-2xl font-bold">{tenant?.match_credits_remaining || 0}</span>
-                    <span className="text-muted-foreground text-sm">/ {tenant?.match_credits_limit || 100}</span>
+                    <span className="text-2xl font-bold">{creditsRemaining}</span>
+                    <span className="text-muted-foreground text-sm">/ {creditsLimit === -1 ? '∞' : creditsLimit}</span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-accent transition-all duration-500"
-                      style={{ width: `${100 - creditsPercent}%` }}
+                      className={`h-full transition-all duration-500 ${
+                        usageStats?.usage.aiCredits.blocked ? 'bg-destructive' :
+                        usageStats?.usage.aiCredits.warning ? 'bg-warning' :
+                        'bg-accent'
+                      }`}
+                      style={{ width: `${Math.min(100, creditsPercent)}%` }}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {creditsUsed} credits used this month
                   </p>
+                  {usageStats?.usage.aiCredits.blocked && (
+                    <p className="text-xs text-destructive mt-1 font-medium">
+                      Limit reached - Upgrade to continue
+                    </p>
+                  )}
                 </div>
 
                 {/* Billing Cycle */}

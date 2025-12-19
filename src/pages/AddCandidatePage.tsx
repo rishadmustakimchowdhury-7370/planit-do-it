@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface BulkUploadResult {
   fileName: string;
@@ -27,6 +28,7 @@ export default function AddCandidatePage() {
   const [searchParams] = useSearchParams();
   const { tenantId, user } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const { checkLimit, showLimitError } = useUsageLimits();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -196,6 +198,12 @@ export default function AddCandidatePage() {
   const processBulkUpload = async () => {
     if (bulkFiles.length === 0) {
       toast.error('Please select files to upload');
+      return;
+    }
+
+    // Check candidate limit
+    if (checkLimit('candidates')) {
+      showLimitError('candidates');
       return;
     }
 
@@ -406,6 +414,12 @@ export default function AddCandidatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check candidate limit
+    if (checkLimit('candidates')) {
+      showLimitError('candidates');
+      return;
+    }
     
     if (!tenantId) {
       toast.error('No tenant found. Please log in again.');

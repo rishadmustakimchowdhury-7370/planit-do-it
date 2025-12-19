@@ -40,6 +40,7 @@ import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
 import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
 import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
+import AdminUsageAnalyticsPage from "./pages/admin/AdminUsageAnalyticsPage";
 import TutorialVideosPage from "./pages/TutorialVideosPage";
 import EmailAnalyticsPage from "./pages/EmailAnalyticsPage";
 import EmailAccountsPage from "./pages/EmailAccountsPage";
@@ -135,6 +136,7 @@ const AppRoutes = () => (
     <Route path="/admin/settings" element={<ProtectedRoute><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/admin/logs" element={<ProtectedRoute><AdminAuditLogsPage /></ProtectedRoute>} />
     <Route path="/admin/testimonials" element={<ProtectedRoute><AdminTestimonialsPage /></ProtectedRoute>} />
+    <Route path="/admin/usage-analytics" element={<ProtectedRoute><AdminUsageAnalyticsPage /></ProtectedRoute>} />
     <Route path="/admin/orders" element={<ProtectedRoute><AdminOrdersPage /></ProtectedRoute>} />
     <Route path="/admin/seo" element={<ProtectedRoute><AdminSEOPage /></ProtectedRoute>} />
     <Route path="/admin/promo-codes" element={<ProtectedRoute><AdminPromoCodesPage /></ProtectedRoute>} />
