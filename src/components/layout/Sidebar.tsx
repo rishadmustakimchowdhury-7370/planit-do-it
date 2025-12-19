@@ -39,7 +39,7 @@ const navigation = [
 const bottomNav = [
   { name: 'Team', href: '/team', icon: UsersRound },
   { name: 'Team KPIs', href: '/team/kpi', icon: BarChart3 },
-  { name: 'Work Tracking', href: '/work-tracking', icon: Clock },
+  { name: 'Work Tracking', href: '/team/work-tracking', icon: Clock },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];
