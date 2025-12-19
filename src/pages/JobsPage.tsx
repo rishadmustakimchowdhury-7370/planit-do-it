@@ -89,11 +89,17 @@ const JobsPage = () => {
   const fetchJobs = async () => {
     setIsLoading(true);
     try {
-      const { data: jobsData, error: jobsError } = await supabase
+      let query = supabase
         .from('jobs')
         .select('*, clients(name, logo_url)')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+        .eq('tenant_id', tenantId);
+
+      // Recruiters only see jobs assigned to them
+      if (!isOwner && !isManager && user?.id) {
+        query = query.eq('assigned_to', user.id);
+      }
+
+      const { data: jobsData, error: jobsError } = await query.order('created_at', { ascending: false });
 
       if (jobsError) throw jobsError;
 
