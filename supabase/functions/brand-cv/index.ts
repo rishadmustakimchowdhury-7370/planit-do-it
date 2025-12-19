@@ -81,9 +81,22 @@ serve(async (req) => {
     const cvBuffer = await cvData.arrayBuffer();
     const cvBase64 = btoa(String.fromCharCode(...new Uint8Array(cvBuffer)));
 
-    // Call external API to brand the PDF (placeholder - you'll need a PDF processing service)
-    // For now, we'll return the original file with branding metadata
-    // In production, you'd use a service like PDFTron, PDF.co, or similar to overlay the logo
+    // IMPORTANT: This function currently returns the original CV with branding metadata
+    // To implement actual PDF branding, you need to integrate a PDF processing service:
+    // 
+    // Recommended PDF processing services:
+    // 1. PDFTron (https://www.pdftron.com/) - Comprehensive PDF SDK
+    // 2. PDF.co (https://pdf.co/) - Cloud-based PDF manipulation
+    // 3. PyPDF2/ReportLab via Python edge function - Open source option
+    // 4. pdf-lib (https://pdf-lib.js.org/) - JavaScript PDF library
+    //
+    // Implementation steps:
+    // 1. Download the logo from branding_settings.logo_url
+    // 2. Convert logo to appropriate format (usually PNG/JPG)
+    // 3. Use PDF library to overlay logo at specified position
+    // 4. Save modified PDF and return the new file
+    //
+    // For now, this function validates branding settings and returns metadata
     
     console.log('Branding CV with settings:', {
       hasLogo: !!brandingSettings?.logo_url,
@@ -91,8 +104,8 @@ serve(async (req) => {
       company: brandingSettings?.company_name
     });
 
-    // Return the branded CV (in this simplified version, returning original with branding info)
-    // In production, you would process the PDF here with the logo overlay
+    // Return the branded CV (placeholder - returns original with metadata)
+    // TODO: Integrate PDF processing service for actual logo overlay
     return new Response(
       JSON.stringify({
         success: true,
