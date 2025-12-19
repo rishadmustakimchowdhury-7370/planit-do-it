@@ -99,7 +99,7 @@ export default function WorkTrackingPage() {
     }
   };
 
-  const isAdmin = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const isAdmin = userRole === 'owner' || userRole === 'manager';
 
   if (isLoadingRole) {
     return (

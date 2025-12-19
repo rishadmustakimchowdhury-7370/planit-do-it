@@ -81,11 +81,9 @@ interface TeamInvitation {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Owner',
+  owner: 'Owner',
   manager: 'Manager',
   recruiter: 'Recruiter',
-  support: 'Support',
-  viewer: 'Viewer',
 };
 
 export default function TeamMembersPage() {
@@ -229,7 +227,7 @@ export default function TeamMembersPage() {
         .insert({
           tenant_id: tenantId!,
           email: inviteEmail.toLowerCase().trim(),
-          role: inviteRole as 'admin' | 'manager' | 'recruiter' | 'super_admin' | 'support' | 'viewer',
+          role: inviteRole as 'owner' | 'manager' | 'recruiter',
           invited_by: user?.id!,
           token,
           expires_at: expiresAt.toISOString(),
@@ -337,7 +335,7 @@ export default function TeamMembersPage() {
     }
   };
 
-  const handleChangeRole = async (memberId: string, newRole: 'admin' | 'manager' | 'recruiter' | 'super_admin' | 'support' | 'viewer') => {
+  const handleChangeRole = async (memberId: string, newRole: 'owner' | 'manager' | 'recruiter') => {
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -379,9 +377,9 @@ export default function TeamMembersPage() {
     m.profile?.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role: string): "default" | "secondary" | "outline" => {
     switch (role) {
-      case 'admin': return 'default';
+      case 'owner': return 'default';
       case 'manager': return 'secondary';
       case 'recruiter': return 'outline';
       default: return 'outline';
@@ -389,7 +387,7 @@ export default function TeamMembersPage() {
   };
 
   const currentUserRole = teamMembers.find(m => m.user_id === user?.id)?.role;
-  const canManageTeam = currentUserRole === 'admin' || currentUserRole === 'super_admin';
+  const canManageTeam = currentUserRole === 'owner' || currentUserRole === 'manager';
 
   return (
     <AppLayout title="Team Members" subtitle="Manage your recruitment team">
@@ -552,7 +550,7 @@ export default function TeamMembersPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <Badge variant={getRoleBadgeVariant(member.role)}>
-                            {member.role === 'admin' && <Crown className="h-3 w-3 mr-1" />}
+                            {member.role === 'owner' && <Crown className="h-3 w-3 mr-1" />}
                             {ROLE_LABELS[member.role] || member.role}
                           </Badge>
                           {member.profile?.last_login_at && (

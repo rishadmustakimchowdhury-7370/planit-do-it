@@ -151,7 +151,7 @@ export default function TeamKPIDashboardPage() {
       const { start, end } = getDateRange();
 
       // Fetch team members if admin/manager
-      if (userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin') {
+      if (userRole === 'owner' || userRole === 'manager') {
         const { data: rolesData } = await supabase
           .from('user_roles')
           .select('user_id')
@@ -177,7 +177,7 @@ export default function TeamKPIDashboardPage() {
         .lte('created_at', end.toISOString());
 
       // If not admin/manager, only show own data
-      if (userRole !== 'admin' && userRole !== 'manager' && userRole !== 'super_admin') {
+      if (userRole !== 'owner' && userRole !== 'manager') {
         query = query.eq('user_id', user?.id);
       } else if (selectedMember) {
         query = query.eq('user_id', selectedMember);
@@ -281,7 +281,7 @@ export default function TeamKPIDashboardPage() {
     { name: 'Hired', value: totals.candidate_hired, fill: '#00875A' },
   ], [totals]);
 
-  const canViewTeam = userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin';
+  const canViewTeam = userRole === 'owner' || userRole === 'manager';
 
   const handleExport = () => {
     const csvData = teamKPIs.map(kpi => ({

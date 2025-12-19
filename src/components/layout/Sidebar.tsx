@@ -49,7 +49,7 @@ const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut, isSuperAdmin } = useAuth();
+  const { profile, signOut, isOwner } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleSignOut = async () => {
@@ -178,8 +178,8 @@ export function Sidebar() {
           );
         })}
 
-        {/* Super Admin Link */}
-        {isSuperAdmin && (
+        {/* Owner/Admin Link */}
+        {isOwner && (
           <Link
             to={adminNav.href}
             className={cn(

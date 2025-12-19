@@ -472,10 +472,9 @@ export default function SettingsPage() {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'admin':
-      case 'super_admin':
+      case 'owner':
         return 'bg-warning/10 text-warning border-warning/30';
-      case 'recruiter':
+      case 'manager':
         return 'bg-accent/10 text-accent border-accent/30';
       case 'support':
         return 'bg-info/10 text-info border-info/30';
@@ -791,7 +790,7 @@ export default function SettingsPage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className={getRoleBadgeColor(member.role)}>
-                              {member.role === 'admin' && <Crown className="h-3 w-3 mr-1" />}
+                              {member.role === 'owner' && <Crown className="h-3 w-3 mr-1" />}
                               {member.role}
                             </Badge>
                             {member.user_id !== user?.id && (
