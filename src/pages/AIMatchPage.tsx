@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RoleGate } from '@/components/auth/RoleGate';
+import { Permission } from '@/hooks/usePermissions';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -215,7 +216,7 @@ const AIMatchPage = () => {
   };
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_use_ai_match' as Permission} redirectTo="/dashboard">
       <AppLayout title="AI Matching" subtitle="Match candidates to jobs using AI-powered analysis.">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Selection Panel */}

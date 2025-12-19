@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RoleGate } from '@/components/auth/RoleGate';
+import { Permission } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -138,7 +139,7 @@ export default function AddClientPage() {
   };
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_add_clients' as Permission} redirectTo="/dashboard">
       <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header */}

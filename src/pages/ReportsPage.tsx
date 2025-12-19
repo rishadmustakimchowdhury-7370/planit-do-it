@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RoleGate } from '@/components/auth/RoleGate';
+import { Permission } from '@/hooks/usePermissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -221,7 +223,8 @@ const ReportsPage = () => {
   };
 
   return (
-    <AppLayout title="Reports" subtitle="Hiring funnel and recruitment analytics">
+    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_view_reports' as Permission} redirectTo="/dashboard">
+      <AppLayout title="Reports" subtitle="Hiring funnel and recruitment analytics">
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -485,6 +488,7 @@ const ReportsPage = () => {
         </>
       )}
     </AppLayout>
+    </RoleGate>
   );
 };
 

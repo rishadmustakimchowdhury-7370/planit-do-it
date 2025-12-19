@@ -1,37 +1,54 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
+import { usePermissions, Permission } from '@/hooks/usePermissions';
 
 interface RoleGateProps {
   children: ReactNode;
   allowedRoles: ('owner' | 'manager' | 'recruiter')[];
+  requiredPermission?: Permission;
   fallback?: ReactNode;
   redirectTo?: string;
 }
 
 /**
- * RoleGate - Conditional rendering based on user roles
+ * RoleGate - Conditional rendering based on user roles and permissions
  * 
  * Usage:
  * <RoleGate allowedRoles={['owner']}>
  *   <OwnerOnlyContent />
  * </RoleGate>
  * 
- * <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
- *   <ManagementContent />
+ * <RoleGate allowedRoles={['owner', 'manager']} requiredPermission="can_add_jobs" redirectTo="/dashboard">
+ *   <AddJobButton />
  * </RoleGate>
  */
-export function RoleGate({ children, allowedRoles, fallback, redirectTo }: RoleGateProps) {
-  const { roles, isLoading } = useAuth();
+export function RoleGate({ children, allowedRoles, requiredPermission, fallback, redirectTo }: RoleGateProps) {
+  const { roles, isLoading, isOwner } = useAuth();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return null; // or a loading spinner
   }
 
   const userRole = roles[0]?.role;
-  const hasAccess = userRole && allowedRoles.includes(userRole);
+  const hasRoleAccess = userRole && allowedRoles.includes(userRole);
 
-  if (!hasAccess) {
+  // Owners always have access
+  if (isOwner) {
+    return <>{children}</>;
+  }
+
+  // Check role access first
+  if (!hasRoleAccess) {
+    if (redirectTo) {
+      return <Navigate to={redirectTo} replace />;
+    }
+    return fallback ? <>{fallback}</> : null;
+  }
+
+  // If a permission is required, check it (only for non-owners)
+  if (requiredPermission && !hasPermission(requiredPermission)) {
     if (redirectTo) {
       return <Navigate to={redirectTo} replace />;
     }
