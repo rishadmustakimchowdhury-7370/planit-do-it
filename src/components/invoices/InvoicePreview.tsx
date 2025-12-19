@@ -147,10 +147,10 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
               <div style={{ background: 'linear-gradient(to bottom right, rgba(0,82,204,0.05), rgba(0,82,204,0.1))', borderRadius: '12px', padding: '20px', border: '1px solid rgba(0,82,204,0.2)' }}>
                 <h3 style={{ fontSize: '11px', fontWeight: 'bold', color: '#0052CC', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Amount Due</h3>
                 <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#0052CC' }}>
-                  {invoice.currency} {Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  £{Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
-                  Currency: {invoice.currency}
+                  Currency: GBP
                 </p>
               </div>
             </div>
@@ -175,10 +175,10 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
                         </td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#6b7280', textAlign: 'center' }}>{item.quantity || 1}</td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#6b7280', textAlign: 'right' }}>
-                          {invoice.currency} {Number(item.rate || invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          £{Number(item.rate || invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
-                          {invoice.currency} {Number(item.amount || invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          £{Number(item.amount || invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))
@@ -189,10 +189,10 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
                       </td>
                       <td style={{ padding: '16px 20px', fontSize: '14px', color: '#6b7280', textAlign: 'center' }}>1</td>
                       <td style={{ padding: '16px 20px', fontSize: '14px', color: '#6b7280', textAlign: 'right' }}>
-                        {invoice.currency} {Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        £{Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td style={{ padding: '16px 20px', fontSize: '14px', color: '#1f2937', fontWeight: '600', textAlign: 'right' }}>
-                        {invoice.currency} {Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        £{Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                   )}
@@ -206,18 +206,18 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '12px' }}>
                   <span style={{ color: '#6b7280' }}>Subtotal</span>
                   <span style={{ fontWeight: '500', color: '#1f2937' }}>
-                    {invoice.currency} {Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    £{Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '12px' }}>
                   <span style={{ color: '#6b7280' }}>Tax (0%)</span>
-                  <span style={{ fontWeight: '500', color: '#1f2937' }}>{invoice.currency} 0.00</span>
+                  <span style={{ fontWeight: '500', color: '#1f2937' }}>£0.00</span>
                 </div>
                 <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>Total</span>
                     <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#0052CC' }}>
-                      {invoice.currency} {Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      £{Number(invoice.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
