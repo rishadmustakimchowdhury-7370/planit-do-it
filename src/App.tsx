@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
+import RecruiterDashboardPage from "./pages/RecruiterDashboardPage";
 import JobsPage from "./pages/JobsPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import EditJobPage from "./pages/EditJobPage";
@@ -66,9 +67,9 @@ import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-// Protected route wrapper
+// Protected route wrapper with role-based dashboard routing
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isRecruiter, isOwner, isManager } = useAuth();
 
   if (isLoading) {
     return (
@@ -85,6 +86,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Dashboard route wrapper that redirects recruiters
+function DashboardRoute() {
+  const { isRecruiter, isOwner, isManager, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  // Redirect recruiters to their specific dashboard
+  if (isRecruiter && !isOwner && !isManager) {
+    return <RecruiterDashboardPage />;
+  }
+
+  // Owners and managers see the full dashboard
+  return <DashboardPage />;
+}
+
 const AppRoutes = () => (
   <Routes>
     {/* Public routes */}
@@ -99,7 +121,7 @@ const AppRoutes = () => (
     <Route path="/return-policy" element={<ReturnPolicyPage />} />
     
     {/* Protected routes */}
-    <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+    <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />
     <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
     <Route path="/jobs/new" element={<ProtectedRoute><AddJobPage /></ProtectedRoute>} />
     <Route path="/jobs/:id" element={<ProtectedRoute><JobDetailPage /></ProtectedRoute>} />
