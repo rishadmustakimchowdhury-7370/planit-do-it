@@ -74,6 +74,8 @@ interface Candidate {
   created_at: string;
   phone: string | null;
   linkedin_url: string | null;
+  created_by: string | null;
+  uploader_name: string | null;
 }
 
 interface Job {
@@ -161,9 +163,19 @@ const CandidatesPage = () => {
 
       if (error) throw error;
 
+      // Fetch profiles for created_by users
+      const uniqueCreatorIds = [...new Set(data?.map(c => c.created_by).filter(Boolean) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', uniqueCreatorIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+
       setCandidates((data || []).map(c => ({
         ...c,
         skills: Array.isArray(c.skills) ? c.skills as string[] : null,
+        uploader_name: c.created_by ? profileMap.get(c.created_by) || 'Unknown' : 'System',
       })));
     } catch (error) {
       console.error('Error fetching candidates:', error);
@@ -727,10 +739,11 @@ const CandidatesPage = () => {
                 onCheckedChange={selectAll}
               />
             </TableHead>
-            <TableHead>Candidate</TableHead>
-            <TableHead className="hidden md:table-cell">Location</TableHead>
-            <TableHead className="hidden lg:table-cell">Email</TableHead>
-            <TableHead className="hidden xl:table-cell">Skills</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead className="hidden md:table-cell">Email</TableHead>
+            <TableHead className="hidden lg:table-cell">Phone</TableHead>
+            <TableHead className="hidden lg:table-cell">Location</TableHead>
+            <TableHead className="hidden xl:table-cell">Submitted By</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-12"></TableHead>
           </TableRow>
@@ -769,37 +782,34 @@ const CandidatesPage = () => {
                 </Link>
               </TableCell>
               <TableCell className="hidden md:table-cell">
-                {candidate.location ? (
+                <span className="text-sm text-muted-foreground truncate max-w-[180px] block">
+                  {candidate.email}
+                </span>
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                {candidate.phone ? (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="max-w-[120px] truncate">{candidate.location}</span>
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>{candidate.phone}</span>
                   </div>
                 ) : (
                   <span className="text-muted-foreground/50">—</span>
                 )}
               </TableCell>
               <TableCell className="hidden lg:table-cell">
-                <span className="text-sm text-muted-foreground truncate max-w-[160px] block">
-                  {candidate.email}
-                </span>
-              </TableCell>
-              <TableCell className="hidden xl:table-cell">
-                {candidate.skills && candidate.skills.length > 0 ? (
-                  <div className="flex gap-1">
-                    {candidate.skills.slice(0, 2).map((skill) => (
-                      <Badge key={skill} variant="secondary" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {candidate.skills.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{candidate.skills.length - 2}
-                      </Badge>
-                    )}
+                {candidate.location ? (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="max-w-[140px] truncate">{candidate.location}</span>
                   </div>
                 ) : (
                   <span className="text-muted-foreground/50">—</span>
                 )}
+              </TableCell>
+              <TableCell className="hidden xl:table-cell">
+                <span className="text-sm text-muted-foreground">
+                  {candidate.uploader_name || 'Unknown'}
+                </span>
               </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <Select 
