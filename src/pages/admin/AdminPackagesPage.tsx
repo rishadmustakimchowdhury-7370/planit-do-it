@@ -221,7 +221,7 @@ export default function AdminPackagesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Monthly Price ($)</Label>
+                    <Label>Monthly Price (£)</Label>
                     <Input
                       type="number"
                       value={formData.price_monthly}
@@ -229,7 +229,7 @@ export default function AdminPackagesPage() {
                     />
                   </div>
                   <div>
-                    <Label>Yearly Price ($)</Label>
+                    <Label>Yearly Price (£)</Label>
                     <Input
                       type="number"
                       value={formData.price_yearly}
@@ -377,11 +377,11 @@ export default function AdminPackagesPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-3xl font-bold">
-                      ${plan.price_monthly}
+                      £{plan.price_monthly}
                       <span className="text-sm font-normal text-muted-foreground">/month</span>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      or ${plan.price_yearly}/year
+                      or £{plan.price_yearly}/year
                     </p>
                   </div>
                   {plan.description && (

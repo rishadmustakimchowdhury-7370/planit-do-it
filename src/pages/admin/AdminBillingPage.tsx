@@ -58,7 +58,7 @@ export default function AdminBillingPage() {
   const [invoiceForm, setInvoiceForm] = useState({
     tenant_id: '',
     amount: '',
-    currency: 'USD',
+    currency: 'GBP',
     due_date: '',
     notes: '',
   });
@@ -167,7 +167,7 @@ export default function AdminBillingPage() {
 
       toast.success('Invoice created');
       setShowCreateDialog(false);
-      setInvoiceForm({ tenant_id: '', amount: '', currency: 'USD', due_date: '', notes: '' });
+      setInvoiceForm({ tenant_id: '', amount: '', currency: 'GBP', due_date: '', notes: '' });
       fetchData();
     } catch (error: any) {
       toast.error('Failed to create invoice: ' + error.message);
