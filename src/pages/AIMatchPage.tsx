@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface Job {
   id: string;
@@ -43,6 +44,7 @@ interface MatchResult {
 
 const AIMatchPage = () => {
   const { tenantId } = useAuth();
+  const { checkLimit, showLimitError } = useUsageLimits();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>('');
@@ -84,6 +86,12 @@ const AIMatchPage = () => {
   const runAIMatch = async () => {
     if (!selectedJobId || !selectedCandidateId) {
       toast.error('Please select both a job and a candidate');
+      return;
+    }
+
+    // Check AI credits limit
+    if (checkLimit('aiCredits')) {
+      showLimitError('AI matching credits');
       return;
     }
 
