@@ -262,7 +262,7 @@ export default function BillingPage() {
                     <div>
                       <p className="font-semibold">{currentPlanData?.name || 'Free'} Plan</p>
                       <p className="text-sm text-muted-foreground">
-                        ${currentPlanData?.price_monthly || 0}/month
+                        £{currentPlanData?.price_monthly || 0}/month
                       </p>
                     </div>
                   </div>
@@ -378,7 +378,7 @@ export default function BillingPage() {
                           <h3 className="text-xl font-semibold">{plan.name}</h3>
                         </div>
                         <div className="mb-6">
-                          <span className="text-4xl font-bold">${plan.price_monthly}</span>
+                          <span className="text-4xl font-bold">£{plan.price_monthly}</span>
                           <span className="text-muted-foreground">/month</span>
                         </div>
                         <ul className="space-y-3 mb-6">

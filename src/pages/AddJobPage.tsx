@@ -41,7 +41,7 @@ export default function AddJobPage() {
     location: '',
     salaryMin: '',
     salaryMax: '',
-    salaryCurrency: 'USD',
+    salaryCurrency: 'GBP',
     employmentType: 'full-time',
     experienceLevel: '',
     isRemote: false,

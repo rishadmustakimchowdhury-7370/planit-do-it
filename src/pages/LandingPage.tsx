@@ -71,7 +71,7 @@ const features = [
 const plans = [
   {
     name: 'Starter',
-    price: '$9',
+    price: '£9',
     period: '/month',
     description: 'Perfect for small teams getting started',
     features: ['5 Active Jobs', '50 Candidates', '50 AI Matches/month', 'Email Support', 'Basic Analytics'],
@@ -79,7 +79,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$29',
+    price: '£29',
     period: '/month',
     description: 'For growing recruitment teams',
     features: ['25 Active Jobs', '500 Candidates', '200 AI Matches/month', 'Priority Support', 'Advanced Analytics', 'API Access', 'Custom Branding'],
@@ -87,7 +87,7 @@ const plans = [
   },
   {
     name: 'Agency',
-    price: '$79',
+    price: '£79',
     period: '/month',
     description: 'For agencies and large teams',
     features: ['Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'Full Analytics', 'API Access', 'White Label', 'Dedicated Account Manager'],
