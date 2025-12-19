@@ -21,6 +21,7 @@ import AIMatchPage from "./pages/AIMatchPage";
 import SettingsPage from "./pages/SettingsPage";
 import TeamMembersPage from "./pages/TeamMembersPage";
 import TeamKPIDashboardPage from "./pages/TeamKPIDashboardPage";
+import WorkTrackingPage from "./pages/WorkTrackingPage";
 import BrandingSettingsPage from "./pages/BrandingSettingsPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import BillingPage from "./pages/BillingPage";
@@ -110,6 +111,7 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
     <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
+    <Route path="/team/work-tracking" element={<ProtectedRoute><WorkTrackingPage /></ProtectedRoute>} />
     <Route path="/branding" element={<ProtectedRoute><BrandingSettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
