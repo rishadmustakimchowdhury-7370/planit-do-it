@@ -82,7 +82,7 @@ export default function AcceptInvitationPage() {
 
     setIsSubmitting(true);
     try {
-      // Create the user account
+      // Create the user account - the trigger handles profile, role, and invitation
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: invitation.email,
         password: formData.password,
@@ -96,41 +96,8 @@ export default function AcceptInvitationPage() {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Update the profile with tenant_id
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: formData.full_name,
-            tenant_id: invitation.tenant_id,
-          })
-          .eq('id', authData.user.id);
-
-        if (profileError) console.error('Profile update error:', profileError);
-
-        // Add user role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: invitation.role,
-            tenant_id: invitation.tenant_id,
-          });
-
-        if (roleError) console.error('Role assignment error:', roleError);
-
-        // Mark invitation as accepted
-        const { error: inviteError } = await supabase
-          .from('team_invitations')
-          .update({
-            status: 'accepted',
-            accepted_at: new Date().toISOString(),
-          })
-          .eq('id', invitation.id);
-
-        if (inviteError) console.error('Invitation update error:', inviteError);
-
-        toast.success('Account created successfully! Please check your email to verify your account.');
-        navigate('/auth?verified=pending');
+        toast.success('Account created successfully! Please sign in to continue.');
+        navigate('/auth');
       }
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
