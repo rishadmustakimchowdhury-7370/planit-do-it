@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { 
   Plus, Search, LayoutGrid, List, MapPin, Users, Calendar, 
   DollarSign, MoreHorizontal, Sparkles, Loader2, Trash2, 
-  Building2, Clock, Briefcase, Eye, Edit3, Pause, Play, XCircle
+  Building2, Clock, Briefcase, Eye, Edit3, Pause, Play, XCircle, UserCog
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { toast } from 'sonner';
 
 interface Job {
@@ -49,6 +50,7 @@ interface Job {
   employment_type: string | null;
   experience_level: string | null;
   is_remote: boolean | null;
+  assigned_to: string | null;
   clients?: { name: string; logo_url: string | null } | null;
 }
 
@@ -66,7 +68,7 @@ const statusConfig: Record<string, { color: string; icon: React.ComponentType<{ 
 
 const JobsPage = () => {
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { tenantId, user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,12 +76,32 @@ const JobsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [assignJob, setAssignJob] = useState<Job | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tenantId) {
+    if (tenantId && user?.id) {
       fetchJobs();
+      fetchUserRole();
     }
-  }, [tenantId]);
+  }, [tenantId, user?.id]);
+
+  const fetchUserRole = async () => {
+    if (!user?.id || !tenantId) return;
+    
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      setUserRole(data?.role || null);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     setIsLoading(true);
@@ -189,6 +211,7 @@ const JobsPage = () => {
 
   const JobCardGridView = ({ job, index }: { job: JobWithCandidateCount; index: number }) => {
     const StatusIcon = statusConfig[job.status]?.icon || Edit3;
+    const canAssign = userRole === 'owner' || userRole === 'manager';
     
     return (
       <motion.div
@@ -233,6 +256,12 @@ const JobsPage = () => {
                       <Edit3 className="w-4 h-4 mr-2" />
                       Edit Job
                     </DropdownMenuItem>
+                    {canAssign && (
+                      <DropdownMenuItem onClick={() => setAssignJob(job)}>
+                        <UserCog className="w-4 h-4 mr-2" />
+                        Assign Job
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     {job.status !== 'open' && (
                       <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
@@ -339,6 +368,7 @@ const JobsPage = () => {
 
   const JobCardListView = ({ job, index }: { job: JobWithCandidateCount; index: number }) => {
     const StatusIcon = statusConfig[job.status]?.icon || Edit3;
+    const canAssign = userRole === 'owner' || userRole === 'manager';
     
     return (
       <motion.div
@@ -434,6 +464,12 @@ const JobsPage = () => {
                       <Edit3 className="w-4 h-4 mr-2" />
                       Edit Job
                     </DropdownMenuItem>
+                    {canAssign && (
+                      <DropdownMenuItem onClick={() => setAssignJob(job)}>
+                        <UserCog className="w-4 h-4 mr-2" />
+                        Assign Job
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     {job.status !== 'open' && (
                       <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
@@ -656,6 +692,21 @@ const JobsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assign Job Dialog */}
+      {assignJob && (
+        <AssignJobDialog
+          open={!!assignJob}
+          onOpenChange={(open) => !open && setAssignJob(null)}
+          jobId={assignJob.id}
+          jobTitle={assignJob.title}
+          currentAssigneeId={assignJob.assigned_to}
+          onAssignmentComplete={() => {
+            setAssignJob(null);
+            fetchJobs();
+          }}
+        />
+      )}
     </AppLayout>
   );
 };
