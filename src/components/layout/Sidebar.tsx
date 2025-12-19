@@ -15,7 +15,8 @@ import {
   Shield,
   Video,
   Calendar,
-  UsersRound
+  UsersRound,
+  Clock
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ const navigation = [
 const bottomNav = [
   { name: 'Team', href: '/team', icon: UsersRound },
   { name: 'Team KPIs', href: '/team/kpi', icon: BarChart3 },
+  { name: 'Work Tracking', href: '/work-tracking', icon: Clock },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard },
 ];

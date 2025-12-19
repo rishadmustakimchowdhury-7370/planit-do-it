@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.parse-cv]
 verify_jwt = true
 
+[functions.brand-cv]
+verify_jwt = true
+
 [functions.chatbot]
 verify_jwt = false
 
