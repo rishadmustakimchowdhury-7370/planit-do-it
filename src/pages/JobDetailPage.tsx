@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
 import { SuggestedCandidates } from '@/components/jobs/SuggestedCandidates';
+import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { 
@@ -29,7 +30,8 @@ import {
   Kanban,
   MoreHorizontal,
   Trash2,
-  Eye
+  Eye,
+  UserCog
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -110,6 +112,7 @@ interface Job {
   status: string | null;
   created_at: string | null;
   client_id: string | null;
+  assigned_to: string | null;
   clients?: { name: string } | null;
 }
 
@@ -140,15 +143,36 @@ const JobDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningMatch, setIsRunningMatch] = useState(false);
   const [showAddCandidateDialog, setShowAddCandidateDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [deleteCandidate, setDeleteCandidate] = useState<JobCandidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (id && tenantId) {
       fetchJobDetails();
+      fetchUserRole();
     }
   }, [id, tenantId]);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      setUserRole(roleData?.role || null);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const fetchJobDetails = async () => {
     setIsLoading(true);
@@ -445,6 +469,17 @@ const JobDetailPage = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+              {(userRole === 'owner' || userRole === 'manager') && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5 h-10"
+                  onClick={() => setShowAssignDialog(true)}
+                >
+                  <UserCog className="w-4 h-4" />
+                  Assign
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -812,6 +847,18 @@ const JobDetailPage = () => {
           jobTitle={job.title}
           existingCandidateIds={candidates.map(c => c.candidate_id)}
           onSuccess={fetchJobDetails}
+        />
+      )}
+
+      {/* Assign Job Dialog */}
+      {job && (
+        <AssignJobDialog
+          open={showAssignDialog}
+          onOpenChange={setShowAssignDialog}
+          jobId={job.id}
+          jobTitle={job.title}
+          currentAssigneeId={job.assigned_to}
+          onAssignmentComplete={fetchJobDetails}
         />
       )}
 

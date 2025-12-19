@@ -77,3 +77,15 @@ verify_jwt = true
 
 [functions.notify-work-activity]
 verify_jwt = true
+
+[functions.send-job-assignment]
+verify_jwt = true
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
