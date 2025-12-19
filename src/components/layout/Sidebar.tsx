@@ -25,22 +25,23 @@ import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/brand/Logo';
+import { usePermissions, Permission } from '@/hooks/usePermissions';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Candidates', href: '/candidates', icon: Users },
-  { name: 'Clients', href: '/clients', icon: Building2 },
+  { name: 'Clients', href: '/clients', icon: Building2, permission: 'can_add_clients' as Permission },
   { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'AI Matching', href: '/ai-match', icon: Sparkles },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
+  { name: 'AI Matching', href: '/ai-match', icon: Sparkles, permission: 'can_use_ai_match' as Permission },
+  { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'can_view_reports' as Permission },
   { name: 'Tutorials', href: '/tutorials', icon: Video },
 ];
 
 const bottomNav = [
-  { name: 'Team', href: '/team', icon: UsersRound },
+  { name: 'Team', href: '/team', icon: UsersRound, permission: 'can_manage_team' as Permission },
   { name: 'Settings', href: '/settings', icon: Settings },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
+  { name: 'Billing', href: '/billing', icon: CreditCard, permission: 'can_view_billing' as Permission },
 ];
 
 const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
@@ -49,6 +50,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut, isOwner, isManager, isRecruiter } = useAuth();
+  const { hasPermission } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleSignOut = async () => {
@@ -98,9 +100,10 @@ export function Sidebar() {
           )}
         </AnimatePresence>
         {navigation.map((item) => {
-          // Hide certain items from recruiters
+          // Hide certain items from recruiters who don't have permissions
           if (isRecruiter && !isOwner && !isManager) {
-            if (item.href === '/clients' || item.href === '/ai-match' || item.href === '/reports') {
+            // If item requires permission, check it
+            if (item.permission && !hasPermission(item.permission)) {
               return null;
             }
           }
@@ -185,9 +188,10 @@ export function Sidebar() {
         
         
         {bottomNav.map((item) => {
-          // Hide team and billing from recruiters
+          // Hide certain items from recruiters who don't have permissions
           if (isRecruiter && !isOwner && !isManager) {
-            if (item.href === '/team' || item.href === '/billing') {
+            // If item requires permission, check it
+            if (item.permission && !hasPermission(item.permission)) {
               return null;
             }
           }

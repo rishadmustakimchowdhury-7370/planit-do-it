@@ -21,7 +21,8 @@ import {
   Search,
   MoreVertical,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -29,6 +30,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { AssignAICreditsDialog } from '@/components/team/AssignAICreditsDialog';
+import { ManagePermissionsDialog } from '@/components/team/ManagePermissionsDialog';
 import {
   Dialog,
   DialogContent,
@@ -109,6 +111,7 @@ export default function TeamMembersPage() {
   const [memberToDeactivate, setMemberToDeactivate] = useState<TeamMember | null>(null);
   const [inviteToCancel, setInviteToCancel] = useState<TeamInvitation | null>(null);
   const [memberForCredits, setMemberForCredits] = useState<TeamMember | null>(null);
+  const [memberForPermissions, setMemberForPermissions] = useState<TeamMember | null>(null);
   
   // Use auth context roles instead of checking teamMembers array
   const canManageTeam = isOwner || isManager;
@@ -580,6 +583,15 @@ export default function TeamMembersPage() {
                                     <DropdownMenuSeparator />
                                   </>
                                 )}
+                                {isOwner && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => setMemberForPermissions(member)}>
+                                      <Settings className="h-4 w-4 mr-2" />
+                                      Manage Permissions
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem onClick={() => handleChangeRole(member.id, 'manager')}>
                                   Make Manager
                                 </DropdownMenuItem>
@@ -800,6 +812,18 @@ export default function TeamMembersPage() {
           member={memberForCredits}
           onSuccess={fetchTeamData}
         />
+
+        {/* Manage Permissions Dialog */}
+        {memberForPermissions && (
+          <ManagePermissionsDialog
+            open={!!memberForPermissions}
+            onOpenChange={(open) => !open && setMemberForPermissions(null)}
+            userId={memberForPermissions.id}
+            userName={memberForPermissions.profile?.full_name || memberForPermissions.profile?.email || 'User'}
+            userRole={ROLE_LABELS[memberForPermissions.role] || memberForPermissions.role}
+            onUpdate={fetchTeamData}
+          />
+        )}
       </div>
     </AppLayout>
   );
