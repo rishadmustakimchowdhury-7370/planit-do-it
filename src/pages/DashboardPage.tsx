@@ -23,7 +23,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { profile, tenantId } = useAuth();
+  const { profile, tenantId, isOwner, isManager, isRecruiter } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -154,7 +154,9 @@ export default function DashboardPage() {
             Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
           </h1>
           <p className="text-muted-foreground">
-            Here's what's happening with your recruitment pipeline today.
+            {isOwner && "Here's an overview of your team's performance and recruitment pipeline."}
+            {isManager && "Monitor your team's activity and recruitment metrics."}
+            {isRecruiter && "Here's what's happening with your recruitment pipeline today."}
           </p>
         </motion.div>
 
@@ -184,11 +186,55 @@ export default function DashboardPage() {
           <QuickActions />
         </motion.div>
 
+        {/* Role-based Performance Section */}
+        {(isOwner || isManager) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-6 border rounded-lg bg-card">
+                <h3 className="text-lg font-semibold mb-4">
+                  {isOwner ? "Team Performance" : "Recruiter Performance"}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {isOwner 
+                    ? "View detailed performance metrics for managers and recruiters"
+                    : "Monitor your recruiters' activity and productivity"
+                  }
+                </p>
+                <a 
+                  href={isOwner ? "/work-tracking" : "/manager-dashboard"}
+                  className="text-primary hover:underline text-sm font-medium"
+                >
+                  View Details →
+                </a>
+              </div>
+              
+              {isOwner && (
+                <div className="p-6 border rounded-lg bg-card">
+                  <h3 className="text-lg font-semibold mb-4">Team KPIs</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Comprehensive analytics and key performance indicators
+                  </p>
+                  <a 
+                    href="/team-kpis"
+                    className="text-primary hover:underline text-sm font-medium"
+                  >
+                    View Analytics →
+                  </a>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Video Tutorials Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
+          transition={{ delay: 0.4 }}
         >
           <VideoTutorials />
         </motion.div>
@@ -199,7 +245,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.5 }}
             className="lg:col-span-2"
           >
             <RecentJobs />
@@ -209,7 +255,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.6 }}
           >
             <ActivityFeed />
           </motion.div>
@@ -219,7 +265,7 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.7 }}
         >
           <TopCandidates />
         </motion.div>

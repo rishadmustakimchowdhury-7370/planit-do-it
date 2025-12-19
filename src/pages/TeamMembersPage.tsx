@@ -91,7 +91,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function TeamMembersPage() {
-  const { profile, tenantId, user } = useAuth();
+  const { profile, tenantId, user, isOwner, isManager } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
@@ -109,6 +109,9 @@ export default function TeamMembersPage() {
   const [memberToDeactivate, setMemberToDeactivate] = useState<TeamMember | null>(null);
   const [inviteToCancel, setInviteToCancel] = useState<TeamInvitation | null>(null);
   const [memberForCredits, setMemberForCredits] = useState<TeamMember | null>(null);
+  
+  // Use auth context roles instead of checking teamMembers array
+  const canManageTeam = isOwner || isManager;
 
   useEffect(() => {
     if (tenantId) {
@@ -390,10 +393,6 @@ export default function TeamMembersPage() {
       default: return 'outline';
     }
   };
-
-  const currentUserRole = teamMembers.find(m => m.user_id === user?.id)?.role;
-  const canManageTeam = currentUserRole === 'owner' || currentUserRole === 'manager';
-  const isOwner = currentUserRole === 'owner';
 
   return (
     <AppLayout title="Team Members" subtitle="Manage your recruitment team">
