@@ -205,15 +205,15 @@ export default function AuthPage() {
   const handleForgotPassword = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth?mode=reset`,
+      const { data: result, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: data.email },
       });
       
       if (error) throw error;
       
       toast({
         title: 'Password reset email sent',
-        description: 'Check your email for the password reset link.',
+        description: 'Check your email for the password reset link. It will expire in 1 hour.',
       });
       setShowForgotPassword(false);
       forgotPasswordForm.reset();
