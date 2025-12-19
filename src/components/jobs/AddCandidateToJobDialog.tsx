@@ -156,6 +156,18 @@ export function AddCandidateToJobDialog({
 
       if (error) throw error;
 
+      // Log CV submissions for tracking
+      const submissionData = selectedIds.map(candidateId => ({
+        tenant_id: currentTenantId,
+        candidate_id: candidateId,
+        job_id: jobId,
+        submitted_by: user?.id || '',
+        submitted_at: new Date().toISOString(),
+        metadata: { source: 'add_candidate_dialog' }
+      }));
+
+      await supabase.from('cv_submissions').insert(submissionData);
+
       // Log activity
       await supabase.from('activities').insert({
         tenant_id: currentTenantId,
