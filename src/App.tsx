@@ -12,6 +12,7 @@ import JobsPage from "./pages/JobsPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import EditJobPage from "./pages/EditJobPage";
 import AddJobPage from "./pages/AddJobPage";
+import JobAssignmentsPage from "./pages/JobAssignmentsPage";
 import CandidatesPage from "./pages/CandidatesPage";
 import CandidateDetailPage from "./pages/CandidateDetailPage";
 import AddCandidatePage from "./pages/AddCandidatePage";
@@ -123,6 +124,7 @@ const AppRoutes = () => (
     {/* Protected routes */}
     <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />
     <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
+    <Route path="/jobs/assignments" element={<ProtectedRoute><JobAssignmentsPage /></ProtectedRoute>} />
     <Route path="/jobs/new" element={<ProtectedRoute><AddJobPage /></ProtectedRoute>} />
     <Route path="/jobs/:id" element={<ProtectedRoute><JobDetailPage /></ProtectedRoute>} />
     <Route path="/jobs/:id/edit" element={<ProtectedRoute><EditJobPage /></ProtectedRoute>} />

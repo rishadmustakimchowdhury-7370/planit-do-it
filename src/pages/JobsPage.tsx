@@ -68,7 +68,7 @@ const statusConfig: Record<string, { color: string; icon: React.ComponentType<{ 
 
 const JobsPage = () => {
   const navigate = useNavigate();
-  const { tenantId, user } = useAuth();
+  const { tenantId, user, isOwner, isManager } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,31 +77,14 @@ const JobsPage = () => {
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [assignJob, setAssignJob] = useState<Job | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+
+  const canAssign = isOwner || isManager;
 
   useEffect(() => {
-    if (tenantId && user?.id) {
+    if (tenantId) {
       fetchJobs();
-      fetchUserRole();
     }
-  }, [tenantId, user?.id]);
-
-  const fetchUserRole = async () => {
-    if (!user?.id || !tenantId) return;
-    
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('tenant_id', tenantId)
-        .single();
-
-      setUserRole(data?.role || null);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-    }
-  };
+  }, [tenantId]);
 
   const fetchJobs = async () => {
     setIsLoading(true);
@@ -211,7 +194,6 @@ const JobsPage = () => {
 
   const JobCardGridView = ({ job, index }: { job: JobWithCandidateCount; index: number }) => {
     const StatusIcon = statusConfig[job.status]?.icon || Edit3;
-    const canAssign = userRole === 'owner' || userRole === 'manager';
     
     return (
       <motion.div
@@ -368,7 +350,6 @@ const JobsPage = () => {
 
   const JobCardListView = ({ job, index }: { job: JobWithCandidateCount; index: number }) => {
     const StatusIcon = statusConfig[job.status]?.icon || Edit3;
-    const canAssign = userRole === 'owner' || userRole === 'manager';
     
     return (
       <motion.div
