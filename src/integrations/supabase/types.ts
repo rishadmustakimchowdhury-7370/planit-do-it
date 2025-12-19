@@ -2961,9 +2961,11 @@ export type Database = {
       }
       work_sessions: {
         Row: {
+          bod_summary: string | null
           created_at: string | null
           date: string
           ended_at: string | null
+          eod_summary: string | null
           id: string
           started_at: string | null
           status: Database["public"]["Enums"]["work_status"] | null
@@ -2974,9 +2976,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bod_summary?: string | null
           created_at?: string | null
           date?: string
           ended_at?: string | null
+          eod_summary?: string | null
           id?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["work_status"] | null
@@ -2987,9 +2991,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bod_summary?: string | null
           created_at?: string | null
           date?: string
           ended_at?: string | null
+          eod_summary?: string | null
           id?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["work_status"] | null

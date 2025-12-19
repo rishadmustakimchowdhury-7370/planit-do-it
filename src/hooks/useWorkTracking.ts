@@ -15,6 +15,8 @@ interface WorkSession {
   total_work_minutes: number;
   total_break_minutes: number;
   status: WorkStatus;
+  bod_summary?: string | null;
+  eod_summary?: string | null;
 }
 
 interface WorkStatusLog {
@@ -289,6 +291,34 @@ export function useWorkTracking() {
     }
   };
 
+  // Save BOD or EOD summary
+  const saveSummary = async (type: 'bod' | 'eod', summary: string) => {
+    if (!user?.id || !tenantId) {
+      throw new Error('User not authenticated');
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const field = type === 'bod' ? 'bod_summary' : 'eod_summary';
+
+    const { error } = await supabase
+      .from('work_sessions')
+      .upsert(
+        {
+          tenant_id: tenantId,
+          user_id: user.id,
+          date: today,
+          [field]: summary,
+          updated_at: new Date().toISOString(),
+        } as any,
+        {
+          onConflict: 'user_id,date',
+        }
+      );
+
+    if (error) throw error;
+    await fetchTodaySession();
+  };
+
   return {
     currentStatus,
     todaySession,
@@ -299,6 +329,7 @@ export function useWorkTracking() {
     fetchTodaySession,
     fetchTodayLogs,
     calculateMinutesFromLogs,
+    saveSummary,
   };
 }
 
