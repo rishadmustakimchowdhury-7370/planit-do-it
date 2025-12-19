@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { 
   User, 
   Building2, 
@@ -108,6 +109,21 @@ export default function SettingsPage() {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [logoSignedUrl, setLogoSignedUrl] = useState<string | null>(null);
   
+  // Notification preferences state
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    new_candidate: true,
+    job_assignment: true,
+    ai_match_complete: true,
+    interview_reminder: true,
+    offer_sent: true,
+    candidate_hired: true,
+    candidate_rejected: false,
+    team_invitation: true,
+    weekly_digest: true,
+    email_notifications: true,
+    in_app_notifications: true,
+  });
+  
   const [profileData, setProfileData] = useState({
     full_name: '',
     email: '',
@@ -135,6 +151,16 @@ export default function SettingsPage() {
         linkedin_url: '',
         email_signature: profile.email_signature || '',
       });
+
+      // Load notification preferences if they exist
+      try {
+        const savedPrefs = (profile as any).notification_preferences;
+        if (savedPrefs && typeof savedPrefs === 'object') {
+          setNotificationPrefs({ ...notificationPrefs, ...savedPrefs });
+        }
+      } catch (error) {
+        console.log('No saved notification preferences');
+      }
     }
     
     if (tenantId) {
@@ -468,6 +494,30 @@ export default function SettingsPage() {
     if (!url) return true;
     const linkedinRegex = /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|company)\/[\w-]+\/?$/;
     return linkedinRegex.test(url);
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!profile?.id) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          notification_preferences: notificationPrefs,
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      
+      await refreshProfile();
+      toast.success('Notification preferences updated');
+    } catch (error: any) {
+      console.error('Error updating notifications:', error);
+      toast.error(error.message || 'Failed to update preferences');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -1056,25 +1106,101 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>Notification Preferences</CardTitle>
                   <CardDescription>
-                    Choose how you want to receive notifications
+                    Choose how and when you want to receive notifications
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
+                  {/* Email & In-App Toggle */}
                   <div className="space-y-4">
-                    {[
-                      { label: 'New candidate applications', description: 'Get notified when candidates apply to your jobs' },
-                      { label: 'AI match results', description: 'Receive updates when AI matching completes' },
-                      { label: 'Interview reminders', description: 'Get reminded about upcoming interviews' },
-                      { label: 'Weekly digest', description: 'Receive a weekly summary of activities' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-lg border">
+                    <h4 className="font-medium">Notification Channels</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 rounded-lg border">
                         <div>
-                          <p className="font-medium">{item.label}</p>
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                          <p className="font-medium">Email Notifications</p>
+                          <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                         </div>
-                        <Badge variant="secondary">Coming Soon</Badge>
+                        <Switch
+                          checked={notificationPrefs.email_notifications}
+                          onCheckedChange={(checked) => 
+                            setNotificationPrefs({ ...notificationPrefs, email_notifications: checked })
+                          }
+                        />
                       </div>
-                    ))}
+                      <div className="flex items-center justify-between p-4 rounded-lg border">
+                        <div>
+                          <p className="font-medium">In-App Notifications</p>
+                          <p className="text-sm text-muted-foreground">Show notifications in the app</p>
+                        </div>
+                        <Switch
+                          checked={notificationPrefs.in_app_notifications}
+                          onCheckedChange={(checked) => 
+                            setNotificationPrefs({ ...notificationPrefs, in_app_notifications: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Specific Notifications */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Activity Notifications</h4>
+                    <div className="space-y-3">
+                      {[
+                        { key: 'new_candidate', label: 'New Candidate Applications', description: 'When candidates apply to your jobs or are added' },
+                        { key: 'job_assignment', label: 'Job Assignments', description: 'When you are assigned to a new job' },
+                        { key: 'ai_match_complete', label: 'AI Match Results', description: 'When AI matching completes for a job' },
+                        { key: 'interview_reminder', label: 'Interview Reminders', description: 'Reminders for upcoming interviews (24h and 1h before)' },
+                        { key: 'offer_sent', label: 'Offer Notifications', description: 'When an offer is sent to a candidate' },
+                        { key: 'candidate_hired', label: 'Hire Notifications', description: 'When a candidate is marked as hired' },
+                        { key: 'candidate_rejected', label: 'Rejection Notifications', description: 'When a candidate is rejected' },
+                        { key: 'team_invitation', label: 'Team Invitations', description: 'When new members are invited to the team' },
+                      ].map((item) => (
+                        <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                          <div>
+                            <p className="font-medium">{item.label}</p>
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          </div>
+                          <Switch
+                            checked={notificationPrefs[item.key as keyof typeof notificationPrefs] as boolean}
+                            onCheckedChange={(checked) => 
+                              setNotificationPrefs({ ...notificationPrefs, [item.key]: checked })
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Digest Settings */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Digest Settings</h4>
+                    <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                      <div>
+                        <p className="font-medium">Weekly Digest</p>
+                        <p className="text-sm text-muted-foreground">Receive a weekly summary of all activities every Monday</p>
+                      </div>
+                      <Switch
+                        checked={notificationPrefs.weekly_digest}
+                        onCheckedChange={(checked) => 
+                          setNotificationPrefs({ ...notificationPrefs, weekly_digest: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <Button onClick={handleSaveNotifications} disabled={isSaving}>
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Save Preferences
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
