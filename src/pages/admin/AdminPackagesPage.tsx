@@ -41,6 +41,8 @@ export default function AdminPackagesPage() {
     description: '',
     price_monthly: 0,
     price_yearly: 0,
+    stripe_price_id_monthly: '',
+    stripe_price_id_yearly: '',
     max_users: 3,
     max_jobs: 10,
     max_candidates: 100,
@@ -79,6 +81,8 @@ export default function AdminPackagesPage() {
         description: plan.description || '',
         price_monthly: plan.price_monthly,
         price_yearly: plan.price_yearly,
+        stripe_price_id_monthly: (plan as any).stripe_price_id_monthly || '',
+        stripe_price_id_yearly: (plan as any).stripe_price_id_yearly || '',
         max_users: plan.max_users || 3,
         max_jobs: plan.max_jobs || 10,
         max_candidates: plan.max_candidates || 100,
@@ -95,6 +99,8 @@ export default function AdminPackagesPage() {
         description: '',
         price_monthly: 0,
         price_yearly: 0,
+        stripe_price_id_monthly: '',
+        stripe_price_id_yearly: '',
         max_users: 3,
         max_jobs: 10,
         max_candidates: 100,
@@ -121,6 +127,8 @@ export default function AdminPackagesPage() {
         description: formData.description || null,
         price_monthly: formData.price_monthly,
         price_yearly: formData.price_yearly,
+        stripe_price_id_monthly: formData.stripe_price_id_monthly || null,
+        stripe_price_id_yearly: formData.stripe_price_id_yearly || null,
         max_users: formData.max_users,
         max_jobs: formData.max_jobs,
         max_candidates: formData.max_candidates,
@@ -227,6 +235,30 @@ export default function AdminPackagesPage() {
                       value={formData.price_yearly}
                       onChange={(e) => setFormData({ ...formData, price_yearly: parseFloat(e.target.value) || 0 })}
                     />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Stripe Monthly Price ID</Label>
+                    <Input
+                      value={formData.stripe_price_id_monthly}
+                      onChange={(e) => setFormData({ ...formData, stripe_price_id_monthly: e.target.value })}
+                      placeholder="price_1Abc..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      From Stripe Dashboard → Products → Price ID
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Stripe Yearly Price ID</Label>
+                    <Input
+                      value={formData.stripe_price_id_yearly}
+                      onChange={(e) => setFormData({ ...formData, stripe_price_id_yearly: e.target.value })}
+                      placeholder="price_1Xyz..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Optional: For annual billing
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-4">
