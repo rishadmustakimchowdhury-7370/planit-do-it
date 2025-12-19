@@ -159,6 +159,26 @@ export function useWorkTracking() {
       setCurrentStatus(newStatus);
       await fetchTodaySession();
 
+      // Send email notification to admins
+      if (tenantId && user?.email) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        // Fire and forget - don't block on email sending
+        supabase.functions.invoke('notify-work-activity', {
+          body: {
+            user_id: user.id,
+            user_name: profile?.full_name || '',
+            user_email: user.email,
+            action: action,
+            tenant_id: tenantId,
+          }
+        }).catch(err => console.error('Email notification error:', err));
+      }
+
       const actionMessages: Record<WorkAction, string> = {
         'start_work': 'Work session started',
         'start_break': 'Break started',

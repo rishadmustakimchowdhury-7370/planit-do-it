@@ -30,8 +30,9 @@ serve(async (req) => {
       );
     }
 
-    // Get the app URL from environment or use default
-    const appUrl = Deno.env.get('APP_URL') || 'https://efdvolifacsnmiinifiq.lovableproject.com';
+    // Get the app URL from request origin or environment
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
+    const appUrl = origin || Deno.env.get('APP_URL') || 'http://localhost:3000';
     const inviteUrl = `${appUrl}/accept-invitation?token=${token}`;
 
     const roleLabels: Record<string, string> = {
