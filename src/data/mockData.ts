@@ -4,7 +4,7 @@ export const currentUser: User = {
   id: '1',
   name: 'Alex Morgan',
   email: 'alex@recruitcrm.io',
-  role: 'admin',
+  role: 'owner',
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
   createdAt: new Date('2024-01-01'),
 };

@@ -16,7 +16,7 @@ interface Profile {
 }
 
 interface UserRole {
-  role: 'super_admin' | 'admin' | 'recruiter' | 'support' | 'viewer';
+  role: 'owner' | 'manager' | 'recruiter';
   tenant_id: string | null;
 }
 
@@ -26,8 +26,9 @@ interface AuthContextType {
   profile: Profile | null;
   roles: UserRole[];
   isLoading: boolean;
-  isSuperAdmin: boolean;
-  isAdmin: boolean;
+  isOwner: boolean;
+  isManager: boolean;
+  isRecruiter: boolean;
   tenantId: string | null;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -165,8 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isSuperAdmin = roles.some(r => r.role === 'super_admin');
-  const isAdmin = roles.some(r => r.role === 'admin' || r.role === 'super_admin');
+  const isOwner = roles.some(r => r.role === 'owner');
+  const isManager = roles.some(r => r.role === 'manager');
+  const isRecruiter = roles.some(r => r.role === 'recruiter');
   const tenantId = profile?.tenant_id ?? null;
 
   return (
@@ -177,8 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         isLoading,
-        isSuperAdmin,
-        isAdmin,
+        isOwner,
+        isManager,
+        isRecruiter,
         tenantId,
         signUp,
         signIn,

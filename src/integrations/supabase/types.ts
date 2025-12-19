@@ -3059,6 +3059,10 @@ export type Database = {
     }
     Functions: {
       generate_invoice_number: { Args: never; Returns: string }
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -3067,6 +3071,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       promote_to_super_admin: {
         Args: { user_email: string }
@@ -3081,6 +3088,7 @@ export type Database = {
         | "support"
         | "viewer"
         | "manager"
+        | "owner"
       candidate_status:
         | "new"
         | "screening"
@@ -3255,6 +3263,7 @@ export const Constants = {
         "support",
         "viewer",
         "manager",
+        "owner",
       ],
       candidate_status: [
         "new",
