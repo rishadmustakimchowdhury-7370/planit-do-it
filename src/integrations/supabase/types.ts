@@ -918,6 +918,82 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_transactions: {
+        Row: {
+          action_type: string
+          balance_after: number
+          balance_before: number
+          cost: number
+          created_at: string
+          id: string
+          metadata: Json | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          balance_after: number
+          balance_before: number
+          cost: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          balance_after?: number
+          balance_before?: number
+          cost?: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credits: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credits_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_submissions: {
         Row: {
           candidate_id: string
@@ -1921,6 +1997,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           email: string
           email_signature: string | null
           full_name: string | null
@@ -1937,6 +2015,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email: string
           email_signature?: string | null
           full_name?: string | null
@@ -1953,6 +2033,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           email?: string
           email_signature?: string | null
           full_name?: string | null
@@ -3070,17 +3152,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_credits: {
+        Args: {
+          p_action_type: string
+          p_amount: number
+          p_metadata?: Json
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      deduct_credits: {
+        Args: {
+          p_action_type: string
+          p_cost: number
+          p_metadata?: Json
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       generate_invoice_number: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
+      hard_delete_user: {
+        Args: { p_deleted_by: string; p_user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_sufficient_credits: {
+        Args: { p_required_credits: number; p_tenant_id: string }
         Returns: boolean
       }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
@@ -3090,6 +3200,14 @@ export type Database = {
       promote_to_super_admin: {
         Args: { user_email: string }
         Returns: undefined
+      }
+      restore_user: {
+        Args: { p_restored_by: string; p_user_id: string }
+        Returns: boolean
+      }
+      soft_delete_user: {
+        Args: { p_deleted_by: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
