@@ -173,50 +173,25 @@ export default function AdminUsersPage() {
     try {
       setIsProcessing(true);
 
-      // Create user via Supabase Auth Admin API (this requires service role)
-      // Since we can't use service role from frontend, we'll use signUp 
-      // In production, this should be done via an edge function
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUserForm.email,
-        password: newUserForm.password,
-        options: {
-          data: {
-            full_name: newUserForm.fullName,
-          },
+      // Call edge function to create user with service role
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: newUserForm.email,
+          password: newUserForm.password,
+          fullName: newUserForm.fullName,
+          companyName: newUserForm.companyName || `${newUserForm.fullName}'s Workspace`,
+          planId: newUserForm.selectedPlan || null,
         },
       });
 
-      if (authError) throw authError;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      if (authData.user) {
-        // If a plan is selected, update the tenant
-        if (newUserForm.selectedPlan) {
-          // Wait a bit for the trigger to create profile/tenant
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('tenant_id')
-            .eq('id', authData.user.id)
-            .single();
-
-          if (profile?.tenant_id) {
-            await supabase
-              .from('tenants')
-              .update({ 
-                subscription_plan_id: newUserForm.selectedPlan,
-                name: newUserForm.companyName || `${newUserForm.fullName}'s Workspace`,
-              })
-              .eq('id', profile.tenant_id);
-          }
-        }
-
-        await logAuditAction('create_user', authData.user.id, { email: newUserForm.email });
-        toast.success('User created successfully! They will receive a confirmation email.');
-        setShowAddUserDialog(false);
-        setNewUserForm({ email: '', fullName: '', password: '', companyName: '', selectedPlan: '' });
-        fetchUsers();
-      }
+      await logAuditAction('create_user', data.user.id, { email: newUserForm.email });
+      toast.success('User created successfully! Account is ready to use.');
+      setShowAddUserDialog(false);
+      setNewUserForm({ email: '', fullName: '', password: '', companyName: '', selectedPlan: '' });
+      fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast.error(error.message || 'Failed to create user');
