@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 import {
   Dialog,
   DialogContent,
@@ -95,6 +96,7 @@ export default function TeamMembersPage() {
   const [teamLimit, setTeamLimit] = useState(2);
   const [planName, setPlanName] = useState('Starter');
   const [searchQuery, setSearchQuery] = useState('');
+  const { checkLimit, showLimitError } = useUsageLimits();
   
   // Dialog states
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -196,9 +198,9 @@ export default function TeamMembersPage() {
       return;
     }
 
-    const currentCount = teamMembers.length + invitations.length;
-    if (currentCount >= teamLimit) {
-      toast.error(`Team limit reached (${teamLimit} members). Upgrade your plan for more seats.`);
+    // Check team member limit
+    if (checkLimit('teamMembers')) {
+      showLimitError('team members');
       return;
     }
 

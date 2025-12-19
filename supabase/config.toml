@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.subscription-lifecycle]
 verify_jwt = false
+
+[functions.get-usage-stats]
+verify_jwt = true

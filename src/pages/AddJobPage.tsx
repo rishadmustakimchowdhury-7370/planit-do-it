@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { cn } from '@/lib/utils';
 import { currencies } from '@/lib/currencies';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface Client {
   id: string;
@@ -31,6 +32,7 @@ export default function AddJobPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const { checkLimit, showLimitError } = useUsageLimits();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -114,6 +116,12 @@ export default function AddJobPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check jobs limit
+    if (checkLimit('jobs')) {
+      showLimitError('jobs');
+      return;
+    }
     
     if (!tenantId) {
       toast.error('No tenant found. Please log in again.');
