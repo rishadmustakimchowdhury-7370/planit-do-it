@@ -3191,6 +3191,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      fix_invited_user_profile: {
+        Args: { p_email: string; p_invitation_id: string; p_user_id: string }
+        Returns: undefined
+      }
       generate_invoice_number: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
