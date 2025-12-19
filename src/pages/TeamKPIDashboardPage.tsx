@@ -150,21 +150,27 @@ export default function TeamKPIDashboardPage() {
     try {
       const { start, end } = getDateRange();
 
-      // Fetch team members if admin/manager
+      // Fetch team members FIRST if admin/manager
       if (userRole === 'owner' || userRole === 'manager') {
-        const { data: rolesData } = await supabase
+        const { data: rolesData, error: rolesError } = await supabase
           .from('user_roles')
           .select('user_id')
           .eq('tenant_id', tenantId);
 
-        if (rolesData) {
+        if (rolesError) {
+          console.error('Error fetching roles:', rolesError);
+        } else if (rolesData) {
           const userIds = rolesData.map(r => r.user_id);
-          const { data: profilesData } = await supabase
+          const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('id, full_name, email, avatar_url')
             .in('id', userIds);
 
-          setTeamMembers(profilesData || []);
+          if (profilesError) {
+            console.error('Error fetching profiles:', profilesError);
+          } else {
+            setTeamMembers(profilesData || []);
+          }
         }
       }
 
@@ -187,12 +193,25 @@ export default function TeamKPIDashboardPage() {
 
       if (error) throw error;
 
+      // Get updated profiles for activities
+      const activityUserIds = [...new Set((activities || []).map(a => a.user_id))];
+      let activityProfiles = teamMembers;
+      
+      if (activityUserIds.length > 0) {
+        const { data: activityProfilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', activityUserIds);
+        
+        activityProfiles = activityProfilesData || teamMembers;
+      }
+
       // Process activities into KPIs
       const kpiMap = new Map<string, TeamMemberKPI>();
       
       for (const activity of activities || []) {
         if (!kpiMap.has(activity.user_id)) {
-          const memberProfile = teamMembers.find(m => m.id === activity.user_id) || { full_name: 'Unknown', email: '', avatar_url: null };
+          const memberProfile = activityProfiles.find(m => m.id === activity.user_id) || { full_name: 'Unknown', email: '', avatar_url: null };
           kpiMap.set(activity.user_id, {
             user_id: activity.user_id,
             full_name: memberProfile.full_name || 'Unknown',
