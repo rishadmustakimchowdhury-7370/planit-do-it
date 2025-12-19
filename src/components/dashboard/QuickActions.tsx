@@ -2,15 +2,24 @@ import { Briefcase, Users, Building2, Sparkles, Plus, FileText, UserPlus } from 
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 
-const quickActions = [
-  { label: 'Add Job', icon: Briefcase, href: '/jobs/new', color: 'bg-accent text-accent-foreground' },
-  { label: 'Upload CV', icon: FileText, href: '/candidates/new', color: 'bg-success text-success-foreground' },
-  { label: 'Add Client', icon: Building2, href: '/clients/new', color: 'bg-warning text-warning-foreground' },
-  { label: 'Run AI Match', icon: Sparkles, href: '/ai-match', color: 'bg-info text-info-foreground' },
+const allActions = [
+  { label: 'Add Job', icon: Briefcase, href: '/jobs/new', color: 'bg-accent text-accent-foreground', roles: ['owner', 'manager'] },
+  { label: 'Upload CV', icon: FileText, href: '/candidates/new', color: 'bg-success text-success-foreground', roles: ['owner', 'manager', 'recruiter'] },
+  { label: 'Add Client', icon: Building2, href: '/clients/new', color: 'bg-warning text-warning-foreground', roles: ['owner', 'manager'] },
+  { label: 'Run AI Match', icon: Sparkles, href: '/ai-match', color: 'bg-info text-info-foreground', roles: ['owner', 'manager'] },
 ];
 
 export function QuickActions() {
+  const { isOwner, isManager, isRecruiter, roles } = useAuth();
+  const userRole = roles[0]?.role;
+
+  // Filter actions based on user role
+  const quickActions = allActions.filter(action => 
+    action.roles.includes(userRole as 'owner' | 'manager' | 'recruiter')
+  );
+
   return (
     <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>

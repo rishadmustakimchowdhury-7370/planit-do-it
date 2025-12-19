@@ -98,6 +98,13 @@ export function Sidebar() {
           )}
         </AnimatePresence>
         {navigation.map((item) => {
+          // Hide certain items from recruiters
+          if (isRecruiter && !isOwner && !isManager) {
+            if (item.href === '/clients' || item.href === '/ai-match' || item.href === '/reports') {
+              return null;
+            }
+          }
+
           const isActive = location.pathname === item.href || 
             (item.href !== '/' && location.pathname.startsWith(item.href));
           
@@ -178,6 +185,13 @@ export function Sidebar() {
         
         
         {bottomNav.map((item) => {
+          // Hide team and billing from recruiters
+          if (isRecruiter && !isOwner && !isManager) {
+            if (item.href === '/team' || item.href === '/billing') {
+              return null;
+            }
+          }
+
           const isActive = location.pathname === item.href;
           
           return (

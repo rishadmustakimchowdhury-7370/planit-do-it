@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RoleGate } from '@/components/auth/RoleGate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -137,7 +138,8 @@ export default function AddClientPage() {
   };
 
   return (
-    <AppLayout>
+    <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
+      <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -340,5 +342,6 @@ export default function AddClientPage() {
         </form>
       </div>
     </AppLayout>
+    </RoleGate>
   );
 }

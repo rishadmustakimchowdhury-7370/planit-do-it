@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RoleGate } from '@/components/auth/RoleGate';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -214,7 +215,8 @@ const AIMatchPage = () => {
   };
 
   return (
-    <AppLayout title="AI Matching" subtitle="Match candidates to jobs using AI-powered analysis.">
+    <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
+      <AppLayout title="AI Matching" subtitle="Match candidates to jobs using AI-powered analysis.">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Selection Panel */}
         <motion.div 
@@ -357,6 +359,7 @@ const AIMatchPage = () => {
         </motion.div>
       </div>
     </AppLayout>
+    </RoleGate>
   );
 };
 

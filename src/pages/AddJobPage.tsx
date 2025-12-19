@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RoleGate } from '@/components/auth/RoleGate';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -174,7 +175,8 @@ export default function AddJobPage() {
   const selectedClient = clients.find(c => c.id === formData.clientId);
 
   return (
-    <AppLayout>
+    <RoleGate allowedRoles={['owner', 'manager']} redirectTo="/dashboard">
+      <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -552,5 +554,6 @@ export default function AddJobPage() {
         </form>
       </div>
     </AppLayout>
+    </RoleGate>
   );
 }
