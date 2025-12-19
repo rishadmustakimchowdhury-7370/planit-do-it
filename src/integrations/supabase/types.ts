@@ -918,6 +918,61 @@ export type Database = {
         }
         Relationships: []
       }
+      cv_submissions: {
+        Row: {
+          candidate_id: string
+          created_at: string | null
+          id: string
+          job_id: string
+          metadata: Json | null
+          submitted_at: string
+          submitted_by: string
+          tenant_id: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string | null
+          id?: string
+          job_id: string
+          metadata?: Json | null
+          submitted_at?: string
+          submitted_by: string
+          tenant_id: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string | null
+          id?: string
+          job_id?: string
+          metadata?: Json | null
+          submitted_at?: string
+          submitted_by?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_submissions_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_submissions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_submissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demo_bookings: {
         Row: {
           created_at: string
@@ -2444,6 +2499,41 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_work_settings: {
+        Row: {
+          auto_end_time: string | null
+          created_at: string | null
+          id: string
+          tenant_id: string
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_end_time?: string | null
+          created_at?: string | null
+          id?: string
+          tenant_id: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_end_time?: string | null
+          created_at?: string | null
+          id?: string
+          tenant_id?: string
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_work_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           created_at: string | null
@@ -2869,6 +2959,94 @@ export type Database = {
         }
         Relationships: []
       }
+      work_sessions: {
+        Row: {
+          created_at: string | null
+          date: string
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["work_status"] | null
+          tenant_id: string
+          total_break_minutes: number | null
+          total_work_minutes: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["work_status"] | null
+          tenant_id: string
+          total_break_minutes?: number | null
+          total_work_minutes?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["work_status"] | null
+          tenant_id?: string
+          total_break_minutes?: number | null
+          total_work_minutes?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_status_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          tenant_id: string
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id: string
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id?: string
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_status_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2936,6 +3114,7 @@ export type Database = {
         | "past_due"
         | "canceled"
         | "suspended"
+      work_status: "working" | "on_break" | "ended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3115,6 +3294,7 @@ export const Constants = {
         "canceled",
         "suspended",
       ],
+      work_status: ["working", "on_break", "ended"],
     },
   },
 } as const

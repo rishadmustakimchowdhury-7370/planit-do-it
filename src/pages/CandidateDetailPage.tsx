@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
+import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
 import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
 
 interface Candidate {
@@ -352,47 +353,52 @@ const CandidateDetailPage = () => {
         </TabsContent>
 
         <TabsContent value="cv" className="mt-6">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-card rounded-xl border border-border p-6 shadow-sm"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Resume</h3>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
-                <Download className="w-4 h-4" />
-                Download
-              </Button>
-            </div>
-            <div className="prose prose-sm max-w-none text-muted-foreground">
-              {candidate.summary && (
-                <>
-                  <h4>Summary</h4>
-                  <p>{candidate.summary}</p>
-                </>
-              )}
-              
-              <h4>Experience</h4>
-              <p>
-                <strong>{candidate.current_title || 'Professional'}</strong>
-                {candidate.current_company && ` at ${candidate.current_company}`}
-                {candidate.experience_years && ` - ${candidate.experience_years} years of experience`}
-              </p>
-              
-              {candidate.skills && candidate.skills.length > 0 && (
-                <>
-                  <h4>Skills</h4>
-                  <div className="flex flex-wrap gap-2 not-prose">
-                    {candidate.skills.map((skill) => (
-                      <Badge key={skill} variant="secondary">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </motion.div>
+          <div className="space-y-6">
+            {/* CV Submission History */}
+            <CVSubmissionHistory candidateId={candidate.id} />
+            
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-xl border border-border p-6 shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">Resume</h3>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
+                  <Download className="w-4 h-4" />
+                  Download
+                </Button>
+              </div>
+              <div className="prose prose-sm max-w-none text-muted-foreground">
+                {candidate.summary && (
+                  <>
+                    <h4>Summary</h4>
+                    <p>{candidate.summary}</p>
+                  </>
+                )}
+                
+                <h4>Experience</h4>
+                <p>
+                  <strong>{candidate.current_title || 'Professional'}</strong>
+                  {candidate.current_company && ` at ${candidate.current_company}`}
+                  {candidate.experience_years && ` - ${candidate.experience_years} years of experience`}
+                </p>
+                
+                {candidate.skills && candidate.skills.length > 0 && (
+                  <>
+                    <h4>Skills</h4>
+                    <div className="flex flex-wrap gap-2 not-prose">
+                      {candidate.skills.map((skill) => (
+                        <Badge key={skill} variant="secondary">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
         </TabsContent>
 
         <TabsContent value="notes" className="mt-6">
