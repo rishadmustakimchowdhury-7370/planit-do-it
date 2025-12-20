@@ -12,15 +12,18 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Shield,
   Video,
   Calendar,
   UsersRound,
   Clock,
-  Coins
+  TrendingUp,
+  ClipboardList
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,7 +42,6 @@ const navigation = [
 ];
 
 const bottomNav = [
-  { name: 'Team', href: '/team', icon: UsersRound, permission: 'can_manage_team' as Permission },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Billing', href: '/billing', icon: CreditCard, permission: 'can_view_billing' as Permission },
 ];
@@ -52,6 +54,9 @@ export function Sidebar() {
   const { profile, signOut, isOwner, isManager, isRecruiter } = useAuth();
   const { hasPermission } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(
+    location.pathname.startsWith('/team') || location.pathname === '/jobs/assignments'
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -60,6 +65,33 @@ export function Sidebar() {
 
   const userName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
   const userEmail = profile?.email || '';
+
+  // Team submenu items based on role
+  const getTeamMenuItems = () => {
+    const items = [];
+    
+    if (isRecruiter) {
+      items.push({ name: 'Work Tracking', href: '/team/work-tracking', icon: Clock });
+    }
+    
+    if (isRecruiter && !isOwner && !isManager) {
+      items.push({ name: 'My History', href: '/team/work-dashboard', icon: BarChart3 });
+    }
+    
+    if (isOwner || isManager) {
+      items.push(
+        { name: 'Work Tracking', href: '/team/work-tracking', icon: Clock },
+        { name: 'Team Dashboard', href: '/team/manager-dashboard', icon: BarChart3 },
+        { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp },
+        { name: 'Job Assignments', href: '/jobs/assignments', icon: ClipboardList }
+      );
+    }
+    
+    return items;
+  };
+
+  const teamMenuItems = getTeamMenuItems();
+  const isTeamActive = location.pathname.startsWith('/team') || location.pathname === '/jobs/assignments';
 
   return (
     <motion.aside
@@ -139,6 +171,88 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Team Section with Submenu */}
+        {teamMenuItems.length > 0 && (
+          <>
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.p 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40"
+                >
+                  Team
+                </motion.p>
+              )}
+            </AnimatePresence>
+            
+            {collapsed ? (
+              // When collapsed, show just icons
+              teamMenuItems.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      'flex items-center justify-center px-3 py-2.5 rounded-lg transition-all duration-150',
+                      isActive
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                  </Link>
+                );
+              })
+            ) : (
+              // When expanded, show collapsible menu
+              <Collapsible open={teamMenuOpen} onOpenChange={setTeamMenuOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-all duration-150',
+                      isTeamActive
+                        ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <UsersRound className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm">Team</span>
+                    </div>
+                    <ChevronDown className={cn(
+                      'w-4 h-4 transition-transform duration-200',
+                      teamMenuOpen && 'rotate-180'
+                    )} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1 ml-4 space-y-1">
+                  {teamMenuItems.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm',
+                          isActive
+                            ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                        )}
+                      >
+                        <item.icon className="w-4 h-4 flex-shrink-0" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </>
+        )}
       </nav>
 
       {/* Bottom Navigation */}
@@ -156,40 +270,33 @@ export function Sidebar() {
           )}
         </AnimatePresence>
         
-        {/* Work Tracking Links based on role */}
-        {isRecruiter && (
-          <Link to="/team/work-tracking" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-tracking' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-            <Clock className="w-5 h-5" />
-            {!collapsed && <span className="text-sm">Work Tracking</span>}
+        {/* Team Members Link for owner/manager */}
+        {(isOwner || isManager) && hasPermission('can_manage_team') && (
+          <Link
+            to="/team"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
+              location.pathname === '/team'
+                ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+            )}
+          >
+            <UsersRound className="w-5 h-5 flex-shrink-0" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="text-sm whitespace-nowrap"
+                >
+                  Team Members
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Link>
         )}
-        {isRecruiter && !isOwner && !isManager && (
-          <Link to="/team/work-dashboard" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-dashboard' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-            <BarChart3 className="w-5 h-5" />
-            {!collapsed && <span className="text-sm">My History</span>}
-          </Link>
-        )}
-        {(isOwner || isManager) && (
-          <>
-            <Link to="/team/work-tracking" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/work-tracking' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-              <Clock className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">Work Tracking</span>}
-            </Link>
-            <Link to="/team/manager-dashboard" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/manager-dashboard' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-              <BarChart3 className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">Team Dashboard</span>}
-            </Link>
-            <Link to="/team/kpi" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/team/kpi' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-              <BarChart3 className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">KPI Dashboard</span>}
-            </Link>
-            <Link to="/jobs/assignments" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all', location.pathname === '/jobs/assignments' ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent')}>
-              <Briefcase className="w-5 h-5" />
-              {!collapsed && <span className="text-sm">Job Assignments</span>}
-            </Link>
-          </>
-        )}
-        
         
         {bottomNav.map((item) => {
           // Hide certain items from recruiters who don't have permissions
