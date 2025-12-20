@@ -166,10 +166,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const tenantId = profile?.tenant_id ?? null;
+  // Get tenantId from profile, or fallback to the first role's tenant_id
+  const tenantId = profile?.tenant_id ?? roles[0]?.tenant_id ?? null;
+  
+  // Filter roles for current tenant - be lenient if tenant_id is null on either side
   const rolesForTenant = tenantId
-    ? roles.filter((r) => r.tenant_id === tenantId)
-    : roles.filter((r) => r.tenant_id === null);
+    ? roles.filter((r) => r.tenant_id === tenantId || r.tenant_id === null)
+    : roles;
 
   const isOwner = rolesForTenant.some((r) => r.role === 'owner');
   const isManager = rolesForTenant.some((r) => r.role === 'manager');
