@@ -293,7 +293,7 @@ const ReportsPage = () => {
   };
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_view_reports' as Permission} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager', 'recruiter']} requiredPermission={'can_view_reports' as Permission} redirectTo="/dashboard">
       <AppLayout title="Reports" subtitle="Hiring funnel and recruitment analytics">
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">

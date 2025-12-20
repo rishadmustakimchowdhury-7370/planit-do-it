@@ -176,7 +176,7 @@ export default function AddJobPage() {
   const selectedClient = clients.find(c => c.id === formData.clientId);
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_add_jobs' as Permission} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager', 'recruiter']} requiredPermission={'can_add_jobs' as Permission} redirectTo="/dashboard">
       <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header */}

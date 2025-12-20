@@ -139,7 +139,7 @@ export default function AddClientPage() {
   };
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_add_clients' as Permission} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager', 'recruiter']} requiredPermission={'can_add_clients' as Permission} redirectTo="/dashboard">
       <AppLayout>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
