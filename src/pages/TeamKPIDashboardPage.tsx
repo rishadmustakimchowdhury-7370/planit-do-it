@@ -248,7 +248,7 @@ export default function TeamKPIDashboardPage() {
       }
 
       // Fetch real recruitment activity data from multiple tables
-      const [candidatesData, submissionsData, jobCandidatesData, eventsData] = await Promise.all([
+      const [candidatesData, recruiterActivitiesData, jobCandidatesData, eventsData] = await Promise.all([
         // CVs uploaded (candidates created)
         supabase
           .from('candidates')
@@ -258,14 +258,15 @@ export default function TeamKPIDashboardPage() {
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString()),
         
-        // CVs submitted
+        // CVs submitted - use recruiter_activities as source of truth
         supabase
-          .from('cv_submissions')
-          .select('submitted_by, submitted_at')
+          .from('recruiter_activities')
+          .select('user_id, created_at, action_type')
           .eq('tenant_id', tenantId)
-          .in('submitted_by', targetUserIds)
-          .gte('submitted_at', start.toISOString())
-          .lte('submitted_at', end.toISOString()),
+          .in('user_id', targetUserIds)
+          .eq('action_type', 'cv_submitted')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString()),
         
         // Job candidates (for stages: screening, interview, offer, hired, rejected)
         supabase
@@ -328,10 +329,10 @@ export default function TeamKPIDashboardPage() {
         }
       }
 
-      // Count CVs submitted
-      for (const submission of submissionsData.data || []) {
-        if (submission.submitted_by && kpiMap.has(submission.submitted_by)) {
-          kpiMap.get(submission.submitted_by)!.cv_submitted++;
+      // Count CVs submitted from recruiter_activities
+      for (const activity of recruiterActivitiesData.data || []) {
+        if (activity.user_id && kpiMap.has(activity.user_id)) {
+          kpiMap.get(activity.user_id)!.cv_submitted++;
         }
       }
 
@@ -388,9 +389,9 @@ export default function TeamKPIDashboardPage() {
         trendMap.get(dateStr)![key]++;
       };
 
-      candidatesData.data?.forEach(c => addToTrend(new Date(c.created_at), 'cv_uploaded'));
-      submissionsData.data?.forEach(s => addToTrend(new Date(s.submitted_at), 'cv_submitted'));
-      eventsData.data?.forEach(e => addToTrend(new Date(e.created_at), 'interview_scheduled'));
+      candidatesData.data?.forEach(c => addToTrend(new Date(c.created_at!), 'cv_uploaded'));
+      recruiterActivitiesData.data?.forEach(a => addToTrend(new Date(a.created_at!), 'cv_submitted'));
+      eventsData.data?.forEach(e => addToTrend(new Date(e.created_at!), 'interview_scheduled'));
       jobCandidatesData.data?.filter(jc => jc.stage === 'hired').forEach(jc => 
         addToTrend(new Date(jc.stage_updated_at), 'candidate_hired')
       );
