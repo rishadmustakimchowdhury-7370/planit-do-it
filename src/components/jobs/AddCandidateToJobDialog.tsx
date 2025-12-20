@@ -209,10 +209,10 @@ export function AddCandidateToJobDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
+            <UserPlus className="h-5 w-5 text-primary" />
             Add Candidates to Job
           </DialogTitle>
           <DialogDescription>
@@ -220,7 +220,7 @@ export function AddCandidateToJobDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -231,14 +231,14 @@ export function AddCandidateToJobDialog({
             />
           </div>
 
-          <ScrollArea className="h-72 border rounded-lg">
+          <ScrollArea className="h-[320px] border rounded-lg bg-muted/20 flex-1">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center h-full py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : filteredCandidates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
-                <UserPlus className="h-8 w-8 mb-2" />
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+                <UserPlus className="h-10 w-10 mb-3 text-muted-foreground/50" />
                 <p className="text-sm text-center">
                   {candidates.length === 0 
                     ? 'No candidates available to add. Add candidates first.'
@@ -247,14 +247,14 @@ export function AddCandidateToJobDialog({
                 </p>
               </div>
             ) : (
-              <div className="p-2 space-y-1">
+              <div className="p-2 space-y-2">
                 {filteredCandidates.map((candidate) => (
                   <div
                     key={candidate.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                       selectedIds.includes(candidate.id)
-                        ? 'bg-accent/10 border border-accent/30'
-                        : 'hover:bg-muted/50 border border-transparent'
+                        ? 'bg-primary/10 border border-primary/30 shadow-sm'
+                        : 'bg-background hover:bg-muted/50 border border-border/50'
                     }`}
                     onClick={() => toggleCandidate(candidate.id)}
                   >
@@ -263,27 +263,27 @@ export function AddCandidateToJobDialog({
                       onCheckedChange={() => toggleCandidate(candidate.id)}
                       className="shrink-0"
                     />
-                    <Avatar className="h-10 w-10 shrink-0">
+                    <Avatar className="h-10 w-10 shrink-0 ring-2 ring-background">
                       <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
-                      <AvatarFallback className="bg-accent/10 text-accent text-sm">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                         {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="font-medium truncate">{candidate.full_name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate text-foreground">{candidate.full_name}</p>
                       <p className="text-sm text-muted-foreground truncate">
                         {candidate.current_title || candidate.email}
                       </p>
                     </div>
                     {candidate.skills && candidate.skills.length > 0 && (
-                      <div className="hidden sm:flex gap-1 shrink-0">
+                      <div className="hidden md:flex gap-1.5 shrink-0 flex-wrap justify-end max-w-[180px]">
                         {candidate.skills.slice(0, 2).map((skill, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs whitespace-nowrap">
+                          <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">
                             {skill}
                           </Badge>
                         ))}
                         {candidate.skills.length > 2 && (
-                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                          <Badge variant="outline" className="text-xs px-2 py-0.5">
                             +{candidate.skills.length - 2}
                           </Badge>
                         )}
@@ -296,17 +296,22 @@ export function AddCandidateToJobDialog({
           </ScrollArea>
 
           {selectedIds.length > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-primary font-medium bg-primary/5 px-3 py-2 rounded-lg">
+              <UserPlus className="h-4 w-4" />
               {selectedIds.length} candidate(s) selected
-            </p>
+            </div>
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={isAdding || selectedIds.length === 0}>
+          <Button 
+            onClick={handleAdd} 
+            disabled={isAdding || selectedIds.length === 0}
+            className="flex-1 sm:flex-none"
+          >
             {isAdding ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
