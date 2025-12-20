@@ -250,7 +250,8 @@ export function MyUsageSection() {
   const teamTotals = {
     cvs: teamUsage.reduce((sum, m) => sum + m.cvUploads.used, 0),
     ai: teamUsage.reduce((sum, m) => sum + m.aiTests.used, 0),
-    jobs: teamUsage.reduce((sum, m) => sum + m.jobs.used, 0),
+    // Jobs are tenant-level; avoid double counting across members
+    jobs: usageStats.jobs.used,
   };
 
   return (
