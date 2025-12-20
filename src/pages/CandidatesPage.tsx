@@ -614,30 +614,11 @@ const CandidatesPage = () => {
                 )}
               </Link>
 
-              {/* Status bar at bottom */}
-              <div className="px-5 pb-4 pt-0" onClick={(e) => e.stopPropagation()}>
-                <Select 
-                  value={candidate.status} 
-                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
-                >
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue>
-                      <Badge className={cn('text-xs font-medium', statusColors[candidate.status])}>
-                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
-                      </Badge>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusFilters.slice(1).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
-                          {s.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Status */}
+              <div className="px-5 pb-4 pt-0">
+                <Badge className={cn('text-xs font-medium', statusColors[candidate.status])}>
+                  {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                </Badge>
               </div>
             </div>
           </motion.div>
@@ -707,29 +688,10 @@ const CandidatesPage = () => {
                 )}
               </div>
 
-              <div className="shrink-0 w-32" onClick={(e) => e.stopPropagation()}>
-                <Select 
-                  value={candidate.status} 
-                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue>
-                      <Badge className={cn('text-xs', statusColors[candidate.status])}>
-                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
-                      </Badge>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusFilters.slice(1).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
-                          {s.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="shrink-0 w-32">
+                <Badge className={cn('text-xs', statusColors[candidate.status])}>
+                  {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                </Badge>
               </div>
 
               <DropdownMenu>
@@ -846,29 +808,10 @@ const CandidatesPage = () => {
                   {candidate.uploader_name}
                 </span>
               </TableCell>
-              <TableCell onClick={(e) => e.stopPropagation()}>
-                <Select 
-                  value={candidate.status} 
-                  onValueChange={(val) => handleStatusChange(candidate.id, val)}
-                >
-                  <SelectTrigger className="h-8 w-28 text-xs">
-                    <SelectValue>
-                      <Badge className={cn('text-xs', statusColors[candidate.status])}>
-                        {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
-                      </Badge>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusFilters.slice(1).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-2 h-2 rounded-full', s.color)} />
-                          {s.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <TableCell>
+                <Badge className={cn('text-xs', statusColors[candidate.status])}>
+                  {statusFilters.find(s => s.id === candidate.status)?.label || candidate.status}
+                </Badge>
               </TableCell>
               <TableCell>
                 <DropdownMenu>
@@ -989,27 +932,6 @@ const CandidatesPage = () => {
                 </Button>
               </div>
               <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="w-4 h-4 mr-2" />
-                      Change Status
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {statusFilters.slice(1).map(status => (
-                      <DropdownMenuItem 
-                        key={status.id} 
-                        onClick={() => handleBulkStatusChange(status.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-2 h-2 rounded-full', status.color)} />
-                          {status.label}
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
                 <Button variant="outline" size="sm" onClick={() => setShowMoveToJobDialog(true)}>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add to Job

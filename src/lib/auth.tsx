@@ -166,10 +166,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isOwner = roles.some(r => r.role === 'owner');
-  const isManager = roles.some(r => r.role === 'manager');
-  const isRecruiter = roles.some(r => r.role === 'recruiter');
   const tenantId = profile?.tenant_id ?? null;
+  const rolesForTenant = tenantId
+    ? roles.filter((r) => r.tenant_id === tenantId)
+    : roles.filter((r) => r.tenant_id === null);
+
+  const isOwner = rolesForTenant.some((r) => r.role === 'owner');
+  const isManager = rolesForTenant.some((r) => r.role === 'manager');
+  const isRecruiter = rolesForTenant.some((r) => r.role === 'recruiter');
 
   return (
     <AuthContext.Provider
