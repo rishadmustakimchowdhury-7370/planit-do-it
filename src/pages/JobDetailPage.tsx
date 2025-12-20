@@ -859,7 +859,7 @@ const JobDetailPage = () => {
           onOpenChange={setShowAssignDialog}
           jobId={job.id}
           jobTitle={job.title}
-          currentAssigneeId={job.assigned_to}
+          currentAssigneeIds={job.assigned_to ? [job.assigned_to] : []}
           onAssignmentComplete={fetchJobDetails}
         />
       )}

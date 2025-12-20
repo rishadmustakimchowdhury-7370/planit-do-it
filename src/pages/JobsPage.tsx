@@ -700,7 +700,7 @@ const JobsPage = () => {
           onOpenChange={(open) => !open && setAssignJob(null)}
           jobId={assignJob.id}
           jobTitle={assignJob.title}
-          currentAssigneeId={assignJob.assigned_to}
+          currentAssigneeIds={assignJob.assigned_to ? [assignJob.assigned_to] : []}
           onAssignmentComplete={() => {
             setAssignJob(null);
             fetchJobs();
