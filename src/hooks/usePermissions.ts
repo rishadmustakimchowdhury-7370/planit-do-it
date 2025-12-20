@@ -10,9 +10,27 @@ export type Permission =
   | 'can_manage_team'
   | 'can_view_billing';
 
+// Default permissions by role
+const OWNER_PERMISSIONS: Permission[] = [
+  'can_add_jobs',
+  'can_add_clients',
+  'can_use_ai_match',
+  'can_view_reports',
+  'can_manage_team',
+  'can_view_billing',
+];
+
+const MANAGER_PERMISSIONS: Permission[] = [
+  'can_add_jobs',
+  'can_add_clients',
+  'can_use_ai_match',
+  'can_view_reports',
+  'can_manage_team',
+];
+
 export function usePermissions(userId?: string) {
-  const { user, tenantId } = useAuth();
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const { user, tenantId, isOwner, isManager } = useAuth();
+  const [explicitPermissions, setExplicitPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -32,7 +50,7 @@ export function usePermissions(userId?: string) {
 
         if (error) throw error;
 
-        setPermissions(data?.map(p => p.permission as Permission) || []);
+        setExplicitPermissions(data?.map(p => p.permission as Permission) || []);
       } catch (error) {
         console.error('Error fetching permissions:', error);
       } finally {
@@ -43,7 +61,24 @@ export function usePermissions(userId?: string) {
     fetchPermissions();
   }, [userId, user?.id, tenantId]);
 
+  // Combine role-based permissions with explicit permissions
+  const permissions: Permission[] = (() => {
+    // If checking for self (no userId provided), use auth context roles
+    if (!userId || userId === user?.id) {
+      if (isOwner) return OWNER_PERMISSIONS;
+      if (isManager) return MANAGER_PERMISSIONS;
+      return explicitPermissions;
+    }
+    // For other users, only return explicit permissions (we don't know their role here)
+    return explicitPermissions;
+  })();
+
   const hasPermission = (permission: Permission) => {
+    // Owners have all permissions
+    if (!userId || userId === user?.id) {
+      if (isOwner) return true;
+      if (isManager) return MANAGER_PERMISSIONS.includes(permission);
+    }
     return permissions.includes(permission);
   };
 
