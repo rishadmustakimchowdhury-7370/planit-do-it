@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/lib/auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/brand/Logo';
 import { usePermissions, Permission } from '@/hooks/usePermissions';
@@ -55,9 +55,19 @@ export function Sidebar() {
   const { profile, signOut, isOwner, isManager, isRecruiter } = useAuth();
   const { hasPermission } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
-  const [teamMenuOpen, setTeamMenuOpen] = useState(
-    location.pathname.startsWith('/team') || location.pathname === '/jobs/assignments'
-  );
+  
+  // Calculate if current route is a team route
+  const isOnTeamRoute = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || 
+    location.pathname === '/jobs/assignments';
+  
+  const [teamMenuOpen, setTeamMenuOpen] = useState(isOnTeamRoute);
+
+  // Keep team menu open when navigating to team routes
+  useEffect(() => {
+    if (isOnTeamRoute) {
+      setTeamMenuOpen(true);
+    }
+  }, [isOnTeamRoute]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -96,7 +106,7 @@ export function Sidebar() {
   };
 
   const teamMenuItems = getTeamMenuItems();
-  const isTeamActive = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || location.pathname === '/jobs/assignments';
+  const isTeamActive = isOnTeamRoute;
 
   return (
     <motion.aside
