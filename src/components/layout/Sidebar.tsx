@@ -71,6 +71,11 @@ export function Sidebar() {
   const getTeamMenuItems = () => {
     const items = [];
     
+    // Team Members link for owner/manager at top of menu
+    if (isOwner || isManager) {
+      items.push({ name: 'Team Members', href: '/team', icon: UsersRound });
+    }
+    
     if (isRecruiter) {
       items.push({ name: 'Work Tracking', href: '/team/work-tracking', icon: Clock });
     }
@@ -269,34 +274,6 @@ export function Sidebar() {
             </motion.p>
           )}
         </AnimatePresence>
-        
-        {/* Team Members Link for owner/manager */}
-        {(isOwner || isManager) && hasPermission('can_manage_team') && (
-          <Link
-            to="/team"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
-              location.pathname === '/team'
-                ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
-                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-            )}
-          >
-            <UsersRound className="w-5 h-5 flex-shrink-0" />
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="text-sm whitespace-nowrap"
-                >
-                  Team Members
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Link>
-        )}
         
         {bottomNav.map((item) => {
           // Hide certain items from recruiters who don't have permissions
