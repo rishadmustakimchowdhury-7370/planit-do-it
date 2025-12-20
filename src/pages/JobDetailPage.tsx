@@ -498,7 +498,7 @@ const JobDetailPage = () => {
                 onClick={() => setShowAddCandidateDialog(true)}
               >
                 <UserSearch className="w-4 h-4" />
-                Add from DB
+                Add from CRM
               </Button>
               <Button 
                 variant="outline" 
