@@ -199,7 +199,7 @@ export default function AdminBillingPage() {
         status: 'draft',
         company_name: selectedTenantBranding?.company_name || getTenantName(invoiceForm.tenant_id),
         company_logo: selectedTenantBranding?.logo_url || siteBranding?.logo_url || null,
-        company_address: 'Recruitify CRM, 123 Business Street, London, UK',
+        company_address: 'HireMetrics, 123 Business Street, London, UK',
         company_phone: '+44 20 1234 5678',
         line_items: invoiceForm.line_items.length > 0 ? invoiceForm.line_items : null,
       });
@@ -236,18 +236,21 @@ export default function AdminBillingPage() {
           subject: `Invoice ${invoice.invoice_number} - £${Number(invoice.amount).toLocaleString()}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                <div style="background: linear-gradient(135deg, #0052CC 0%, #0052CC80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    <rect width="20" height="14" x="2" y="6" rx="2"/>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%); border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center;">
+                  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="4" y="20" width="5" height="8" rx="1.5" fill="white" opacity="0.6"/>
+                    <rect x="11" y="14" width="5" height="14" rx="1.5" fill="white" opacity="0.8"/>
+                    <rect x="18" y="6" width="5" height="22" rx="1.5" fill="white"/>
+                    <circle cx="25" cy="7" r="4.5" stroke="white" stroke-width="2" fill="none"/>
+                    <circle cx="25" cy="7" r="1.5" fill="white"/>
                   </svg>
                 </div>
-                <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px;">
-                  <span style="color: #0052CC;">Recruitify</span><span style="color: #6b7280; font-weight: 500;">CRM</span>
+                <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px; color: #0F172A;">
+                  HireMetrics
                 </span>
               </div>
-              <h1 style="color: #0052CC;">Invoice from Recruitify CRM</h1>
+              <h1 style="color: #1E3A8A;">Invoice from HireMetrics</h1>
               <p>Dear ${tenantName},</p>
               <p>Please find your invoice details below:</p>
               <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">

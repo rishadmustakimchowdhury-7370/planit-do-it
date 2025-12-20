@@ -24,7 +24,8 @@ import {
   StickyNote,
   MessageCircle,
   Linkedin,
-  Inbox
+  Inbox,
+  Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -33,6 +34,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
+import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
 
 interface Candidate {
@@ -73,6 +75,7 @@ const CandidateDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
+  const [addToJobDialogOpen, setAddToJobDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id && tenantId) {
@@ -253,6 +256,10 @@ const CandidateDetailPage = () => {
 
             <div className="flex flex-col items-center gap-3">
               <div className="flex flex-wrap gap-2">
+                <Button size="sm" className="gap-1.5" onClick={() => setAddToJobDialogOpen(true)}>
+                  <Briefcase className="w-4 h-4" />
+                  Add to Job
+                </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
                   <Download className="w-4 h-4" />
                   Download CV
@@ -464,6 +471,14 @@ const CandidateDetailPage = () => {
           contextData={{ candidateName: candidate.full_name }}
         />
       )}
+
+      {/* Add to Job Dialog */}
+      <AddToJobDialog
+        open={addToJobDialogOpen}
+        onOpenChange={setAddToJobDialogOpen}
+        candidateId={candidate.id}
+        candidateName={candidate.full_name}
+      />
     </AppLayout>
   );
 };

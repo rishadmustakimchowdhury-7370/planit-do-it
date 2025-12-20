@@ -54,7 +54,7 @@ export default function TutorialVideosPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Tutorial Videos" subtitle="Learn how to use Recruitify CRM">
+      <AppLayout title="Tutorial Videos" subtitle="Learn how to use HireMetrics">
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -63,7 +63,7 @@ export default function TutorialVideosPage() {
   }
 
   return (
-    <AppLayout title="Tutorial Videos" subtitle="Learn how to use Recruitify CRM">
+    <AppLayout title="Tutorial Videos" subtitle="Learn how to use HireMetrics">
       <div className="space-y-6">
         {/* Search */}
         <div className="relative max-w-md">

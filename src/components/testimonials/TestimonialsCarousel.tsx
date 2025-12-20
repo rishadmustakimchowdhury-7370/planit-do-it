@@ -18,7 +18,7 @@ interface Testimonial {
 const defaultTestimonials: Testimonial[] = [
   {
     id: '1',
-    quote: "Recruitify CRM cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
+    quote: "HireMetrics cut our time-to-hire by 60%. The AI matching is incredibly accurate.",
     author_name: "Sarah Johnson",
     author_role: "Head of Talent, TechCorp",
     author_avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",

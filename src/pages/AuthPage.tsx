@@ -11,9 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Logo, BRAND, getLogoHTML } from '@/components/brand/Logo';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -242,26 +243,16 @@ export default function AuthPage() {
         await supabase.functions.invoke('send-email', {
           body: {
             to: user?.email,
-            subject: 'Password Changed Successfully - Recruitify CRM',
+            subject: `Password Changed Successfully - ${BRAND.name}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                  <div style="background: linear-gradient(135deg, #0052CC 0%, #0052CC80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                      <rect width="20" height="14" x="2" y="6" rx="2"/>
-                    </svg>
-                  </div>
-                  <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px;">
-                    <span style="color: #0052CC;">Recruitify</span><span style="color: #6b7280; font-weight: 500;">CRM</span>
-                  </span>
-                </div>
-                <h2 style="color: #0052CC;">Password Changed Successfully</h2>
+                ${getLogoHTML({ size: 'md' })}
+                <h2 style="color: #1E3A8A; margin-top: 20px;">Password Changed Successfully</h2>
                 <p>Hello,</p>
-                <p>Your password has been successfully changed for your Recruitify CRM account.</p>
-                <p>If you did not make this change, please contact our support team immediately at info@recruitifycrm.com.</p>
+                <p>Your password has been successfully changed for your ${BRAND.name} account.</p>
+                <p>If you did not make this change, please contact our support team immediately at ${BRAND.supportEmail}.</p>
                 <br/>
-                <p>Best regards,<br/>The Recruitify CRM Team</p>
+                <p>Best regards,<br/>The ${BRAND.name} Team</p>
               </div>
             `,
           },
@@ -321,9 +312,8 @@ export default function AuthPage() {
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         <div className="relative z-10 flex flex-col justify-between p-8 xl:p-12 text-primary-foreground">
           <div>
-            <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold">
-              <Sparkles className="h-8 w-8" />
-              Recruitify CRM
+            <Link to="/" className="inline-block">
+              <Logo size="lg" variant="light" />
             </Link>
           </div>
           
@@ -334,7 +324,7 @@ export default function AuthPage() {
               transition={{ delay: 0.2 }}
               className="text-3xl xl:text-4xl font-bold leading-tight"
             >
-              AI-Powered Recruitment<br />Made Simple
+              Track Recruiter Work.<br />Measure Performance.<br />Hire With Control.
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -342,8 +332,7 @@ export default function AuthPage() {
               transition={{ delay: 0.3 }}
               className="text-base xl:text-lg text-primary-foreground/80 max-w-md"
             >
-              Streamline your hiring process with intelligent candidate matching, 
-              automated pipelines, and powerful analytics.
+              {BRAND.tagline}
             </motion.p>
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -357,7 +346,7 @@ export default function AuthPage() {
               </div>
               <div>
                 <div className="text-2xl xl:text-3xl font-bold">500+</div>
-                <div className="text-primary-foreground/70 text-xs xl:text-sm">Companies Trust Us</div>
+                <div className="text-primary-foreground/70 text-xs xl:text-sm">Agencies Trust Us</div>
               </div>
               <div>
                 <div className="text-2xl xl:text-3xl font-bold">95%</div>
@@ -367,7 +356,7 @@ export default function AuthPage() {
           </div>
           
           <div className="text-sm text-primary-foreground/60">
-            © 2024 Recruitify CRM. All rights reserved.
+            © 2024 {BRAND.name}. All rights reserved.
           </div>
         </div>
       </div>

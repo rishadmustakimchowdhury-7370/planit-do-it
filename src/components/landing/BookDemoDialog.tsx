@@ -132,7 +132,7 @@ export function BookDemoDialog({ open, onOpenChange }: BookDemoDialogProps) {
         <DialogHeader>
           <DialogTitle className="text-2xl">Book a Demo</DialogTitle>
           <DialogDescription>
-            Schedule a personalized demo with our team. We'll show you how Recruitify CRM can transform your hiring process.
+            Schedule a personalized demo with our team. We'll show you how HireMetrics can transform your hiring process.
           </DialogDescription>
         </DialogHeader>
 
