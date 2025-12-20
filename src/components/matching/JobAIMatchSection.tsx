@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 
 interface Job {
   id: string;
@@ -52,6 +53,7 @@ export function JobAIMatchSection({
   candidateResume 
 }: JobAIMatchSectionProps) {
   const { tenantId } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
@@ -285,6 +287,17 @@ export function JobAIMatchSection({
         match_gaps: matchData.match_gaps,
         match_explanation: matchData.match_explanation,
         match_confidence: matchData.match_confidence
+      });
+
+      // Log activity for usage tracking
+      await logActivity({
+        action_type: 'ai_match_run',
+        candidate_id: candidateId,
+        job_id: selectedJobId,
+        metadata: { 
+          match_score: matchData.match_score,
+          job_title: selectedJob.title
+        }
       });
 
       toast.success('AI match analysis completed!');

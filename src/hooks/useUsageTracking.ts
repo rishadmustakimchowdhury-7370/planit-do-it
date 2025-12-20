@@ -128,48 +128,43 @@ export function useUsageTracking() {
       
       const { count: cvCount } = await cvQuery;
 
-      // Count ALL AI-related activities
-      const aiActivityQuery = supabase
-        .from('recruiter_activities')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .in('action_type', AI_ACTION_TYPES)
-        .gte('created_at', periodStartISO);
+      // Count AI match runs from job_candidates.matched_at (the source of truth)
+      // For owners/managers: count all matches in tenant
+      // For regular users: count matches where they created the candidate
+      let aiMatchCount = 0;
+      
+      if (isOwner || isManager) {
+        const { count } = await supabase
+          .from('job_candidates')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId)
+          .not('matched_at', 'is', null)
+          .gte('matched_at', periodStartISO);
+        aiMatchCount = count || 0;
+      } else {
+        // For regular users, count matches on candidates they created
+        const { data: userCandidates } = await supabase
+          .from('candidates')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('created_by', user.id);
         
-      if (!isOwner && !isManager) {
-        aiActivityQuery.eq('user_id', user.id);
+        if (userCandidates && userCandidates.length > 0) {
+          const candidateIds = userCandidates.map(c => c.id);
+          const { count } = await supabase
+            .from('job_candidates')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .in('candidate_id', candidateIds)
+            .not('matched_at', 'is', null)
+            .gte('matched_at', periodStartISO);
+          aiMatchCount = count || 0;
+        }
       }
       
-      const { count: aiActivityCount } = await aiActivityQuery;
-      
-      console.log('🔍 AI Activity Debug:', {
-        tenantId,
-        periodStartISO,
-        AI_ACTION_TYPES,
-        aiActivityCount,
-        isOwner,
-        isManager,
-        userId: user.id
-      });
+      console.log('🔍 AI Match Count from job_candidates:', aiMatchCount);
 
-      // Also check ai_usage table for AI credits used
-      const aiUsageQuery = supabase
-        .from('ai_usage')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .gte('created_at', periodStartISO);
-        
-      if (!isOwner && !isManager) {
-        aiUsageQuery.eq('user_id', user.id);
-      }
-      
-      const { count: aiUsageCount } = await aiUsageQuery;
-      
-      console.log('🔍 AI Usage Count:', aiUsageCount);
-
-      const totalAiTests = (aiActivityCount || 0) + (aiUsageCount || 0);
-      
-      console.log('📊 Total AI Tests:', totalAiTests);
+      const totalAiTests = aiMatchCount;
 
       // Count active jobs for tenant (jobs may not have created_by set)
       const { count: jobCount } = await supabase
@@ -217,7 +212,7 @@ export function useUsageTracking() {
         {
           event: '*',
           schema: 'public',
-          table: 'ai_usage',
+          table: 'job_candidates',
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
@@ -340,19 +335,21 @@ export function useTeamUsageTracking() {
       periodStart.setHours(0, 0, 0, 0);
       const periodStartISO = periodStart.toISOString();
 
-      // Get all activities for the team
+      // Get all activities for the team (for CV counting)
       const { data: activitiesData } = await supabase
         .from('recruiter_activities')
         .select('user_id, action_type')
         .eq('tenant_id', tenantId)
         .gte('created_at', periodStartISO);
 
-      // Get AI usage data
-      const { data: aiUsageData } = await supabase
-        .from('ai_usage')
-        .select('user_id')
+      // Get AI match counts per user from job_candidates (source of truth)
+      // Join with candidates to get who created each candidate
+      const { data: matchData } = await supabase
+        .from('job_candidates')
+        .select('candidate_id, candidates!inner(created_by)')
         .eq('tenant_id', tenantId)
-        .gte('created_at', periodStartISO);
+        .not('matched_at', 'is', null)
+        .gte('matched_at', periodStartISO);
 
       // Get total active jobs for tenant
       const { count: totalJobCount } = await supabase
@@ -365,14 +362,12 @@ export function useTeamUsageTracking() {
       const memberUsage: TeamMemberUsage[] = userIds.map(userId => {
         const profile = profilesData?.find(p => p.id === userId);
         const userActivities = activitiesData?.filter(a => a.user_id === userId) || [];
-        const userAiUsage = aiUsageData?.filter(a => a.user_id === userId) || [];
         
         // Count CV activities using all CV action types
         const cvUploads = userActivities.filter(a => CV_ACTION_TYPES.includes(a.action_type)).length;
         
-        // Count AI activities using all AI action types
-        const aiFromActivities = userActivities.filter(a => AI_ACTION_TYPES.includes(a.action_type)).length;
-        const aiTests = aiFromActivities + userAiUsage.length;
+        // Count AI matches for candidates created by this user
+        const aiTests = matchData?.filter(m => (m.candidates as any)?.created_by === userId).length || 0;
         
         // Jobs are shared at tenant level, distribute equally or show tenant total
         const jobs = Math.ceil((totalJobCount || 0) / userIds.length);
@@ -433,7 +428,7 @@ export function useTeamUsageTracking() {
         {
           event: '*',
           schema: 'public',
-          table: 'ai_usage',
+          table: 'job_candidates',
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
