@@ -78,23 +78,39 @@ interface Candidate {
   uploader_name: string | null;
 }
 
+// Known countries list for validation
+const knownCountries = new Set([
+  'usa', 'united states', 'uk', 'united kingdom', 'canada', 'australia', 'germany', 'france',
+  'india', 'china', 'japan', 'brazil', 'mexico', 'spain', 'italy', 'netherlands', 'sweden',
+  'norway', 'denmark', 'finland', 'switzerland', 'austria', 'belgium', 'portugal', 'poland',
+  'ireland', 'new zealand', 'singapore', 'malaysia', 'indonesia', 'thailand', 'vietnam',
+  'philippines', 'south korea', 'korea', 'taiwan', 'hong kong', 'uae', 'united arab emirates',
+  'saudi arabia', 'israel', 'turkey', 'south africa', 'egypt', 'nigeria', 'kenya', 'argentina',
+  'chile', 'colombia', 'peru', 'venezuela', 'pakistan', 'bangladesh', 'sri lanka', 'nepal',
+  'russia', 'ukraine', 'czech republic', 'hungary', 'romania', 'greece', 'croatia', 'serbia'
+]);
+
 // Helper function to extract country from location string
-const extractCountry = (location: string | null): string => {
-  if (!location) return '';
+const extractCountry = (location: string | null): string | null => {
+  if (!location) return null;
   
   // Common patterns: "City, Country", "City, State, Country", "Address, City, Country"
-  const parts = location.split(',').map(p => p.trim());
-  if (parts.length === 0) return location;
+  const parts = location.split(',').map(p => p.trim().toLowerCase());
+  if (parts.length === 0) return null;
   
-  // Return the last part which is usually the country
-  const lastPart = parts[parts.length - 1];
-  
-  // If it looks like a postal code, take the second to last
-  if (/^\d+$/.test(lastPart) && parts.length > 1) {
-    return parts[parts.length - 2];
+  // Check from last to first for a known country
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    // Skip postal codes
+    if (/^\d+$/.test(part) || /^[a-z]{1,2}\d/.test(part)) continue;
+    
+    if (knownCountries.has(part)) {
+      // Return with proper capitalization
+      return part.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
   }
   
-  return lastPart;
+  return null;
 };
 
 interface Job {
@@ -568,10 +584,10 @@ const CandidatesPage = () => {
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  {candidate.location && (
+                  {extractCountry(candidate.location) && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{candidate.location}</span>
+                      <span className="truncate">{extractCountry(candidate.location)}</span>
                     </div>
                   )}
                   {candidate.experience_years && (
@@ -677,10 +693,10 @@ const CandidatesPage = () => {
               </Link>
 
               <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground shrink-0">
-                {candidate.location && (
+                {extractCountry(candidate.location) && (
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-4 h-4" />
-                    <span className="max-w-[120px] truncate">{candidate.location}</span>
+                    <span>{extractCountry(candidate.location)}</span>
                   </div>
                 )}
                 {candidate.email && (
@@ -816,18 +832,18 @@ const CandidatesPage = () => {
                 )}
               </TableCell>
               <TableCell className="hidden lg:table-cell">
-                {candidate.location ? (
+                {extractCountry(candidate.location) ? (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="w-3.5 h-3.5" />
-                    <span className="max-w-[140px] truncate">{extractCountry(candidate.location)}</span>
+                    <span>{extractCountry(candidate.location)}</span>
                   </div>
                 ) : (
                   <span className="text-muted-foreground/50">—</span>
                 )}
               </TableCell>
               <TableCell className="hidden xl:table-cell">
-                <span className="text-sm font-medium text-foreground">
-                  {candidate.uploader_name || 'System'}
+                <span className="text-sm text-foreground">
+                  {candidate.uploader_name}
                 </span>
               </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
