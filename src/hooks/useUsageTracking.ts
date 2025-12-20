@@ -31,9 +31,6 @@ export interface TeamMemberUsage {
   status: 'normal' | 'warning' | 'limit_reached';
 }
 
-// CV-related action types to track
-const CV_ACTION_TYPES = ['cv_uploaded', 'cv_submitted', 'cv_parsed', 'cv_deleted'];
-
 // AI-related action types to track  
 const AI_ACTION_TYPES = ['screening_completed', 'ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'];
 
@@ -116,17 +113,18 @@ export function useUsageTracking() {
       periodStart.setHours(0, 0, 0, 0);
       const periodStartISO = periodStart.toISOString();
 
-      // For owners/managers, count ALL CV activities for the tenant
-      // For regular users, count only their personal activities
-      const cvQuery = supabase
-        .from('recruiter_activities')
+      // Count actual candidates with CVs uploaded (source of truth)
+      // For owners/managers: count ALL candidates with CVs in the tenant
+      // For regular users: count only candidates they created with CVs
+      let cvQuery = supabase
+        .from('candidates')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .in('action_type', CV_ACTION_TYPES)
+        .not('cv_file_url', 'is', null)
         .gte('created_at', periodStartISO);
       
       if (!isOwner && !isManager) {
-        cvQuery.eq('user_id', user.id);
+        cvQuery = cvQuery.eq('created_by', user.id);
       }
       
       const { count: cvCount } = await cvQuery;
@@ -221,6 +219,18 @@ export function useUsageTracking() {
     // Subscribe to real-time changes
     const channel = supabase
       .channel(`usage-tracking:${tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'candidates',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchUsageStats();
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -388,11 +398,12 @@ export function useTeamUsageTracking() {
       periodStart.setHours(0, 0, 0, 0);
       const periodStartISO = periodStart.toISOString();
 
-      // Get all activities for the team (for CV counting)
-      const { data: activitiesData } = await supabase
-        .from('recruiter_activities')
-        .select('user_id, action_type')
+      // Get candidates with CVs for CV upload counting (source of truth)
+      const { data: candidatesWithCVs } = await supabase
+        .from('candidates')
+        .select('id, created_by')
         .eq('tenant_id', tenantId)
+        .not('cv_file_url', 'is', null)
         .gte('created_at', periodStartISO);
 
       // Get AI match counts per user from job_candidates (source of truth)
@@ -420,13 +431,11 @@ export function useTeamUsageTracking() {
         .select('user_id, job_id')
         .eq('tenant_id', tenantId);
 
-      // Build usage per member
       const memberUsage: TeamMemberUsage[] = userIds.map(userId => {
         const profile = profilesData?.find(p => p.id === userId);
-        const userActivities = activitiesData?.filter(a => a.user_id === userId) || [];
 
-        // Count CV activities using all CV action types
-        const cvUploads = userActivities.filter(a => CV_ACTION_TYPES.includes(a.action_type)).length;
+        // Count candidates with CVs created by this user
+        const cvUploads = candidatesWithCVs?.filter(c => c.created_by === userId).length || 0;
 
         // Count AI matches for candidates created by this user
         const aiTests = matchData?.filter(m => (m.candidates as any)?.created_by === userId).length || 0;
@@ -509,6 +518,18 @@ export function useTeamUsageTracking() {
           event: '*',
           schema: 'public',
           table: 'job_candidates',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchTeamUsage();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'candidates',
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
