@@ -212,6 +212,16 @@ ${cvText}`
       parsedCV.linkedin_url = linkedinUrl;
     }
 
+    // Ensure experience_years is an integer (AI might return decimals like "1.5")
+    if (parsedCV.experience_years !== null && parsedCV.experience_years !== undefined) {
+      const expYears = parseFloat(parsedCV.experience_years);
+      if (!isNaN(expYears)) {
+        parsedCV.experience_years = Math.floor(expYears);
+      } else {
+        parsedCV.experience_years = null;
+      }
+    }
+
     console.log('CV parsing complete, result:', JSON.stringify(parsedCV));
 
     return new Response(JSON.stringify(parsedCV), {
