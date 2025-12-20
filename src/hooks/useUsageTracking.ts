@@ -31,6 +31,12 @@ export interface TeamMemberUsage {
   status: 'normal' | 'warning' | 'limit_reached';
 }
 
+// CV-related action types to track
+const CV_ACTION_TYPES = ['cv_uploaded', 'cv_submitted', 'cv_parsed', 'cv_deleted'];
+
+// AI-related action types to track  
+const AI_ACTION_TYPES = ['screening_completed', 'ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'];
+
 function calculateUsage(used: number, limit: number): FeatureUsage {
   // Handle unlimited (-1) limits
   if (limit === -1 || limit === 999999) {
@@ -68,7 +74,7 @@ export function useUsageTracking() {
     }
 
     try {
-      // Fetch tenant with plan info using separate queries to avoid nested select issues
+      // Fetch tenant with plan info
       const { data: tenantData } = await supabase
         .from('tenants')
         .select('subscription_plan_id, subscription_ends_at')
@@ -103,22 +109,22 @@ export function useUsageTracking() {
       periodStart.setHours(0, 0, 0, 0);
       const periodStartISO = periodStart.toISOString();
 
-      // Count CV uploads for current user in current period
+      // Count ALL CV-related activities for current user in current period
       const { count: cvCount } = await supabase
         .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('user_id', user.id)
-        .eq('action_type', 'cv_uploaded')
+        .in('action_type', CV_ACTION_TYPES)
         .gte('created_at', periodStartISO);
 
-      // Count AI tests - check both recruiter_activities and ai_usage tables
+      // Count ALL AI-related activities
       const { count: aiActivityCount } = await supabase
         .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('user_id', user.id)
-        .in('action_type', ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'])
+        .in('action_type', AI_ACTION_TYPES)
         .gte('created_at', periodStartISO);
 
       // Also check ai_usage table for AI credits used
@@ -154,11 +160,40 @@ export function useUsageTracking() {
     }
   }, [tenantId, user]);
 
+  // Set up real-time subscription for activities
   useEffect(() => {
     fetchUsageStats();
     
-    const interval = setInterval(fetchUsageStats, 60000);
-    return () => clearInterval(interval);
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('usage-tracking')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recruiter_activities'
+        },
+        () => {
+          fetchUsageStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_usage'
+        },
+        () => {
+          fetchUsageStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchUsageStats]);
 
   const checkAndWarn = useCallback((feature: 'cvUploads' | 'aiTests' | 'jobs'): boolean => {
@@ -290,11 +325,13 @@ export function useTeamUsageTracking() {
         const userActivities = activitiesData?.filter(a => a.user_id === userId) || [];
         const userAiUsage = aiUsageData?.filter(a => a.user_id === userId) || [];
         
-        const cvUploads = userActivities.filter(a => a.action_type === 'cv_uploaded').length;
-        const aiFromActivities = userActivities.filter(a => 
-          ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
-        ).length;
+        // Count CV activities using all CV action types
+        const cvUploads = userActivities.filter(a => CV_ACTION_TYPES.includes(a.action_type)).length;
+        
+        // Count AI activities using all AI action types
+        const aiFromActivities = userActivities.filter(a => AI_ACTION_TYPES.includes(a.action_type)).length;
         const aiTests = aiFromActivities + userAiUsage.length;
+        
         const jobs = jobsData?.filter(j => j.created_by === userId).length || 0;
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
@@ -330,11 +367,39 @@ export function useTeamUsageTracking() {
     }
   }, [tenantId]);
 
+  // Set up real-time subscription
   useEffect(() => {
     fetchTeamUsage();
     
-    const interval = setInterval(fetchTeamUsage, 60000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel('team-usage-tracking')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recruiter_activities'
+        },
+        () => {
+          fetchTeamUsage();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_usage'
+        },
+        () => {
+          fetchTeamUsage();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchTeamUsage]);
 
   return {
