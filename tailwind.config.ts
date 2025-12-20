@@ -103,8 +103,7 @@ export default {
         'lg': 'var(--shadow-lg)',
         'xl': 'var(--shadow-xl)',
         'glow': 'var(--shadow-glow)',
-        'glow-green': 'var(--shadow-glow-green)',
-        'glow-orange': 'var(--shadow-glow-orange)',
+        'glow-accent': 'var(--shadow-glow-accent)',
       },
       keyframes: {
         "accordion-down": {

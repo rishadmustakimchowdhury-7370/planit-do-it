@@ -25,27 +25,23 @@ function HireMetricsIcon({ size = 24, className }: { size?: number; className?: 
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Background circle with gradient feel */}
-      <circle cx="16" cy="16" r="14" fill="currentColor" fillOpacity="0.1" />
-      
       {/* Rising chart bars */}
-      <rect x="6" y="20" width="4" height="6" rx="1" fill="currentColor" />
-      <rect x="12" y="14" width="4" height="12" rx="1" fill="currentColor" />
-      <rect x="18" y="8" width="4" height="18" rx="1" fill="currentColor" />
+      <rect x="4" y="20" width="5" height="8" rx="1.5" fill="currentColor" opacity="0.6" />
+      <rect x="11" y="14" width="5" height="14" rx="1.5" fill="currentColor" opacity="0.8" />
+      <rect x="18" y="6" width="5" height="22" rx="1.5" fill="currentColor" />
       
-      {/* Target/checkmark circle */}
-      <circle cx="24" cy="8" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-      <circle cx="24" cy="8" r="2" fill="currentColor" />
+      {/* Target/bullseye */}
+      <circle cx="25" cy="7" r="4.5" stroke="currentColor" strokeWidth="2" fill="none" />
+      <circle cx="25" cy="7" r="1.5" fill="currentColor" />
       
-      {/* Connecting upward arrow line */}
+      {/* Trend line */}
       <path
-        d="M8 18 L14 12 L20 6"
+        d="M6 19 L13 13 L20 5"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray="2 2"
-        opacity="0.6"
+        opacity="0.4"
       />
     </svg>
   );
@@ -84,8 +80,7 @@ export function Logo({ size = 'md', showText = true, variant = 'default', classN
       {showText && (
         <div className="flex flex-col">
           <span className={cn('font-heading font-bold tracking-tight leading-none', config.text, textColor)}>
-            <span className="text-primary">Hire</span>
-            <span className="text-secondary">Metrics</span>
+            HireMetrics
           </span>
           {size !== 'sm' && (
             <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5">
@@ -100,9 +95,8 @@ export function Logo({ size = 'md', showText = true, variant = 'default', classN
 
 export function LogoText({ className }: { className?: string }) {
   return (
-    <span className={cn('font-heading font-bold', className)}>
-      <span className="text-primary">Hire</span>
-      <span className="text-secondary">Metrics</span>
+    <span className={cn('font-heading font-bold text-foreground', className)}>
+      HireMetrics
     </span>
   );
 }
@@ -119,9 +113,8 @@ export function LogoCompact({ size = 'md', className }: { size?: 'sm' | 'md' | '
       )}>
         <HireMetricsIcon size={config.icon} className="text-primary-foreground" />
       </div>
-      <span className={cn('font-heading font-bold tracking-tight', config.text)}>
-        <span className="text-primary">Hire</span>
-        <span className="text-secondary">Metrics</span>
+      <span className={cn('font-heading font-bold tracking-tight text-foreground', config.text)}>
+        HireMetrics
       </span>
     </div>
   );
@@ -135,19 +128,18 @@ export function getLogoHTML(options?: { size?: 'sm' | 'md' | 'lg' }) {
   
   return `
     <div style="display: flex; align-items: center; gap: 10px;">
-      <div style="background: linear-gradient(135deg, hsl(210, 100%, 35%) 0%, hsl(210, 100%, 45%) 100%); border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center;">
+      <div style="background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%); border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center;">
         <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="16" r="14" fill="white" fill-opacity="0.1"/>
-          <rect x="6" y="20" width="4" height="6" rx="1" fill="white"/>
-          <rect x="12" y="14" width="4" height="12" rx="1" fill="white"/>
-          <rect x="18" y="8" width="4" height="18" rx="1" fill="white"/>
-          <circle cx="24" cy="8" r="5" stroke="white" stroke-width="2" fill="none"/>
-          <circle cx="24" cy="8" r="2" fill="white"/>
+          <rect x="4" y="20" width="5" height="8" rx="1.5" fill="white" opacity="0.6"/>
+          <rect x="11" y="14" width="5" height="14" rx="1.5" fill="white" opacity="0.8"/>
+          <rect x="18" y="6" width="5" height="22" rx="1.5" fill="white"/>
+          <circle cx="25" cy="7" r="4.5" stroke="white" stroke-width="2" fill="none"/>
+          <circle cx="25" cy="7" r="1.5" fill="white"/>
         </svg>
       </div>
       <div style="display: flex; flex-direction: column;">
-        <span style="font-family: 'Poppins', Arial, sans-serif; font-weight: 700; font-size: ${fontSize}; line-height: 1;">
-          <span style="color: hsl(210, 100%, 35%);">Hire</span><span style="color: hsl(152, 69%, 40%);">Metrics</span>
+        <span style="font-family: 'Poppins', Arial, sans-serif; font-weight: 700; font-size: ${fontSize}; line-height: 1; color: #0F172A;">
+          HireMetrics
         </span>
         <span style="font-family: Arial, sans-serif; font-size: 10px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">
           Recruitment Performance OS
