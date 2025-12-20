@@ -10,7 +10,7 @@ import { Loader2, Users, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 interface AssignJobDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,6 +37,7 @@ export function AssignJobDialog({
   onAssignmentComplete,
 }: AssignJobDialogProps) {
   const { tenantId, user } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -149,10 +150,22 @@ export function AssignJobDialog({
 
         if (insertError) throw insertError;
 
-        // Send notification emails to newly assigned members
+        // Log activity for each job assignment (for KPI tracking)
         for (const userId of toAdd) {
           const member = teamMembers.find(m => m.id === userId);
           if (member) {
+            // Log job_assigned activity - this tracks job assignments in recruiter_activities
+            await logActivity({
+              action_type: 'job_assigned',
+              job_id: jobId,
+              metadata: { 
+                assigned_to_user_id: userId,
+                assigned_to_name: member.full_name,
+                job_title: jobTitle
+              }
+            });
+
+            // Send notification emails to newly assigned members
             try {
               await supabase.functions.invoke('send-job-assignment', {
                 body: {
