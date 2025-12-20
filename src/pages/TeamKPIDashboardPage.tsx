@@ -248,7 +248,7 @@ export default function TeamKPIDashboardPage() {
       }
 
       // Fetch real recruitment activity data from multiple tables
-      const [candidatesData, recruiterActivitiesData, jobCandidatesData, eventsData] = await Promise.all([
+      const [candidatesData, jobCandidatesWithCreatorData, jobCandidatesData, eventsData] = await Promise.all([
         // CVs uploaded (candidates created)
         supabase
           .from('candidates')
@@ -258,13 +258,11 @@ export default function TeamKPIDashboardPage() {
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString()),
         
-        // CVs submitted - use recruiter_activities as source of truth
+        // CVs submitted - count from job_candidates joined with candidates (who created the candidate)
         supabase
-          .from('recruiter_activities')
-          .select('user_id, created_at, action_type')
+          .from('job_candidates')
+          .select('created_at, candidate_id, candidates!inner(created_by)')
           .eq('tenant_id', tenantId)
-          .in('user_id', targetUserIds)
-          .eq('action_type', 'cv_submitted')
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString()),
         
@@ -329,10 +327,11 @@ export default function TeamKPIDashboardPage() {
         }
       }
 
-      // Count CVs submitted from recruiter_activities
-      for (const activity of recruiterActivitiesData.data || []) {
-        if (activity.user_id && kpiMap.has(activity.user_id)) {
-          kpiMap.get(activity.user_id)!.cv_submitted++;
+      // Count CVs submitted from job_candidates (candidate submissions to jobs)
+      for (const jobCandidate of jobCandidatesWithCreatorData.data || []) {
+        const createdBy = (jobCandidate.candidates as any)?.created_by;
+        if (createdBy && kpiMap.has(createdBy)) {
+          kpiMap.get(createdBy)!.cv_submitted++;
         }
       }
 
@@ -390,7 +389,7 @@ export default function TeamKPIDashboardPage() {
       };
 
       candidatesData.data?.forEach(c => addToTrend(new Date(c.created_at!), 'cv_uploaded'));
-      recruiterActivitiesData.data?.forEach(a => addToTrend(new Date(a.created_at!), 'cv_submitted'));
+      jobCandidatesWithCreatorData.data?.forEach(jc => addToTrend(new Date(jc.created_at!), 'cv_submitted'));
       eventsData.data?.forEach(e => addToTrend(new Date(e.created_at!), 'interview_scheduled'));
       jobCandidatesData.data?.filter(jc => jc.stage === 'hired').forEach(jc => 
         addToTrend(new Date(jc.stage_updated_at), 'candidate_hired')
