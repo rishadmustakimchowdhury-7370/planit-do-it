@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/lib/auth';
 
 interface JobCardProps {
   job: Job;
@@ -25,6 +26,9 @@ const statusColors = {
 };
 
 export function JobCard({ job, index = 0 }: JobCardProps) {
+  const { isOwner, isManager } = useAuth();
+  const canEditJob = isOwner || isManager;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -81,10 +85,12 @@ export function JobCard({ job, index = 0 }: JobCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit Job</DropdownMenuItem>
+                {canEditJob && <DropdownMenuItem>Edit Job</DropdownMenuItem>}
                 <DropdownMenuItem>View Pipeline</DropdownMenuItem>
                 <DropdownMenuItem>Add Candidates</DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">Close Job</DropdownMenuItem>
+                {canEditJob && (
+                  <DropdownMenuItem className="text-destructive">Close Job</DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
