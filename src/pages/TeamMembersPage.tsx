@@ -818,7 +818,7 @@ export default function TeamMembersPage() {
           <ManagePermissionsDialog
             open={!!memberForPermissions}
             onOpenChange={(open) => !open && setMemberForPermissions(null)}
-            userId={memberForPermissions.id}
+            userId={memberForPermissions.user_id}
             userName={memberForPermissions.profile?.full_name || memberForPermissions.profile?.email || 'User'}
             userRole={ROLE_LABELS[memberForPermissions.role] || memberForPermissions.role}
             onUpdate={fetchTeamData}
