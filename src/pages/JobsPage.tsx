@@ -79,6 +79,7 @@ const JobsPage = () => {
   const [assignJob, setAssignJob] = useState<Job | null>(null);
 
   const canAssign = isOwner || isManager;
+  const canEditJob = isOwner || isManager;
 
   useEffect(() => {
     if (tenantId) {
@@ -240,43 +241,49 @@ const JobsPage = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/jobs/${job.id}/edit`)}>
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit Job
-                    </DropdownMenuItem>
+                    {canEditJob && (
+                      <DropdownMenuItem onClick={() => navigate(`/jobs/${job.id}/edit`)}>
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Edit Job
+                      </DropdownMenuItem>
+                    )}
                     {canAssign && (
                       <DropdownMenuItem onClick={() => setAssignJob(job)}>
                         <UserCog className="w-4 h-4 mr-2" />
                         Assign Job
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuSeparator />
-                    {job.status !== 'open' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
-                        <Play className="w-4 h-4 mr-2" />
-                        Set to Open
-                      </DropdownMenuItem>
+                    {canEditJob && (
+                      <>
+                        <DropdownMenuSeparator />
+                        {job.status !== 'open' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
+                            <Play className="w-4 h-4 mr-2" />
+                            Set to Open
+                          </DropdownMenuItem>
+                        )}
+                        {job.status !== 'paused' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'paused')}>
+                            <Pause className="w-4 h-4 mr-2" />
+                            Pause Job
+                          </DropdownMenuItem>
+                        )}
+                        {job.status !== 'closed' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'closed')}>
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Close Job
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteJobId(job.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Job
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    {job.status !== 'paused' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'paused')}>
-                        <Pause className="w-4 h-4 mr-2" />
-                        Pause Job
-                      </DropdownMenuItem>
-                    )}
-                    {job.status !== 'closed' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'closed')}>
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Close Job
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => setDeleteJobId(job.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Job
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -447,43 +454,49 @@ const JobsPage = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/jobs/${job.id}/edit`)}>
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit Job
-                    </DropdownMenuItem>
+                    {canEditJob && (
+                      <DropdownMenuItem onClick={() => navigate(`/jobs/${job.id}/edit`)}>
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Edit Job
+                      </DropdownMenuItem>
+                    )}
                     {canAssign && (
                       <DropdownMenuItem onClick={() => setAssignJob(job)}>
                         <UserCog className="w-4 h-4 mr-2" />
                         Assign Job
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuSeparator />
-                    {job.status !== 'open' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
-                        <Play className="w-4 h-4 mr-2" />
-                        Set to Open
-                      </DropdownMenuItem>
+                    {canEditJob && (
+                      <>
+                        <DropdownMenuSeparator />
+                        {job.status !== 'open' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'open')}>
+                            <Play className="w-4 h-4 mr-2" />
+                            Set to Open
+                          </DropdownMenuItem>
+                        )}
+                        {job.status !== 'paused' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'paused')}>
+                            <Pause className="w-4 h-4 mr-2" />
+                            Pause Job
+                          </DropdownMenuItem>
+                        )}
+                        {job.status !== 'closed' && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'closed')}>
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Close Job
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteJobId(job.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Job
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    {job.status !== 'paused' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'paused')}>
-                        <Pause className="w-4 h-4 mr-2" />
-                        Pause Job
-                      </DropdownMenuItem>
-                    )}
-                    {job.status !== 'closed' && (
-                      <DropdownMenuItem onClick={() => handleStatusChange(job.id, 'closed')}>
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Close Job
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => setDeleteJobId(job.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Job
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
