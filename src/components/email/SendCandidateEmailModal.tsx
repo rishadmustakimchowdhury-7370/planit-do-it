@@ -521,7 +521,7 @@ export function SendCandidateEmailModal({
       
       // Get selected account email
       const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
-      const fromEmail = selectedAccount?.from_email || profile?.email || 'noreply@recruitifycrm.com';
+      const fromEmail = selectedAccount?.from_email || profile?.email || 'noreply@hiremetrics.io';
       
       const { data, error } = await supabase.functions.invoke('send-candidate-email', {
         body: {
@@ -671,7 +671,7 @@ export function SendCandidateEmailModal({
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Emails sent from info@recruitifycrm.com with your email as reply-to. 
+                  Emails sent from info@hiremetrics.io with your email as reply-to. 
                   <a href="/email-accounts" className="text-primary ml-1 hover:underline">Configure SMTP</a> to send from your domain.
                 </p>
               </div>

@@ -391,7 +391,7 @@ export function GmailComposeModal({
         body: {
           candidate_id: candidate.id,
           job_id: selectedJobId,
-          from_email: profile?.email || 'info@recruitifycrm.com',
+          from_email: profile?.email || 'info@hiremetrics.io',
           to_email: toEmail,
           cc_email: ccEmail || null,
           bcc_email: bccEmail || null,

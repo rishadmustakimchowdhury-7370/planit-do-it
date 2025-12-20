@@ -96,7 +96,7 @@ export default function CheckoutCancelPage() {
               {/* Support */}
               <div className="pt-4">
                 <Link 
-                  to="mailto:support@recruitifycrm.com"
+                  to="mailto:support@hiremetrics.io"
                   className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   <MessageCircle className="h-4 w-4" />

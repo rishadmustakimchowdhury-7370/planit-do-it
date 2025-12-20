@@ -81,7 +81,7 @@ export function SendEmailDialog({
         '{{name}}': recipientName,
         '{{candidate_name}}': contextData?.candidateName || recipientName,
         '{{job_title}}': contextData?.jobTitle || '',
-        '{{company}}': 'Recruitify CRM',
+        '{{company}}': 'HireMetrics',
         '{{sender_name}}': profile?.full_name || 'Recruiter',
       };
 

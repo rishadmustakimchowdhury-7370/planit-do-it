@@ -54,7 +54,7 @@ const DEFAULT_TEMPLATES = [
 <p>We'd love to hear from you. Reach out to us through any of the channels below.</p>
 
 <h2>Get in Touch</h2>
-<p><strong>Email:</strong> info@recruitifycrm.com</p>
+<p><strong>Email:</strong> info@hiremetrics.io</p>
 <p><strong>Phone:</strong> +1 (555) 123-4567</p>
 
 <h2>Office Location</h2>
