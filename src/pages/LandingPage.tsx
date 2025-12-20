@@ -272,9 +272,9 @@ function Footer() {
 // Section Component for consistent styling
 function SectionTitle({ badge, title, subtitle }: { badge?: string; title: string; subtitle?: string }) {
   return (
-    <div className="text-center mb-10 sm:mb-16">
-      {badge && <Badge variant="outline" className="mb-4 bg-primary/5 border-primary/20 text-primary">{badge}</Badge>}
-      <h2 className="text-2xl sm:text-4xl font-bold mb-4 text-foreground">{title}</h2>
+    <div className="text-center mb-8 sm:mb-10">
+      {badge && <Badge variant="outline" className="mb-3 bg-primary/5 border-primary/20 text-primary">{badge}</Badge>}
+      <h2 className="text-2xl sm:text-4xl font-bold mb-3 text-foreground">{title}</h2>
       {subtitle && <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto px-4">{subtitle}</p>}
     </div>
   );
@@ -366,7 +366,7 @@ export default function LandingPage() {
       </header>
 
       {/* 1. HERO SECTION */}
-      <section className="pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6 bg-gradient-to-b from-primary/5 to-background">
+      <section className="pt-24 sm:pt-28 pb-12 sm:pb-16 px-4 sm:px-6 bg-gradient-to-b from-primary/5 to-background">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-6 sm:space-y-8">
             <motion.div
@@ -473,14 +473,14 @@ export default function LandingPage() {
       </section>
 
       {/* 2. THE PROBLEM YOU SOLVE */}
-      <section id="problem" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+      <section id="problem" className="py-12 sm:py-16 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="The Challenge"
             title="Recruitment Is Not the Problem. Visibility Is."
           />
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {painPoints.map((point, i) => (
               <motion.div
                 key={i}
@@ -517,7 +517,7 @@ export default function LandingPage() {
       </section>
 
       {/* 3. THE SOLUTION */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6">
+      <section className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -539,7 +539,7 @@ export default function LandingPage() {
       </section>
 
       {/* 4. CORE FEATURES */}
-      <section id="features" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+      <section id="features" className="py-12 sm:py-16 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="Platform Features"
@@ -547,8 +547,8 @@ export default function LandingPage() {
           />
           
           {/* Recruitment Management */}
-          <div className="mb-16">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Briefcase className="h-5 w-5 text-primary" />
               </div>
@@ -578,8 +578,8 @@ export default function LandingPage() {
           </div>
           
           {/* AI Matching */}
-          <div className="mb-16">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
                 <Brain className="h-5 w-5 text-accent" />
               </div>
@@ -609,7 +609,7 @@ export default function LandingPage() {
           </div>
           
           {/* Work Tracking - THE DIFFERENTIATOR */}
-          <div className="mb-16">
+          <div className="mb-10">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
                 <Activity className="h-5 w-5 text-primary-foreground" />
@@ -644,8 +644,8 @@ export default function LandingPage() {
           </div>
           
           {/* KPI Dashboard */}
-          <div className="mb-16">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-slate/20 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-slate" />
               </div>
@@ -683,7 +683,7 @@ export default function LandingPage() {
           
           {/* Communication */}
           <div>
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-slate/20 flex items-center justify-center">
                 <MessageSquare className="h-5 w-5 text-slate" />
               </div>
@@ -715,7 +715,7 @@ export default function LandingPage() {
       </section>
 
       {/* 5. ROLE-BASED ACCESS */}
-      <section id="roles" className="py-16 sm:py-24 px-4 sm:px-6">
+      <section id="roles" className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="Role-Based Access"
@@ -755,7 +755,7 @@ export default function LandingPage() {
       </section>
 
       {/* 6. PRICING */}
-      <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+      <section id="pricing" className="py-12 sm:py-16 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="Pricing"
@@ -810,7 +810,7 @@ export default function LandingPage() {
       </section>
 
       {/* 7. WHY CHOOSE US */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6">
+      <section className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="Why HireMetrics"
@@ -838,7 +838,7 @@ export default function LandingPage() {
       </section>
 
       {/* 8. SECURITY */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-4xl text-center">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
             <Lock className="h-8 w-8 text-primary" />
@@ -856,7 +856,7 @@ export default function LandingPage() {
       </section>
 
       {/* 9. TESTIMONIALS */}
-      <section id="testimonials" className="py-16 sm:py-24 px-4 sm:px-6">
+      <section id="testimonials" className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <SectionTitle 
             badge="Testimonials"
@@ -871,7 +871,7 @@ export default function LandingPage() {
       </section>
 
       {/* 10. FINAL CTA */}
-      <section className="py-16 sm:py-24 px-4 sm:px-6">
+      <section className="py-12 sm:py-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-4xl">
           <Card className="bg-primary text-primary-foreground overflow-hidden border-0">
             <CardContent className="p-8 sm:p-12 text-center">
