@@ -27,7 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { format, subDays, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, subMonths, subHours, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { 
   BarChart, 
   Bar, 
@@ -67,6 +67,7 @@ interface ActivitySummary {
 }
 
 const DATE_RANGES = [
+  { value: '24_hours', label: 'Last 24 Hours' },
   { value: 'this_week', label: 'This Week' },
   { value: 'last_week', label: 'Last Week' },
   { value: '30_days', label: 'Last 30 Days' },
@@ -193,6 +194,8 @@ export default function TeamKPIDashboardPage() {
   const getDateRange = () => {
     const now = new Date();
     switch (dateRange) {
+      case '24_hours':
+        return { start: subHours(now, 24), end: now };
       case 'this_week':
         return { start: startOfWeek(now), end: endOfWeek(now) };
       case 'last_week':
@@ -375,7 +378,7 @@ export default function TeamKPIDashboardPage() {
       const trendMap = new Map<string, any>();
       
       const addToTrend = (date: Date, key: string) => {
-        const dateStr = format(date, dateRange === '24_months' ? 'MMM yyyy' : 'MMM dd');
+        const dateStr = format(date, dateRange === '24_hours' ? 'HH:mm' : dateRange === '24_months' ? 'MMM yyyy' : 'MMM dd');
         if (!trendMap.has(dateStr)) {
           trendMap.set(dateStr, { 
             date: dateStr, 
