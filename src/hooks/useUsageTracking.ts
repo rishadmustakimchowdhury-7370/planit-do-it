@@ -137,12 +137,11 @@ export function useUsageTracking() {
 
       const totalAiTests = (aiActivityCount || 0) + (aiUsageCount || 0);
 
-      // Count active jobs for current user
+      // Count active jobs for tenant (jobs may not have created_by set)
       const { count: jobCount } = await supabase
         .from('jobs')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('created_by', user.id)
         .eq('status', 'open');
 
       setUsageStats({
@@ -312,10 +311,10 @@ export function useTeamUsageTracking() {
         .eq('tenant_id', tenantId)
         .gte('created_at', periodStartISO);
 
-      // Get job counts per user
-      const { data: jobsData } = await supabase
+      // Get total active jobs for tenant
+      const { count: totalJobCount } = await supabase
         .from('jobs')
-        .select('created_by')
+        .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('status', 'open');
 
@@ -332,7 +331,8 @@ export function useTeamUsageTracking() {
         const aiFromActivities = userActivities.filter(a => AI_ACTION_TYPES.includes(a.action_type)).length;
         const aiTests = aiFromActivities + userAiUsage.length;
         
-        const jobs = jobsData?.filter(j => j.created_by === userId).length || 0;
+        // Jobs are shared at tenant level, distribute equally or show tenant total
+        const jobs = Math.ceil((totalJobCount || 0) / userIds.length);
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
         const aiUsage = calculateUsage(aiTests, aiTestLimit);
