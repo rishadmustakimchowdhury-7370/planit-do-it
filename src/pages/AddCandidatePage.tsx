@@ -638,7 +638,7 @@ export default function AddCandidatePage() {
                             result.status === 'pending' && "bg-muted"
                           )}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             {result.status === 'success' && <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />}
                             {result.status === 'error' && <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />}
                             {result.status === 'duplicate' && <AlertCircle className="h-4 w-4 text-warning flex-shrink-0" />}
@@ -657,6 +657,22 @@ export default function AddCandidatePage() {
                               )}
                             </div>
                           </div>
+                          {/* Allow removing pending, error, or duplicate items */}
+                          {(result.status === 'pending' || result.status === 'error' || result.status === 'duplicate') && !isBulkProcessing && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0 ml-2"
+                              onClick={() => {
+                                const newFiles = bulkFiles.filter((_, i) => i !== idx);
+                                const newResults = bulkResults.filter((_, i) => i !== idx);
+                                setBulkFiles(newFiles);
+                                setBulkResults(newResults);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
