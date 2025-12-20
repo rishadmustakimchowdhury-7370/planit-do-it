@@ -88,7 +88,7 @@ const ACTION_LABELS: Record<string, string> = {
 const COLORS = ['#0052CC', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
 
 export default function TeamKPIDashboardPage() {
-  const { profile, tenantId, user } = useAuth();
+  const { profile, tenantId, user, isOwner, isManager } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30_days');
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
@@ -169,17 +169,24 @@ export default function TeamKPIDashboardPage() {
 
   const fetchUserRole = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user?.id)
-        .eq('tenant_id', tenantId)
-        .single();
+        .eq('user_id', user?.id);
 
-      setUserRole(data?.role || 'recruiter');
+      if (error) throw error;
+
+      const roles = (data || []).map(r => r.role);
+      const resolvedRole = (roles.includes('owner') || isOwner)
+        ? 'owner'
+        : (roles.includes('manager') || isManager)
+          ? 'manager'
+          : 'recruiter';
+
+      setUserRole(resolvedRole);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole('recruiter');
+      setUserRole(isOwner ? 'owner' : isManager ? 'manager' : 'recruiter');
     }
   };
 
@@ -207,29 +214,22 @@ export default function TeamKPIDashboardPage() {
     try {
       const { start, end } = getDateRange();
 
+      let members: Array<{ id: string; full_name?: string | null; email?: string | null; avatar_url?: string | null }> = [];
+
       // Fetch team members FIRST if admin/manager
       if (userRole === 'owner' || userRole === 'manager') {
-        const { data: rolesData, error: rolesError } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('tenant_id', tenantId);
+        const { data: membersData, error: membersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .eq('tenant_id', tenantId)
+          .order('full_name');
 
-        if (rolesError) {
-          console.error('Error fetching roles:', rolesError);
-        } else if (rolesData) {
-          const userIds = rolesData.map(r => r.user_id);
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, avatar_url')
-            .in('id', userIds)
-            .eq('tenant_id', tenantId);
-
-          if (profilesError) {
-            console.error('Error fetching profiles:', profilesError);
-          } else {
-            setTeamMembers(profilesData || []);
-          }
+        if (membersError) {
+          console.error('Error fetching team members:', membersError);
         }
+
+        members = membersData || [];
+        setTeamMembers(members);
       }
 
       // Determine which users to query for
@@ -239,12 +239,12 @@ export default function TeamKPIDashboardPage() {
       } else if (selectedMember) {
         targetUserIds = [selectedMember];
       } else {
-        // Get all team member IDs
-        const { data: rolesData } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('tenant_id', tenantId);
-        targetUserIds = rolesData?.map(r => r.user_id) || [];
+        targetUserIds = members.map(m => m.id).filter(Boolean);
+      }
+
+      // Safety: avoid empty IN() filters
+      if (targetUserIds.length === 0) {
+        targetUserIds = [user?.id].filter(Boolean) as string[];
       }
 
       // Fetch real recruitment activity data from multiple tables
@@ -447,7 +447,7 @@ export default function TeamKPIDashboardPage() {
     { name: 'Hired', value: totals.candidate_hired, fill: '#00875A' },
   ], [totals]);
 
-  const canViewTeam = userRole === 'owner' || userRole === 'manager';
+  const canViewTeam = isOwner || isManager || userRole === 'owner' || userRole === 'manager';
 
   const handleExport = () => {
     if (teamKPIs.length === 0) {
@@ -513,30 +513,36 @@ export default function TeamKPIDashboardPage() {
               </Select>
               
               {/* Team Member Filter for owners/managers */}
-              {canViewTeam && teamMembers.length > 0 && (
+              {canViewTeam && (
                 <Select 
                   value={selectedMember || 'all'} 
                   onValueChange={(v) => setSelectedMember(v === 'all' ? null : v)}
                 >
-                  <SelectTrigger className="w-[220px]">
+                  <SelectTrigger className="w-[220px]" disabled={teamMembers.length === 0}>
                     <Users className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="All Team Members" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Team Members</SelectItem>
-                    {teamMembers.map(member => (
-                      <SelectItem key={member.id} value={member.id}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-5 w-5">
-                            <AvatarImage src={member.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {(member.full_name || member.email || '?').substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          {member.full_name || member.email}
-                        </div>
+                    {teamMembers.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No team members found
                       </SelectItem>
-                    ))}
+                    ) : (
+                      teamMembers.map(member => (
+                        <SelectItem key={member.id} value={member.id}>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={member.avatar_url || undefined} />
+                              <AvatarFallback className="text-xs">
+                                {(member.full_name || member.email || '?').substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {member.full_name || member.email}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               )}
