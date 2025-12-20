@@ -68,37 +68,36 @@ export function useUsageTracking() {
     }
 
     try {
-      // Fetch tenant's subscription plan
+      // Fetch tenant with plan info using separate queries to avoid nested select issues
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select(`
-          subscription_plan_id,
-          subscription_ends_at,
-          subscription_plans (
-            name,
-            max_candidates,
-            match_credits_monthly,
-            max_jobs
-          )
-        `)
+        .select('subscription_plan_id, subscription_ends_at')
         .eq('id', tenantId)
         .single();
 
-      const plan = (tenantData as any)?.subscription_plans;
-      const planName = plan?.name || 'Free';
+      let planName = 'Free';
+      let cvLimit = 100;
+      let aiTestLimit = 50;
+      let jobLimit = 10;
       const billingCycleEnd = tenantData?.subscription_ends_at || null;
 
-      // Get plan limits - handle -1 as unlimited
-      const rawCvLimit = plan?.max_candidates ?? 100;
-      const rawAiTestLimit = plan?.match_credits_monthly ?? 50;
-      const rawJobLimit = plan?.max_jobs ?? 10;
-      
-      // Convert -1 to our unlimited marker
-      const cvLimit = rawCvLimit === -1 ? -1 : rawCvLimit;
-      const aiTestLimit = rawAiTestLimit === -1 ? -1 : rawAiTestLimit;
-      const jobLimit = rawJobLimit === -1 ? -1 : rawJobLimit;
+      // Fetch plan details if subscription exists
+      if (tenantData?.subscription_plan_id) {
+        const { data: planData } = await supabase
+          .from('subscription_plans')
+          .select('name, max_candidates, match_credits_monthly, max_jobs')
+          .eq('id', tenantData.subscription_plan_id)
+          .single();
 
-      // Get current period start (beginning of current month or subscription start)
+        if (planData) {
+          planName = planData.name || 'Free';
+          cvLimit = planData.max_candidates ?? 100;
+          aiTestLimit = planData.match_credits_monthly ?? 50;
+          jobLimit = planData.max_jobs ?? 10;
+        }
+      }
+
+      // Get current period start (beginning of current month)
       const periodStart = new Date();
       periodStart.setDate(1);
       periodStart.setHours(0, 0, 0, 0);
@@ -113,14 +112,24 @@ export function useUsageTracking() {
         .eq('action_type', 'cv_uploaded')
         .gte('created_at', periodStartISO);
 
-      // Count AI tests (match, parse, compose, brand) for current user
-      const { count: aiCount } = await supabase
+      // Count AI tests - check both recruiter_activities and ai_usage tables
+      const { count: aiActivityCount } = await supabase
         .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('user_id', user.id)
         .in('action_type', ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'])
         .gte('created_at', periodStartISO);
+
+      // Also check ai_usage table for AI credits used
+      const { count: aiUsageCount } = await supabase
+        .from('ai_usage')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('user_id', user.id)
+        .gte('created_at', periodStartISO);
+
+      const totalAiTests = (aiActivityCount || 0) + (aiUsageCount || 0);
 
       // Count active jobs for current user
       const { count: jobCount } = await supabase
@@ -132,7 +141,7 @@ export function useUsageTracking() {
 
       setUsageStats({
         cvUploads: calculateUsage(cvCount || 0, cvLimit),
-        aiTests: calculateUsage(aiCount || 0, aiTestLimit),
+        aiTests: calculateUsage(totalAiTests, aiTestLimit),
         jobs: calculateUsage(jobCount || 0, jobLimit),
         planName,
         billingCycleEnd,
@@ -148,7 +157,6 @@ export function useUsageTracking() {
   useEffect(() => {
     fetchUsageStats();
     
-    // Refresh every 60 seconds
     const interval = setInterval(fetchUsageStats, 60000);
     return () => clearInterval(interval);
   }, [fetchUsageStats]);
@@ -169,7 +177,7 @@ export function useUsageTracking() {
           onClick: () => window.location.href = '/billing',
         },
       });
-      return true; // Blocked
+      return true;
     }
     
     if (usage.status === 'warning') {
@@ -205,23 +213,29 @@ export function useTeamUsageTracking() {
       // Get tenant's plan limits
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select(`
-          subscription_plan_id,
-          subscription_plans (
-            name,
-            max_candidates,
-            match_credits_monthly,
-            max_jobs
-          )
-        `)
+        .select('subscription_plan_id')
         .eq('id', tenantId)
         .single();
 
-      const plan = (tenantData as any)?.subscription_plans;
-      const planName = plan?.name || 'Free';
-      const cvLimit = plan?.max_candidates ?? 100;
-      const aiTestLimit = plan?.match_credits_monthly ?? 50;
-      const jobLimit = plan?.max_jobs ?? 10;
+      let planName = 'Free';
+      let cvLimit = 100;
+      let aiTestLimit = 50;
+      let jobLimit = 10;
+
+      if (tenantData?.subscription_plan_id) {
+        const { data: planData } = await supabase
+          .from('subscription_plans')
+          .select('name, max_candidates, match_credits_monthly, max_jobs')
+          .eq('id', tenantData.subscription_plan_id)
+          .single();
+
+        if (planData) {
+          planName = planData.name || 'Free';
+          cvLimit = planData.max_candidates ?? 100;
+          aiTestLimit = planData.match_credits_monthly ?? 50;
+          jobLimit = planData.max_jobs ?? 10;
+        }
+      }
 
       // Get all team members
       const { data: rolesData } = await supabase
@@ -256,6 +270,13 @@ export function useTeamUsageTracking() {
         .eq('tenant_id', tenantId)
         .gte('created_at', periodStartISO);
 
+      // Get AI usage data
+      const { data: aiUsageData } = await supabase
+        .from('ai_usage')
+        .select('user_id')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', periodStartISO);
+
       // Get job counts per user
       const { data: jobsData } = await supabase
         .from('jobs')
@@ -267,18 +288,19 @@ export function useTeamUsageTracking() {
       const memberUsage: TeamMemberUsage[] = userIds.map(userId => {
         const profile = profilesData?.find(p => p.id === userId);
         const userActivities = activitiesData?.filter(a => a.user_id === userId) || [];
+        const userAiUsage = aiUsageData?.filter(a => a.user_id === userId) || [];
         
         const cvUploads = userActivities.filter(a => a.action_type === 'cv_uploaded').length;
-        const aiTests = userActivities.filter(a => 
+        const aiFromActivities = userActivities.filter(a => 
           ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
         ).length;
+        const aiTests = aiFromActivities + userAiUsage.length;
         const jobs = jobsData?.filter(j => j.created_by === userId).length || 0;
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
         const aiUsage = calculateUsage(aiTests, aiTestLimit);
         const jobUsage = calculateUsage(jobs, jobLimit);
 
-        // Overall status is the worst of the three
         let overallStatus: 'normal' | 'warning' | 'limit_reached' = 'normal';
         if (cvUsage.status === 'limit_reached' || aiUsage.status === 'limit_reached' || jobUsage.status === 'limit_reached') {
           overallStatus = 'limit_reached';
