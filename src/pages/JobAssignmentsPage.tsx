@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Briefcase, User, Calendar, FileText, Loader2 } from 'lucide-react';
+import { Briefcase, User, Calendar, FileText, Loader2, Users, TrendingUp, Award } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface JobAssignment {
@@ -26,6 +27,8 @@ export default function JobAssignmentsPage() {
   const { tenantId, isOwner, isManager } = useAuth();
   const [assignments, setAssignments] = useState<JobAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRecruiter, setSelectedRecruiter] = useState<string>('all');
+  const [recruiters, setRecruiters] = useState<Array<{ id: string; name: string; avatar: string | null }>>([]);
 
   useEffect(() => {
     if (tenantId && (isOwner || isManager)) {
@@ -112,6 +115,17 @@ export default function JobAssignmentsPage() {
       }
 
       setAssignments(Array.from(assignmentMap.values()));
+
+      // Extract unique recruiters for the filter
+      const uniqueRecruiters = Array.from(
+        new Map(
+          Array.from(assignmentMap.values()).map(a => [
+            a.assigned_to,
+            { id: a.assigned_to, name: a.assigned_to_name, avatar: a.assigned_to_avatar }
+          ])
+        ).values()
+      );
+      setRecruiters(uniqueRecruiters);
     } catch (error) {
       console.error('Error fetching job assignments:', error);
       toast.error('Failed to load job assignments');
@@ -119,6 +133,29 @@ export default function JobAssignmentsPage() {
       setIsLoading(false);
     }
   };
+
+  // Filter assignments by selected recruiter
+  const filteredAssignments = useMemo(() => {
+    if (selectedRecruiter === 'all') {
+      return assignments;
+    }
+    return assignments.filter(a => a.assigned_to === selectedRecruiter);
+  }, [assignments, selectedRecruiter]);
+
+  // Calculate stats for the selected view
+  const stats = useMemo(() => {
+    const data = selectedRecruiter === 'all' ? assignments : filteredAssignments;
+    return {
+      totalAssignments: data.length,
+      totalSubmissions: data.reduce((sum, a) => sum + a.cv_submissions, 0),
+      avgDaysActive: data.length > 0 
+        ? Math.round(data.reduce((sum, a) => sum + a.days_assigned, 0) / data.length)
+        : 0,
+      activeRecruiters: selectedRecruiter === 'all' 
+        ? new Set(data.map(a => a.assigned_to)).size 
+        : 1,
+    };
+  }, [assignments, filteredAssignments, selectedRecruiter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -148,29 +185,108 @@ export default function JobAssignmentsPage() {
   return (
     <AppLayout title="Job Assignments" subtitle="Track recruiter performance by job">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <p className="text-muted-foreground">
-            {assignments.length} active job {assignments.length === 1 ? 'assignment' : 'assignments'}
-          </p>
-          <Button onClick={fetchJobAssignments} variant="outline">
-            <Loader2 className="w-4 h-4 mr-2" />
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="flex gap-4">
+            <Select value={selectedRecruiter} onValueChange={setSelectedRecruiter}>
+              <SelectTrigger className="w-[240px]">
+                <Users className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="All Recruiters" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Recruiters</SelectItem>
+                {recruiters.map(recruiter => (
+                  <SelectItem key={recruiter.id} value={recruiter.id}>
+                    {recruiter.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={fetchJobAssignments} variant="outline" disabled={isLoading}>
+            <Loader2 className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {assignments.length === 0 ? (
+        {/* Stats Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Active Jobs</p>
+                  <p className="text-2xl font-bold">{stats.totalAssignments}</p>
+                </div>
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total CVs</p>
+                  <p className="text-2xl font-bold">{stats.totalSubmissions}</p>
+                </div>
+                <div className="p-2 bg-accent/10 rounded-lg">
+                  <FileText className="h-5 w-5 text-accent" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Avg Days Active</p>
+                  <p className="text-2xl font-bold">{stats.avgDaysActive}</p>
+                </div>
+                <div className="p-2 bg-warning/10 rounded-lg">
+                  <Calendar className="h-5 w-5 text-warning" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Recruiters</p>
+                  <p className="text-2xl font-bold">{stats.activeRecruiters}</p>
+                </div>
+                <div className="p-2 bg-success/10 rounded-lg">
+                  <Users className="h-5 w-5 text-success" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Job Assignments Grid */}
+        {filteredAssignments.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Briefcase className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium mb-2">No Job Assignments</p>
+              <p className="text-lg font-medium mb-2">
+                {assignments.length === 0 ? 'No Job Assignments' : 'No Jobs Found'}
+              </p>
               <p className="text-muted-foreground">
-                Assign jobs to recruiters to track their performance here
+                {assignments.length === 0 
+                  ? 'Assign jobs to recruiters to track their performance here'
+                  : 'No jobs found for the selected recruiter'
+                }
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {assignments.map((assignment) => (
+            {filteredAssignments.map((assignment) => (
               <Card key={assignment.job_id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
