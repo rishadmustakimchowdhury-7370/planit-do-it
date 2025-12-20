@@ -88,10 +88,15 @@ export function useUsageTracking() {
       const planName = plan?.name || 'Free';
       const billingCycleEnd = tenantData?.subscription_ends_at || null;
 
-      // Get plan limits
-      const cvLimit = plan?.max_candidates ?? 100;
-      const aiTestLimit = plan?.match_credits_monthly ?? 50;
-      const jobLimit = plan?.max_jobs ?? 10;
+      // Get plan limits - handle -1 as unlimited
+      const rawCvLimit = plan?.max_candidates ?? 100;
+      const rawAiTestLimit = plan?.match_credits_monthly ?? 50;
+      const rawJobLimit = plan?.max_jobs ?? 10;
+      
+      // Convert -1 to our unlimited marker
+      const cvLimit = rawCvLimit === -1 ? -1 : rawCvLimit;
+      const aiTestLimit = rawAiTestLimit === -1 ? -1 : rawAiTestLimit;
+      const jobLimit = rawJobLimit === -1 ? -1 : rawJobLimit;
 
       // Get current period start (beginning of current month or subscription start)
       const periodStart = new Date();
@@ -152,6 +157,9 @@ export function useUsageTracking() {
     if (!usageStats) return false;
     
     const usage = usageStats[feature];
+    
+    // Unlimited plans never block
+    if (usage.limit === -1) return false;
     
     if (usage.status === 'limit_reached') {
       toast.error('Limit Reached', {
