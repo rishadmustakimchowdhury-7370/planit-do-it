@@ -37,6 +37,9 @@ const CV_ACTION_TYPES = ['cv_uploaded', 'cv_submitted', 'cv_parsed', 'cv_deleted
 // AI-related action types to track  
 const AI_ACTION_TYPES = ['screening_completed', 'ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'];
 
+// Job-related action types to track
+const JOB_ACTION_TYPES = ['job_assigned', 'job_activated'];
+
 function calculateUsage(used: number, limit: number): FeatureUsage {
   // Handle unlimited (-1) limits
   if (limit === -1 || limit === 999999) {
@@ -166,17 +169,24 @@ export function useUsageTracking() {
 
       const totalAiTests = aiMatchCount;
 
-      // Count active jobs for tenant (jobs may not have created_by set)
-      const { count: jobCount } = await supabase
-        .from('jobs')
+      // Count job assignments from recruiter_activities (for accurate tracking)
+      const jobAssignQuery = supabase
+        .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('status', 'open');
+        .in('action_type', JOB_ACTION_TYPES)
+        .gte('created_at', periodStartISO);
+      
+      if (!isOwner && !isManager) {
+        jobAssignQuery.eq('user_id', user.id);
+      }
+      
+      const { count: jobAssignCount } = await jobAssignQuery;
 
       setUsageStats({
         cvUploads: calculateUsage(cvCount || 0, cvLimit),
         aiTests: calculateUsage(totalAiTests, aiTestLimit),
-        jobs: calculateUsage(jobCount || 0, jobLimit),
+        jobs: calculateUsage(jobAssignCount || 0, jobLimit),
         planName,
         billingCycleEnd,
       });
@@ -351,13 +361,6 @@ export function useTeamUsageTracking() {
         .not('matched_at', 'is', null)
         .gte('matched_at', periodStartISO);
 
-      // Get total active jobs for tenant
-      const { count: totalJobCount } = await supabase
-        .from('jobs')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('status', 'open');
-
       // Build usage per member
       const memberUsage: TeamMemberUsage[] = userIds.map(userId => {
         const profile = profilesData?.find(p => p.id === userId);
@@ -369,8 +372,8 @@ export function useTeamUsageTracking() {
         // Count AI matches for candidates created by this user
         const aiTests = matchData?.filter(m => (m.candidates as any)?.created_by === userId).length || 0;
         
-        // Jobs are shared at tenant level, distribute equally or show tenant total
-        const jobs = Math.ceil((totalJobCount || 0) / userIds.length);
+        // Count job assignments for this user from activities
+        const jobs = userActivities.filter(a => JOB_ACTION_TYPES.includes(a.action_type)).length;
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
         const aiUsage = calculateUsage(aiTests, aiTestLimit);
