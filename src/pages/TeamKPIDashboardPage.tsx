@@ -111,6 +111,62 @@ export default function TeamKPIDashboardPage() {
     }
   }, [tenantId, dateRange, selectedMember, userRole]);
 
+  // Real-time subscriptions for live data updates
+  useEffect(() => {
+    if (!tenantId) return;
+
+    // Subscribe to candidates table changes
+    const candidatesChannel = supabase
+      .channel('candidates-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'candidates', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          if (userRole) fetchKPIData();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to cv_submissions table changes
+    const submissionsChannel = supabase
+      .channel('submissions-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'cv_submissions', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          if (userRole) fetchKPIData();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to job_candidates table changes
+    const jobCandidatesChannel = supabase
+      .channel('job-candidates-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'job_candidates', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          if (userRole) fetchKPIData();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to events table changes
+    const eventsChannel = supabase
+      .channel('events-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'events', filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          if (userRole) fetchKPIData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(candidatesChannel);
+      supabase.removeChannel(submissionsChannel);
+      supabase.removeChannel(jobCandidatesChannel);
+      supabase.removeChannel(eventsChannel);
+    };
+  }, [tenantId, userRole]);
+
   const fetchUserRole = async () => {
     try {
       const { data } = await supabase

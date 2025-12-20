@@ -37,6 +37,7 @@ const navigation = [
   { name: 'Clients', href: '/clients', icon: Building2, permission: 'can_add_clients' as Permission },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles, permission: 'can_use_ai_match' as Permission },
+  { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp, permission: 'can_view_reports' as Permission },
   { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'can_view_reports' as Permission },
   { name: 'Tutorials', href: '/tutorials', icon: Video },
 ];
@@ -82,7 +83,6 @@ export function Sidebar() {
       items.push(
         { name: 'Work Tracking', href: '/team/work-tracking', icon: Clock },
         { name: 'Team Dashboard', href: '/team/manager-dashboard', icon: BarChart3 },
-        { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp },
         { name: 'Job Assignments', href: '/jobs/assignments', icon: ClipboardList }
       );
     }
@@ -91,7 +91,7 @@ export function Sidebar() {
   };
 
   const teamMenuItems = getTeamMenuItems();
-  const isTeamActive = location.pathname.startsWith('/team') || location.pathname === '/jobs/assignments';
+  const isTeamActive = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || location.pathname === '/jobs/assignments';
 
   return (
     <motion.aside
