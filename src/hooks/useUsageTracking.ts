@@ -371,7 +371,7 @@ export function useTeamUsageTracking() {
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .eq('tenant_id', tenantId)
+        .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
         .in('user_id', userIds);
 
       if (rolesError) throw rolesError;
