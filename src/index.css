@@ -1,146 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* RecruitCRM Inspired Modern Theme - Light Mode */
+    /* HireMetrics Design System - Light Mode */
+    /* 60-30-10 Color Rule: Primary (60%), Secondary (30%), Accent (10%) */
     
-    /* Background & Surface */
-    --background: 220 14% 96%; /* #F4F5F7 */
-    --foreground: 217 78% 15%; /* #091E42 */
+    /* Background & Surface - Neutral Palette */
+    --background: 210 20% 98%; /* Off-white #F8FAFC */
+    --foreground: 215 28% 17%; /* Dark gray heading #1E293B */
 
-    --card: 0 0% 100%;
-    --card-foreground: 216 54% 20%; /* #172B4D */
+    --card: 0 0% 100%; /* Pure white */
+    --card-foreground: 215 28% 17%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 216 54% 20%;
+    --popover-foreground: 215 28% 17%;
 
-    /* Primary - RecruitCRM Blue #0052CC */
-    --primary: 214 100% 40%;
+    /* Primary - Deep Professional Blue (60%) */
+    --primary: 210 100% 35%; /* #0055B3 */
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Light Gray */
-    --secondary: 225 14% 93%; /* #EBECF0 */
-    --secondary-foreground: 216 54% 20%;
+    /* Secondary - Modern Green (30%) */
+    --secondary: 152 69% 40%; /* #20A86B */
+    --secondary-foreground: 0 0% 100%;
 
-    /* Muted surfaces */
-    --muted: 220 14% 96%; /* #F4F5F7 */
-    --muted-foreground: 215 21% 39%; /* #505F79 */
-
-    /* Accent - Same as Primary for consistency */
-    --accent: 214 100% 40%;
+    /* Accent - Orange (10%) - CTAs & Attention */
+    --accent: 24 95% 53%; /* #F97316 */
     --accent-foreground: 0 0% 100%;
 
+    /* Muted surfaces - Light gray */
+    --muted: 210 20% 96%; /* #F1F5F9 */
+    --muted-foreground: 215 16% 47%; /* #64748B */
+
     /* Status Colors */
-    --destructive: 11 100% 59%; /* #FF5630 */
+    --destructive: 0 84% 60%; /* Red #EF4444 */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 153 52% 46%; /* #36B37E */
+    --success: 152 69% 40%; /* Same as secondary green */
     --success-foreground: 0 0% 100%;
 
-    --warning: 40 100% 50%; /* #FFAB00 */
-    --warning-foreground: 217 78% 15%;
+    --warning: 38 92% 50%; /* Amber #F59E0B */
+    --warning-foreground: 215 28% 17%;
 
-    --info: 214 100% 40%;
+    --info: 210 100% 35%; /* Same as primary */
     --info-foreground: 0 0% 100%;
 
     /* Borders */
-    --border: 218 14% 89%; /* #DFE1E6 */
-    --input: 218 14% 89%;
-    --ring: 214 100% 40%;
+    --border: 214 32% 91%; /* #E2E8F0 */
+    --input: 214 32% 91%;
+    --ring: 210 100% 35%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem; /* 10px - between 8-12px */
 
-    /* Sidebar - Dark theme */
-    --sidebar-background: 217 78% 15%; /* #091E42 */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 214 100% 50%;
+    /* Sidebar - Deep Blue theme */
+    --sidebar-background: 215 28% 17%; /* #1E293B */
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 210 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 216 54% 20%; /* #172B4D */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 216 54% 25%;
-    --sidebar-ring: 214 100% 40%;
+    --sidebar-accent: 215 28% 25%; /* #334155 */
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215 28% 25%;
+    --sidebar-ring: 210 100% 35%;
 
-    /* Custom tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(214, 100%, 40%) 0%, hsl(214, 100%, 50%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(214, 100%, 40%) 0%, hsl(214, 100%, 55%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(217, 78%, 15%) 0%, hsl(216, 54%, 20%) 50%, hsl(214, 100%, 35%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 98%) 100%);
+    /* Custom Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(210, 100%, 35%) 0%, hsl(210, 100%, 45%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(152, 69%, 40%) 0%, hsl(152, 69%, 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(24, 95%, 53%) 0%, hsl(24, 95%, 60%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215, 28%, 17%) 0%, hsl(210, 100%, 25%) 50%, hsl(210, 100%, 35%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(210, 20%, 99%) 100%);
     
-    --shadow-sm: 0 1px 2px 0 hsl(217 78% 15% / 0.04);
-    --shadow-md: 0 4px 6px -1px hsl(217 78% 15% / 0.08), 0 2px 4px -2px hsl(217 78% 15% / 0.06);
-    --shadow-lg: 0 10px 15px -3px hsl(217 78% 15% / 0.08), 0 4px 6px -4px hsl(217 78% 15% / 0.06);
-    --shadow-xl: 0 20px 25px -5px hsl(217 78% 15% / 0.1), 0 8px 10px -6px hsl(217 78% 15% / 0.08);
-    --shadow-glow: 0 0 40px hsl(214 100% 40% / 0.2);
+    /* Shadows - Soft, no hard borders */
+    --shadow-sm: 0 1px 2px 0 hsl(215 28% 17% / 0.03);
+    --shadow-md: 0 4px 6px -1px hsl(215 28% 17% / 0.06), 0 2px 4px -2px hsl(215 28% 17% / 0.04);
+    --shadow-lg: 0 10px 15px -3px hsl(215 28% 17% / 0.08), 0 4px 6px -4px hsl(215 28% 17% / 0.04);
+    --shadow-xl: 0 20px 25px -5px hsl(215 28% 17% / 0.1), 0 8px 10px -6px hsl(215 28% 17% / 0.06);
+    --shadow-glow: 0 0 40px hsl(210 100% 35% / 0.15);
+    --shadow-glow-green: 0 0 40px hsl(152 69% 40% / 0.15);
+    --shadow-glow-orange: 0 0 40px hsl(24 95% 53% / 0.2);
 
     /* Match Score Colors */
-    --match-excellent: 153 52% 46%;
-    --match-good: 214 100% 40%;
-    --match-average: 40 100% 50%;
-    --match-poor: 11 100% 59%;
+    --match-excellent: 152 69% 40%; /* Green */
+    --match-good: 210 100% 35%; /* Blue */
+    --match-average: 38 92% 50%; /* Amber */
+    --match-poor: 0 84% 60%; /* Red */
 
     /* Text Colors - Semantic */
-    --text-primary: 217 78% 15%; /* #091E42 */
-    --text-secondary: 216 54% 20%; /* #172B4D */
-    --text-muted: 217 26% 35%; /* #42526E */
-    --text-subtle: 215 21% 39%; /* #505F79 */
+    --text-primary: 215 28% 17%; /* Dark gray */
+    --text-secondary: 215 25% 27%; /* Medium-dark gray */
+    --text-muted: 215 16% 47%; /* Medium gray */
+    --text-subtle: 215 20% 65%; /* Light gray */
   }
 
   .dark {
-    --background: 217 78% 8%;
-    --foreground: 220 14% 96%;
+    --background: 215 28% 9%; /* #0F172A */
+    --foreground: 210 20% 98%;
 
-    --card: 217 78% 11%;
-    --card-foreground: 220 14% 96%;
+    --card: 215 28% 12%; /* #1E293B */
+    --card-foreground: 210 20% 98%;
 
-    --popover: 217 78% 11%;
-    --popover-foreground: 220 14% 96%;
+    --popover: 215 28% 12%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 214 100% 50%;
+    --primary: 210 100% 50%; /* Brighter blue for dark mode */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 216 54% 18%;
-    --secondary-foreground: 220 14% 96%;
+    --secondary: 152 69% 45%; /* Slightly brighter green */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 216 54% 15%;
-    --muted-foreground: 218 14% 70%;
-
-    --accent: 214 100% 50%;
+    --accent: 24 95% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 11 100% 50%;
+    --muted: 215 28% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --destructive: 0 84% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 153 52% 46%;
+    --success: 152 69% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 40 100% 50%;
-    --warning-foreground: 217 78% 15%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
 
-    --info: 214 100% 50%;
+    --info: 210 100% 50%;
     --info-foreground: 0 0% 100%;
 
-    --border: 216 54% 20%;
-    --input: 216 54% 18%;
-    --ring: 214 100% 50%;
+    --border: 215 28% 20%;
+    --input: 215 28% 18%;
+    --ring: 210 100% 50%;
 
-    --sidebar-background: 217 78% 6%;
-    --sidebar-foreground: 220 14% 96%;
-    --sidebar-primary: 214 100% 50%;
+    --sidebar-background: 215 28% 7%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 210 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 78% 12%;
-    --sidebar-accent-foreground: 220 14% 96%;
-    --sidebar-border: 216 54% 18%;
-    --sidebar-ring: 214 100% 50%;
+    --sidebar-accent: 215 28% 14%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215 28% 18%;
+    --sidebar-ring: 210 100% 50%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(217, 78%, 8%) 0%, hsl(217, 78%, 15%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(217, 78%, 12%) 0%, hsl(217, 78%, 9%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(215, 28%, 9%) 0%, hsl(215, 28%, 15%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(215, 28%, 14%) 0%, hsl(215, 28%, 10%) 100%);
 
-    --text-primary: 220 14% 96%;
-    --text-secondary: 218 14% 89%;
-    --text-muted: 218 14% 70%;
-    --text-subtle: 215 21% 60%;
+    --text-primary: 210 20% 98%;
+    --text-secondary: 214 32% 91%;
+    --text-muted: 215 20% 65%;
+    --text-subtle: 215 16% 47%;
   }
 }
 
@@ -150,7 +157,10 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -160,45 +170,64 @@
     scroll-behavior: smooth;
   }
 
-  /* Typography Scale */
+  /* Typography Scale - Poppins for Headings */
   h1, .h1 {
-    @apply text-3xl md:text-4xl font-bold tracking-tight;
+    font-family: 'Poppins', sans-serif;
+    @apply text-[28px] md:text-[32px] font-bold tracking-tight;
     line-height: 1.2;
   }
 
   h2, .h2 {
-    @apply text-2xl md:text-3xl font-bold tracking-tight;
+    font-family: 'Poppins', sans-serif;
+    @apply text-[22px] md:text-[24px] font-semibold tracking-tight;
     line-height: 1.25;
   }
 
   h3, .h3 {
-    @apply text-xl md:text-2xl font-semibold;
+    font-family: 'Poppins', sans-serif;
+    @apply text-[18px] md:text-[20px] font-semibold;
     line-height: 1.3;
   }
 
   h4, .h4 {
-    @apply text-lg font-semibold;
+    font-family: 'Poppins', sans-serif;
+    @apply text-base font-semibold;
     line-height: 1.4;
   }
 
   h5, .h5 {
-    @apply text-base font-semibold;
+    font-family: 'Poppins', sans-serif;
+    @apply text-sm font-semibold;
     line-height: 1.5;
   }
 
   h6, .h6 {
-    @apply text-sm font-semibold;
+    font-family: 'Poppins', sans-serif;
+    @apply text-xs font-semibold;
     line-height: 1.5;
   }
 
   p {
     @apply leading-relaxed;
+    font-size: 14px;
   }
 }
 
 @layer utilities {
+  .font-heading {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
   .gradient-primary {
     background: var(--gradient-primary);
+  }
+
+  .gradient-secondary {
+    background: var(--gradient-secondary);
   }
 
   .gradient-accent {
@@ -217,11 +246,19 @@
     box-shadow: var(--shadow-glow);
   }
 
+  .shadow-glow-green {
+    box-shadow: var(--shadow-glow-green);
+  }
+
+  .shadow-glow-orange {
+    box-shadow: var(--shadow-glow-orange);
+  }
+
   .glass {
     @apply bg-card/90 backdrop-blur-xl border border-border/50;
   }
 
-  /* Card hover effect */
+  /* Card hover effect - soft shadows */
   .card-hover {
     @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
   }
@@ -229,6 +266,16 @@
   /* Button hover effect */
   .btn-hover {
     @apply transition-all duration-150 hover:shadow-md active:scale-[0.98];
+  }
+
+  /* CTA button with orange glow */
+  .btn-cta {
+    @apply bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow-orange;
+  }
+
+  /* Success button with green */
+  .btn-success {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-glow-green;
   }
 
   .animate-fade-up {
@@ -296,10 +343,10 @@
 
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 20px hsl(214 100% 40% / 0.15);
+    box-shadow: 0 0 20px hsl(210 100% 35% / 0.15);
   }
   50% {
-    box-shadow: 0 0 40px hsl(214 100% 40% / 0.3);
+    box-shadow: 0 0 40px hsl(210 100% 35% / 0.3);
   }
 }
 
@@ -335,14 +382,17 @@
 
 .ProseMirror h1 {
   @apply text-2xl font-bold mb-4;
+  font-family: 'Poppins', sans-serif;
 }
 
 .ProseMirror h2 {
   @apply text-xl font-semibold mb-3;
+  font-family: 'Poppins', sans-serif;
 }
 
 .ProseMirror h3 {
   @apply text-lg font-medium mb-2;
+  font-family: 'Poppins', sans-serif;
 }
 
 .ProseMirror ul {
