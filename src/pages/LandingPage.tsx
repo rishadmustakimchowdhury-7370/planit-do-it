@@ -321,7 +321,7 @@ export default function LandingPage() {
           
           <div className="hidden sm:flex items-center gap-4">
             <Link to="/auth">
-              <Button variant="ghost" size="sm">Login</Button>
+              <Button variant="ghost" size="sm" className="hover:bg-primary hover:text-primary-foreground">Login</Button>
             </Link>
             <Link to="/auth?mode=signup">
               <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -353,7 +353,7 @@ export default function LandingPage() {
                 <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
                 <div className="flex flex-col gap-2 pt-3 border-t border-border">
                   <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" className="w-full">Login</Button>
+                    <Button variant="outline" className="w-full hover:bg-primary hover:text-primary-foreground hover:border-primary">Login</Button>
                   </Link>
                   <Link to="/auth?mode=signup" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">Start Free Trial</Button>
