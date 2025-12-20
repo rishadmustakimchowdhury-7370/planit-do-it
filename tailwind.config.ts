@@ -15,17 +15,18 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        heading: ['Poppins', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1rem' }],
         'sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'base': ['1rem', { lineHeight: '1.5rem' }],
+        'base': ['0.9375rem', { lineHeight: '1.5rem' }], /* 15px body */
         'lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-        '5xl': ['3rem', { lineHeight: '1.16' }],
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }], /* 20px H3 */
+        '2xl': ['1.5rem', { lineHeight: '2rem' }], /* 24px H2 */
+        '3xl': ['1.75rem', { lineHeight: '2.25rem' }], /* 28px H1 */
+        '4xl': ['2rem', { lineHeight: '2.5rem' }], /* 32px H1 large */
+        '5xl': ['2.5rem', { lineHeight: '1.16' }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -40,6 +41,10 @@ export default {
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -60,10 +65,6 @@ export default {
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -91,9 +92,10 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--radius)", /* 10px */
+        md: "calc(var(--radius) - 2px)", /* 8px */
+        sm: "calc(var(--radius) - 4px)", /* 6px */
+        xl: "calc(var(--radius) + 2px)", /* 12px */
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
@@ -101,6 +103,8 @@ export default {
         'lg': 'var(--shadow-lg)',
         'xl': 'var(--shadow-xl)',
         'glow': 'var(--shadow-glow)',
+        'glow-green': 'var(--shadow-glow-green)',
+        'glow-orange': 'var(--shadow-glow-orange)',
       },
       keyframes: {
         "accordion-down": {
