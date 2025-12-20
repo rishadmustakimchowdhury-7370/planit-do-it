@@ -75,49 +75,10 @@ serve(async (req) => {
     // Get app origin from request headers
     const origin = req.headers.get("origin") || "https://efdvolifacsnmiinifiq.supabase.co";
     const jobUrl = `${origin}/jobs/${job_id}`;
+    const senderName = senderProfile.full_name || "your manager";
 
-    // Build email HTML
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
-          .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px; }
-          .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0; font-size: 28px;">🎯 New Job Assignment</h1>
-          </div>
-          <div class="content">
-            <p>Hi <strong>${recruiter_name}</strong>,</p>
-            <p>You have been assigned to a new job by <strong>${senderProfile.full_name || "your manager"}</strong>.</p>
-            
-            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h2 style="margin-top: 0; color: #667eea;">📋 Job Details</h2>
-              <p style="margin: 5px 0;"><strong>Job Title:</strong> ${job_title}</p>
-            </div>
-
-            <p>You can now start working on this job, submit candidates, and track your progress.</p>
-
-            <div style="text-align: center;">
-              <a href="${jobUrl}" class="button">View Job Details</a>
-            </div>
-
-            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-              This is an automated notification from your recruitment platform.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+    // Build email HTML (minified to prevent quoted-printable encoding artifacts like "=20")
+    const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background-color:#f1f5f9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;"><tr><td align="center" style="padding:40px 20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:35px 40px;text-align:center;"><h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;">🎯 New Job Assignment</h1></td></tr><tr><td style="padding:40px;"><p style="margin:0 0 20px;color:#1e293b;font-size:18px;">Hi <strong>${recruiter_name}</strong>,</p><p style="margin:0 0 30px;color:#475569;font-size:16px;line-height:1.7;">You have been assigned to a new job by <strong>${senderName}</strong>.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:30px;"><tr><td style="padding:24px;"><h2 style="margin:0 0 12px;color:#667eea;font-size:18px;font-weight:600;">📋 Job Details</h2><p style="margin:0;color:#1e293b;font-size:16px;"><strong>Job Title:</strong> ${job_title}</p></td></tr></table><p style="margin:0 0 25px;color:#475569;font-size:15px;line-height:1.6;">You can now start working on this job, submit candidates, and track your progress.</p><table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td align="center"><a href="${jobUrl}" style="display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;">View Job Details</a></td></tr></table><p style="margin:30px 0 0;padding-top:25px;border-top:1px solid #e2e8f0;color:#64748b;font-size:13px;text-align:center;">This is an automated notification from your recruitment platform.</p></td></tr><tr><td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0;text-align:center;"><p style="margin:0;color:#94a3b8;font-size:12px;">&copy; ${new Date().getFullYear()} Recruitify CRM. All rights reserved.</p></td></tr></table></td></tr></table></body></html>`;
 
     // Send email
     if (emailAccount && emailAccount.provider === "smtp") {

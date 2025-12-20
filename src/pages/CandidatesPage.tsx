@@ -406,18 +406,39 @@ const CandidatesPage = () => {
   const handleBulkDelete = async () => {
     setIsDeleting(true);
     try {
+      // Delete all related data first (hard delete - allows re-upload with same email)
+      // 1. Delete from job_candidates
       await supabase
         .from('job_candidates')
         .delete()
         .in('candidate_id', selectedIds);
 
+      // 2. Delete candidate emails
+      await supabase
+        .from('candidate_emails')
+        .delete()
+        .in('candidate_id', selectedIds);
+
+      // 3. Delete CV submissions
+      await supabase
+        .from('cv_submissions')
+        .delete()
+        .in('candidate_id', selectedIds);
+
+      // 4. Delete event participants
+      await supabase
+        .from('event_participants')
+        .delete()
+        .in('candidate_id', selectedIds);
+
+      // 5. Finally delete the candidates
       const { error } = await supabase
         .from('candidates')
         .delete()
         .in('id', selectedIds);
 
       if (error) throw error;
-      toast.success(`Deleted ${selectedIds.length} candidate(s)`);
+      toast.success(`Deleted ${selectedIds.length} candidate(s) permanently`);
       fetchCandidates();
       setSelectedIds([]);
       setShowDeleteDialog(false);
