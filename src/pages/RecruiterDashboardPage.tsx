@@ -15,9 +15,9 @@ import { startOfWeek, endOfWeek, format } from 'date-fns';
 
 interface RecruiterStats {
   assignedJobs: number;
-  submittedCandidates: number;
+  cvsUploaded: number;
+  cvsSubmitted: number;
   interviewsThisWeek: number;
-  aiCreditsAllocated: number;
   aiCreditsUsed: number;
 }
 
@@ -48,56 +48,64 @@ export default function RecruiterDashboardPage() {
         const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
 
-        // Get recruiter's role data for AI credits
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('ai_credits_allocated, ai_credits_used')
-          .eq('user_id', user.id)
-          .single();
-
-        // Get jobs assigned to this recruiter
-        const { data: jobsData } = await supabase
-          .from('jobs')
-          .select('id, title, status, location, clients(name)')
+        // Get recruiter's activities from recruiter_activities table
+        const { data: activitiesData } = await supabase
+          .from('recruiter_activities')
+          .select('action_type')
           .eq('tenant_id', tenantId)
-          .eq('assigned_to', user.id);
+          .eq('user_id', user.id);
 
-        // Get CV submissions by this recruiter
-        const { data: submissionsData } = await supabase
-          .from('cv_submissions')
-          .select('id')
+        // Get jobs assigned to this recruiter (via job_assignees table)
+        const { data: assigneesData } = await supabase
+          .from('job_assignees')
+          .select('job_id')
           .eq('tenant_id', tenantId)
-          .eq('submitted_by', user.id);
+          .eq('user_id', user.id);
 
-        // Get interviews this week for candidates submitted by this recruiter
+        const assignedJobIds = assigneesData?.map(a => a.job_id) || [];
+        
+        let jobsData: any[] = [];
+        if (assignedJobIds.length > 0) {
+          const { data } = await supabase
+            .from('jobs')
+            .select('id, title, status, location, clients(name)')
+            .in('id', assignedJobIds);
+          jobsData = data || [];
+        }
+
+        // Get interviews this week
         const { data: interviewsData } = await supabase
           .from('job_candidates')
-          .select('id, cv_submissions!inner(submitted_by)')
+          .select('id')
           .eq('tenant_id', tenantId)
           .in('stage', ['interview', 'technical'])
           .gte('stage_updated_at', weekStart)
           .lte('stage_updated_at', weekEnd);
 
-        const recruiterInterviews = interviewsData?.filter(
-          (item: any) => item.cv_submissions?.submitted_by === user.id
-        ).length || 0;
+        // Count activities
+        const activities = activitiesData || [];
+        const cvsUploaded = activities.filter(a => a.action_type === 'cv_uploaded').length;
+        const cvsSubmitted = activities.filter(a => a.action_type === 'cv_submitted').length;
+        const aiCreditsUsed = activities.filter(a => 
+          ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
+        ).length;
 
         setStats({
-          assignedJobs: jobsData?.length || 0,
-          submittedCandidates: submissionsData?.length || 0,
-          interviewsThisWeek: recruiterInterviews,
-          aiCreditsAllocated: roleData?.ai_credits_allocated || 0,
-          aiCreditsUsed: roleData?.ai_credits_used || 0,
+          assignedJobs: jobsData.length,
+          cvsUploaded,
+          cvsSubmitted,
+          interviewsThisWeek: interviewsData?.length || 0,
+          aiCreditsUsed,
         });
 
         // Format assigned jobs
-        const formattedJobs = jobsData?.slice(0, 5).map((job: any) => ({
+        const formattedJobs = jobsData.slice(0, 5).map((job: any) => ({
           id: job.id,
           title: job.title,
           client: job.clients?.name || 'No Client',
           status: job.status,
           location: job.location || 'Remote',
-        })) || [];
+        }));
 
         setAssignedJobs(formattedJobs);
       } catch (error) {
@@ -119,24 +127,24 @@ export default function RecruiterDashboardPage() {
       variant: 'info' as const,
     },
     {
-      title: 'Candidates Submitted',
-      value: stats?.submittedCandidates ?? 0,
+      title: 'CVs Uploaded',
+      value: stats?.cvsUploaded ?? 0,
       icon: Upload,
-      subtitle: 'Total submissions',
+      subtitle: 'Total uploads',
       variant: 'accent' as const,
     },
     {
-      title: 'Interviews This Week',
-      value: stats?.interviewsThisWeek ?? 0,
-      icon: Calendar,
-      subtitle: 'Your candidates',
+      title: 'CVs Submitted',
+      value: stats?.cvsSubmitted ?? 0,
+      icon: Users,
+      subtitle: 'To jobs',
       variant: 'warning' as const,
     },
     {
-      title: 'AI Credits Available',
-      value: (stats?.aiCreditsAllocated ?? 0) - (stats?.aiCreditsUsed ?? 0),
+      title: 'AI Actions',
+      value: stats?.aiCreditsUsed ?? 0,
       icon: Sparkles,
-      subtitle: `${stats?.aiCreditsUsed ?? 0} / ${stats?.aiCreditsAllocated ?? 0} used`,
+      subtitle: 'AI features used',
       variant: 'success' as const,
     },
   ];

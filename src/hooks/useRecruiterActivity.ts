@@ -4,12 +4,19 @@ import { useAuth } from '@/lib/auth';
 export type ActivityType = 
   | 'cv_uploaded'
   | 'cv_submitted'
+  | 'cv_deleted'
   | 'screening_completed'
   | 'interview_scheduled'
   | 'interview_completed'
   | 'offer_sent'
   | 'candidate_hired'
-  | 'candidate_rejected';
+  | 'candidate_rejected'
+  | 'job_activated'
+  | 'job_closed'
+  | 'ai_match_run'
+  | 'ai_cv_parse'
+  | 'ai_email_compose'
+  | 'ai_brand_cv';
 
 interface LogActivityParams {
   action_type: ActivityType;

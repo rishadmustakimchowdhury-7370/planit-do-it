@@ -96,6 +96,25 @@ export function useCredits() {
 
       if (data) {
         await fetchBalance();
+        
+        // Log AI activity for tracking
+        const activityMap: Record<string, string> = {
+          ai_match: 'ai_match_run',
+          cv_parse: 'ai_cv_parse',
+          email_compose: 'ai_email_compose',
+          brand_cv: 'ai_brand_cv',
+        };
+        
+        const activityType = activityMap[actionType];
+        if (activityType) {
+          await supabase.from('recruiter_activities').insert({
+            tenant_id: tenantId,
+            user_id: user.id,
+            action_type: activityType,
+            metadata: { credits_used: cost, ...metadata },
+          });
+        }
+        
         return true;
       } else {
         toast.error(`Insufficient credits. This action requires ${cost} credits.`);

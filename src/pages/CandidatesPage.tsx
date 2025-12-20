@@ -59,6 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 
 interface Candidate {
   id: string;
@@ -166,6 +167,7 @@ const defaultAdvancedFilters: AdvancedSearchFilters = {
 const CandidatesPage = () => {
   const navigate = useNavigate();
   const { tenantId, user } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -438,6 +440,16 @@ const CandidatesPage = () => {
         .in('id', selectedIds);
 
       if (error) throw error;
+      
+      // Log cv_deleted activity for each deleted candidate
+      for (const candidateId of selectedIds) {
+        await logActivity({
+          action_type: 'cv_deleted',
+          candidate_id: candidateId,
+          metadata: { deleted_count: selectedIds.length }
+        });
+      }
+      
       toast.success(`Deleted ${selectedIds.length} candidate(s) permanently`);
       fetchCandidates();
       setSelectedIds([]);
