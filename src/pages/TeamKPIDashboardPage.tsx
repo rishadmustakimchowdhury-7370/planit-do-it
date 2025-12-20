@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Filter,
   Target,
-  Award
+  Award,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -430,65 +431,77 @@ export default function TeamKPIDashboardPage() {
   };
 
   return (
-    <AppLayout title="Team KPI Dashboard" subtitle="Track recruitment performance metrics">
+    <AppLayout title="Team Performance" subtitle="Track individual and team recruitment metrics">
       <div className="space-y-6">
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex gap-4">
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[180px]">
-                <Calendar className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                {DATE_RANGES.map(range => (
-                  <SelectItem key={range.value} value={range.value}>
-                    {range.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {canViewTeam && teamMembers.length > 0 && (
-              <Select value={selectedMember || 'all'} onValueChange={(v) => setSelectedMember(v === 'all' ? null : v)}>
-                <SelectTrigger className="w-[200px]">
-                  <Users className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All members" />
+        <Card className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filters:</span>
+              </div>
+              
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-[180px]">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Team Members</SelectItem>
-                  {teamMembers.map(member => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.full_name || member.email}
+                  {DATE_RANGES.map(range => (
+                    <SelectItem key={range.value} value={range.value}>
+                      {range.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
+              
+              {/* Team Member Filter for owners/managers */}
+              {canViewTeam && teamMembers.length > 0 && (
+                <Select 
+                  value={selectedMember || 'all'} 
+                  onValueChange={(v) => setSelectedMember(v === 'all' ? null : v)}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <Users className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="All Team Members" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Team Members</SelectItem>
+                    {teamMembers.map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={member.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {(member.full_name || member.email || '?').substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.full_name || member.email}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button onClick={fetchKPIData} variant="outline" size="sm" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+              <Button onClick={handleExport} variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
           </div>
-
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsLoading(true);
-                fetchKPIData();
-              }}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleExport}
-              disabled={isLoading || teamKPIs.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-          </div>
-        </div>
+        </Card>
 
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

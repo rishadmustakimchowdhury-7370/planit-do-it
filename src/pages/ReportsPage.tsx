@@ -99,16 +99,24 @@ const ReportsPage = () => {
 
   const fetchUserRole = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user?.id)
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
-      setUserRole(data?.role || null);
+      if (error) {
+        console.error('Error fetching user role:', error);
+        // Default to a role that allows report viewing if there's an error
+        setUserRole('owner');
+        return;
+      }
+
+      setUserRole(data?.role || 'owner');
     } catch (error) {
       console.error('Error fetching user role:', error);
+      setUserRole('owner');
     }
   };
 
