@@ -31,8 +31,10 @@ import {
   Crown,
   AlertCircle,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  BarChart3
 } from 'lucide-react';
+import { MyUsageSection } from '@/components/usage/MyUsageSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -557,6 +559,10 @@ export default function SettingsPage() {
             <TabsTrigger value="notifications" className="gap-2">
               <Bell className="h-4 w-4" />
               Notifications
+            </TabsTrigger>
+            <TabsTrigger value="usage" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              My Usage
             </TabsTrigger>
             <TabsTrigger value="security" className="gap-2">
               <Shield className="h-4 w-4" />
@@ -1204,6 +1210,16 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="usage">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <MyUsageSection />
             </motion.div>
           </TabsContent>
 
