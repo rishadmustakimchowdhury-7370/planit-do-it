@@ -13,6 +13,7 @@ export type ActivityType =
   | 'candidate_rejected'
   | 'job_activated'
   | 'job_closed'
+  | 'job_assigned'
   | 'ai_match_run'
   | 'ai_cv_parse'
   | 'ai_email_compose'
