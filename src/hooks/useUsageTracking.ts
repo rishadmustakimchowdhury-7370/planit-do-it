@@ -37,8 +37,8 @@ const CV_ACTION_TYPES = ['cv_uploaded', 'cv_submitted', 'cv_parsed', 'cv_deleted
 // AI-related action types to track  
 const AI_ACTION_TYPES = ['screening_completed', 'ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'];
 
-// Job-related action types to track
-const JOB_ACTION_TYPES = ['job_assigned', 'job_activated'];
+// Job usage is based on active jobs and assignments (not on who clicked “assign”).
+// This makes team reports reflect “jobs a person is responsible for”.
 
 function calculateUsage(used: number, limit: number): FeatureUsage {
   // Handle unlimited (-1) limits
@@ -164,32 +164,55 @@ export function useUsageTracking() {
           aiMatchCount = count || 0;
         }
       }
-      
-      console.log('🔍 AI Match Count from job_candidates:', aiMatchCount);
 
       const totalAiTests = aiMatchCount;
 
-      // Count job assignments from recruiter_activities (for accurate tracking)
-      const jobAssignQuery = supabase
-        .from('recruiter_activities')
-        .select('id', { count: 'exact', head: true })
+      // Jobs usage:
+      // - Owner/Manager: total active jobs in tenant
+      // - Recruiter: active jobs they created OR that are assigned to them
+      const { data: activeJobs } = await supabase
+        .from('jobs')
+        .select('id, created_by')
         .eq('tenant_id', tenantId)
-        .in('action_type', JOB_ACTION_TYPES)
-        .gte('created_at', periodStartISO);
-      
-      if (!isOwner && !isManager) {
-        jobAssignQuery.eq('user_id', user.id);
+        .eq('status', 'open');
+
+      const activeJobIds = new Set((activeJobs || []).map(j => j.id));
+
+      let jobsUsed = 0;
+      if (isOwner || isManager) {
+        jobsUsed = activeJobs?.length || 0;
+      } else {
+        const createdJobIds = (activeJobs || [])
+          .filter(j => j.created_by === user.id)
+          .map(j => j.id);
+
+        const { data: userAssignees } = await supabase
+          .from('job_assignees')
+          .select('job_id')
+          .eq('tenant_id', tenantId)
+          .eq('user_id', user.id);
+
+        const assignedActiveJobIds = (userAssignees || [])
+          .map(a => a.job_id)
+          .filter(jobId => activeJobIds.has(jobId));
+
+        jobsUsed = new Set([...createdJobIds, ...assignedActiveJobIds]).size;
       }
-      
-      const { count: jobAssignCount } = await jobAssignQuery;
 
       setUsageStats({
         cvUploads: calculateUsage(cvCount || 0, cvLimit),
         aiTests: calculateUsage(totalAiTests, aiTestLimit),
-        jobs: calculateUsage(jobAssignCount || 0, jobLimit),
+        jobs: calculateUsage(jobsUsed, jobLimit),
         planName,
         billingCycleEnd,
       });
+
+    } catch (error) {
+      console.error('Error fetching usage stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenantId, user]);
 
     } catch (error) {
       console.error('Error fetching usage stats:', error);
@@ -361,19 +384,41 @@ export function useTeamUsageTracking() {
         .not('matched_at', 'is', null)
         .gte('matched_at', periodStartISO);
 
+      // Active jobs + assignments (used for per-member “Jobs”)
+      const { data: activeJobs } = await supabase
+        .from('jobs')
+        .select('id, created_by')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'open');
+
+      const activeJobIds = new Set((activeJobs || []).map(j => j.id));
+
+      const { data: jobAssignees } = await supabase
+        .from('job_assignees')
+        .select('user_id, job_id')
+        .eq('tenant_id', tenantId);
+
       // Build usage per member
       const memberUsage: TeamMemberUsage[] = userIds.map(userId => {
         const profile = profilesData?.find(p => p.id === userId);
         const userActivities = activitiesData?.filter(a => a.user_id === userId) || [];
-        
+
         // Count CV activities using all CV action types
         const cvUploads = userActivities.filter(a => CV_ACTION_TYPES.includes(a.action_type)).length;
-        
+
         // Count AI matches for candidates created by this user
         const aiTests = matchData?.filter(m => (m.candidates as any)?.created_by === userId).length || 0;
-        
-        // Count job assignments for this user from activities
-        const jobs = userActivities.filter(a => JOB_ACTION_TYPES.includes(a.action_type)).length;
+
+        // Jobs = active jobs created by user OR active jobs assigned to user
+        const createdJobIds = (activeJobs || [])
+          .filter(j => j.created_by === userId)
+          .map(j => j.id);
+
+        const assignedJobIds = (jobAssignees || [])
+          .filter(ja => ja.user_id === userId && activeJobIds.has(ja.job_id))
+          .map(ja => ja.job_id);
+
+        const jobs = new Set([...createdJobIds, ...assignedJobIds]).size;
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
         const aiUsage = calculateUsage(aiTests, aiTestLimit);
