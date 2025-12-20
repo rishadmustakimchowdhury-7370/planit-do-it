@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { useCredits, CREDIT_COSTS } from '@/hooks/useCredits';
 
 interface BulkUploadResult {
   fileName: string;
@@ -29,6 +30,7 @@ export default function AddCandidatePage() {
   const { tenantId, user } = useAuth();
   const { logActivity } = useRecruiterActivity();
   const { checkLimit, showLimitError } = useUsageLimits();
+  const { deductCredits, checkSufficientCredits } = useCredits();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -95,6 +97,12 @@ export default function AddCandidatePage() {
       return;
     }
 
+    // Check if user has sufficient credits
+    const hasSufficientCredits = await checkSufficientCredits(CREDIT_COSTS.cv_parse);
+    if (!hasSufficientCredits) {
+      return;
+    }
+
     setIsParsing(true);
     try {
       // Read file as base64 for proper PDF/DOCX handling
@@ -120,6 +128,9 @@ export default function AddCandidatePage() {
       if (error) throw error;
 
       if (data) {
+        // Deduct credits after successful parse
+        await deductCredits('cv_parse', { fileName: cvFile.name });
+        
         setFormData({
           fullName: data.full_name || '',
           email: data.email || '',
@@ -132,7 +143,7 @@ export default function AddCandidatePage() {
           skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
           experienceYears: data.experience_years?.toString() || '',
         });
-        toast.success('CV parsed successfully!');
+        toast.success('CV parsed successfully! (2 credits used)');
         setActiveTab('manual');
       }
     } catch (error: any) {
@@ -156,6 +167,12 @@ export default function AddCandidatePage() {
       return;
     }
 
+    // Check if user has sufficient credits
+    const hasSufficientCredits = await checkSufficientCredits(CREDIT_COSTS.cv_parse);
+    if (!hasSufficientCredits) {
+      return;
+    }
+
     setIsParsing(true);
     try {
       const { data, error } = await supabase.functions.invoke('parse-cv', {
@@ -165,6 +182,9 @@ export default function AddCandidatePage() {
       if (error) throw error;
 
       if (data) {
+        // Deduct credits after successful parse
+        await deductCredits('cv_parse', { linkedinUrl: linkedinUrl.trim() });
+        
         // Map response fields correctly - API returns full_name, not name
         setFormData({
           fullName: data.full_name || '',
@@ -181,9 +201,9 @@ export default function AddCandidatePage() {
         
         // Show appropriate message based on what was extracted
         if (data.full_name) {
-          toast.success(`LinkedIn profile imported! Name: ${data.full_name}. Please fill in any missing details manually.`);
+          toast.success(`LinkedIn profile imported! Name: ${data.full_name}. (2 credits used)`);
         } else {
-          toast.info('LinkedIn URL saved. Please fill in candidate details manually.');
+          toast.info('LinkedIn URL saved. Please fill in candidate details manually. (2 credits used)');
         }
         setActiveTab('manual');
       }
@@ -204,6 +224,14 @@ export default function AddCandidatePage() {
     // Check candidate limit
     if (checkLimit('candidates')) {
       showLimitError('candidates');
+      return;
+    }
+
+    // Check if user has sufficient credits for all files
+    const totalCreditsNeeded = bulkFiles.length * CREDIT_COSTS.cv_parse;
+    const hasSufficientCredits = await checkSufficientCredits(totalCreditsNeeded);
+    if (!hasSufficientCredits) {
+      toast.error(`You need ${totalCreditsNeeded} credits to process ${bulkFiles.length} files. Please add more credits.`);
       return;
     }
 
@@ -380,6 +408,9 @@ export default function AddCandidatePage() {
           metadata: { candidate_name: data.full_name, source: 'bulk_upload' }
         });
 
+        // Deduct credits for successful CV parse
+        await deductCredits('cv_parse', { fileName: file.name, candidateName: data.full_name });
+
         results[i] = { 
           ...results[i], 
           status: 'success', 
@@ -403,7 +434,8 @@ export default function AddCandidatePage() {
     setBulkCompleted(true);
     
     if (successCount > 0) {
-      toast.success(`Successfully added ${successCount} candidate(s)`);
+      const creditsUsed = successCount * CREDIT_COSTS.cv_parse;
+      toast.success(`Successfully added ${successCount} candidate(s) (${creditsUsed} credits used)`);
     }
     if (duplicateCount > 0) {
       toast.warning(`${duplicateCount} duplicate(s) skipped`);
