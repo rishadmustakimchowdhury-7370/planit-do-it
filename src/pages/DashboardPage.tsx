@@ -7,10 +7,9 @@ import { RecentJobs } from '@/components/dashboard/RecentJobs';
 import { TopCandidates } from '@/components/dashboard/TopCandidates';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { VideoTutorials } from '@/components/dashboard/VideoTutorials';
-import { CreditsDisplay } from '@/components/credits/CreditsDisplay';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { Briefcase, Users, Calendar, Trophy, Sparkles, Building2 } from 'lucide-react';
+import { Briefcase, Users, Calendar, Trophy, Building2, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -21,9 +20,6 @@ interface DashboardStats {
   placementsThisMonth: number;
   totalClients: number;
   cvsUploaded: number;
-  cvsDeleted: number;
-  jobsActivated: number;
-  aiCreditsUsed: number;
 }
 
 export default function DashboardPage() {
@@ -81,14 +77,9 @@ export default function DashboardPage() {
         const interviewsThisWeek = interviewsResult.data?.length || 0;
         const placementsThisMonth = placementsResult.data?.length || 0;
         
-        // Count activities from recruiter_activities table
+        // Count CV uploads from activities
         const activities = activitiesResult.data || [];
         const cvsUploaded = activities.filter(a => a.action_type === 'cv_uploaded').length;
-        const cvsDeleted = activities.filter(a => a.action_type === 'cv_deleted').length;
-        const jobsActivated = activities.filter(a => a.action_type === 'job_activated').length;
-        const aiCreditsUsed = activities.filter(a => 
-          ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
-        ).length;
 
         setStats({
           openJobs,
@@ -97,9 +88,6 @@ export default function DashboardPage() {
           placementsThisMonth,
           totalClients,
           cvsUploaded,
-          cvsDeleted,
-          jobsActivated,
-          aiCreditsUsed,
         });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -148,10 +136,10 @@ export default function DashboardPage() {
       variant: 'primary' as const,
     },
     {
-      title: 'AI Credits Used',
-      value: stats?.aiCreditsUsed ?? 0,
-      icon: Sparkles,
-      subtitle: 'AI actions performed',
+      title: 'CVs Uploaded',
+      value: stats?.cvsUploaded ?? 0,
+      icon: TrendingUp,
+      subtitle: 'This period',
       variant: 'accent' as const,
     },
   ];
@@ -192,24 +180,14 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Actions & Credits */}
-        <div className="grid lg:grid-cols-4 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-3"
-          >
-            <QuickActions />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-          >
-            <CreditsDisplay />
-          </motion.div>
-        </div>
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <QuickActions />
+        </motion.div>
 
         {/* Role-based Performance Section */}
         {(isOwner || isManager) && (

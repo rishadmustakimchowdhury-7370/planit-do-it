@@ -26,6 +26,7 @@ import TeamKPIDashboardPage from "./pages/TeamKPIDashboardPage";
 import WorkTrackingPage from "./pages/WorkTrackingPage";
 import RecruiterWorkDashboardPage from "./pages/RecruiterWorkDashboardPage";
 import ManagerWorkDashboardPage from "./pages/ManagerWorkDashboardPage";
+import TeamUsagePage from "./pages/TeamUsagePage";
 
 import BrandingSettingsPage from "./pages/BrandingSettingsPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
@@ -142,6 +143,7 @@ const AppRoutes = () => (
     <Route path="/team/work-tracking" element={<ProtectedRoute><WorkTrackingPage /></ProtectedRoute>} />
     <Route path="/team/work-dashboard" element={<ProtectedRoute><RecruiterWorkDashboardPage /></ProtectedRoute>} />
     <Route path="/team/manager-dashboard" element={<ProtectedRoute><ManagerWorkDashboardPage /></ProtectedRoute>} />
+    <Route path="/team/usage" element={<ProtectedRoute><TeamUsagePage /></ProtectedRoute>} />
     
     <Route path="/branding" element={<ProtectedRoute><BrandingSettingsPage /></ProtectedRoute>} />
     <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
