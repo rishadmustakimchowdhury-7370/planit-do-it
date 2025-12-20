@@ -36,11 +36,11 @@ function UsageCard({ usage, label, icon, gradient, iconBg, delay = 0 }: UsageCar
   const isUnlimited = usage.limit === -1;
   
   const getStatusStyles = () => {
-    if (isUnlimited) return { ring: 'ring-emerald-500/30', glow: 'shadow-emerald-500/20' };
+    if (isUnlimited) return { border: 'border-emerald-400', bg: 'bg-emerald-50/50 dark:bg-emerald-950/20' };
     switch (usage.status) {
-      case 'limit_reached': return { ring: 'ring-red-500/50', glow: 'shadow-red-500/20' };
-      case 'warning': return { ring: 'ring-amber-500/50', glow: 'shadow-amber-500/20' };
-      default: return { ring: 'ring-primary/30', glow: 'shadow-primary/10' };
+      case 'limit_reached': return { border: 'border-red-400', bg: 'bg-red-50/50 dark:bg-red-950/20' };
+      case 'warning': return { border: 'border-amber-400', bg: 'bg-amber-50/50 dark:bg-amber-950/20' };
+      default: return { border: 'border-border', bg: 'bg-card' };
     }
   };
 
@@ -51,86 +51,76 @@ function UsageCard({ usage, label, icon, gradient, iconBg, delay = 0 }: UsageCar
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -4, scale: 1.02 }}
-      className={`relative group`}
+      whileHover={{ y: -2 }}
+      className="relative"
     >
-      <div className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${gradient} opacity-50 blur-xl group-hover:opacity-70 transition-opacity`} />
-      
-      <div className={`relative bg-card/80 backdrop-blur-sm border rounded-3xl p-6 ring-2 ${styles.ring} shadow-lg ${styles.glow} transition-all duration-300`}>
+      <div className={`relative ${styles.bg} border-2 ${styles.border} rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300`}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className={`p-3 rounded-2xl ${iconBg} shadow-lg`}>
+        <div className="flex items-center justify-between mb-5">
+          <div className={`p-3 rounded-xl ${iconBg} shadow-md`}>
             {icon}
           </div>
           {isUnlimited && (
-            <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0 shadow-lg shadow-emerald-500/25">
+            <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 shadow-sm">
               <Zap className="h-3 w-3 mr-1" />
               Unlimited
             </Badge>
           )}
           {!isUnlimited && usage.status === 'limit_reached' && (
-            <Badge className="bg-gradient-to-r from-red-500 to-rose-500 text-white border-0">
+            <Badge className="bg-red-500 hover:bg-red-600 text-white border-0">
               <XCircle className="h-3 w-3 mr-1" />
               Limit
             </Badge>
           )}
           {!isUnlimited && usage.status === 'warning' && (
-            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
+            <Badge className="bg-amber-500 hover:bg-amber-600 text-white border-0">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Warning
             </Badge>
           )}
         </div>
 
-        {/* Main Stats */}
-        <div className="mb-4">
-          <p className="text-sm text-muted-foreground mb-1">{label}</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold tracking-tight">
-              {usage.used}
+        {/* Label & Stats */}
+        <p className="text-sm text-muted-foreground mb-1">{label}</p>
+        <div className="flex items-baseline gap-2 mb-4">
+          <span className="text-4xl font-bold tracking-tight text-foreground">
+            {usage.used}
+          </span>
+          {!isUnlimited && (
+            <span className="text-lg text-muted-foreground">
+              / {usage.limit}
             </span>
-            {!isUnlimited && (
-              <span className="text-lg text-muted-foreground">
-                / {usage.limit}
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Progress Bar */}
         {!isUnlimited && (
           <div className="space-y-2">
-            <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(usage.percent, 100)}%` }}
                 transition={{ duration: 0.8, delay: delay + 0.3, ease: "easeOut" }}
-                className={`h-full rounded-full bg-gradient-to-r ${
+                className={`h-full rounded-full ${
                   usage.status === 'limit_reached' 
-                    ? 'from-red-500 to-rose-500' 
+                    ? 'bg-red-500' 
                     : usage.status === 'warning'
-                    ? 'from-amber-500 to-orange-500'
-                    : 'from-primary to-primary/80'
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
                 }`}
               />
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{usage.percent}% used</span>
-              <span className="font-medium text-foreground">{usage.remaining} remaining</span>
+              <span className="font-semibold text-foreground">{usage.remaining} remaining</span>
             </div>
           </div>
         )}
 
-        {/* Unlimited visual */}
+        {/* Unlimited visual - solid teal bar */}
         {isUnlimited && (
-          <div className="h-3 bg-gradient-to-r from-emerald-500/20 via-teal-500/30 to-emerald-500/20 rounded-full overflow-hidden">
-            <motion.div
-              animate={{ 
-                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-              }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              className="h-full w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 bg-[length:200%_100%]"
-            />
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full w-full bg-emerald-500 rounded-full" />
           </div>
         )}
       </div>
@@ -279,23 +269,16 @@ export function MyUsageSection() {
         
         <CardHeader className="relative border-b bg-gradient-to-r from-background/80 to-background/40 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg shadow-primary/25">
-                <TrendingUp className="h-6 w-6 text-primary-foreground" />
+              <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-primary/10">
+                <TrendingUp className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">My Usage Dashboard</h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <Badge className="bg-gradient-to-r from-primary/10 to-accent/10 text-foreground border-primary/20">
-                    <Crown className="h-3 w-3 mr-1 text-primary" />
+                  <Badge className="bg-primary hover:bg-primary/90 text-primary-foreground border-0">
                     {usageStats.planName} Plan
                   </Badge>
-                  {isUnlimitedPlan && (
-                    <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0">
-                      <Zap className="h-3 w-3 mr-1" />
-                      Unlimited Access
-                    </Badge>
-                  )}
                   {usageStats.billingCycleEnd && (
                     <span className="text-sm text-muted-foreground">
                       Resets {format(new Date(usageStats.billingCycleEnd), 'MMM d, yyyy')}
@@ -384,16 +367,16 @@ export function MyUsageSection() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">Team Usage Overview</h2>
-                  <div className="flex flex-wrap gap-3 mt-2">
-                    <Badge variant="secondary" className="gap-1 rounded-lg">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Badge className="bg-slate-800 hover:bg-slate-700 text-white border-0 gap-1 rounded-lg">
                       <FileUp className="h-3 w-3" />
                       {teamTotals.cvs} CVs
                     </Badge>
-                    <Badge variant="secondary" className="gap-1 rounded-lg">
+                    <Badge className="bg-slate-800 hover:bg-slate-700 text-white border-0 gap-1 rounded-lg">
                       <Sparkles className="h-3 w-3" />
                       {teamTotals.ai} AI Tests
                     </Badge>
-                    <Badge variant="secondary" className="gap-1 rounded-lg">
+                    <Badge className="bg-slate-800 hover:bg-slate-700 text-white border-0 gap-1 rounded-lg">
                       <Briefcase className="h-3 w-3" />
                       {teamTotals.jobs} Jobs
                     </Badge>
