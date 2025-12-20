@@ -19,6 +19,129 @@ function extractFromLinkedInUrl(linkedinUrl: string): { username: string; inferr
   return { username, inferredName };
 }
 
+// Try to fetch LinkedIn page and extract basic info from HTML meta tags
+async function fetchLinkedInProfile(linkedinUrl: string): Promise<{
+  name?: string;
+  title?: string;
+  company?: string;
+  location?: string;
+  summary?: string;
+  image?: string;
+} | null> {
+  try {
+    console.log('Attempting to fetch LinkedIn profile:', linkedinUrl);
+    
+    // Normalize URL
+    let url = linkedinUrl.trim();
+    if (!url.startsWith('http')) {
+      url = 'https://' + url;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    });
+    
+    if (!response.ok) {
+      console.log('LinkedIn fetch failed with status:', response.status);
+      return null;
+    }
+    
+    const html = await response.text();
+    console.log('Fetched LinkedIn HTML length:', html.length);
+    
+    // Extract data from meta tags and structured data
+    const result: any = {};
+    
+    // Extract from og:title (usually contains name and headline)
+    const ogTitle = html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i);
+    if (ogTitle) {
+      const titleContent = ogTitle[1];
+      console.log('Found og:title:', titleContent);
+      
+      // LinkedIn og:title format: "Name - Title | LinkedIn" or "Name | LinkedIn"
+      const parts = titleContent.split(' - ');
+      if (parts.length >= 1) {
+        result.name = parts[0].replace(' | LinkedIn', '').trim();
+      }
+      if (parts.length >= 2) {
+        result.title = parts[1].replace(' | LinkedIn', '').trim();
+      }
+    }
+    
+    // Extract from og:description (usually contains summary)
+    const ogDesc = html.match(/<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i);
+    if (ogDesc) {
+      result.summary = ogDesc[1].replace(/&#[0-9]+;/g, ' ').trim();
+      console.log('Found og:description:', result.summary?.substring(0, 100));
+    }
+    
+    // Extract from og:image
+    const ogImage = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i);
+    if (ogImage) {
+      result.image = ogImage[1];
+    }
+    
+    // Try to extract location from page content
+    const locationMatch = html.match(/<span[^>]*class="[^"]*location[^"]*"[^>]*>([^<]+)</i);
+    if (locationMatch) {
+      result.location = locationMatch[1].trim();
+    }
+    
+    // Try to extract from JSON-LD structured data
+    const jsonLdMatch = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonLdMatch) {
+      for (const match of jsonLdMatch) {
+        try {
+          const jsonContent = match.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '');
+          const jsonData = JSON.parse(jsonContent);
+          
+          if (jsonData['@type'] === 'Person') {
+            result.name = result.name || jsonData.name;
+            result.title = result.title || jsonData.jobTitle;
+            if (jsonData.worksFor) {
+              result.company = jsonData.worksFor.name || jsonData.worksFor;
+            }
+            if (jsonData.address) {
+              result.location = jsonData.address.addressLocality || jsonData.address;
+            }
+            console.log('Found JSON-LD Person data:', JSON.stringify(jsonData).substring(0, 200));
+          }
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
+      }
+    }
+    
+    // Extract headline/title from common LinkedIn patterns
+    const headlineMatch = html.match(/<h2[^>]*class="[^"]*headline[^"]*"[^>]*>([^<]+)</i);
+    if (headlineMatch && !result.title) {
+      result.title = headlineMatch[1].trim();
+    }
+    
+    // Try to extract current company from headline
+    if (result.title && result.title.includes(' at ')) {
+      const atParts = result.title.split(' at ');
+      result.title = atParts[0].trim();
+      result.company = atParts[1].trim();
+    } else if (result.title && result.title.includes(' @ ')) {
+      const atParts = result.title.split(' @ ');
+      result.title = atParts[0].trim();
+      result.company = atParts[1].trim();
+    }
+    
+    console.log('Extracted LinkedIn data:', JSON.stringify(result));
+    return Object.keys(result).length > 0 ? result : null;
+    
+  } catch (error) {
+    console.error('Error fetching LinkedIn profile:', error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -79,14 +202,47 @@ If certain information is not available, use null for those fields.`;
     if (linkedinUrl) {
       console.log('Processing LinkedIn URL:', linkedinUrl);
       
-      // Extract info from URL pattern since direct LinkedIn fetch is blocked
-      const { username, inferredName } = extractFromLinkedInUrl(linkedinUrl);
-      console.log('Extracted from URL - username:', username, 'inferredName:', inferredName);
+      // Try to fetch actual LinkedIn profile data
+      const linkedInData = await fetchLinkedInProfile(linkedinUrl);
       
-      // Use AI to create a reasonable profile template based on the URL
-      messages.push({
-        role: 'user',
-        content: `I have a LinkedIn profile URL: ${linkedinUrl}
+      // Extract info from URL as fallback
+      const { username, inferredName } = extractFromLinkedInUrl(linkedinUrl);
+      console.log('URL extraction - username:', username, 'inferredName:', inferredName);
+      
+      if (linkedInData && (linkedInData.name || linkedInData.title)) {
+        // We got some data from LinkedIn
+        console.log('Successfully extracted LinkedIn data:', JSON.stringify(linkedInData));
+        
+        messages.push({
+          role: 'user',
+          content: `I have extracted the following information from a LinkedIn profile at ${linkedinUrl}:
+
+Name: ${linkedInData.name || inferredName || 'Unknown'}
+Current Title/Headline: ${linkedInData.title || 'Not available'}
+Company: ${linkedInData.company || 'Not available'}
+Location: ${linkedInData.location || 'Not available'}
+Summary/About: ${linkedInData.summary || 'Not available'}
+
+Please create a structured candidate profile JSON from this information:
+1. full_name: Use "${linkedInData.name || inferredName}"
+2. current_title: ${linkedInData.title ? `Use "${linkedInData.title}"` : 'null'}
+3. current_company: ${linkedInData.company ? `Use "${linkedInData.company}"` : 'null'}
+4. location: ${linkedInData.location ? `Use "${linkedInData.location}"` : 'null'}
+5. summary: ${linkedInData.summary ? `Create a brief professional summary based on: "${linkedInData.summary.substring(0, 500)}"` : 'null'}
+6. linkedin_url: "${linkedinUrl}"
+7. email, phone: null (not available from LinkedIn)
+8. skills: Try to infer relevant skills based on the title and summary if available, otherwise empty array
+9. experience_years: Try to estimate based on the title seniority (e.g., "Senior" = 5+, "Lead" = 7+, "Director" = 10+), otherwise null
+
+IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
+        });
+      } else {
+        // Could not fetch LinkedIn data, use URL-based extraction
+        console.log('Could not fetch LinkedIn data, using URL extraction');
+        
+        messages.push({
+          role: 'user',
+          content: `I have a LinkedIn profile URL: ${linkedinUrl}
 
 The username extracted from the URL is: "${username}"
 The inferred name (formatted from username) is: "${inferredName}"
@@ -97,7 +253,8 @@ Please create a candidate profile with:
 3. All other fields should be null since we cannot access the actual LinkedIn content (LinkedIn requires authentication to view profiles)
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
-      });
+        });
+      }
     } else if (cvBase64 && mimeType) {
       // Use multimodal capability for PDF/document files
       console.log('Processing document with multimodal API, mimeType:', mimeType);
