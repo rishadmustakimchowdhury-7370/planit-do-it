@@ -174,7 +174,7 @@ export function useUsageTracking() {
         .from('jobs')
         .select('id, created_by')
         .eq('tenant_id', tenantId)
-        .eq('status', 'open');
+        .in('status', ['open', 'paused', 'draft']);
 
       const activeJobIds = new Set((activeJobs || []).map(j => j.id));
 
@@ -251,6 +251,18 @@ export function useUsageTracking() {
           event: '*',
           schema: 'public',
           table: 'jobs',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchUsageStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_assignees',
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
@@ -355,6 +367,21 @@ export function useTeamUsageTracking() {
 
       const userIds = profilesData.map((p) => p.id);
 
+      // Fetch roles so we can treat owners/managers as “auto-assigned” to all tenant jobs
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .eq('tenant_id', tenantId)
+        .in('user_id', userIds);
+
+      if (rolesError) throw rolesError;
+
+      const rolesByUser = new Map<string, string[]>();
+      for (const r of rolesData || []) {
+        const current = rolesByUser.get(r.user_id) || [];
+        rolesByUser.set(r.user_id, [...current, r.role]);
+      }
+
       // Get current period start
       const periodStart = new Date();
       periodStart.setDate(1);
@@ -378,12 +405,14 @@ export function useTeamUsageTracking() {
         .gte('matched_at', periodStartISO);
 
       // Active jobs + assignments (used for per-member “Jobs”)
+      // "Active" here includes open, paused, and draft (so assignments remain trackable before publishing).
       const { data: activeJobs } = await supabase
         .from('jobs')
         .select('id, created_by')
         .eq('tenant_id', tenantId)
-        .eq('status', 'open');
+        .in('status', ['open', 'paused', 'draft']);
 
+      const tenantActiveJobsCount = activeJobs?.length || 0;
       const activeJobIds = new Set((activeJobs || []).map(j => j.id));
 
       const { data: jobAssignees } = await supabase
@@ -402,16 +431,26 @@ export function useTeamUsageTracking() {
         // Count AI matches for candidates created by this user
         const aiTests = matchData?.filter(m => (m.candidates as any)?.created_by === userId).length || 0;
 
-        // Jobs = active jobs created by user OR active jobs assigned to user
-        const createdJobIds = (activeJobs || [])
-          .filter(j => j.created_by === userId)
-          .map(j => j.id);
+        // Jobs:
+        // - Owner/Manager: can work on all active tenant jobs (auto-assigned)
+        // - Recruiter: active jobs they created OR are assigned to
+        const roles = rolesByUser.get(userId) || [];
+        const isPrivilegedMember = roles.includes('owner') || roles.includes('manager');
 
-        const assignedJobIds = (jobAssignees || [])
-          .filter(ja => ja.user_id === userId && activeJobIds.has(ja.job_id))
-          .map(ja => ja.job_id);
+        let jobs = 0;
+        if (isPrivilegedMember) {
+          jobs = tenantActiveJobsCount;
+        } else {
+          const createdJobIds = (activeJobs || [])
+            .filter(j => j.created_by === userId)
+            .map(j => j.id);
 
-        const jobs = new Set([...createdJobIds, ...assignedJobIds]).size;
+          const assignedJobIds = (jobAssignees || [])
+            .filter(ja => ja.user_id === userId && activeJobIds.has(ja.job_id))
+            .map(ja => ja.job_id);
+
+          jobs = new Set([...createdJobIds, ...assignedJobIds]).size;
+        }
 
         const cvUsage = calculateUsage(cvUploads, cvLimit);
         const aiUsage = calculateUsage(aiTests, aiTestLimit);
@@ -470,6 +509,30 @@ export function useTeamUsageTracking() {
           event: '*',
           schema: 'public',
           table: 'job_candidates',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchTeamUsage();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchTeamUsage();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_assignees',
           filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
