@@ -369,6 +369,7 @@ export default function AddCandidatePage() {
           experience_years: data.experience_years || null,
           cv_file_url: cvFileUrl,
           status: 'new',
+          created_by: user?.id,
         });
 
         if (insertError) throw insertError;
@@ -431,6 +432,19 @@ export default function AddCandidatePage() {
       return;
     }
 
+    // Check for duplicate email before submitting
+    const { data: existingCandidate } = await supabase
+      .from('candidates')
+      .select('id, full_name')
+      .eq('tenant_id', tenantId)
+      .ilike('email', formData.email.trim())
+      .maybeSingle();
+
+    if (existingCandidate) {
+      toast.error(`A candidate with this email already exists: ${existingCandidate.full_name}`);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -472,6 +486,7 @@ export default function AddCandidatePage() {
         experience_years: formData.experienceYears ? parseInt(formData.experienceYears) : null,
         cv_file_url: cvFileUrl,
         status: 'new',
+        created_by: user?.id,
       });
 
       if (error) throw error;

@@ -596,6 +596,10 @@ const CandidatesPage = () => {
                       <span>{candidate.experience_years} years experience</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                    <span>Added by {candidate.uploader_name}</span>
+                  </div>
                 </div>
 
                 {candidate.skills && candidate.skills.length > 0 && (
@@ -686,6 +690,10 @@ const CandidatesPage = () => {
                     <span className="max-w-[160px] truncate">{candidate.email}</span>
                   </div>
                 )}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{candidate.uploader_name}</span>
+                </div>
               </div>
 
               <div className="shrink-0 w-32">
