@@ -137,6 +137,16 @@ export function useUsageTracking() {
       }
       
       const { count: aiActivityCount } = await aiActivityQuery;
+      
+      console.log('🔍 AI Activity Debug:', {
+        tenantId,
+        periodStartISO,
+        AI_ACTION_TYPES,
+        aiActivityCount,
+        isOwner,
+        isManager,
+        userId: user.id
+      });
 
       // Also check ai_usage table for AI credits used
       const aiUsageQuery = supabase
@@ -150,8 +160,12 @@ export function useUsageTracking() {
       }
       
       const { count: aiUsageCount } = await aiUsageQuery;
+      
+      console.log('🔍 AI Usage Count:', aiUsageCount);
 
       const totalAiTests = (aiActivityCount || 0) + (aiUsageCount || 0);
+      
+      console.log('📊 Total AI Tests:', totalAiTests);
 
       // Count active jobs for tenant (jobs may not have created_by set)
       const { count: jobCount } = await supabase
@@ -181,13 +195,14 @@ export function useUsageTracking() {
     
     // Subscribe to real-time changes
     const channel = supabase
-      .channel('usage-tracking')
+      .channel(`usage-tracking:${tenantId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'recruiter_activities'
+          table: 'recruiter_activities',
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           fetchUsageStats();
@@ -198,7 +213,20 @@ export function useUsageTracking() {
         {
           event: '*',
           schema: 'public',
-          table: 'ai_usage'
+          table: 'ai_usage',
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          fetchUsageStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'jobs',
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           fetchUsageStats();
@@ -287,25 +315,20 @@ export function useTeamUsageTracking() {
         }
       }
 
-      // Get all team members
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .eq('tenant_id', tenantId);
+      // Get all team members (based on profiles in this tenant)
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, is_active')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
 
-      if (!rolesData || rolesData.length === 0) {
+      if (!profilesData || profilesData.length === 0) {
         setTeamUsage([]);
         setIsLoading(false);
         return;
       }
 
-      const userIds = rolesData.map(r => r.user_id);
-
-      // Get profiles for all team members
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .in('id', userIds);
+      const userIds = profilesData.map((p) => p.id);
 
       // Get current period start
       const periodStart = new Date();
@@ -388,13 +411,14 @@ export function useTeamUsageTracking() {
     fetchTeamUsage();
     
     const channel = supabase
-      .channel('team-usage-tracking')
+      .channel(`team-usage-tracking:${tenantId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'recruiter_activities'
+          table: 'recruiter_activities',
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           fetchTeamUsage();
@@ -405,7 +429,8 @@ export function useTeamUsageTracking() {
         {
           event: '*',
           schema: 'public',
-          table: 'ai_usage'
+          table: 'ai_usage',
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           fetchTeamUsage();
