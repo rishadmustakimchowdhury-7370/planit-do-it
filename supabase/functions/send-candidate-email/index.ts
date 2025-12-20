@@ -47,19 +47,26 @@ interface SendEmailRequest {
   use_system_fallback?: boolean; // If true, allows system email as fallback
 }
 
-// Professional HTML email template
+// Professional HTML email template with header, logo, and footer
 const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
   recruiterName: string,
   recruiterEmail: string,
-  attachmentLinks?: Attachment[]
+  attachmentLinks?: Attachment[],
+  companyName?: string,
+  companyLogo?: string
 ): string => {
-  // Convert plain text line breaks to HTML paragraphs
-  const formattedBody = bodyText
-    .split('\n')
-    .map(line => line.trim() ? `<p style="margin: 0 0 12px 0; line-height: 1.6;">${line}</p>` : '<br/>')
-    .join('');
+  // Check if body is already HTML
+  const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
+  
+  // Convert plain text line breaks to HTML paragraphs only if not already HTML
+  const formattedBody = isHtml 
+    ? bodyText 
+    : bodyText
+        .split('\n')
+        .map(line => line.trim() ? `<p style="margin: 0 0 12px 0; line-height: 1.6;">${line}</p>` : '<br/>')
+        .join('');
 
   const signatureHtml = signature 
     ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
@@ -76,13 +83,29 @@ const createEmailHtml = (
   let attachmentsHtml = '';
   if (attachmentLinks && attachmentLinks.length > 0) {
     attachmentsHtml = `
-      <div style="margin-top: 16px; padding: 12px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #374151;">Attachments (${attachmentLinks.length})</p>
+      <div style="margin-top: 20px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #374151;">📎 Attachments</p>
         ${attachmentLinks.map(att => `
-          <a href="${att.url}" style="display: inline-block; margin: 4px 8px 4px 0; padding: 6px 12px; background-color: #e5e7eb; color: #374151; text-decoration: none; border-radius: 4px; font-size: 12px;">📎 ${att.name}</a>
+          <a href="${att.url}" style="display: inline-block; margin: 4px 8px 4px 0; padding: 8px 14px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
         `).join('')}
       </div>`;
   }
+
+  // Logo HTML - use provided logo or default styled text
+  const logoHtml = companyLogo 
+    ? `<img src="${companyLogo}" alt="${companyName || 'Company'}" style="max-height: 45px; max-width: 180px; object-fit: contain;" />`
+    : `<div style="display: inline-flex; align-items: center; gap: 10px;">
+        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 8px; padding: 8px; display: inline-block;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            <rect width="20" height="14" x="2" y="6" rx="2"/>
+          </svg>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #1e293b;">${companyName || 'RecruitifyCRM'}</span>
+      </div>`;
+
+  const displayCompanyName = companyName || 'RecruitifyCRM';
+  const currentYear = new Date().getFullYear();
 
   return `
 <!DOCTYPE html>
@@ -96,16 +119,56 @@ const createEmailHtml = (
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
     <tr>
       <td style="padding: 32px 16px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
+          
+          <!-- Header with Logo -->
+          <tr>
+            <td style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+              ${logoHtml}
+            </td>
+          </tr>
+          
           <!-- Body -->
           <tr>
-            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.6;">
+            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">
               ${formattedBody}
               ${signatureHtml}
               ${attachmentsHtml}
             </td>
           </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">
+                      Sent via ${displayCompanyName}
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+                      © ${currentYear} ${displayCompanyName}. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
         </table>
+        
+        <!-- Unsubscribe / Privacy Footer -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0;">
+          <tr>
+            <td style="text-align: center; padding: 0 16px;">
+              <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                This email was sent by ${recruiterName} from ${displayCompanyName}.
+                If you believe you received this email in error, please disregard it.
+              </p>
+            </td>
+          </tr>
+        </table>
+        
       </td>
     </tr>
   </table>
@@ -265,6 +328,16 @@ serve(async (req) => {
       throw new Error("User has no tenant");
     }
 
+    // Fetch branding settings for the tenant
+    const { data: branding } = await supabaseAdmin
+      .from("branding_settings")
+      .select("company_name, logo_url")
+      .eq("tenant_id", profile.tenant_id)
+      .single();
+
+    const companyName = branding?.company_name || null;
+    const companyLogo = branding?.logo_url || null;
+
     const body: SendEmailRequest = await req.json();
     const {
       candidate_id,
@@ -356,13 +429,15 @@ serve(async (req) => {
     const senderEmail = emailAccount?.from_email || profile.email || "info@recruitifycrm.com";
     const senderName = emailAccount?.display_name || recruiterName;
 
-    // Create professional HTML email
+    // Create professional HTML email with branding
     const emailHtml = createEmailHtml(
       body_text,
       signature ?? profile.email_signature,
       senderName,
       senderEmail,
-      attachments
+      attachments,
+      companyName,
+      companyLogo
     );
 
     // Handle scheduled emails
