@@ -216,7 +216,7 @@ const AIMatchPage = () => {
   };
 
   return (
-    <RoleGate allowedRoles={['owner', 'manager']} requiredPermission={'can_use_ai_match' as Permission} redirectTo="/dashboard">
+    <RoleGate allowedRoles={['owner', 'manager', 'recruiter']} requiredPermission={'can_use_ai_match' as Permission} redirectTo="/dashboard">
       <AppLayout title="AI Matching" subtitle="Match candidates to jobs using AI-powered analysis.">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Selection Panel */}
