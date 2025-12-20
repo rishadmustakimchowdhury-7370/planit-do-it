@@ -175,83 +175,172 @@ export default function TeamKPIDashboardPage() {
         }
       }
 
-      // Build query for activities - use actual activity tables
-      let activitiesQuery = supabase
-        .from('activities')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-
-      // If not admin/manager, only show own data
+      // Determine which users to query for
+      let targetUserIds: string[] = [];
       if (userRole !== 'owner' && userRole !== 'manager') {
-        activitiesQuery = activitiesQuery.eq('user_id', user?.id);
+        targetUserIds = [user?.id].filter(Boolean) as string[];
       } else if (selectedMember) {
-        activitiesQuery = activitiesQuery.eq('user_id', selectedMember);
+        targetUserIds = [selectedMember];
+      } else {
+        // Get all team member IDs
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('tenant_id', tenantId);
+        targetUserIds = rolesData?.map(r => r.user_id) || [];
       }
 
-      const { data: activities, error } = await activitiesQuery;
-
-      if (error) throw error;
-
-      // Get updated profiles for activities
-      const activityUserIds = [...new Set((activities || []).map(a => a.user_id))];
-      let activityProfiles = teamMembers;
-      
-      if (activityUserIds.length > 0) {
-        const { data: activityProfilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, avatar_url')
-          .in('id', activityUserIds);
+      // Fetch real recruitment activity data from multiple tables
+      const [candidatesData, submissionsData, jobCandidatesData, eventsData] = await Promise.all([
+        // CVs uploaded (candidates created)
+        supabase
+          .from('candidates')
+          .select('created_by, created_at')
+          .eq('tenant_id', tenantId)
+          .in('created_by', targetUserIds)
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString()),
         
-        activityProfiles = activityProfilesData || teamMembers;
+        // CVs submitted
+        supabase
+          .from('cv_submissions')
+          .select('submitted_by, submitted_at')
+          .eq('tenant_id', tenantId)
+          .in('submitted_by', targetUserIds)
+          .gte('submitted_at', start.toISOString())
+          .lte('submitted_at', end.toISOString()),
+        
+        // Job candidates (for stages: screening, interview, offer, hired, rejected)
+        supabase
+          .from('job_candidates')
+          .select('stage, stage_updated_at, job_id')
+          .eq('tenant_id', tenantId)
+          .gte('stage_updated_at', start.toISOString())
+          .lte('stage_updated_at', end.toISOString()),
+        
+        // Interviews scheduled
+        supabase
+          .from('events')
+          .select('organizer_id, created_at')
+          .eq('tenant_id', tenantId)
+          .in('organizer_id', targetUserIds)
+          .eq('event_type', 'interview')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString()),
+      ]);
+
+      // Get job assignments to link job_candidates to users
+      const jobIds = [...new Set(jobCandidatesData.data?.map(jc => jc.job_id) || [])];
+      const { data: jobsData } = await supabase
+        .from('jobs')
+        .select('id, assigned_to')
+        .eq('tenant_id', tenantId)
+        .in('id', jobIds)
+        .in('assigned_to', targetUserIds);
+
+      // Build KPI map
+      const kpiMap = new Map<string, TeamMemberKPI>();
+
+      // Initialize KPI entries for all target users
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .in('id', targetUserIds);
+
+      for (const profile of profilesData || []) {
+        kpiMap.set(profile.id, {
+          user_id: profile.id,
+          full_name: profile.full_name || 'Unknown',
+          email: profile.email || '',
+          avatar_url: profile.avatar_url,
+          cv_uploaded: 0,
+          cv_submitted: 0,
+          screening_completed: 0,
+          interview_scheduled: 0,
+          interview_completed: 0,
+          offer_sent: 0,
+          candidate_hired: 0,
+          candidate_rejected: 0,
+        });
       }
 
-      // Process activities into KPIs
-      const kpiMap = new Map<string, TeamMemberKPI>();
-      
-      for (const activity of activities || []) {
-        if (!kpiMap.has(activity.user_id)) {
-          const memberProfile = activityProfiles.find(m => m.id === activity.user_id) || { full_name: 'Unknown', email: '', avatar_url: null };
-          kpiMap.set(activity.user_id, {
-            user_id: activity.user_id,
-            full_name: memberProfile.full_name || 'Unknown',
-            email: memberProfile.email || '',
-            avatar_url: memberProfile.avatar_url,
-            cv_uploaded: 0,
-            cv_submitted: 0,
-            screening_completed: 0,
-            interview_scheduled: 0,
-            interview_completed: 0,
-            offer_sent: 0,
-            candidate_hired: 0,
-            candidate_rejected: 0,
-          });
+      // Count CVs uploaded
+      for (const candidate of candidatesData.data || []) {
+        if (candidate.created_by && kpiMap.has(candidate.created_by)) {
+          kpiMap.get(candidate.created_by)!.cv_uploaded++;
         }
+      }
 
-        const kpi = kpiMap.get(activity.user_id)!;
-        const actionType = activity.action as keyof Omit<TeamMemberKPI, 'user_id' | 'full_name' | 'email' | 'avatar_url'>;
-        if (actionType in kpi) {
-          (kpi[actionType] as number)++;
+      // Count CVs submitted
+      for (const submission of submissionsData.data || []) {
+        if (submission.submitted_by && kpiMap.has(submission.submitted_by)) {
+          kpiMap.get(submission.submitted_by)!.cv_submitted++;
+        }
+      }
+
+      // Count interviews scheduled
+      for (const event of eventsData.data || []) {
+        if (event.organizer_id && kpiMap.has(event.organizer_id)) {
+          kpiMap.get(event.organizer_id)!.interview_scheduled++;
+        }
+      }
+
+      // Count job candidate stages
+      const jobAssignmentMap = new Map(jobsData?.map(j => [j.id, j.assigned_to]) || []);
+      for (const jobCandidate of jobCandidatesData.data || []) {
+        const assignedTo = jobAssignmentMap.get(jobCandidate.job_id);
+        if (assignedTo && kpiMap.has(assignedTo)) {
+          const kpi = kpiMap.get(assignedTo)!;
+          switch (jobCandidate.stage) {
+            case 'screening':
+              kpi.screening_completed++;
+              break;
+            case 'interview':
+            case 'technical':
+              kpi.interview_completed++;
+              break;
+            case 'offer':
+              kpi.offer_sent++;
+              break;
+            case 'hired':
+              kpi.candidate_hired++;
+              break;
+            case 'rejected':
+              kpi.candidate_rejected++;
+              break;
+          }
         }
       }
 
       setTeamKPIs(Array.from(kpiMap.values()));
 
-      // Generate trend data
+      // Generate trend data from all activity types
       const trendMap = new Map<string, any>();
-      for (const activity of activities || []) {
-        const date = format(new Date(activity.created_at), dateRange === '24_months' ? 'MMM yyyy' : 'MMM dd');
-        if (!trendMap.has(date)) {
-          trendMap.set(date, { date, cv_uploaded: 0, cv_submitted: 0, interview_scheduled: 0, candidate_hired: 0 });
+      
+      const addToTrend = (date: Date, key: string) => {
+        const dateStr = format(date, dateRange === '24_months' ? 'MMM yyyy' : 'MMM dd');
+        if (!trendMap.has(dateStr)) {
+          trendMap.set(dateStr, { 
+            date: dateStr, 
+            cv_uploaded: 0, 
+            cv_submitted: 0, 
+            interview_scheduled: 0, 
+            candidate_hired: 0 
+          });
         }
-        const trend = trendMap.get(date);
-        if (activity.action in trend) {
-          trend[activity.action]++;
-        }
-      }
+        trendMap.get(dateStr)![key]++;
+      };
 
-      setTrendData(Array.from(trendMap.values()));
+      candidatesData.data?.forEach(c => addToTrend(new Date(c.created_at), 'cv_uploaded'));
+      submissionsData.data?.forEach(s => addToTrend(new Date(s.submitted_at), 'cv_submitted'));
+      eventsData.data?.forEach(e => addToTrend(new Date(e.created_at), 'interview_scheduled'));
+      jobCandidatesData.data?.filter(jc => jc.stage === 'hired').forEach(jc => 
+        addToTrend(new Date(jc.stage_updated_at), 'candidate_hired')
+      );
+
+      setTrendData(Array.from(trendMap.values()).sort((a, b) => 
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      ));
 
     } catch (error) {
       console.error('Error fetching KPI data:', error);
