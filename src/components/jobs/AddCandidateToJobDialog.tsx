@@ -216,7 +216,7 @@ export function AddCandidateToJobDialog({
             Add Candidates to Job
           </DialogTitle>
           <DialogDescription>
-            Select candidates from your database to add to "{jobTitle}"
+            Select candidates from your CRM to add to "{jobTitle}"
           </DialogDescription>
         </DialogHeader>
 
@@ -261,28 +261,29 @@ export function AddCandidateToJobDialog({
                     <Checkbox
                       checked={selectedIds.includes(candidate.id)}
                       onCheckedChange={() => toggleCandidate(candidate.id)}
+                      className="shrink-0"
                     />
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 shrink-0">
                       <AvatarImage src={candidate.avatar_url || ''} alt={candidate.full_name} />
                       <AvatarFallback className="bg-accent/10 text-accent text-sm">
                         {candidate.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <p className="font-medium truncate">{candidate.full_name}</p>
                       <p className="text-sm text-muted-foreground truncate">
                         {candidate.current_title || candidate.email}
                       </p>
                     </div>
                     {candidate.skills && candidate.skills.length > 0 && (
-                      <div className="hidden sm:flex gap-1">
+                      <div className="hidden sm:flex gap-1 shrink-0">
                         {candidate.skills.slice(0, 2).map((skill, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
+                          <Badge key={i} variant="secondary" className="text-xs whitespace-nowrap">
                             {skill}
                           </Badge>
                         ))}
                         {candidate.skills.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
                             +{candidate.skills.length - 2}
                           </Badge>
                         )}
