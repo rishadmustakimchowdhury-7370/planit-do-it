@@ -20,7 +20,10 @@ interface DashboardStats {
   interviewsThisWeek: number;
   placementsThisMonth: number;
   totalClients: number;
-  aiMatchesRun: number;
+  cvsUploaded: number;
+  cvsDeleted: number;
+  jobsActivated: number;
+  aiCreditsUsed: number;
 }
 
 export default function DashboardPage() {
@@ -46,14 +49,14 @@ export default function DashboardPage() {
           jobsResult,
           candidatesResult,
           clientsResult,
-          aiUsageResult,
+          activitiesResult,
           interviewsResult,
           placementsResult
         ] = await Promise.all([
           supabase.from('jobs').select('id, status').eq('tenant_id', tenantId),
           supabase.from('candidates').select('id').eq('tenant_id', tenantId),
           supabase.from('clients').select('id').eq('tenant_id', tenantId),
-          supabase.from('ai_usage').select('id').eq('tenant_id', tenantId),
+          supabase.from('recruiter_activities').select('action_type').eq('tenant_id', tenantId),
           // Interviews this week (candidates in interview or technical stage updated this week)
           supabase
             .from('job_candidates')
@@ -75,9 +78,17 @@ export default function DashboardPage() {
         const openJobs = jobsResult.data?.filter(j => j.status === 'open').length || 0;
         const totalCandidates = candidatesResult.data?.length || 0;
         const totalClients = clientsResult.data?.length || 0;
-        const aiMatchesRun = aiUsageResult.data?.length || 0;
         const interviewsThisWeek = interviewsResult.data?.length || 0;
         const placementsThisMonth = placementsResult.data?.length || 0;
+        
+        // Count activities from recruiter_activities table
+        const activities = activitiesResult.data || [];
+        const cvsUploaded = activities.filter(a => a.action_type === 'cv_uploaded').length;
+        const cvsDeleted = activities.filter(a => a.action_type === 'cv_deleted').length;
+        const jobsActivated = activities.filter(a => a.action_type === 'job_activated').length;
+        const aiCreditsUsed = activities.filter(a => 
+          ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
+        ).length;
 
         setStats({
           openJobs,
@@ -85,7 +96,10 @@ export default function DashboardPage() {
           interviewsThisWeek,
           placementsThisMonth,
           totalClients,
-          aiMatchesRun,
+          cvsUploaded,
+          cvsDeleted,
+          jobsActivated,
+          aiCreditsUsed,
         });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -134,10 +148,10 @@ export default function DashboardPage() {
       variant: 'primary' as const,
     },
     {
-      title: 'AI Matches Run',
-      value: stats?.aiMatchesRun ?? 0,
+      title: 'AI Credits Used',
+      value: stats?.aiCreditsUsed ?? 0,
       icon: Sparkles,
-      subtitle: 'AI analyses completed',
+      subtitle: 'AI actions performed',
       variant: 'accent' as const,
     },
   ];

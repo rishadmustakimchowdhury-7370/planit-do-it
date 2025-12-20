@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { toast } from 'sonner';
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 
 interface Job {
   id: string;
@@ -69,6 +70,7 @@ const statusConfig: Record<string, { color: string; icon: React.ComponentType<{ 
 const JobsPage = () => {
   const navigate = useNavigate();
   const { tenantId, user, isOwner, isManager } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,6 +139,22 @@ const JobsPage = () => {
         .eq('id', jobId);
 
       if (error) throw error;
+      
+      // Log activity for job status changes
+      if (newStatus === 'open') {
+        await logActivity({
+          action_type: 'job_activated',
+          job_id: jobId,
+          metadata: { new_status: newStatus }
+        });
+      } else if (newStatus === 'closed') {
+        await logActivity({
+          action_type: 'job_closed',
+          job_id: jobId,
+          metadata: { new_status: newStatus }
+        });
+      }
+      
       toast.success(`Job status updated to ${newStatus}`);
       fetchJobs();
     } catch (error) {
