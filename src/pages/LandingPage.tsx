@@ -14,17 +14,14 @@ import { CustomerFeedbackForm } from '@/components/testimonials/CustomerFeedback
 import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { 
-  Sparkles, 
   ArrowRight, 
   Users, 
   Briefcase,
   Brain, 
   BarChart3, 
   Shield, 
-  Zap,
   CheckCircle,
   Play,
-  MessageCircle,
   Phone,
   Mail,
   Clock,
@@ -32,76 +29,139 @@ import {
   Loader2,
   Menu,
   X,
-  Calendar
+  Calendar,
+  Target,
+  Eye,
+  EyeOff,
+  Activity,
+  TrendingUp,
+  Timer,
+  Coffee,
+  UserCheck,
+  FileText,
+  MessageSquare,
+  Lock,
+  Crown,
+  Building,
+  AlertTriangle,
+  Zap,
+  Settings,
+  ChevronRight
 } from 'lucide-react';
 
-const features = [
-  {
-    icon: Brain,
-    title: 'AI-Powered Matching',
-    description: 'Our AI analyzes CVs and job descriptions to find the perfect candidates with 95% accuracy.',
-  },
-  {
-    icon: Users,
-    title: 'Kanban Pipelines',
-    description: 'Visualize your hiring process with drag-and-drop candidate pipelines for every job.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Smart Analytics',
-    description: 'Track time-to-hire, source effectiveness, and team performance with real-time dashboards.',
-  },
-  {
-    icon: Zap,
-    title: 'Automated Workflows',
-    description: 'Set up triggers to automatically move candidates, send emails, and schedule interviews.',
-  },
-  {
-    icon: Shield,
-    title: 'Enterprise Security',
-    description: 'SOC 2 compliant with role-based access control and data encryption at rest.',
-  },
-  {
-    icon: MessageCircle,
-    title: '24/7 Support',
-    description: 'Get help when you need it with our AI chatbot and dedicated success team.',
-  },
+// Pain points data
+const painPoints = [
+  { icon: EyeOff, text: "You don't know who is actually working" },
+  { icon: BarChart3, text: "Recruiter productivity is hard to measure" },
+  { icon: FileText, text: "CVs are submitted, but performance is unclear" },
+  { icon: Brain, text: "AI tools exist, but results aren't tracked" },
+  { icon: Users, text: "Team management happens outside the CRM" },
 ];
 
+// Core Features Data
+const recruitmentFeatures = [
+  { icon: Briefcase, title: "Jobs & Clients", description: "Create and manage jobs with full lifecycle tracking. Attach clients, hiring managers, and notes." },
+  { icon: Users, title: "Candidates & CV Management", description: "Upload candidates manually or in bulk. CV parsing and structured candidate profiles." },
+  { icon: FileText, title: "Branded CV Downloads", description: "Download CVs with your company branding. Professional presentation every time." },
+];
+
+const aiFeatures = [
+  { icon: Brain, title: "AI-Powered CV Matching", description: "Match candidates to jobs with AI. Score candidates job-by-job with full transparency." },
+  { icon: Target, title: "Controlled AI Usage", description: "Control AI usage via monthly credits. No surprise costs, full visibility on AI operations." },
+  { icon: Shield, title: "AI Assists, Not Replaces", description: "AI supports recruiter decisions without replacing human judgment. You stay in control." },
+];
+
+const workTrackingFeatures = [
+  { icon: Timer, title: "Start Work", description: "Recruiters clock in when they begin their workday." },
+  { icon: Coffee, title: "Break Tracking", description: "Breaks are logged automatically for accurate time records." },
+  { icon: Activity, title: "Resume & End Day", description: "Every action is logged. Owners see who is working, when, and for how long." },
+];
+
+const kpiMetrics = [
+  "CVs submitted",
+  "Interviews scheduled", 
+  "Offers made",
+  "Hires completed",
+  "Rejection ratios"
+];
+
+const viewPeriods = ["Daily", "Weekly", "Monthly", "Yearly"];
+
+const communicationFeatures = [
+  { icon: Mail, title: "Email Integration", description: "Email candidates directly from dashboard with auto templates and signatures." },
+  { icon: MessageSquare, title: "WhatsApp Click-to-Chat", description: "Instant WhatsApp communication with one click." },
+  { icon: Calendar, title: "Interview Scheduling", description: "Schedule interviews, invite candidates and clients via email with automatic notifications." },
+];
+
+// Roles Data
+const roles = [
+  {
+    icon: Crown,
+    title: "Owner",
+    color: "text-accent",
+    features: ["Full access", "Billing & subscription", "Team management", "Reports & analytics"]
+  },
+  {
+    icon: Building,
+    title: "Manager", 
+    color: "text-primary",
+    features: ["Team oversight", "Performance tracking", "No billing access", "Job management"]
+  },
+  {
+    icon: UserCheck,
+    title: "Recruiter",
+    color: "text-slate",
+    features: ["Sourcing", "Screening", "AI matching", "Candidate communication"]
+  }
+];
+
+// Pricing Plans - Updated as requested
 const plans = [
   {
-    name: 'Starter',
-    price: '£9',
+    name: 'BASIC',
+    price: '£29',
     period: '/month',
-    description: 'Perfect for small teams getting started',
-    features: ['5 Active Jobs', '50 Candidates', '50 AI Matches/month', 'Email Support', 'Basic Analytics'],
+    description: 'Perfect for solo recruiters',
+    features: ['10 Active Jobs', '100 CV Uploads/month', '50 AI Matches/month', '1 User', 'Email Support', 'Basic Analytics'],
     popular: false,
   },
   {
-    name: 'Pro',
-    price: '£29',
+    name: 'STARTER',
+    price: '£79',
     period: '/month',
-    description: 'For growing recruitment teams',
-    features: ['25 Active Jobs', '500 Candidates', '200 AI Matches/month', 'Priority Support', 'Advanced Analytics', 'API Access', 'Custom Branding'],
+    description: 'For small agencies',
+    features: ['50 Active Jobs', '500 CV Uploads/month', '200 AI Matches/month', 'Up to 5 Users', 'Priority Support', 'Full Analytics', 'Team Work Tracking'],
     popular: true,
   },
   {
-    name: 'Agency',
-    price: '£79',
+    name: 'PRO',
+    price: '£149',
     period: '/month',
-    description: 'For agencies and large teams',
-    features: ['Unlimited Jobs', 'Unlimited Candidates', '1000 AI Matches/month', '24/7 Support', 'Full Analytics', 'API Access', 'White Label', 'Dedicated Account Manager'],
+    description: 'For growing teams',
+    features: ['Unlimited Jobs', 'Unlimited CV Uploads', '1000 AI Matches/month', 'Up to 25 Users', '24/7 Support', 'Advanced Analytics', 'Full Work Tracking', 'Custom Branding', 'API Access'],
     popular: false,
   },
 ];
 
-const steps = [
-  { step: '01', title: 'Add Your Jobs', description: 'Create job postings with our AI-assisted description builder.' },
-  { step: '02', title: 'Import Candidates', description: 'Upload CVs, import from LinkedIn, or let candidates apply.' },
-  { step: '03', title: 'AI Matching', description: 'Our AI analyzes and ranks candidates by fit for each role.' },
+// Why Choose Us
+const whyChoose = [
+  { icon: Building, text: "Built for agency owners, not just recruiters" },
+  { icon: Activity, text: "Full team accountability" },
+  { icon: Brain, text: "AI with usage control" },
+  { icon: Users, text: "Remote-team friendly" },
+  { icon: Settings, text: "No feature overload" },
+  { icon: Zap, text: "Clean, fast, modern UI" },
 ];
 
-// Footer Component with Contact Form
+// Security Features
+const securityFeatures = [
+  "Secure authentication",
+  "Role-based permissions",
+  "Data protection best practices",
+  "Reliable cloud infrastructure"
+];
+
+// Footer Component
 function Footer() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,15 +188,14 @@ function Footer() {
   };
 
   return (
-    <footer className="border-t border-border py-10 sm:py-16 px-4 sm:px-6 bg-muted/30">
+    <footer className="border-t border-border py-10 sm:py-16 px-4 sm:px-6 bg-slate/5">
       <div className="container mx-auto max-w-6xl">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
-          {/* Brand & Contact Info */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <Logo size="md" />
             </Link>
-            <p className="text-sm text-muted-foreground mb-4">AI-powered recruitment platform for modern teams.</p>
+            <p className="text-sm text-muted-foreground mb-4">Recruitment Performance Platform for agencies and remote teams.</p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-4 w-4 flex-shrink-0" />
@@ -153,7 +212,6 @@ function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
             <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Quick Links</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -164,7 +222,6 @@ function Footer() {
             </ul>
           </div>
 
-          {/* Legal */}
           <div>
             <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Legal</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -174,7 +231,6 @@ function Footer() {
             </ul>
           </div>
 
-          {/* Contact Form */}
           <div className="sm:col-span-2 lg:col-span-1">
             <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Send us a Message</h4>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -189,7 +245,6 @@ function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
         <div className="border-t border-border pt-6 sm:pt-8">
           <div className="text-center mb-4">
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -211,6 +266,17 @@ function Footer() {
         </div>
       </div>
     </footer>
+  );
+}
+
+// Section Component for consistent styling
+function SectionTitle({ badge, title, subtitle }: { badge?: string; title: string; subtitle?: string }) {
+  return (
+    <div className="text-center mb-10 sm:mb-16">
+      {badge && <Badge variant="outline" className="mb-4 bg-primary/5 border-primary/20 text-primary">{badge}</Badge>}
+      <h2 className="text-2xl sm:text-4xl font-bold mb-4 text-foreground">{title}</h2>
+      {subtitle && <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto px-4">{subtitle}</p>}
+    </div>
   );
 }
 
@@ -240,17 +306,17 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Logo size="md" />
           </Link>
           
           <nav className="hidden lg:flex items-center gap-8">
+            <a href="#problem" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Why Us</a>
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How it Works</a>
+            <a href="#roles" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Roles</a>
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
           </nav>
           
           <div className="hidden sm:flex items-center gap-4">
@@ -264,7 +330,6 @@ export default function LandingPage() {
             </Link>
           </div>
           
-          {/* Mobile menu button */}
           <button 
             className="lg:hidden p-2 hover:bg-muted rounded-lg transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -273,7 +338,6 @@ export default function LandingPage() {
           </button>
         </div>
         
-        {/* Mobile Menu */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
@@ -283,10 +347,10 @@ export default function LandingPage() {
               className="lg:hidden border-t border-border bg-background"
             >
               <nav className="container mx-auto px-4 py-4 flex flex-col gap-3">
+                <a href="#problem" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Why Us</a>
                 <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Features</a>
-                <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">How it Works</a>
+                <a href="#roles" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Roles</a>
                 <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-                <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground hover:text-foreground transition-colors">Testimonials</a>
                 <div className="flex flex-col gap-2 pt-3 border-t border-border">
                   <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="outline" className="w-full">Login</Button>
@@ -301,8 +365,8 @@ export default function LandingPage() {
         </AnimatePresence>
       </header>
 
-      {/* Hero Section */}
-      <section className="pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
+      {/* 1. HERO SECTION */}
+      <section className="pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6 bg-gradient-to-b from-primary/5 to-background">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center space-y-6 sm:space-y-8">
             <motion.div
@@ -310,9 +374,9 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Badge variant="secondary" className="mb-4 text-xs sm:text-sm">
-                <Sparkles className="h-3 w-3 mr-1" />
-                AI-Powered Recruitment Platform
+              <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 text-xs sm:text-sm px-4 py-1.5">
+                <Target className="h-3.5 w-3.5 mr-2" />
+                Recruitment Performance Platform
               </Badge>
             </motion.div>
             
@@ -320,21 +384,23 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-3xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-tight"
+              className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-foreground"
             >
-              Hire the <span className="text-accent">Best Talent</span>
-              <br className="hidden sm:block" />
-              <span className="sm:hidden"> </span>Faster Than Ever
+              Track Recruiter Work.
+              <br />
+              <span className="text-primary">Measure Performance.</span>
+              <br />
+              Hire With Control.
             </motion.h1>
             
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto px-4"
+              className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto px-4"
             >
-              Recruitify CRM uses AI to match candidates to jobs, automate your pipeline, 
-              and give you insights that help you make better hiring decisions.
+              An all-in-one recruitment performance platform designed for agencies and remote recruiting teams 
+              to manage jobs, candidates, AI matching, and recruiter productivity from one dashboard.
             </motion.p>
             
             <motion.div
@@ -344,69 +410,59 @@ export default function LandingPage() {
               className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4"
             >
               <Link to="/auth?mode=signup" className="w-full sm:w-auto">
-                <Button size="lg" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground gap-2">
-                  Start Free Trial
-                  <ArrowRight className="h-4 w-4" />
+                <Button size="lg" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground gap-2 h-12 px-8 text-base font-semibold">
+                  Start Free – No Credit Card Required
+                  <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="w-full sm:w-auto gap-2"
+                className="w-full sm:w-auto gap-2 h-12 px-8 text-base border-2"
                 onClick={() => demoVideoUrl ? setWatchDemoOpen(true) : setBookDemoOpen(true)}
               >
-                <Play className="h-4 w-4" />
-                {demoVideoUrl ? 'Watch Demo' : 'Book a Demo'}
+                <Play className="h-5 w-5" />
+                Book a Live Demo
               </Button>
             </motion.div>
             
-            <motion.div
+            <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-6 sm:pt-8 text-xs sm:text-sm text-muted-foreground"
+              className="text-sm text-muted-foreground pt-4"
             >
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                <span>No credit card required</span>
-              </div>
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                <span>14-day free trial</span>
-              </div>
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
-                <span>Cancel anytime</span>
-              </div>
-            </motion.div>
+              Trusted by independent recruiters and growing recruitment agencies worldwide.
+            </motion.p>
           </div>
           
-          {/* Hero Image/Dashboard Preview */}
+          {/* Dashboard Preview */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}
-            className="mt-10 sm:mt-16 relative"
+            className="mt-12 sm:mt-16 relative"
           >
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="rounded-lg sm:rounded-xl border border-border shadow-2xl overflow-hidden bg-card">
-              <div className="h-6 sm:h-8 bg-muted flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-destructive/50" />
-                <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-warning/50" />
-                <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-success/50" />
+            <div className="rounded-xl border-2 border-primary/20 shadow-2xl overflow-hidden bg-card">
+              <div className="h-8 bg-primary flex items-center gap-2 px-4">
+                <div className="w-3 h-3 rounded-full bg-white/30" />
+                <div className="w-3 h-3 rounded-full bg-white/30" />
+                <div className="w-3 h-3 rounded-full bg-white/30" />
+                <span className="text-xs text-white/70 ml-4 font-medium">HireMetrics Dashboard</span>
               </div>
-              <div className="p-4 sm:p-6 bg-gradient-to-br from-card to-muted/30">
-                <div className="grid grid-cols-4 gap-2 sm:gap-4">
+              <div className="p-6 bg-gradient-to-br from-card to-slate/5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Jobs', value: '12', icon: Briefcase },
-                    { label: 'Candidates', value: '284', icon: Users },
-                    { label: 'Interviews', value: '8', icon: BarChart3 },
-                    { label: 'AI Matches', value: '156', icon: Brain },
+                    { label: 'Active Jobs', value: '24', icon: Briefcase, color: 'text-primary' },
+                    { label: 'Candidates', value: '1,284', icon: Users, color: 'text-slate' },
+                    { label: 'AI Matches', value: '856', icon: Brain, color: 'text-accent' },
+                    { label: 'Team Active', value: '8/10', icon: Activity, color: 'text-primary' },
                   ].map((stat, i) => (
-                    <div key={i} className="p-2 sm:p-4 rounded-lg bg-background/50 border border-border text-center">
-                      <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 text-accent mb-1 sm:mb-2 mx-auto" />
-                      <div className="text-base sm:text-2xl font-bold">{stat.value}</div>
-                      <div className="text-[10px] sm:text-sm text-muted-foreground truncate">{stat.label}</div>
+                    <div key={i} className="p-4 rounded-lg bg-background border border-border">
+                      <stat.icon className={`h-5 w-5 ${stat.color} mb-2`} />
+                      <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                      <div className="text-sm text-muted-foreground">{stat.label}</div>
                     </div>
                   ))}
                 </div>
@@ -416,33 +472,280 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-12 sm:py-20 px-4 sm:px-6 bg-muted/30">
+      {/* 2. THE PROBLEM YOU SOLVE */}
+      <section id="problem" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-10 sm:mb-16">
-            <Badge variant="outline" className="mb-4">Features</Badge>
-            <h2 className="text-2xl sm:text-4xl font-bold mb-4">Everything you need to hire smarter</h2>
-            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-              From AI matching to analytics, Recruitify CRM gives you the tools to build your dream team.
-            </p>
+          <SectionTitle 
+            badge="The Challenge"
+            title="Recruitment Is Not the Problem. Visibility Is."
+          />
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+            {painPoints.map((point, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                viewport={{ once: true }}
+                className="flex items-center gap-4 p-4 rounded-lg bg-background border border-border"
+              >
+                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <point.icon className="h-5 w-5 text-accent" />
+                </div>
+                <p className="text-sm sm:text-base text-foreground">{point.text}</p>
+              </motion.div>
+            ))}
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {features.map((feature, i) => (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="text-center bg-primary/5 rounded-2xl p-8 border border-primary/20"
+          >
+            <p className="text-lg sm:text-xl text-foreground font-medium">
+              Your recruitment data is scattered.
+              <br />
+              Your team performance is invisible.
+              <br />
+              <span className="text-primary font-bold">That's where HireMetrics changes the game.</span>
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 3. THE SOLUTION */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+          >
+            <Badge className="mb-4 bg-accent/10 text-accent border-accent/20">The Solution</Badge>
+            <h2 className="text-2xl sm:text-4xl font-bold mb-6 text-foreground">
+              More Than a CRM. A <span className="text-primary">Recruitment Performance System.</span>
+            </h2>
+            <p className="text-base sm:text-lg text-muted-foreground max-w-3xl mx-auto">
+              Unlike traditional recruitment CRMs that only track candidates, HireMetrics tracks 
+              <span className="text-foreground font-semibold"> people, performance, and productivity</span> — 
+              giving agency owners full operational control.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 4. CORE FEATURES */}
+      <section id="features" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+        <div className="container mx-auto max-w-6xl">
+          <SectionTitle 
+            badge="Platform Features"
+            title="Everything You Need to Run Your Agency"
+          />
+          
+          {/* Recruitment Management */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Briefcase className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">Recruitment Management</h3>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {recruitmentFeatures.map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Card className="h-full hover:shadow-lg transition-all hover:border-primary/30">
+                    <CardContent className="p-6">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                        <feature.icon className="h-6 w-6 text-primary" />
+                      </div>
+                      <h4 className="text-lg font-semibold mb-2 text-foreground">{feature.title}</h4>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          
+          {/* AI Matching */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                <Brain className="h-5 w-5 text-accent" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">AI Matching & Smart Screening</h3>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {aiFeatures.map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Card className="h-full hover:shadow-lg transition-all hover:border-accent/30 border-accent/10">
+                    <CardContent className="p-6">
+                      <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
+                        <feature.icon className="h-6 w-6 text-accent" />
+                      </div>
+                      <h4 className="text-lg font-semibold mb-2 text-foreground">{feature.title}</h4>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Work Tracking - THE DIFFERENTIATOR */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                <Activity className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">Team Work Tracking</h3>
+              <Badge className="bg-accent text-accent-foreground">Your Differentiator</Badge>
+            </div>
+            <p className="text-muted-foreground mb-8 max-w-2xl">
+              Agency owners finally see who is working, when, and for how long. Every action is logged automatically.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {workTrackingFeatures.map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Card className="h-full bg-primary/5 border-primary/20 hover:shadow-lg transition-all">
+                    <CardContent className="p-6">
+                      <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center mb-4">
+                        <feature.icon className="h-6 w-6 text-primary-foreground" />
+                      </div>
+                      <h4 className="text-lg font-semibold mb-2 text-foreground">{feature.title}</h4>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          
+          {/* KPI Dashboard */}
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-lg bg-slate/20 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-slate" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">Team Performance & KPIs</h3>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-8">
+              <Card className="border-slate/20">
+                <CardContent className="p-6">
+                  <h4 className="text-lg font-semibold mb-4 text-foreground">Recruiter Performance Dashboard</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {kpiMetrics.map((metric, i) => (
+                      <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-slate/5">
+                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="text-sm text-foreground">{metric}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-slate/20">
+                <CardContent className="p-6">
+                  <h4 className="text-lg font-semibold mb-4 text-foreground">View Performance By Period</h4>
+                  <div className="flex flex-wrap gap-3 mb-6">
+                    {viewPeriods.map((period, i) => (
+                      <Badge key={i} variant="outline" className="px-4 py-2 text-sm">{period}</Badge>
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground">
+                    Compare recruiters objectively — no guesswork. Perfect for performance reviews, salary justification, and client reporting.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          
+          {/* Communication */}
+          <div>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-lg bg-slate/20 flex items-center justify-center">
+                <MessageSquare className="h-5 w-5 text-slate" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">Communication & Scheduling</h3>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {communicationFeatures.map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  viewport={{ once: true }}
+                >
+                  <Card className="h-full hover:shadow-lg transition-all">
+                    <CardContent className="p-6">
+                      <div className="w-12 h-12 rounded-lg bg-slate/10 flex items-center justify-center mb-4">
+                        <feature.icon className="h-6 w-6 text-slate" />
+                      </div>
+                      <h4 className="text-lg font-semibold mb-2 text-foreground">{feature.title}</h4>
+                      <p className="text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. ROLE-BASED ACCESS */}
+      <section id="roles" className="py-16 sm:py-24 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <SectionTitle 
+            badge="Role-Based Access"
+            title="Designed for Every Role in Your Agency"
+            subtitle="Clear separation. Full control."
+          />
+          
+          <div className="grid sm:grid-cols-3 gap-6">
+            {roles.map((role, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
+                transition={{ duration: 0.4, delay: i * 0.15 }}
                 viewport={{ once: true }}
               >
-                <Card className="h-full hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-3 sm:mb-4">
-                      <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
+                <Card className="h-full hover:shadow-lg transition-all">
+                  <CardContent className="p-6">
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br from-primary/10 to-slate/10 flex items-center justify-center mb-4`}>
+                      <role.icon className={`h-7 w-7 ${role.color}`} />
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold mb-2">{feature.title}</h3>
-                    <p className="text-sm sm:text-base text-muted-foreground">{feature.description}</p>
+                    <h3 className="text-xl font-bold mb-4 text-foreground">{role.title}</h3>
+                    <ul className="space-y-3">
+                      {role.features.map((feature, j) => (
+                        <li key={j} className="flex items-center gap-2 text-muted-foreground">
+                          <ChevronRight className="h-4 w-4 text-primary flex-shrink-0" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -451,74 +754,50 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How it Works */}
-      <section id="how-it-works" className="py-12 sm:py-20 px-4 sm:px-6">
+      {/* 6. PRICING */}
+      <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-10 sm:mb-16">
-            <Badge variant="outline" className="mb-4">How it Works</Badge>
-            <h2 className="text-2xl sm:text-4xl font-bold mb-4">Get started in 3 simple steps</h2>
-          </div>
+          <SectionTitle 
+            badge="Pricing"
+            title="Simple Pricing. Scales With You."
+            subtitle="One successful hire can pay for your entire year."
+          />
           
-          <div className="grid sm:grid-cols-3 gap-8 sm:gap-8">
-            {steps.map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.15 }}
-                viewport={{ once: true }}
-                className="text-center"
-              >
-                <div className="text-4xl sm:text-6xl font-bold text-accent/20 mb-3 sm:mb-4">{item.step}</div>
-                <h3 className="text-lg sm:text-xl font-semibold mb-2">{item.title}</h3>
-                <p className="text-sm sm:text-base text-muted-foreground">{item.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="py-12 sm:py-20 px-4 sm:px-6 bg-muted/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-10 sm:mb-16">
-            <Badge variant="outline" className="mb-4">Pricing</Badge>
-            <h2 className="text-2xl sm:text-4xl font-bold mb-4">Simple, transparent pricing</h2>
-            <p className="text-base sm:text-xl text-muted-foreground">Start free, scale as you grow</p>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {plans.map((plan, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
                 viewport={{ once: true }}
               >
-                <Card className={`h-full relative ${plan.popular ? 'border-accent shadow-glow' : ''}`}>
+                <Card className={`h-full relative ${plan.popular ? 'border-2 border-accent shadow-lg' : ''}`}>
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-accent text-accent-foreground text-xs">Most Popular</Badge>
+                      <Badge className="bg-accent text-accent-foreground px-4">Most Popular</Badge>
                     </div>
                   )}
-                  <CardContent className="p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-semibold mb-2">{plan.name}</h3>
-                    <p className="text-muted-foreground text-xs sm:text-sm mb-4">{plan.description}</p>
-                    <div className="mb-4 sm:mb-6">
-                      <span className="text-3xl sm:text-4xl font-bold">{plan.price}</span>
-                      <span className="text-muted-foreground text-sm">{plan.period}</span>
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold mb-1 text-foreground">{plan.name}</h3>
+                    <p className="text-muted-foreground text-sm mb-4">{plan.description}</p>
+                    <div className="mb-6">
+                      <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                      <span className="text-muted-foreground">{plan.period}</span>
                     </div>
-                    <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                    <ul className="space-y-3 mb-6">
                       {plan.features.map((feature, j) => (
-                        <li key={j} className="flex items-center gap-2 text-xs sm:text-sm">
-                          <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success flex-shrink-0" />
-                          {feature}
+                        <li key={j} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                          <span className="text-foreground">{feature}</span>
                         </li>
                       ))}
                     </ul>
-                    <Link to="/auth?mode=signup">
-                      <Button size="sm" className={`w-full ${plan.popular ? 'bg-accent hover:bg-accent/90' : ''}`} variant={plan.popular ? 'default' : 'outline'}>
+                    <Link to="/auth?mode=signup" className="block">
+                      <Button 
+                        className={`w-full ${plan.popular ? 'bg-accent hover:bg-accent/90 text-accent-foreground' : ''}`} 
+                        variant={plan.popular ? 'default' : 'outline'}
+                      >
                         Get Started
                       </Button>
                     </Link>
@@ -530,44 +809,93 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section id="testimonials" className="py-12 sm:py-20 px-4 sm:px-6">
+      {/* 7. WHY CHOOSE US */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-10 sm:mb-16">
-            <Badge variant="outline" className="mb-4">Testimonials</Badge>
-            <h2 className="text-2xl sm:text-4xl font-bold mb-4">Loved by recruiters worldwide</h2>
-            <p className="text-muted-foreground mb-6">See what our customers have to say</p>
+          <SectionTitle 
+            badge="Why HireMetrics"
+            title="Why Agencies Switch to HireMetrics"
+          />
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {whyChoose.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                viewport={{ once: true }}
+                className="flex items-center gap-4 p-4 rounded-lg bg-primary/5 border border-primary/10"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="h-5 w-5 text-primary" />
+                </div>
+                <p className="text-foreground font-medium">{item.text}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 8. SECURITY */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 bg-slate/5">
+        <div className="container mx-auto max-w-4xl text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-foreground">Secure. Reliable. Professional.</h2>
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
+            {securityFeatures.map((feature, i) => (
+              <Badge key={i} variant="outline" className="px-4 py-2 text-sm bg-background">
+                <Shield className="h-3.5 w-3.5 mr-2 text-primary" />
+                {feature}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 9. TESTIMONIALS */}
+      <section id="testimonials" className="py-16 sm:py-24 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <SectionTitle 
+            badge="Testimonials"
+            title="Trusted by Recruitment Agencies"
+            subtitle="See what our customers have to say"
+          />
+          <div className="mb-8 text-center">
             <CustomerFeedbackForm />
           </div>
-          
           <TestimonialsCarousel />
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-12 sm:py-20 px-4 sm:px-6">
+      {/* 10. FINAL CTA */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6">
         <div className="container mx-auto max-w-4xl">
-          <Card className="gradient-hero text-primary-foreground overflow-hidden">
-            <CardContent className="p-6 sm:p-12 text-center">
-              <h2 className="text-2xl sm:text-4xl font-bold mb-4">Ready to transform your hiring?</h2>
-              <p className="text-base sm:text-xl text-primary-foreground/80 mb-6 sm:mb-8 max-w-xl mx-auto">
-                Join thousands of teams using Recruitify CRM to find and hire the best talent.
+          <Card className="bg-primary text-primary-foreground overflow-hidden border-0">
+            <CardContent className="p-8 sm:p-12 text-center">
+              <h2 className="text-2xl sm:text-4xl font-bold mb-4">
+                Stop Managing Recruitment Blindly.
+              </h2>
+              <p className="text-lg sm:text-xl text-primary-foreground/80 mb-8 max-w-xl mx-auto">
+                Start tracking recruiter performance, not just candidates.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/auth?mode=signup" className="w-full sm:w-auto">
-                  <Button size="lg" variant="secondary" className="w-full sm:w-auto gap-2">
+                  <Button size="lg" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground gap-2 h-12 px-8">
                     Start Free Trial
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
                 <Button 
                   size="lg" 
                   variant="outline" 
-                  className="w-full sm:w-auto bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 gap-2"
+                  className="w-full sm:w-auto bg-transparent border-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 gap-2 h-12 px-8"
                   onClick={() => setBookDemoOpen(true)}
                 >
-                  <Calendar className="h-4 w-4" />
-                  Request Demo
+                  <Calendar className="h-5 w-5" />
+                  Book a Demo
                 </Button>
               </div>
             </CardContent>
