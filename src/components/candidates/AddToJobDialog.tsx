@@ -8,7 +8,7 @@ import { Search, Briefcase, Loader2, MapPin, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-
+import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 interface Job {
   id: string;
   title: string;
@@ -33,6 +33,7 @@ export function AddToJobDialog({
   onSuccess
 }: AddToJobDialogProps) {
   const { tenantId, user } = useAuth();
+  const { logActivity } = useRecruiterActivity();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [existingJobIds, setExistingJobIds] = useState<string[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -126,6 +127,14 @@ export function AddToJobDialog({
         submitted_by: user?.id || '',
         submitted_at: new Date().toISOString(),
         metadata: { source: 'candidate_detail_page' }
+      });
+
+      // Log recruiter activity for KPI tracking
+      await logActivity({
+        action_type: 'cv_submitted',
+        candidate_id: candidateId,
+        job_id: selectedJobId,
+        metadata: { job_title: selectedJob?.title }
       });
 
       // Log activity
