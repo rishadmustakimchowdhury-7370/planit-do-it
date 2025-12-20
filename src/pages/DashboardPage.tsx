@@ -194,7 +194,7 @@ export default function DashboardPage() {
             transition={{ delay: 0.35 }}
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="p-6 border rounded-lg bg-card">
+              <div className="p-6 border rounded-lg bg-card cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = isOwner ? "/work-tracking" : "/manager-dashboard"}>
                 <h3 className="text-lg font-semibold mb-4">
                   {isOwner ? "Team Performance" : "Recruiter Performance"}
                 </h3>
@@ -204,26 +204,20 @@ export default function DashboardPage() {
                     : "Monitor your recruiters' activity and productivity"
                   }
                 </p>
-                <a 
-                  href={isOwner ? "/work-tracking" : "/manager-dashboard"}
-                  className="text-primary hover:underline text-sm font-medium"
-                >
+                <span className="text-primary hover:underline text-sm font-medium">
                   View Details →
-                </a>
+                </span>
               </div>
               
               {isOwner && (
-                <div className="p-6 border rounded-lg bg-card">
+                <div className="p-6 border rounded-lg bg-card cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = "/team-kpis"}>
                   <h3 className="text-lg font-semibold mb-4">Team KPIs</h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Comprehensive analytics and key performance indicators
                   </p>
-                  <a 
-                    href="/team-kpis"
-                    className="text-primary hover:underline text-sm font-medium"
-                  >
+                  <span className="text-primary hover:underline text-sm font-medium">
                     View Analytics →
-                  </a>
+                  </span>
                 </div>
               )}
             </div>

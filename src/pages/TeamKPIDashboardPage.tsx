@@ -164,7 +164,8 @@ export default function TeamKPIDashboardPage() {
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('id, full_name, email, avatar_url')
-            .in('id', userIds);
+            .in('id', userIds)
+            .eq('tenant_id', tenantId);
 
           if (profilesError) {
             console.error('Error fetching profiles:', profilesError);
@@ -174,9 +175,9 @@ export default function TeamKPIDashboardPage() {
         }
       }
 
-      // Build query based on role
-      let query = supabase
-        .from('recruiter_activities')
+      // Build query for activities - use actual activity tables
+      let activitiesQuery = supabase
+        .from('activities')
         .select('*')
         .eq('tenant_id', tenantId)
         .gte('created_at', start.toISOString())
@@ -184,12 +185,12 @@ export default function TeamKPIDashboardPage() {
 
       // If not admin/manager, only show own data
       if (userRole !== 'owner' && userRole !== 'manager') {
-        query = query.eq('user_id', user?.id);
+        activitiesQuery = activitiesQuery.eq('user_id', user?.id);
       } else if (selectedMember) {
-        query = query.eq('user_id', selectedMember);
+        activitiesQuery = activitiesQuery.eq('user_id', selectedMember);
       }
 
-      const { data: activities, error } = await query;
+      const { data: activities, error } = await activitiesQuery;
 
       if (error) throw error;
 
@@ -229,7 +230,7 @@ export default function TeamKPIDashboardPage() {
         }
 
         const kpi = kpiMap.get(activity.user_id)!;
-        const actionType = activity.action_type as keyof Omit<TeamMemberKPI, 'user_id' | 'full_name' | 'email' | 'avatar_url'>;
+        const actionType = activity.action as keyof Omit<TeamMemberKPI, 'user_id' | 'full_name' | 'email' | 'avatar_url'>;
         if (actionType in kpi) {
           (kpi[actionType] as number)++;
         }
@@ -245,8 +246,8 @@ export default function TeamKPIDashboardPage() {
           trendMap.set(date, { date, cv_uploaded: 0, cv_submitted: 0, interview_scheduled: 0, candidate_hired: 0 });
         }
         const trend = trendMap.get(date);
-        if (activity.action_type in trend) {
-          trend[activity.action_type]++;
+        if (activity.action in trend) {
+          trend[activity.action]++;
         }
       }
 
@@ -303,6 +304,11 @@ export default function TeamKPIDashboardPage() {
   const canViewTeam = userRole === 'owner' || userRole === 'manager';
 
   const handleExport = () => {
+    if (teamKPIs.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
     const csvData = teamKPIs.map(kpi => ({
       Name: kpi.full_name,
       Email: kpi.email,
@@ -316,7 +322,7 @@ export default function TeamKPIDashboardPage() {
       'Rejected': kpi.candidate_rejected,
     }));
 
-    const headers = Object.keys(csvData[0] || {});
+    const headers = Object.keys(csvData[0]);
     const csv = [
       headers.join(','),
       ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
@@ -327,7 +333,11 @@ export default function TeamKPIDashboardPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `team-kpi-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('KPI data exported successfully');
   };
 
   return (
@@ -369,11 +379,22 @@ export default function TeamKPIDashboardPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchKPIData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsLoading(true);
+                fetchKPIData();
+              }}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" onClick={handleExport}>
+            <Button 
+              variant="outline" 
+              onClick={handleExport}
+              disabled={isLoading || teamKPIs.length === 0}
+            >
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
