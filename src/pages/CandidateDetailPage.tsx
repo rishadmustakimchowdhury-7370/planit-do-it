@@ -254,22 +254,25 @@ const CandidateDetailPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" className="gap-1.5" onClick={() => setAddToJobDialogOpen(true)}>
+            <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto">
+              <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+                <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setAddToJobDialogOpen(true)}>
                   <Briefcase className="w-4 h-4" />
-                  Add to Job
+                  <span className="hidden xs:inline">Add to Job</span>
+                  <span className="xs:hidden">Job</span>
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
+                <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={handleDownloadCV}>
                   <Download className="w-4 h-4" />
-                  Download CV
+                  <span className="hidden xs:inline">Download CV</span>
+                  <span className="xs:hidden">CV</span>
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setEmailDialogOpen(true)}>
+                  <Mail className="w-4 h-4" />
+                  <span className="hidden sm:inline">Send Email</span>
+                  <span className="sm:hidden">Email</span>
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEmailDialogOpen(true)}>
-                  <Mail className="w-4 h-4" />
-                  Send Email
-                </Button>
+              <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -277,9 +280,9 @@ const CandidateDetailPage = () => {
                         variant="outline" 
                         size="sm" 
                         className={cn(
-                          "gap-1.5 transition-all duration-200",
+                          "gap-1.5 flex-1 sm:flex-none transition-all duration-200",
                           formatWhatsAppNumber(candidate.phone) 
-                            ? "hover:bg-green-50 hover:border-green-300 active:scale-95" 
+                            ? "hover:bg-green-50 hover:border-green-300 dark:hover:bg-green-950/20 active:scale-95" 
                             : "opacity-50 cursor-not-allowed"
                         )}
                         onClick={() => {
@@ -305,7 +308,7 @@ const CandidateDetailPage = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-1.5"
+                    className="gap-1.5 flex-1 sm:flex-none"
                     onClick={() => window.open(candidate.linkedin_url!, '_blank')}
                   >
                     <Linkedin className="w-4 h-4 text-[#0077B5]" />

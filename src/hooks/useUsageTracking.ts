@@ -50,12 +50,16 @@ function calculateUsage(used: number, limit: number): FeatureUsage {
   }
   
   const remaining = Math.max(0, limit - used);
-  const percent = limit > 0 ? Math.round((used / limit) * 100) : 0;
+  // Use one decimal place for small percentages, round for larger ones
+  const rawPercent = limit > 0 ? (used / limit) * 100 : 0;
+  const percent = rawPercent < 1 && rawPercent > 0 
+    ? parseFloat(rawPercent.toFixed(1)) 
+    : Math.round(rawPercent);
   
   let status: 'normal' | 'warning' | 'limit_reached' = 'normal';
-  if (percent >= 100) {
+  if (rawPercent >= 100) {
     status = 'limit_reached';
-  } else if (percent >= 80) {
+  } else if (rawPercent >= 80) {
     status = 'warning';
   }
   
