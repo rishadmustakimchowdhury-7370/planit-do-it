@@ -212,14 +212,7 @@ export function useUsageTracking() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId, user]);
-
-    } catch (error) {
-      console.error('Error fetching usage stats:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [tenantId, user]);
+  }, [tenantId, user, isOwner, isManager]);
 
   // Set up real-time subscription for activities
   useEffect(() => {
