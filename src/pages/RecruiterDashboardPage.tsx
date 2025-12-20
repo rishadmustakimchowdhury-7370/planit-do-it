@@ -62,8 +62,8 @@ export default function RecruiterDashboardPage() {
           .eq('tenant_id', tenantId)
           .eq('user_id', user.id);
 
-        const assignedJobIds = assigneesData?.map(a => a.job_id) || [];
-        
+        const assignedJobIds = assigneesData?.map((a) => a.job_id) || [];
+
         let jobsData: any[] = [];
         if (assignedJobIds.length > 0) {
           const { data } = await supabase
@@ -84,11 +84,30 @@ export default function RecruiterDashboardPage() {
 
         // Count activities
         const activities = activitiesData || [];
-        const cvsUploaded = activities.filter(a => a.action_type === 'cv_uploaded').length;
-        const cvsSubmitted = activities.filter(a => a.action_type === 'cv_submitted').length;
-        const aiCreditsUsed = activities.filter(a => 
-          ['ai_match_run', 'ai_cv_parse', 'ai_email_compose', 'ai_brand_cv'].includes(a.action_type)
+        const cvsUploaded = activities.filter((a) => a.action_type === 'cv_uploaded').length;
+        const cvsSubmitted = activities.filter((a) => a.action_type === 'cv_submitted').length;
+
+        // AI tests (source of truth): count AI match runs from job_candidates.matched_at
+        // scoped to jobs assigned to this recruiter
+        let aiMatchRuns = 0;
+        if (assignedJobIds.length > 0) {
+          const { count } = await supabase
+            .from('job_candidates')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .in('job_id', assignedJobIds)
+            .not('matched_at', 'is', null);
+
+          aiMatchRuns = count || 0;
+        }
+
+        // Other AI actions that are still logged in recruiter_activities
+        // (exclude ai_match_run to avoid double counting)
+        const otherAiActions = activities.filter((a) =>
+          ['ai_cv_parse', 'ai_email_compose', 'ai_brand_cv', 'screening_completed'].includes(a.action_type)
         ).length;
+
+        const aiCreditsUsed = aiMatchRuns + otherAiActions;
 
         setStats({
           assignedJobs: jobsData.length,
@@ -141,10 +160,10 @@ export default function RecruiterDashboardPage() {
       variant: 'warning' as const,
     },
     {
-      title: 'AI Actions',
+      title: 'AI Tests',
       value: stats?.aiCreditsUsed ?? 0,
       icon: Sparkles,
-      subtitle: 'AI features used',
+      subtitle: 'AI match runs',
       variant: 'success' as const,
     },
   ];
