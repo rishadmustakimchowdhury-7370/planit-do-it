@@ -34,7 +34,7 @@ interface HeaderProps {
 
 interface SearchResult {
   id: string;
-  type: 'job' | 'candidate';
+  type: 'job' | 'candidate' | 'client';
   title: string;
   subtitle: string;
 }
@@ -74,32 +74,45 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         const query = searchQuery.toLowerCase().trim();
 
-        const { data: jobs } = await supabase
-          .from('jobs')
-          .select('id, title, location, status')
-          .eq('tenant_id', currentTenantId)
-          .or(`title.ilike.%${query}%,location.ilike.%${query}%,description.ilike.%${query}%`)
-          .limit(5);
-
-        const { data: candidates } = await supabase
-          .from('candidates')
-          .select('id, full_name, email, current_title, location')
-          .eq('tenant_id', currentTenantId)
-          .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%,location.ilike.%${query}%`)
-          .limit(5);
+        const [jobsRes, candidatesRes, clientsRes] = await Promise.all([
+          supabase
+            .from('jobs')
+            .select('id, title, location, status')
+            .eq('tenant_id', currentTenantId)
+            .or(`title.ilike.%${query}%,location.ilike.%${query}%,description.ilike.%${query}%`)
+            .limit(5),
+          supabase
+            .from('candidates')
+            .select('id, full_name, email, current_title, location')
+            .eq('tenant_id', currentTenantId)
+            .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,current_title.ilike.%${query}%,location.ilike.%${query}%`)
+            .limit(5),
+          supabase
+            .from('clients')
+            .select('id, name, industry, contact_email')
+            .eq('tenant_id', currentTenantId)
+            .or(`name.ilike.%${query}%,industry.ilike.%${query}%,contact_email.ilike.%${query}%`)
+            .limit(5),
+        ]);
 
         const results: SearchResult[] = [
-          ...(jobs || []).map(job => ({
+          ...(jobsRes.data || []).map(job => ({
             id: job.id,
             type: 'job' as const,
             title: job.title,
             subtitle: `${job.location || 'Remote'} • ${job.status}`,
           })),
-          ...(candidates || []).map(c => ({
+          ...(candidatesRes.data || []).map(c => ({
             id: c.id,
             type: 'candidate' as const,
             title: c.full_name,
             subtitle: c.current_title || c.email,
+          })),
+          ...(clientsRes.data || []).map(c => ({
+            id: c.id,
+            type: 'client' as const,
+            title: c.name,
+            subtitle: c.industry || c.contact_email || 'Client',
           })),
         ];
 
@@ -121,8 +134,10 @@ export function Header({ title, subtitle }: HeaderProps) {
     setSearchQuery('');
     if (result.type === 'job') {
       navigate(`/jobs/${result.id}`);
-    } else {
+    } else if (result.type === 'candidate') {
       navigate(`/candidates/${result.id}`);
+    } else if (result.type === 'client') {
+      navigate(`/clients/${result.id}`);
     }
   };
 
@@ -143,7 +158,7 @@ export function Header({ title, subtitle }: HeaderProps) {
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search jobs, candidates..."
+                  placeholder="Search jobs, candidates, clients..."
                   className="w-72 pl-9 h-9 bg-secondary border-transparent focus:bg-card focus:border-border"
                   value={searchQuery}
                   onChange={(e) => {
@@ -212,6 +227,27 @@ export function Header({ title, subtitle }: HeaderProps) {
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
                                   <Users className="w-4 h-4 text-success" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{result.title}</p>
+                                  <p className="text-xs text-muted-foreground">{result.subtitle}</p>
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                      {searchResults.filter(r => r.type === 'client').length > 0 && (
+                        <CommandGroup heading="Clients">
+                          {searchResults.filter(r => r.type === 'client').map((result) => (
+                            <CommandItem
+                              key={result.id}
+                              onSelect={() => handleSelect(result)}
+                              className="cursor-pointer py-3"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                                  <Building2 className="w-4 h-4 text-warning" />
                                 </div>
                                 <div>
                                   <p className="font-medium text-sm">{result.title}</p>
