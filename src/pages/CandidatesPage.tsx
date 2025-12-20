@@ -78,6 +78,25 @@ interface Candidate {
   uploader_name: string | null;
 }
 
+// Helper function to extract country from location string
+const extractCountry = (location: string | null): string => {
+  if (!location) return '';
+  
+  // Common patterns: "City, Country", "City, State, Country", "Address, City, Country"
+  const parts = location.split(',').map(p => p.trim());
+  if (parts.length === 0) return location;
+  
+  // Return the last part which is usually the country
+  const lastPart = parts[parts.length - 1];
+  
+  // If it looks like a postal code, take the second to last
+  if (/^\d+$/.test(lastPart) && parts.length > 1) {
+    return parts[parts.length - 2];
+  }
+  
+  return lastPart;
+};
+
 interface Job {
   id: string;
   title: string;
@@ -800,15 +819,15 @@ const CandidatesPage = () => {
                 {candidate.location ? (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="w-3.5 h-3.5" />
-                    <span className="max-w-[140px] truncate">{candidate.location}</span>
+                    <span className="max-w-[140px] truncate">{extractCountry(candidate.location)}</span>
                   </div>
                 ) : (
                   <span className="text-muted-foreground/50">—</span>
                 )}
               </TableCell>
               <TableCell className="hidden xl:table-cell">
-                <span className="text-sm text-muted-foreground">
-                  {candidate.uploader_name || 'Unknown'}
+                <span className="text-sm font-medium text-foreground">
+                  {candidate.uploader_name || 'System'}
                 </span>
               </TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
