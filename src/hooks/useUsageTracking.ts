@@ -63,7 +63,7 @@ function calculateUsage(used: number, limit: number): FeatureUsage {
 }
 
 export function useUsageTracking() {
-  const { tenantId, user } = useAuth();
+  const { tenantId, user, isOwner, isManager } = useAuth();
   const [usageStats, setUsageStats] = useState<UserUsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -109,31 +109,47 @@ export function useUsageTracking() {
       periodStart.setHours(0, 0, 0, 0);
       const periodStartISO = periodStart.toISOString();
 
-      // Count ALL CV-related activities for current user in current period
-      const { count: cvCount } = await supabase
+      // For owners/managers, count ALL CV activities for the tenant
+      // For regular users, count only their personal activities
+      const cvQuery = supabase
         .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('user_id', user.id)
         .in('action_type', CV_ACTION_TYPES)
         .gte('created_at', periodStartISO);
+      
+      if (!isOwner && !isManager) {
+        cvQuery.eq('user_id', user.id);
+      }
+      
+      const { count: cvCount } = await cvQuery;
 
       // Count ALL AI-related activities
-      const { count: aiActivityCount } = await supabase
+      const aiActivityQuery = supabase
         .from('recruiter_activities')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('user_id', user.id)
         .in('action_type', AI_ACTION_TYPES)
         .gte('created_at', periodStartISO);
+        
+      if (!isOwner && !isManager) {
+        aiActivityQuery.eq('user_id', user.id);
+      }
+      
+      const { count: aiActivityCount } = await aiActivityQuery;
 
       // Also check ai_usage table for AI credits used
-      const { count: aiUsageCount } = await supabase
+      const aiUsageQuery = supabase
         .from('ai_usage')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('user_id', user.id)
         .gte('created_at', periodStartISO);
+        
+      if (!isOwner && !isManager) {
+        aiUsageQuery.eq('user_id', user.id);
+      }
+      
+      const { count: aiUsageCount } = await aiUsageQuery;
 
       const totalAiTests = (aiActivityCount || 0) + (aiUsageCount || 0);
 
