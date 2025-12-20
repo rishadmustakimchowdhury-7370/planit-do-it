@@ -7,6 +7,7 @@ import { RecentJobs } from '@/components/dashboard/RecentJobs';
 import { TopCandidates } from '@/components/dashboard/TopCandidates';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { VideoTutorials } from '@/components/dashboard/VideoTutorials';
+import { CreditsDisplay } from '@/components/credits/CreditsDisplay';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Briefcase, Users, Calendar, Trophy, Sparkles, Building2 } from 'lucide-react';
@@ -177,14 +178,24 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <QuickActions />
-        </motion.div>
+        {/* Quick Actions & Credits */}
+        <div className="grid lg:grid-cols-4 gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-3"
+          >
+            <QuickActions />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <CreditsDisplay />
+          </motion.div>
+        </div>
 
         {/* Role-based Performance Section */}
         {(isOwner || isManager) && (
