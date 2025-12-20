@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -38,10 +38,12 @@ interface Job {
 export default function EditJobPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { tenantId, isOwner, isManager } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  
+  const canEditJob = isOwner || isManager;
   
   const [formData, setFormData] = useState({
     title: '',
@@ -152,6 +154,25 @@ export default function EditJobPage() {
         <div className="max-w-4xl mx-auto space-y-6">
           <Skeleton className="h-12 w-64" />
           <Skeleton className="h-96 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!canEditJob) {
+    return (
+      <AppLayout>
+        <div className="max-w-4xl mx-auto">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <ShieldAlert className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground mb-4">You don't have permission to edit jobs.</p>
+            <Button variant="outline" onClick={() => navigate(`/jobs/${id}`)}>
+              Back to Job
+            </Button>
+          </div>
         </div>
       </AppLayout>
     );

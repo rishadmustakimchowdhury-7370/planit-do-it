@@ -480,15 +480,17 @@ const JobDetailPage = () => {
                   Assign
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-1.5 h-10"
-                onClick={() => navigate(`/jobs/${id}/edit`)}
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </Button>
+              {(userRole === 'owner' || userRole === 'manager') && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5 h-10"
+                  onClick={() => navigate(`/jobs/${id}/edit`)}
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 
