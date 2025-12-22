@@ -28,7 +28,8 @@ import {
   Linkedin,
   Inbox,
   Briefcase,
-  Send
+  Send,
+  Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -264,6 +265,16 @@ const CandidateDetailPage = () => {
 
             <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto">
               <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="gap-1.5 flex-1 sm:flex-none" 
+                  onClick={() => navigate(`/candidates/${candidate.id}/edit`)}
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span className="hidden xs:inline">Edit Profile</span>
+                  <span className="xs:hidden">Edit</span>
+                </Button>
                 <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setAddToJobDialogOpen(true)}>
                   <Briefcase className="w-4 h-4" />
                   <span className="hidden xs:inline">Add to Job</span>
