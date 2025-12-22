@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LinkedInTemplatesManager } from '@/components/linkedin/LinkedInTemplatesManager';
+import { LinkedInCandidatesList } from '@/components/linkedin/LinkedInCandidatesList';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -17,8 +18,8 @@ import {
   Loader2, 
   Save,
   Users,
-  TrendingUp,
-  Calendar
+  Calendar,
+  UserPlus
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -179,8 +180,12 @@ export default function LinkedInMessagingPage() {
   return (
     <RoleGate allowedRoles={['owner', 'manager', 'recruiter']} requiredPermission="can_send_linkedin_messages" redirectTo="/dashboard">
       <AppLayout title="LinkedIn Messaging" subtitle="Manage LinkedIn outreach templates and track activity">
-        <Tabs defaultValue="templates" className="space-y-6">
+        <Tabs defaultValue="candidates" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="candidates" className="gap-2">
+              <UserPlus className="w-4 h-4" />
+              Send Requests
+            </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <MessageSquare className="w-4 h-4" />
               Templates
@@ -197,7 +202,10 @@ export default function LinkedInMessagingPage() {
             )}
           </TabsList>
 
-          {/* Templates Tab */}
+          <TabsContent value="candidates">
+            <LinkedInCandidatesList />
+          </TabsContent>
+
           <TabsContent value="templates">
             <LinkedInTemplatesManager />
           </TabsContent>
