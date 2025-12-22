@@ -157,7 +157,7 @@ export function SendLinkedInMessageDialog({
 
       // Log activity
       await logActivity({
-        action_type: 'linkedin_message_sent' as any,
+        action_type: 'linkedin_message_sent',
         candidate_id: candidate.id,
         job_id: jobId,
         metadata: {
