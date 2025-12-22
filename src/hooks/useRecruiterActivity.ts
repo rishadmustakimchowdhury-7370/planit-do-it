@@ -17,7 +17,8 @@ export type ActivityType =
   | 'ai_match_run'
   | 'ai_cv_parse'
   | 'ai_email_compose'
-  | 'ai_brand_cv';
+  | 'ai_brand_cv'
+  | 'linkedin_message_sent';
 
 interface LogActivityParams {
   action_type: ActivityType;

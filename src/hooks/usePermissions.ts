@@ -8,7 +8,8 @@ export type Permission =
   | 'can_use_ai_match'
   | 'can_view_reports'
   | 'can_manage_team'
-  | 'can_view_billing';
+  | 'can_view_billing'
+  | 'can_send_linkedin_messages';
 
 // Default permissions by role
 const OWNER_PERMISSIONS: Permission[] = [
@@ -92,6 +93,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   can_view_reports: 'View Reports',
   can_manage_team: 'Manage Team',
   can_view_billing: 'View Billing',
+  can_send_linkedin_messages: 'Send LinkedIn Messages',
 };
 
 export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
@@ -101,4 +103,5 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   can_view_reports: 'Access recruitment reports and analytics',
   can_manage_team: 'Invite and manage team members',
   can_view_billing: 'View subscription and billing information',
+  can_send_linkedin_messages: 'Send LinkedIn messages to candidates',
 };

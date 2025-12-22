@@ -11,6 +11,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
+import { SendLinkedInMessageDialog } from '@/components/linkedin/SendLinkedInMessageDialog';
+import { LinkedInMessageHistory } from '@/components/linkedin/LinkedInMessageHistory';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -25,7 +27,8 @@ import {
   MessageCircle,
   Linkedin,
   Inbox,
-  Briefcase
+  Briefcase,
+  Send
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -36,6 +39,7 @@ import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface Candidate {
   id: string;
@@ -70,12 +74,16 @@ const statusColors: Record<string, string> = {
 const CandidateDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tenantId } = useAuth();
+  const { tenantId, isOwner, isManager } = useAuth();
+  const { hasPermission } = usePermissions();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
   const [addToJobDialogOpen, setAddToJobDialogOpen] = useState(false);
+  const [linkedInDialogOpen, setLinkedInDialogOpen] = useState(false);
+
+  const canSendLinkedIn = isOwner || isManager || hasPermission('can_send_linkedin_messages');
 
   useEffect(() => {
     if (id && tenantId) {
@@ -305,15 +313,28 @@ const CandidateDetailPage = () => {
                   </Tooltip>
                 </TooltipProvider>
                 {candidate.linkedin_url && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1.5 flex-1 sm:flex-none"
-                    onClick={() => window.open(candidate.linkedin_url!, '_blank')}
-                  >
-                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
-                    LinkedIn
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1.5 flex-1 sm:flex-none"
+                      onClick={() => window.open(candidate.linkedin_url!, '_blank')}
+                    >
+                      <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                      View Profile
+                    </Button>
+                    {canSendLinkedIn && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1.5 flex-1 sm:flex-none hover:bg-[#0077B5]/10 hover:border-[#0077B5]/50"
+                        onClick={() => setLinkedInDialogOpen(true)}
+                      >
+                        <Send className="w-4 h-4 text-[#0077B5]" />
+                        Send Message
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -422,31 +443,44 @@ const CandidateDetailPage = () => {
         </TabsContent>
 
         <TabsContent value="activity" className="mt-6">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-card rounded-xl border border-border p-6 shadow-sm"
-          >
-            <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-accent mt-2" />
-                <div>
-                  <p className="text-sm font-medium">Status: {candidate.status}</p>
-                  <p className="text-xs text-muted-foreground">Current status</p>
+          <div className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-xl border border-border p-6 shadow-sm"
+            >
+              <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-accent mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">Status: {candidate.status}</p>
+                    <p className="text-xs text-muted-foreground">Current status</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-success mt-2" />
+                  <div>
+                    <p className="text-sm font-medium">Candidate added</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(candidate.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-success mt-2" />
-                <div>
-                  <p className="text-sm font-medium">Candidate added</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(candidate.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+
+            {/* LinkedIn Message History */}
+            {candidate.linkedin_url && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-card rounded-xl border border-border p-6 shadow-sm"
+              >
+                <LinkedInMessageHistory candidateId={candidate.id} />
+              </motion.div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -482,6 +516,21 @@ const CandidateDetailPage = () => {
         candidateId={candidate.id}
         candidateName={candidate.full_name}
       />
+
+      {/* LinkedIn Message Dialog */}
+      {candidate.linkedin_url && (
+        <SendLinkedInMessageDialog
+          open={linkedInDialogOpen}
+          onOpenChange={setLinkedInDialogOpen}
+          candidate={{
+            id: candidate.id,
+            full_name: candidate.full_name,
+            linkedin_url: candidate.linkedin_url,
+            current_title: candidate.current_title,
+            current_company: candidate.current_company,
+          }}
+        />
+      )}
     </AppLayout>
   );
 };
