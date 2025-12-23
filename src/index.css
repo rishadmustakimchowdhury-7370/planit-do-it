@@ -55,14 +55,14 @@
 
     --radius: 0.5rem;
 
-    /* Sidebar - Dark mode sidebar */
-    --sidebar-background: 224 71% 4%;
+    /* Sidebar - Dark Navy Blue */
+    --sidebar-background: 222 47% 14%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 224 71% 4%;
-    --sidebar-accent: 222 47% 11%;
+    --sidebar-primary-foreground: 222 47% 14%;
+    --sidebar-accent: 222 47% 20%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 220 13% 20%;
+    --sidebar-border: 222 47% 22%;
     --sidebar-ring: 221 83% 53%;
 
     /* Shadows - Soft, diffused */
