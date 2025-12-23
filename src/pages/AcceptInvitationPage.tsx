@@ -82,22 +82,48 @@ export default function AcceptInvitationPage() {
 
     setIsSubmitting(true);
     try {
-      // Create the user account - the trigger handles profile, role, and invitation
+      // First, update the invitation status to 'accepted'
+      const { error: updateError } = await supabase
+        .from('team_invitations')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('token', token);
+
+      if (updateError) {
+        console.error('Error updating invitation:', updateError);
+      }
+
+      // Create the user account with emailRedirectTo to avoid confirmation email
+      // Since they clicked an invitation link, their email is already verified
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: invitation.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.full_name,
-          }
+            tenant_id: invitation.tenant_id,
+            role: invitation.role,
+            invited_via_token: true,
+          },
+          emailRedirectTo: `${window.location.origin}/auth`,
         }
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
-        toast.success('Account created successfully! Please sign in to continue.');
-        navigate('/auth');
+        // If email confirmation is required, show appropriate message
+        if (authData.user.identities?.length === 0) {
+          toast.error('This email is already registered. Please sign in instead.');
+          navigate('/auth');
+        } else if (authData.session) {
+          // User was auto-confirmed (no email confirmation required)
+          toast.success('Account created successfully! You are now logged in.');
+          navigate('/dashboard');
+        } else {
+          // Email confirmation is required by Supabase settings
+          toast.success('Account created! Please check your email to confirm, then sign in.');
+          navigate('/auth');
+        }
       }
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
