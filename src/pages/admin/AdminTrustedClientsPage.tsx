@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,10 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, ExternalLink, GripVertical, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, ExternalLink, GripVertical, Loader2, Image as ImageIcon, Upload, X } from 'lucide-react';
 
 interface TrustedClient {
   id: string;
@@ -28,6 +27,10 @@ export default function AdminTrustedClientsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<TrustedClient | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -57,17 +60,76 @@ export default function AdminTrustedClientsPage() {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size must be less than 2MB');
+        return;
+      }
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const clearLogoFile = () => {
+    setLogoFile(null);
+    setLogoPreview('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadLogo = async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('trusted-clients')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('trusted-clients')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!logoFile && !formData.logo_url && !editingClient) {
+      toast.error('Please upload a logo');
+      return;
+    }
+
     setIsSaving(true);
 
     try {
+      let logoUrl = formData.logo_url;
+
+      // Upload new logo if selected
+      if (logoFile) {
+        setIsUploading(true);
+        logoUrl = await uploadLogo(logoFile);
+        setIsUploading(false);
+      }
+
       if (editingClient) {
         const { error } = await supabase
           .from('trusted_clients')
           .update({
             name: formData.name,
-            logo_url: formData.logo_url,
+            logo_url: logoUrl,
             website_url: formData.website_url || null,
             is_active: formData.is_active,
           })
@@ -81,7 +143,7 @@ export default function AdminTrustedClientsPage() {
           .from('trusted_clients')
           .insert({
             name: formData.name,
-            logo_url: formData.logo_url,
+            logo_url: logoUrl,
             website_url: formData.website_url || null,
             is_active: formData.is_active,
             display_order: maxOrder,
@@ -94,11 +156,13 @@ export default function AdminTrustedClientsPage() {
       setIsDialogOpen(false);
       setEditingClient(null);
       setFormData({ name: '', logo_url: '', website_url: '', is_active: true });
+      clearLogoFile();
       fetchClients();
     } catch (error: any) {
       toast.error(error.message || 'Failed to save client');
     } finally {
       setIsSaving(false);
+      setIsUploading(false);
     }
   };
 
@@ -110,6 +174,8 @@ export default function AdminTrustedClientsPage() {
       website_url: client.website_url || '',
       is_active: client.is_active,
     });
+    setLogoPreview(client.logo_url);
+    setLogoFile(null);
     setIsDialogOpen(true);
   };
 
@@ -147,6 +213,7 @@ export default function AdminTrustedClientsPage() {
   const openAddDialog = () => {
     setEditingClient(null);
     setFormData({ name: '', logo_url: '', website_url: '', is_active: true });
+    clearLogoFile();
     setIsDialogOpen(true);
   };
 
@@ -185,24 +252,59 @@ export default function AdminTrustedClientsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="logo_url">Logo URL</Label>
-                    <Input
-                      id="logo_url"
-                      value={formData.logo_url}
-                      onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                      placeholder="https://example.com/logo.png"
-                      required
+                    <Label>Company Logo</Label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
                     />
-                    {formData.logo_url && (
-                      <div className="mt-2 p-4 border rounded-lg bg-muted/50 flex items-center justify-center">
-                        <img 
-                          src={formData.logo_url} 
-                          alt="Preview" 
-                          className="max-h-16 max-w-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
+                    
+                    {logoPreview || formData.logo_url ? (
+                      <div className="relative border-2 border-dashed rounded-lg p-4 bg-muted/30">
+                        <div className="flex items-center justify-center">
+                          <img 
+                            src={logoPreview || formData.logo_url} 
+                            alt="Logo preview" 
+                            className="max-h-20 max-w-full object-contain"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={() => {
+                            clearLogoFile();
+                            setFormData({ ...formData, logo_url: '' });
                           }}
-                        />
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 w-full"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Change Logo
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload logo
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PNG, JPG up to 2MB
+                        </p>
                       </div>
                     )}
                   </div>
@@ -228,9 +330,9 @@ export default function AdminTrustedClientsPage() {
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {editingClient ? 'Update' : 'Add'} Client
+                  <Button type="submit" disabled={isSaving || isUploading}>
+                    {(isSaving || isUploading) && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {isUploading ? 'Uploading...' : editingClient ? 'Update' : 'Add'} Client
                   </Button>
                 </DialogFooter>
               </form>
