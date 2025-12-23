@@ -109,10 +109,12 @@ export default function TeamMembersPage() {
   const [inviteRole, setInviteRole] = useState('recruiter');
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
   const [memberToDeactivate, setMemberToDeactivate] = useState<TeamMember | null>(null);
   const [inviteToCancel, setInviteToCancel] = useState<TeamInvitation | null>(null);
   const [memberForCredits, setMemberForCredits] = useState<TeamMember | null>(null);
   const [memberForPermissions, setMemberForPermissions] = useState<TeamMember | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Use auth context roles instead of checking teamMembers array
   const canManageTeam = isOwner || isManager;
@@ -318,12 +320,38 @@ export default function TeamMembersPage() {
 
       if (error) throw error;
 
-      toast.success(newStatus ? 'Team member deactivated' : 'Team member activated');
+      toast.success(newStatus ? 'Team member deactivated - they can no longer login' : 'Team member activated');
       setMemberToDeactivate(null);
       fetchTeamData();
     } catch (error: any) {
       console.error('Error updating member status:', error);
       toast.error(error.message || 'Failed to update member status');
+    }
+  };
+
+  const handleDeleteMemberPermanently = async () => {
+    if (!memberToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          user_id: memberToDelete.user_id,
+          tenant_id: tenantId
+        }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success('User account deleted permanently');
+      setMemberToDelete(null);
+      fetchTeamData();
+    } catch (error: any) {
+      console.error('Error deleting member:', error);
+      toast.error(error.message || 'Failed to delete user account');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -611,7 +639,13 @@ export default function TeamMembersPage() {
                                   onClick={() => setMemberToRemove(member)}
                                   className="text-destructive"
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" /> Remove
+                                  <Trash2 className="h-4 w-4 mr-2" /> Remove from Team
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => setMemberToDelete(member)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete Account Permanently
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -785,6 +819,37 @@ export default function TeamMembersPage() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeactivateMember}>
                 {memberToDeactivate?.profile?.is_active === false ? 'Activate' : 'Deactivate'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Account Permanently Dialog */}
+        <AlertDialog open={!!memberToDelete} onOpenChange={() => setMemberToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-destructive">Delete Account Permanently</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong className="text-destructive">Warning: This action cannot be undone!</strong>
+                <br /><br />
+                Are you sure you want to permanently delete {memberToDelete?.profile?.full_name || memberToDelete?.profile?.email}'s account? 
+                This will:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Remove them from your team</li>
+                  <li>Delete their profile data</li>
+                  <li>Delete their login credentials</li>
+                  <li>They will NOT be able to login again</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteMemberPermanently} 
+                className="bg-destructive text-destructive-foreground"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
