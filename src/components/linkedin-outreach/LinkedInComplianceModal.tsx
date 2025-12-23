@@ -42,12 +42,16 @@ export function LinkedInComplianceModal({
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("linkedin_outreach_consent").insert({
-        user_id: userId,
-        tenant_id: tenantId,
-        ip_address: null, // Would be captured server-side in production
-        user_agent: navigator.userAgent,
-      });
+      const { error } = await supabase.from("linkedin_outreach_consent").upsert(
+        {
+          user_id: userId,
+          tenant_id: tenantId,
+          ip_address: null,
+          user_agent: navigator.userAgent,
+          acknowledged_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
 
       if (error) throw error;
 
@@ -55,9 +59,12 @@ export function LinkedInComplianceModal({
         description: "You can now use LinkedIn Outreach features.",
       });
       onOpenChange(false);
-    } catch (error: any) {
+      // Refresh to show the content
+      window.location.reload();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
       toast.error("Failed to save acknowledgement", {
-        description: error.message,
+        description: message,
       });
     } finally {
       setIsSubmitting(false);
