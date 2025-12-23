@@ -1982,6 +1982,265 @@ export type Database = {
           },
         ]
       }
+      linkedin_outreach_campaigns: {
+        Row: {
+          account_type: string
+          completed_at: string | null
+          created_at: string
+          custom_message: string | null
+          daily_limit: number
+          id: string
+          last_reset_date: string | null
+          locked_until: string | null
+          message_template_id: string | null
+          name: string
+          outreach_mode: string
+          paused_at: string | null
+          sent_today: number
+          started_at: string | null
+          status: string
+          tenant_id: string
+          total_profiles: number
+          updated_at: string
+          user_id: string
+          visited_today: number
+        }
+        Insert: {
+          account_type?: string
+          completed_at?: string | null
+          created_at?: string
+          custom_message?: string | null
+          daily_limit?: number
+          id?: string
+          last_reset_date?: string | null
+          locked_until?: string | null
+          message_template_id?: string | null
+          name: string
+          outreach_mode?: string
+          paused_at?: string | null
+          sent_today?: number
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          total_profiles?: number
+          updated_at?: string
+          user_id: string
+          visited_today?: number
+        }
+        Update: {
+          account_type?: string
+          completed_at?: string | null
+          created_at?: string
+          custom_message?: string | null
+          daily_limit?: number
+          id?: string
+          last_reset_date?: string | null
+          locked_until?: string | null
+          message_template_id?: string | null
+          name?: string
+          outreach_mode?: string
+          paused_at?: string | null
+          sent_today?: number
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          total_profiles?: number
+          updated_at?: string
+          user_id?: string
+          visited_today?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_outreach_campaigns_message_template_id_fkey"
+            columns: ["message_template_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_outreach_consent: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          ip_address: string | null
+          tenant_id: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          ip_address?: string | null
+          tenant_id: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          ip_address?: string | null
+          tenant_id?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_outreach_consent_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_outreach_logs: {
+        Row: {
+          action: string
+          campaign_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          queue_item_id: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          campaign_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          queue_item_id?: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          campaign_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          queue_item_id?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_outreach_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_logs_queue_item_id_fkey"
+            columns: ["queue_item_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_outreach_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkedin_outreach_queue: {
+        Row: {
+          campaign_id: string
+          candidate_id: string | null
+          company: string | null
+          connected_at: string | null
+          connection_sent: boolean | null
+          created_at: string
+          dwell_time_seconds: number | null
+          error_message: string | null
+          first_name: string | null
+          id: string
+          job_title: string | null
+          linkedin_url: string
+          position: number
+          skip_reason: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          visited_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          candidate_id?: string | null
+          company?: string | null
+          connected_at?: string | null
+          connection_sent?: boolean | null
+          created_at?: string
+          dwell_time_seconds?: number | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url: string
+          position?: number
+          skip_reason?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          candidate_id?: string | null
+          company?: string | null
+          connected_at?: string | null
+          connection_sent?: boolean | null
+          created_at?: string
+          dwell_time_seconds?: number | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          linkedin_url?: string
+          position?: number
+          skip_reason?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_outreach_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_outreach_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_queue_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
