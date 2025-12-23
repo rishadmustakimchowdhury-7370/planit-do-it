@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
-import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -56,10 +56,6 @@ export function SuggestedCandidates({
   const [expanded, setExpanded] = useState(true);
   const [addingCandidate, setAddingCandidate] = useState<string | null>(null);
   const [emailDialog, setEmailDialog] = useState<{ open: boolean; candidate: Candidate | null }>({
-    open: false,
-    candidate: null,
-  });
-  const [whatsAppDialog, setWhatsAppDialog] = useState<{ open: boolean; candidate: Candidate | null }>({
     open: false,
     candidate: null,
   });
@@ -304,16 +300,6 @@ export function SuggestedCandidates({
         />
       )}
 
-      {whatsAppDialog.candidate && whatsAppDialog.candidate.phone && (
-        <SendWhatsAppDialog
-          open={whatsAppDialog.open}
-          onOpenChange={(open) => setWhatsAppDialog({ open, candidate: open ? whatsAppDialog.candidate : null })}
-          recipientPhone={whatsAppDialog.candidate.phone}
-          recipientName={whatsAppDialog.candidate.full_name}
-          context="job"
-          contextData={{ jobTitle, candidateName: whatsAppDialog.candidate.full_name }}
-        />
-      )}
     </>
   );
 }

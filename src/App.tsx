@@ -45,7 +45,7 @@ import AdminVideosPage from "./pages/admin/AdminVideosPage";
 import AdminLiveChatPage from "./pages/admin/AdminLiveChatPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
-import AdminWhatsAppPage from "./pages/admin/AdminWhatsAppPage";
+
 import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
 import AdminUsageAnalyticsPage from "./pages/admin/AdminUsageAnalyticsPage";
 import TutorialVideosPage from "./pages/TutorialVideosPage";
@@ -163,7 +163,7 @@ const AppRoutes = () => (
     <Route path="/admin/pages" element={<ProtectedRoute><AdminPagesPage /></ProtectedRoute>} />
     <Route path="/admin/branding" element={<ProtectedRoute><AdminBrandingPage /></ProtectedRoute>} />
     <Route path="/admin/emails" element={<ProtectedRoute><AdminEmailTemplatesPage /></ProtectedRoute>} />
-    <Route path="/admin/whatsapp" element={<ProtectedRoute><AdminWhatsAppPage /></ProtectedRoute>} />
+    
     <Route path="/admin/billing" element={<ProtectedRoute><AdminBillingPage /></ProtectedRoute>} />
     <Route path="/admin/videos" element={<ProtectedRoute><AdminVideosPage /></ProtectedRoute>} />
     <Route path="/admin/chat" element={<ProtectedRoute><AdminLiveChatPage /></ProtectedRoute>} />
