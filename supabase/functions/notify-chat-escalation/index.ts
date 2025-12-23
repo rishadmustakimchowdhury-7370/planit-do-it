@@ -102,7 +102,7 @@ serve(async (req) => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: profile.email,
                   subject: `🔔 Live Chat: ${visitorName || 'Visitor'} needs support`,
                   html: `

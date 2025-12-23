@@ -492,7 +492,7 @@ Deno.serve(async (req) => {
 
             try {
               await resend.emails.send({
-                from: 'Recruitify CRM <info@recruitifycrm.com>',
+                from: 'HireMetrics <admin@hiremetrics.co.uk>',
                 to: [profile.email],
                 subject: `🎁 Good News! Grace Period Granted (${grace_days} days)`,
                 html
@@ -585,7 +585,7 @@ Deno.serve(async (req) => {
 
               try {
                 await resend.emails.send({
-                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
                   subject: `😔 Your Recruitify CRM Subscription Has Expired`,
                   html
@@ -683,7 +683,7 @@ Deno.serve(async (req) => {
 
               try {
                 await resend.emails.send({
-                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
                   subject: `⚠️ Your Grace Period Has Ended - Account Paused`,
                   html
@@ -816,7 +816,7 @@ Deno.serve(async (req) => {
 
               try {
                 await resend.emails.send({
-                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
                   subject: `😔 Your Free Trial Has Ended`,
                   html
@@ -895,7 +895,7 @@ Deno.serve(async (req) => {
 
             try {
               await resend.emails.send({
-                from: 'Recruitify CRM <info@recruitifycrm.com>',
+                from: 'HireMetrics <admin@hiremetrics.co.uk>',
                 to: [profile.email],
                 subject: `🎉 Your ${tenant.trial_days || 14}-Day Free Trial Has Started!`,
                 html

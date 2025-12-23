@@ -427,7 +427,7 @@ Deno.serve(async (req) => {
         if (resend) {
           try {
             await resend.emails.send({
-              from: 'Recruitify CRM <info@recruitifycrm.com>',
+              from: 'HireMetrics <admin@hiremetrics.co.uk>',
               to: [profile.email],
               subject: daysUntilExpiry <= 3 
                 ? `🚨 Urgent: Your subscription expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}!`
@@ -472,7 +472,7 @@ Deno.serve(async (req) => {
 
         try {
           await resend.emails.send({
-            from: 'Recruitify CRM <info@recruitifycrm.com>',
+            from: 'HireMetrics <admin@hiremetrics.co.uk>',
             to: adminEmails,
             subject: `⚠️ Subscription Expiring: ${tenant.name} (${daysUntilExpiry} days)`,
             html: adminHtml,

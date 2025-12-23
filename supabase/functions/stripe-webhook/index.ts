@@ -453,7 +453,7 @@ serve(async (req) => {
                   });
 
                   await resend.emails.send({
-                    from: 'Recruitify CRM <info@recruitifycrm.com>',
+                    from: 'HireMetrics <admin@hiremetrics.co.uk>',
                     to: [userEmail],
                     subject: `🎉 Payment Confirmed - ${planName} Plan`,
                     html: userEmailHtml,
@@ -487,7 +487,7 @@ serve(async (req) => {
                     });
 
                     await resend.emails.send({
-                      from: 'Recruitify CRM <info@recruitifycrm.com>',
+                      from: 'HireMetrics <admin@hiremetrics.co.uk>',
                       to: adminEmails,
                       subject: `💰 New Payment Received - ${planName} (${userName})`,
                       html: adminEmailHtml,
@@ -612,7 +612,7 @@ serve(async (req) => {
                 });
 
                 await resend.emails.send({
-                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [userEmail],
                   subject: `✅ Subscription Renewed - ${planName}`,
                   html: renewalEmailHtml,

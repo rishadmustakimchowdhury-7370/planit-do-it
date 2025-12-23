@@ -107,7 +107,7 @@ const getVisitorEmailTemplate = (data: DemoBookingRequest) => `
                 © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
               </p>
               <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                <a href="mailto:info@recruitifycrm.com" style="color: #14b8a6; text-decoration: none;">info@recruitifycrm.com</a>
+                <a href="mailto:admin@hiremetrics.co.uk" style="color: #14b8a6; text-decoration: none;">admin@hiremetrics.co.uk</a>
               </p>
             </td>
           </tr>
@@ -311,8 +311,8 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Recruitify CRM <onboarding@resend.dev>",
-          to: ["info@recruitifycrm.com"],
+          from: "HireMetrics <admin@hiremetrics.co.uk>",
+          to: ["admin@hiremetrics.co.uk"],
           subject: `🔔 New Demo Request from ${data.name}`,
           html: getAdminEmailTemplate(data),
         }),

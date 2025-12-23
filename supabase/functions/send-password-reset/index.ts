@@ -126,8 +126,8 @@ const handler = async (req: Request): Promise<Response> => {
             
             <p style="color: #6b7280; font-size: 12px; line-height: 1.6;">
               Best regards,<br/>
-              The RecruitifyCRM Team<br/>
-              <a href="mailto:info@recruitifycrm.com" style="color: #0052CC; text-decoration: none;">info@recruitifycrm.com</a>
+              The HireMetrics Team<br/>
+              <a href="mailto:admin@hiremetrics.co.uk" style="color: #0052CC; text-decoration: none;">admin@hiremetrics.co.uk</a>
             </p>
           </div>
         `,

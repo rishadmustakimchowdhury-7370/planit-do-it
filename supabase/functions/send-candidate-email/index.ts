@@ -255,7 +255,7 @@ async function sendViaResend(
     })) || [];
 
     const emailPayload: Record<string, unknown> = {
-      from: `${fromName} <info@recruitifycrm.com>`,
+      from: `${fromName} <admin@hiremetrics.co.uk>`,
       reply_to: replyToEmail,
       to: toRecipients,
       subject: subject,
@@ -426,7 +426,7 @@ serve(async (req) => {
     }
 
     // Determine sender email for display/logging
-    const senderEmail = emailAccount?.from_email || profile.email || "info@recruitifycrm.com";
+    const senderEmail = emailAccount?.from_email || profile.email || "admin@hiremetrics.co.uk";
     const senderName = emailAccount?.display_name || recruiterName;
 
     // Create professional HTML email with branding
