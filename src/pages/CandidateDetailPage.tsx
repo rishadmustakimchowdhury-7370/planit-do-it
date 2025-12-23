@@ -306,7 +306,7 @@ const CandidateDetailPage = () => {
                         className={cn(
                           "gap-1.5 h-9 transition-all duration-150",
                           formatWhatsAppNumber(candidate.phone) 
-                            ? "hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/20 active:scale-[0.98]" 
+                            ? "hover:border-success/40 hover:bg-success/10 active:scale-[0.98]" 
                             : "opacity-50 cursor-not-allowed"
                         )}
                         onClick={() => {
@@ -317,7 +317,7 @@ const CandidateDetailPage = () => {
                           openWhatsAppChat(candidate.phone);
                         }}
                       >
-                        <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                        <MessageCircle className="w-3.5 h-3.5 text-success" />
                         WhatsApp
                       </Button>
                     </TooltipTrigger>
