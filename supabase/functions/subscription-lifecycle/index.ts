@@ -368,7 +368,7 @@ function generateExpiredNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://recruitifycrm.com/billing" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 82, 204, 0.4);">
+                    <a href="https://hiremetrics.co.uk/billing" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">
                       🔄 Reactivate Now
                     </a>
                   </td>
@@ -385,7 +385,7 @@ function generateExpiredNotificationHTML(
                   <td>
                     <p style="margin: 0; color: #1e293b; font-size: 15px;">
                       We hope to see you back soon!<br>
-                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                      <strong style="color: #00008B;">The HireMetrics Team</strong>
                     </p>
                   </td>
                 </tr>
@@ -397,10 +397,10 @@ function generateExpiredNotificationHTML(
           <tr>
             <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;" align="center">
               <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                Powered by <strong style="color: #00008B;">HireMetrics</strong>
               </p>
               <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                © ${new Date().getFullYear()} HireMetrics. All rights reserved.
               </p>
             </td>
           </tr>
@@ -587,7 +587,7 @@ Deno.serve(async (req) => {
                 await resend.emails.send({
                   from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
-                  subject: `😔 Your Recruitify CRM Subscription Has Expired`,
+                  subject: `😔 Your HireMetrics Subscription Has Expired`,
                   html
                 });
                 emailsSent++;
