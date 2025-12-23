@@ -1,33 +1,38 @@
 /**
  * WhatsApp utility functions for phone number formatting and deep link generation
+ * Uses wa.me deep linking - no API or tokens required
  */
 
 /**
  * Formats a phone number for WhatsApp deep links
- * - Removes all non-numeric characters (spaces, dashes, parentheses)
- * - Removes leading zeros
- * - Adds country code if missing (defaults to no prefix, assumes international format)
+ * - Removes all non-numeric characters (spaces, dashes, parentheses, +)
+ * - Handles local formats and adds country code where needed
+ * 
+ * IMPORTANT: Country code is mandatory for WhatsApp deep links
  */
 export function formatWhatsAppNumber(phone: string | null | undefined): string | null {
   if (!phone) return null;
 
   const raw = String(phone).trim();
-  const hadPlus = raw.startsWith('+');
-  const hadLeadingZero = raw.startsWith('0');
+  
+  // Remove all non-numeric characters
+  let cleaned = raw.replace(/\D/g, '');
 
-  // Remove all non-numeric characters except + at the start
-  let cleaned = raw.replace(/[\D]/g, '');
-
-  // Remove leading zeros (common in local formats)
-  cleaned = cleaned.replace(/^0+/, '');
-
-  // If user typed a local Bangladeshi mobile like 01XXXXXXXXX, WhatsApp requires country code 880
-  // Example: 01926323910 -> 8801926323910
-  if (!hadPlus && hadLeadingZero && cleaned.length === 10 && /^1[3-9]\d{8}$/.test(cleaned)) {
-    cleaned = `880${cleaned}`;
+  // Handle common local formats - add country code if missing
+  // Bangladesh: 01XXXXXXXXX -> 8801XXXXXXXXX
+  if (cleaned.startsWith('01') && cleaned.length === 11) {
+    cleaned = '880' + cleaned.substring(1);
+  }
+  // India: 0XXXXXXXXXX -> 91XXXXXXXXXX (10-digit after 0)
+  else if (cleaned.startsWith('0') && cleaned.length === 11) {
+    cleaned = '91' + cleaned.substring(1);
+  }
+  // Remove leading zeros for other cases
+  else {
+    cleaned = cleaned.replace(/^0+/, '');
   }
 
-  // Basic validation - must have at least 10 digits for wa.me in most cases
+  // Must have at least 10 digits (country code + number)
   if (cleaned.length < 10) return null;
 
   return cleaned;
@@ -35,6 +40,8 @@ export function formatWhatsAppNumber(phone: string | null | undefined): string |
 
 /**
  * Generates a WhatsApp deep link URL
+ * Uses wa.me which redirects to web.whatsapp.com on desktop or the app on mobile
+ * 
  * @param phone - Phone number (will be cleaned and formatted)
  * @param message - Optional pre-filled message
  * @returns WhatsApp URL or null if phone is invalid
@@ -53,42 +60,15 @@ export function getWhatsAppUrl(phone: string | null | undefined, message?: strin
 }
 
 /**
- * Opens WhatsApp chat in a new tab
- * @param phone - Phone number
+ * Opens WhatsApp chat - simply returns the URL for use in an anchor tag
+ * This is the most reliable way to open WhatsApp across all browsers/environments
+ * 
+ * If the number is not on WhatsApp, WhatsApp will show its native error screen
+ * 
+ * @param phone - Phone number with country code
  * @param message - Optional pre-filled message
- * @returns true if successful, false if phone is invalid
+ * @returns The WhatsApp URL if valid, null if phone is invalid
  */
-export function openWhatsAppChat(phone: string | null | undefined, message?: string): boolean {
-  const url = getWhatsAppUrl(phone, message);
-  if (!url) return false;
-
-  // Best UX: open in a new tab.
-  // NOTE: In sandboxed/embedded previews, popups can be blocked; WhatsApp also disallows being framed.
-  try {
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (opened) return true;
-  } catch {
-    // ignore
-  }
-
-  // Fallback: navigate the top-level window (avoids WhatsApp frame blocking inside iframes).
-  try {
-    const isInIframe = (() => {
-      try {
-        return window.self !== window.top;
-      } catch {
-        return true;
-      }
-    })();
-
-    if (isInIframe && window.top) {
-      window.top.location.href = url;
-    } else {
-      window.location.href = url;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
+export function openWhatsAppChat(phone: string | null | undefined, message?: string): string | null {
+  return getWhatsAppUrl(phone, message);
 }
