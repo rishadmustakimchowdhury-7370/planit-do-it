@@ -36,7 +36,7 @@ import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
-import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
+import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
 
 interface Candidate {
   id: string;
@@ -300,33 +300,34 @@ const CandidateDetailPage = () => {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className={cn(
-                          "gap-1.5 h-9 transition-all duration-150",
-                          formatWhatsAppNumber(candidate.phone) 
-                            ? "hover:border-success/40 hover:bg-success/10 active:scale-[0.98]" 
-                            : "opacity-50 cursor-not-allowed"
-                        )}
-                        onClick={() => {
-                          if (!formatWhatsAppNumber(candidate.phone)) {
-                            toast.error('WhatsApp number not added');
-                            return;
-                          }
-                          const ok = openWhatsAppChat(candidate.phone);
-                          if (!ok) {
-                            toast.error('Could not open WhatsApp. Please allow popups and try again.');
-                          }
-                        }}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 text-success" />
-                        WhatsApp
-                      </Button>
+                      {formatWhatsAppNumber(candidate.phone) ? (
+                        <a
+                          href={getWhatsAppUrl(candidate.phone) || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background text-sm font-medium transition-all duration-150",
+                            "hover:border-success/40 hover:bg-success/10 active:scale-[0.98]"
+                          )}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-success" />
+                          WhatsApp
+                        </a>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1.5 h-9 opacity-50 cursor-not-allowed"
+                          onClick={() => toast.error('WhatsApp number not added')}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-success" />
+                          WhatsApp
+                        </Button>
+                      )}
                     </TooltipTrigger>
                     <TooltipContent>
                       {formatWhatsAppNumber(candidate.phone) 
-                        ? `Open WhatsApp: ${candidate.phone}` 
+                        ? 'Opens WhatsApp if the number is registered' 
                         : 'WhatsApp number not added'}
                     </TooltipContent>
                   </Tooltip>
