@@ -19,8 +19,7 @@ import {
   UsersRound,
   Clock,
   TrendingUp,
-  ClipboardList,
-  Linkedin
+  ClipboardList
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -38,7 +37,6 @@ const navigation = [
   { name: 'Clients', href: '/clients', icon: Building2, permission: 'can_add_clients' as Permission },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles, permission: 'can_use_ai_match' as Permission },
-  { name: 'LinkedIn Outreach', href: '/linkedin-outreach', icon: Linkedin },
   { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp, permission: 'can_view_reports' as Permission },
   { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'can_view_reports' as Permission },
   { name: 'Tutorials', href: '/tutorials', icon: Video },
