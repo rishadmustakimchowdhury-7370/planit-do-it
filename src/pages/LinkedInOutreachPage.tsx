@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { LinkedInComplianceModal } from "@/components/linkedin-outreach/LinkedInComplianceModal";
@@ -9,6 +8,7 @@ import { LinkedInCampaignSetup } from "@/components/linkedin-outreach/LinkedInCa
 import { LinkedInQueueManager } from "@/components/linkedin-outreach/LinkedInQueueManager";
 import { LinkedInOutreachDashboard } from "@/components/linkedin-outreach/LinkedInOutreachDashboard";
 import { LinkedInCampaignList } from "@/components/linkedin-outreach/LinkedInCampaignList";
+import { LinkedInConnectionStatus } from "@/components/linkedin-outreach/LinkedInConnectionStatus";
 import { Linkedin } from "lucide-react";
 
 export default function LinkedInOutreachPage() {
@@ -69,41 +69,45 @@ export default function LinkedInOutreachPage() {
       />
 
       {consent && (
-        <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-            <TabsTrigger value="setup">New Campaign</TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          <LinkedInConnectionStatus />
+          
+          <Tabs defaultValue="dashboard" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="queue">Queue</TabsTrigger>
+              <TabsTrigger value="setup">New Campaign</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="dashboard">
-            <LinkedInOutreachDashboard 
-              selectedCampaignId={selectedCampaignId}
-              onSelectCampaign={setSelectedCampaignId}
-            />
-          </TabsContent>
+            <TabsContent value="dashboard">
+              <LinkedInOutreachDashboard 
+                selectedCampaignId={selectedCampaignId}
+                onSelectCampaign={setSelectedCampaignId}
+              />
+            </TabsContent>
 
-          <TabsContent value="campaigns">
-            <LinkedInCampaignList 
-              onSelectCampaign={(id) => {
-                setSelectedCampaignId(id);
-              }}
-            />
-          </TabsContent>
+            <TabsContent value="campaigns">
+              <LinkedInCampaignList 
+                onSelectCampaign={(id) => {
+                  setSelectedCampaignId(id);
+                }}
+              />
+            </TabsContent>
 
-          <TabsContent value="queue">
-            <LinkedInQueueManager campaignId={selectedCampaignId} />
-          </TabsContent>
+            <TabsContent value="queue">
+              <LinkedInQueueManager campaignId={selectedCampaignId} />
+            </TabsContent>
 
-          <TabsContent value="setup">
-            <LinkedInCampaignSetup 
-              onCampaignCreated={(id) => {
-                setSelectedCampaignId(id);
-              }}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="setup">
+              <LinkedInCampaignSetup 
+                onCampaignCreated={(id) => {
+                  setSelectedCampaignId(id);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
     </div>
   );
