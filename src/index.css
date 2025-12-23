@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,114 +6,100 @@
 
 @layer base {
   :root {
-    /* HireMetrics Design System - Light Mode */
-    /* 60-25-10-5 Color Rule: Primary (60%), Secondary (25%), Accent (10%), Neutral (5%) */
+    /* Premium SaaS Design System - Clean & Minimal */
     
-    /* Neutral (5%) - Light Background */
-    --background: 210 40% 98%; /* #F8FAFC */
-    --foreground: 222 47% 11%; /* #0F172A - Very dark slate */
+    /* Background - Pure white base */
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
 
-    --card: 0 0% 100%; /* Pure white */
-    --card-foreground: 215 25% 27%; /* #334155 Slate */
+    /* Cards - Subtle off-white */
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
+    --popover-foreground: 224 71% 4%;
 
-    /* Primary - Deep Blue (60%) #1E3A8A */
-    --primary: 222 64% 33%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary - Deep slate blue (used sparingly for CTAs) */
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
 
-    /* Secondary - Slate/Indigo Gray (25%) #334155 */
-    --secondary: 215 25% 27%;
-    --secondary-foreground: 0 0% 100%;
+    /* Secondary - Soft neutral */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
 
-    /* Accent - Burnt Orange (10%) #F97316 */
-    --accent: 25 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent - Vibrant blue for key actions */
+    --accent: 221 83% 53%;
+    --accent-foreground: 210 40% 98%;
 
-    /* Muted surfaces - Light slate */
-    --muted: 210 40% 96%; /* #F1F5F9 */
-    --muted-foreground: 215 16% 47%; /* #64748B */
+    /* Muted - Light gray for backgrounds */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
     /* Status Colors */
-    --destructive: 0 84% 60%; /* Red #EF4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%; /* Green for success states only #22C55E */
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%; /* Amber #F59E0B */
-    --warning-foreground: 222 47% 11%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
 
-    --info: 222 64% 33%; /* Same as primary */
+    --info: 221 83% 53%;
     --info-foreground: 0 0% 100%;
 
-    /* Borders */
-    --border: 214 32% 91%; /* #E2E8F0 */
-    --input: 214 32% 91%;
-    --ring: 222 64% 33%;
+    /* Borders - Very subtle */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.625rem; /* 10px - between 8-12px */
+    --radius: 0.5rem;
 
-    /* Sidebar - Deep Blue theme */
-    --sidebar-background: 222 64% 33%; /* #1E3A8A */
+    /* Sidebar - Dark mode sidebar */
+    --sidebar-background: 224 71% 4%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222 64% 33%;
-    --sidebar-accent: 222 64% 28%; /* Darker blue */
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 222 47% 11%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 64% 40%;
-    --sidebar-ring: 25 95% 53%;
+    --sidebar-border: 220 13% 20%;
+    --sidebar-ring: 221 83% 53%;
 
-    /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(222, 64%, 33%) 0%, hsl(222, 64%, 43%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(215, 25%, 27%) 0%, hsl(215, 25%, 37%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(25, 95%, 53%) 0%, hsl(25, 95%, 60%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222, 64%, 20%) 0%, hsl(222, 64%, 33%) 50%, hsl(222, 64%, 43%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(210, 40%, 99%) 100%);
-    
-    /* Shadows - Soft, no hard borders */
-    --shadow-sm: 0 1px 2px 0 hsl(222 64% 33% / 0.03);
-    --shadow-md: 0 4px 6px -1px hsl(222 64% 33% / 0.06), 0 2px 4px -2px hsl(222 64% 33% / 0.04);
-    --shadow-lg: 0 10px 15px -3px hsl(222 64% 33% / 0.08), 0 4px 6px -4px hsl(222 64% 33% / 0.04);
-    --shadow-xl: 0 20px 25px -5px hsl(222 64% 33% / 0.1), 0 8px 10px -6px hsl(222 64% 33% / 0.06);
-    --shadow-glow: 0 0 40px hsl(222 64% 33% / 0.15);
-    --shadow-glow-accent: 0 0 40px hsl(25 95% 53% / 0.2);
+    /* Shadows - Soft, diffused */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.03);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
 
     /* Match Score Colors */
-    --match-excellent: 142 71% 45%; /* Green */
-    --match-good: 222 64% 33%; /* Blue */
-    --match-average: 38 92% 50%; /* Amber */
-    --match-poor: 0 84% 60%; /* Red */
-
-    /* Text Colors - Semantic */
-    --text-primary: 222 47% 11%; /* Very dark slate */
-    --text-secondary: 215 25% 27%; /* Slate */
-    --text-muted: 215 16% 47%; /* Medium slate */
-    --text-subtle: 215 20% 65%; /* Light slate */
+    --match-excellent: 142 71% 45%;
+    --match-good: 221 83% 53%;
+    --match-average: 38 92% 50%;
+    --match-poor: 0 84% 60%;
   }
 
   .dark {
-    --background: 222 47% 7%; /* Very dark */
+    --background: 224 71% 4%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 11%;
+    --card: 222 47% 8%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 11%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 222 64% 50%; /* Brighter blue for dark mode */
-    --primary-foreground: 0 0% 100%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 224 71% 4%;
 
-    --secondary: 215 25% 40%; /* Lighter slate for dark mode */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 222 47% 14%;
+    --secondary-foreground: 210 40% 98%;
 
-    --accent: 25 95% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 210 40% 98%;
 
     --muted: 222 47% 14%;
-    --muted-foreground: 215 20% 65%;
+    --muted-foreground: 220 9% 60%;
 
     --destructive: 0 84% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -124,29 +110,21 @@
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 100%;
 
-    --info: 222 64% 50%;
+    --info: 221 83% 60%;
     --info-foreground: 0 0% 100%;
 
     --border: 222 47% 18%;
     --input: 222 47% 16%;
-    --ring: 222 64% 50%;
+    --ring: 221 83% 53%;
 
-    --sidebar-background: 222 47% 7%;
+    --sidebar-background: 222 47% 5%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 222 64% 50%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 14%;
+    --sidebar-accent: 222 47% 12%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 25 95% 55%;
-
-    --gradient-primary: linear-gradient(135deg, hsl(222, 47%, 7%) 0%, hsl(222, 47%, 15%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(222, 47%, 14%) 0%, hsl(222, 47%, 10%) 100%);
-
-    --text-primary: 210 40% 98%;
-    --text-secondary: 214 32% 91%;
-    --text-muted: 215 20% 65%;
-    --text-subtle: 215 16% 47%;
+    --sidebar-border: 222 47% 16%;
+    --sidebar-ring: 221 83% 53%;
   }
 }
 
@@ -158,8 +136,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 15px;
+    line-height: 1.7;
+    letter-spacing: -0.011em;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -169,130 +148,117 @@
     scroll-behavior: smooth;
   }
 
-  /* Typography Scale - Poppins for Headings */
+  /* Typography Scale - Single Font (Inter) */
   h1, .h1 {
-    font-family: 'Poppins', sans-serif;
-    @apply text-[28px] md:text-[32px] font-bold tracking-tight;
-    line-height: 1.2;
+    @apply text-4xl md:text-5xl font-semibold tracking-tight;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
   }
 
   h2, .h2 {
-    font-family: 'Poppins', sans-serif;
-    @apply text-[22px] md:text-[24px] font-semibold tracking-tight;
-    line-height: 1.25;
+    @apply text-2xl md:text-3xl font-semibold tracking-tight;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
   }
 
   h3, .h3 {
-    font-family: 'Poppins', sans-serif;
-    @apply text-[18px] md:text-[20px] font-semibold;
-    line-height: 1.3;
+    @apply text-xl md:text-2xl font-semibold;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
   }
 
   h4, .h4 {
-    font-family: 'Poppins', sans-serif;
+    @apply text-lg font-semibold;
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+  }
+
+  h5, .h5 {
     @apply text-base font-semibold;
     line-height: 1.4;
   }
 
-  h5, .h5 {
-    font-family: 'Poppins', sans-serif;
-    @apply text-sm font-semibold;
-    line-height: 1.5;
-  }
-
   h6, .h6 {
-    font-family: 'Poppins', sans-serif;
-    @apply text-xs font-semibold;
+    @apply text-sm font-semibold;
     line-height: 1.5;
   }
 
   p {
     @apply leading-relaxed;
-    font-size: 14px;
+    font-size: 15px;
   }
 }
 
 @layer utilities {
-  .font-heading {
-    font-family: 'Poppins', sans-serif;
+  /* Premium spacing utilities */
+  .section-padding {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+  
+  .section-padding-sm {
+    @apply py-12 md:py-16 lg:py-20;
   }
 
-  .font-body {
-    font-family: 'Inter', sans-serif;
+  .container-narrow {
+    @apply max-w-4xl mx-auto;
   }
 
-  .gradient-primary {
-    background: var(--gradient-primary);
+  .container-wide {
+    @apply max-w-7xl mx-auto;
   }
 
-  .gradient-secondary {
-    background: var(--gradient-secondary);
+  /* Card styles */
+  .card-elevated {
+    @apply bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200;
   }
 
-  .gradient-accent {
-    background: var(--gradient-accent);
+  .card-subtle {
+    @apply bg-muted/50 border border-border/50 rounded-xl;
   }
 
-  .gradient-hero {
-    background: var(--gradient-hero);
+  /* Button glow effect for primary CTA */
+  .btn-glow {
+    @apply relative overflow-hidden;
+    box-shadow: 0 0 0 0 hsl(var(--accent) / 0);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .btn-glow:hover {
+    box-shadow: 0 0 20px 0 hsl(var(--accent) / 0.35);
   }
 
-  .gradient-card {
-    background: var(--gradient-card);
+  /* Smooth hover transitions */
+  .hover-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
   }
 
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
   }
 
-  .shadow-glow-accent {
-    box-shadow: var(--shadow-glow-accent);
-  }
-
-  .glass {
-    @apply bg-card/90 backdrop-blur-xl border border-border/50;
-  }
-
-  /* Card hover effect - soft shadows */
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
-  }
-
-  /* Button hover effect */
-  .btn-hover {
-    @apply transition-all duration-150 hover:shadow-md active:scale-[0.98];
-  }
-
-  /* CTA button with orange glow */
-  .btn-cta {
-    @apply bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow-accent;
-  }
-
+  /* Animation utilities */
   .animate-fade-up {
-    animation: fadeUp 0.5s ease-out forwards;
+    animation: fadeUp 0.6s ease-out forwards;
   }
 
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out forwards;
+    animation: fadeIn 0.4s ease-out forwards;
   }
 
-  .animate-slide-in {
-    animation: slideIn 0.3s ease-out forwards;
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
   }
 
   .animate-scale-in {
-    animation: scaleIn 0.2s ease-out forwards;
-  }
-
-  .animate-pulse-glow {
-    animation: pulseGlow 2s ease-in-out infinite;
+    animation: scaleIn 0.3s ease-out forwards;
   }
 }
 
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -309,21 +275,21 @@
   }
 }
 
-@keyframes slideIn {
+@keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
@@ -331,19 +297,10 @@
   }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px hsl(222 64% 33% / 0.15);
-  }
-  50% {
-    box-shadow: 0 0 40px hsl(222 64% 33% / 0.3);
-  }
-}
-
-/* Scrollbar styling */
+/* Scrollbar styling - minimal */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -356,7 +313,7 @@
 
 /* Custom focus styles */
 *:focus-visible {
-  @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-background;
 }
 
 /* Rich Text Editor Styles */
@@ -371,18 +328,15 @@
 }
 
 .ProseMirror h1 {
-  @apply text-2xl font-bold mb-4;
-  font-family: 'Poppins', sans-serif;
+  @apply text-2xl font-semibold mb-4;
 }
 
 .ProseMirror h2 {
   @apply text-xl font-semibold mb-3;
-  font-family: 'Poppins', sans-serif;
 }
 
 .ProseMirror h3 {
   @apply text-lg font-medium mb-2;
-  font-family: 'Poppins', sans-serif;
 }
 
 .ProseMirror ul {
@@ -398,11 +352,11 @@
 }
 
 .ProseMirror blockquote {
-  @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground;
+  @apply border-l-4 border-accent pl-4 italic my-4 text-muted-foreground;
 }
 
 .ProseMirror a {
-  @apply text-primary underline hover:no-underline;
+  @apply text-accent underline hover:no-underline;
 }
 
 .ProseMirror p {
