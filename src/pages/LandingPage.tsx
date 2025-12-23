@@ -753,17 +753,17 @@ export default function LandingPage() {
             <p className="text-primary-foreground/80 mb-8 text-lg">
               Start your free trial today. No credit card required.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link to="/auth?mode=signup">
-                <Button size="lg" variant="secondary" className="w-full sm:w-auto gap-2 h-12 px-8">
+                <Button size="lg" variant="secondary" className="gap-2 h-12 px-8 min-w-[180px]">
                   Start Free Trial
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Button 
                 size="lg" 
-                variant="outline"
-                className="w-full sm:w-auto h-12 px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                variant="secondary"
+                className="h-12 px-8 min-w-[180px] bg-white text-primary hover:bg-white/90"
                 onClick={() => setBookDemoOpen(true)}
               >
                 Book a Demo
