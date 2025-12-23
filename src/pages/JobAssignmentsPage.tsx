@@ -93,14 +93,14 @@ export default function JobAssignmentsPage() {
       // Get unique job IDs
       const jobIds = [...new Set(jobAssignees.map(a => a.job_id))];
 
-      // Get CV submission counts per job
-      const { data: submissions, error: submissionsError } = await supabase
-        .from('cv_submissions')
+      // Get candidate counts per job (from job_candidates table)
+      const { data: candidates, error: candidatesError } = await supabase
+        .from('job_candidates')
         .select('job_id')
         .eq('tenant_id', tenantId)
         .in('job_id', jobIds);
 
-      if (submissionsError) throw submissionsError;
+      if (candidatesError) throw candidatesError;
 
       // Group by job
       const jobMap = new Map<string, JobAssignment>();
@@ -110,14 +110,14 @@ export default function JobAssignmentsPage() {
         if (!job) continue;
 
         const profile = profiles?.find(p => p.id === assignee.user_id);
-        const jobSubmissions = submissions?.filter(s => s.job_id === assignee.job_id) || [];
+        const jobCandidates = candidates?.filter(c => c.job_id === assignee.job_id) || [];
 
         if (!jobMap.has(assignee.job_id)) {
           jobMap.set(assignee.job_id, {
             job_id: job.id,
             job_title: job.title,
             assignees: [],
-            cv_submissions: jobSubmissions.length,
+            cv_submissions: jobCandidates.length,
             job_status: job.status,
             client_name: job.clients?.name || undefined,
           });
