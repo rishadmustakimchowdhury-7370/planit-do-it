@@ -166,11 +166,27 @@ export default function CheckoutPage() {
 
       if (error) throw error;
       
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL returned');
-      }
+       if (data?.url) {
+         const isInIframe = (() => {
+           try {
+             return window.self !== window.top;
+           } catch {
+             return true;
+           }
+         })();
+
+         if (isInIframe) {
+           const w = window.open(data.url, '_blank', 'noopener,noreferrer');
+           if (!w) {
+             toast.error('Popup blocked. Please allow popups to open checkout.');
+             setProcessing(false);
+           }
+         } else {
+           window.location.href = data.url;
+         }
+       } else {
+         throw new Error('No checkout URL returned');
+       }
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to start checkout');

@@ -191,8 +191,24 @@ export default function BillingPage() {
       if (error) throw error;
 
       if (data?.url) {
-        // Use same-tab navigation to avoid popup blockers
-        window.location.assign(data.url);
+        // Stripe Checkout can't run inside an embedded iframe reliably.
+        // In preview (iframe), open a new tab; otherwise, navigate in the same tab.
+        const isInIframe = (() => {
+          try {
+            return window.self !== window.top;
+          } catch {
+            return true;
+          }
+        })();
+
+        if (isInIframe) {
+          const w = window.open(data.url, '_blank', 'noopener,noreferrer');
+          if (!w) {
+            toast.error('Popup blocked. Please allow popups to open checkout.');
+          }
+        } else {
+          window.location.assign(data.url);
+        }
       } else {
         throw new Error('No checkout URL returned');
       }
