@@ -11,8 +11,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
-import { SendLinkedInMessageDialog } from '@/components/linkedin/SendLinkedInMessageDialog';
-import { LinkedInMessageHistory } from '@/components/linkedin/LinkedInMessageHistory';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -28,7 +26,6 @@ import {
   Linkedin,
   Inbox,
   Briefcase,
-  Send,
   Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,7 +37,6 @@ import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { openWhatsAppChat, formatWhatsAppNumber } from '@/lib/whatsapp';
-import { usePermissions } from '@/hooks/usePermissions';
 
 interface Candidate {
   id: string;
@@ -76,15 +72,11 @@ const CandidateDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { tenantId, isOwner, isManager } = useAuth();
-  const { hasPermission } = usePermissions();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
   const [addToJobDialogOpen, setAddToJobDialogOpen] = useState(false);
-  const [linkedInDialogOpen, setLinkedInDialogOpen] = useState(false);
-
-  const canSendLinkedIn = isOwner || isManager || hasPermission('can_send_linkedin_messages');
 
   useEffect(() => {
     if (id && tenantId) {
@@ -324,28 +316,15 @@ const CandidateDetailPage = () => {
                   </Tooltip>
                 </TooltipProvider>
                 {candidate.linkedin_url && (
-                  <>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="gap-1.5 flex-1 sm:flex-none"
-                      onClick={() => window.open(candidate.linkedin_url!, '_blank')}
-                    >
-                      <Linkedin className="w-4 h-4 text-[#0077B5]" />
-                      View Profile
-                    </Button>
-                    {canSendLinkedIn && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-1.5 flex-1 sm:flex-none hover:bg-[#0077B5]/10 hover:border-[#0077B5]/50"
-                        onClick={() => setLinkedInDialogOpen(true)}
-                      >
-                        <Send className="w-4 h-4 text-[#0077B5]" />
-                        Send Message
-                      </Button>
-                    )}
-                  </>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1.5 flex-1 sm:flex-none"
+                    onClick={() => window.open(candidate.linkedin_url!, '_blank')}
+                  >
+                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                    View Profile
+                  </Button>
                 )}
               </div>
             </div>
@@ -481,16 +460,6 @@ const CandidateDetailPage = () => {
               </div>
             </motion.div>
 
-            {/* LinkedIn Message History */}
-            {candidate.linkedin_url && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-card rounded-xl border border-border p-6 shadow-sm"
-              >
-                <LinkedInMessageHistory candidateId={candidate.id} />
-              </motion.div>
-            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -527,21 +496,6 @@ const CandidateDetailPage = () => {
         candidateId={candidate.id}
         candidateName={candidate.full_name}
       />
-
-      {/* LinkedIn Message Dialog */}
-      {candidate.linkedin_url && (
-        <SendLinkedInMessageDialog
-          open={linkedInDialogOpen}
-          onOpenChange={setLinkedInDialogOpen}
-          candidate={{
-            id: candidate.id,
-            full_name: candidate.full_name,
-            linkedin_url: candidate.linkedin_url,
-            current_title: candidate.current_title,
-            current_company: candidate.current_company,
-          }}
-        />
-      )}
     </AppLayout>
   );
 };
