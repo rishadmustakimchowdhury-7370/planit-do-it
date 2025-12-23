@@ -153,7 +153,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'RecruitifyCRM <info@recruitifycrm.com>',
+          from: 'HireMetrics <admin@hiremetrics.co.uk>',
           to: [admin.email],
           subject: actionInfo.title,
           html: emailHtml,

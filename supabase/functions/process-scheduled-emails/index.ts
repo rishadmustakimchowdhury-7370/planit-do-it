@@ -57,7 +57,7 @@ async function sendEmail(
     }
 
     const emailPayload: Record<string, unknown> = {
-      from: `RecruitifyCRM <info@recruitifycrm.com>`,
+      from: `HireMetrics <admin@hiremetrics.co.uk>`,
       reply_to: email.from_email,
       to: [email.to_email],
       subject: email.subject,
