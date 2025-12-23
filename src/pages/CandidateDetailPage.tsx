@@ -314,7 +314,10 @@ const CandidateDetailPage = () => {
                             toast.error('WhatsApp number not added');
                             return;
                           }
-                          openWhatsAppChat(candidate.phone);
+                          const ok = openWhatsAppChat(candidate.phone);
+                          if (!ok) {
+                            toast.error('Could not open WhatsApp. Please allow popups and try again.');
+                          }
                         }}
                       >
                         <MessageCircle className="w-3.5 h-3.5 text-success" />

@@ -62,10 +62,33 @@ export function openWhatsAppChat(phone: string | null | undefined, message?: str
   const url = getWhatsAppUrl(phone, message);
   if (!url) return false;
 
-  // Prefer a new tab, but fall back to same-tab navigation if popups are blocked.
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    window.location.assign(url);
+  // Best UX: open in a new tab.
+  // NOTE: In sandboxed/embedded previews, popups can be blocked; WhatsApp also disallows being framed.
+  try {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (opened) return true;
+  } catch {
+    // ignore
   }
-  return true;
+
+  // Fallback: navigate the top-level window (avoids WhatsApp frame blocking inside iframes).
+  try {
+    const isInIframe = (() => {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    })();
+
+    if (isInIframe && window.top) {
+      window.top.location.href = url;
+    } else {
+      window.location.href = url;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
