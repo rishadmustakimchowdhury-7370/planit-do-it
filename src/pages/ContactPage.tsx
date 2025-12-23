@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Phone, Mail, MapPin, Clock, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { MathCaptcha } from '@/components/ui/math-captcha';
 
 export default function ContactPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,6 +24,16 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isCaptchaVerified) {
+      toast({
+        title: "Verification required",
+        description: "Please solve the math problem to verify you're human.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -50,6 +62,7 @@ export default function ContactPage() {
       });
 
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      setIsCaptchaVerified(false);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -106,8 +119,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1 text-sm sm:text-base">Phone</h3>
-                    <p className="text-sm sm:text-base text-muted-foreground">+44 7426 468550</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Available for calls and WhatsApp</p>
+                    <p className="text-sm sm:text-base text-muted-foreground">+447426468550</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">(WhatsApp Available)</p>
                   </div>
                 </div>
 
@@ -138,9 +151,15 @@ export default function ContactPage() {
                     <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Company</h3>
-                    <p className="text-sm sm:text-base text-muted-foreground">Tasaru Ventures Ltd</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Business License: 16399822</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Address</h3>
+                    <p className="text-sm sm:text-base text-muted-foreground">
+                      Suite A<br />
+                      82 James Carter Road<br />
+                      Mildenhall<br />
+                      Bury St. Edmunds<br />
+                      United Kingdom<br />
+                      IP28 7DE
+                    </p>
                   </div>
                 </div>
               </div>
@@ -213,7 +232,10 @@ export default function ContactPage() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
+                {/* Math Captcha */}
+                <MathCaptcha onVerified={setIsCaptchaVerified} />
+
+                <Button type="submit" className="w-full gap-2" disabled={isSubmitting || !isCaptchaVerified}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />

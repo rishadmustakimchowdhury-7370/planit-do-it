@@ -249,11 +249,18 @@ function Footer() {
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                <span>+44 7426 468550</span>
+                <span>+447426468550 (WhatsApp Available)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 <span>{BRAND.email}</span>
+              </div>
+              <div className="flex items-start gap-2 mt-4">
+                <span className="text-xs leading-relaxed">
+                  Suite A, 82 James Carter Road<br />
+                  Mildenhall, Bury St. Edmunds<br />
+                  United Kingdom, IP28 7DE
+                </span>
               </div>
             </div>
           </div>
