@@ -58,7 +58,7 @@ serve(async (req) => {
             <div style="background: white; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
               <div style="text-align: center; margin-bottom: 32px;">
                 <h1 style="color: #0052CC; font-size: 24px; margin: 0 0 8px 0;">🎉 You're Invited!</h1>
-                <p style="color: #64748b; font-size: 16px; margin: 0;">Join your team on RecruitifyCRM</p>
+                <p style="color: #64748b; font-size: 16px; margin: 0;">Join your team on HireMetrics CRM</p>
               </div>
               
               <div style="background: #f8fafc; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
@@ -72,19 +72,19 @@ serve(async (req) => {
 
               <div style="text-align: center; margin: 32px 0;">
                 <a href="${inviteUrl}" 
-                   style="display: inline-block; background: #0052CC; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+                   style="display: inline-block; background: #00008B; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
                   Accept Invitation
                 </a>
               </div>
 
               <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 24px 0 0 0;">
                 This invitation will expire in 7 days. If the button doesn't work, copy and paste this link:<br>
-                <a href="${inviteUrl}" style="color: #0052CC; word-break: break-all;">${inviteUrl}</a>
+                <a href="${inviteUrl}" style="color: #00008B; word-break: break-all;">${inviteUrl}</a>
               </p>
             </div>
             
             <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px;">
-              © ${new Date().getFullYear()} RecruitifyCRM. All rights reserved.
+              © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
             </p>
           </div>
         </body>
@@ -102,7 +102,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: [email],
-        subject: `${invited_by_name} invited you to join their team on RecruitifyCRM`,
+        subject: `${invited_by_name} invited you to join their team on HireMetrics CRM`,
         html: emailHtml,
       }),
     });

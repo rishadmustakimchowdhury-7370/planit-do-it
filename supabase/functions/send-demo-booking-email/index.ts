@@ -33,13 +33,13 @@ const getVisitorEmailTemplate = (data: DemoBookingRequest) => `
               <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                 <tr>
                   <td style="vertical-align: middle;">
-                    <div style="width: 48px; height: 48px; background-color: #14b8a6; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
-                      <span style="color: white; font-size: 24px;">💼</span>
+                    <div style="width: 48px; height: 48px; background-color: #00008B; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
+                      <span style="color: white; font-size: 24px;">📊</span>
                     </div>
                   </td>
                   <td style="vertical-align: middle; padding-left: 12px;">
-                    <span style="color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Recruitify</span>
-                    <span style="color: #14b8a6; font-size: 28px; font-weight: 700;"> CRM</span>
+                    <span style="color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">HireMetrics</span>
+                    <span style="color: #00008B; font-size: 28px; font-weight: 700;"> CRM</span>
                   </td>
                 </tr>
               </table>
@@ -95,7 +95,7 @@ const getVisitorEmailTemplate = (data: DemoBookingRequest) => `
               </div>
               
               <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0; text-align: center;">
-                We're excited to show you how Recruitify CRM can transform your recruitment process! 🚀
+                We're excited to show you how HireMetrics CRM can transform your recruitment process! 🚀
               </p>
             </td>
           </tr>
@@ -104,10 +104,10 @@ const getVisitorEmailTemplate = (data: DemoBookingRequest) => `
           <tr>
             <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="color: #94a3b8; font-size: 12px; margin: 0 0 8px;">
-                © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
               </p>
               <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                <a href="mailto:admin@hiremetrics.co.uk" style="color: #14b8a6; text-decoration: none;">admin@hiremetrics.co.uk</a>
+                <a href="mailto:admin@hiremetrics.co.uk" style="color: #00008B; text-decoration: none;">admin@hiremetrics.co.uk</a>
               </p>
             </td>
           </tr>
@@ -137,13 +137,13 @@ const getAdminEmailTemplate = (data: DemoBookingRequest) => `
               <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
                 <tr>
                   <td style="vertical-align: middle;">
-                    <div style="width: 48px; height: 48px; background-color: #14b8a6; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
-                      <span style="color: white; font-size: 24px;">💼</span>
+                    <div style="width: 48px; height: 48px; background-color: #00008B; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
+                      <span style="color: white; font-size: 24px;">📊</span>
                     </div>
                   </td>
                   <td style="vertical-align: middle; padding-left: 12px;">
-                    <span style="color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Recruitify</span>
-                    <span style="color: #14b8a6; font-size: 28px; font-weight: 700;"> CRM</span>
+                    <span style="color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">HireMetrics</span>
+                    <span style="color: #00008B; font-size: 28px; font-weight: 700;"> CRM</span>
                   </td>
                 </tr>
               </table>
@@ -249,7 +249,7 @@ const getAdminEmailTemplate = (data: DemoBookingRequest) => `
           <tr>
             <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                This is an automated notification from Recruitify CRM
+                This is an automated notification from HireMetrics CRM
               </p>
             </td>
           </tr>
@@ -289,9 +289,9 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Recruitify CRM <onboarding@resend.dev>",
+          from: "HireMetrics CRM <admin@hiremetrics.co.uk>",
           to: [data.email],
-          subject: "🎉 Your Demo Booking is Confirmed - Recruitify CRM",
+          subject: "🎉 Your Demo Booking is Confirmed - HireMetrics CRM",
           html: getVisitorEmailTemplate(data),
         }),
       });

@@ -29,14 +29,14 @@ function generateSubscriptionEmailHTML(
   const logoHTML = data.companyLogo 
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+        <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
           </svg>
         </div>
         <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+          <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
         </span>
       </div>`;
 
@@ -153,7 +153,7 @@ function generateSubscriptionEmailHTML(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="${data.invoiceUrl}" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                    <a href="${data.invoiceUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                       📄 View Invoice
                     </a>
                   </td>
@@ -181,11 +181,11 @@ function generateSubscriptionEmailHTML(
                 <tr>
                   <td>
                     <p style="margin: 0 0 5px; color: #475569; font-size: 15px; line-height: 1.6;">
-                      Thank you for choosing Recruitify CRM!
+                      Thank you for choosing HireMetrics CRM!
                     </p>
                     <p style="margin: 15px 0 0; color: #1e293b; font-size: 15px;">
                       Best regards,<br>
-                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                      <strong style="color: #00008B;">The HireMetrics CRM Team</strong>
                     </p>
                   </td>
                 </tr>
@@ -200,10 +200,10 @@ function generateSubscriptionEmailHTML(
                 <tr>
                   <td align="center">
                     <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                      Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                      Powered by <strong style="color: #00008B;">HireMetrics CRM</strong>
                     </p>
                     <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                      © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                      © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -301,7 +301,7 @@ function generateAdminNotificationHTML(
           <tr>
             <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0; color: #94a3b8; font-size: 12px;">
-                Recruitify CRM Admin Notification
+                HireMetrics CRM Admin Notification
               </p>
             </td>
           </tr>

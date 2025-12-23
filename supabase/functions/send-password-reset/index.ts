@@ -74,34 +74,34 @@ const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         to: email,
-        subject: "Reset Your Password - RecruitifyCRM",
+        subject: "Reset Your Password - HireMetrics CRM",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-              <div style="background: linear-gradient(135deg, #0052CC 0%, #0052CC80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
+              <div style="background: linear-gradient(135deg, #00008B 0%, #00008B80 100%); border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                  <rect width="20" height="14" x="2" y="6" rx="2"/>
+                  <path d="M3 3v18h18"/>
+                  <path d="m19 9-5 5-4-4-3 3"/>
                 </svg>
               </div>
               <span style="font-family: Arial, sans-serif; font-weight: bold; font-size: 20px;">
-                <span style="color: #0052CC;">Recruitify</span><span style="color: #6b7280; font-weight: 500;">CRM</span>
+                <span style="color: #00008B;">HireMetrics</span><span style="color: #6b7280; font-weight: 500;"> CRM</span>
               </span>
             </div>
             
-            <h2 style="color: #0052CC; margin-bottom: 20px;">Reset Your Password</h2>
+            <h2 style="color: #00008B; margin-bottom: 20px;">Reset Your Password</h2>
             
             <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
               Hello ${profile.full_name || 'there'},
             </p>
             
             <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
-              We received a request to reset your password for your RecruitifyCRM account. Click the button below to create a new password:
+              We received a request to reset your password for your HireMetrics CRM account. Click the button below to create a new password:
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetLink}" 
-                 style="background-color: #0052CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+                 style="background-color: #00008B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
                 Reset Password
               </a>
             </div>
@@ -110,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
               Or copy and paste this link into your browser:
             </p>
             
-            <p style="color: #0052CC; font-size: 12px; word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
+            <p style="color: #00008B; font-size: 12px; word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px; margin-bottom: 20px;">
               ${resetLink}
             </p>
             

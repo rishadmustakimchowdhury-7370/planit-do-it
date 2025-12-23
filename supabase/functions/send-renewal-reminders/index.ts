@@ -21,18 +21,18 @@ function generateRenewalReminderHTML(
   const logoHTML = data.companyLogo 
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+        <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
           </svg>
         </div>
         <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+          <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
         </span>
       </div>`;
 
-  const urgencyColor = data.daysUntilExpiry <= 3 ? '#dc2626' : data.daysUntilExpiry <= 5 ? '#f59e0b' : '#0052CC';
+  const urgencyColor = data.daysUntilExpiry <= 3 ? '#dc2626' : data.daysUntilExpiry <= 5 ? '#f59e0b' : '#00008B';
   const urgencyEmoji = data.daysUntilExpiry <= 3 ? '🚨' : data.daysUntilExpiry <= 5 ? '⚠️' : '📅';
   const urgencyTitle = data.daysUntilExpiry <= 3 ? 'Urgent: Subscription Expiring Soon!' : 
                        data.daysUntilExpiry <= 5 ? 'Reminder: Subscription Expiring' : 
@@ -125,7 +125,7 @@ function generateRenewalReminderHTML(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="${data.renewalLink}" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 82, 204, 0.4);">
+                    <a href="${data.renewalLink}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">
                       🔄 Renew Now
                     </a>
                   </td>
@@ -142,7 +142,7 @@ function generateRenewalReminderHTML(
                   <td>
                     <p style="margin: 0; color: #1e293b; font-size: 15px;">
                       Best regards,<br>
-                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                      <strong style="color: #00008B;">The HireMetrics CRM Team</strong>
                     </p>
                   </td>
                 </tr>
@@ -157,10 +157,10 @@ function generateRenewalReminderHTML(
                 <tr>
                   <td align="center">
                     <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                      Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                      Powered by <strong style="color: #00008B;">HireMetrics CRM</strong>
                     </p>
                     <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                      © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                      © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -253,7 +253,7 @@ function generateAdminExpiryNotificationHTML(
           <tr>
             <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0; color: #94a3b8; font-size: 12px;">
-                Recruitify CRM Admin Alert
+                HireMetrics CRM Admin Alert
               </p>
             </td>
           </tr>

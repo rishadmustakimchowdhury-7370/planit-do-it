@@ -116,11 +116,11 @@ serve(async (req) => {
           <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <div style="background: white; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
               <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #0052CC; font-size: 24px; margin: 0 0 8px 0;">${actionInfo.emoji} Work Activity Update</h1>
+                <h1 style="color: #00008B; font-size: 24px; margin: 0 0 8px 0;">${actionInfo.emoji} Work Activity Update</h1>
                 <p style="color: #64748b; font-size: 14px; margin: 0;">${timestamp}</p>
               </div>
               
-              <div style="background: #f8fafc; border-left: 4px solid #0052CC; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <div style="background: #f8fafc; border-left: 4px solid #00008B; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
                 <p style="margin: 0 0 8px 0; color: #334155; font-size: 16px;">
                   <strong>${user_name || user_email}</strong> ${actionInfo.message}
                 </p>
@@ -137,7 +137,7 @@ serve(async (req) => {
             </div>
             
             <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px;">
-              © ${new Date().getFullYear()} RecruitifyCRM. All rights reserved.
+              © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
             </p>
           </div>
         </body>
