@@ -107,17 +107,17 @@ serve(async (req) => {
                   subject: `🔔 Live Chat: ${visitorName || 'Visitor'} needs support`,
                   html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                      <h2 style="color: #0052CC;">Live Chat Escalation</h2>
+                      <h2 style="color: #00008B;">Live Chat Escalation</h2>
                       <p><strong>${visitorName || 'A visitor'}</strong> is requesting to speak with a live support agent.</p>
                       ${visitorEmail ? `<p>Email: ${visitorEmail}</p>` : ''}
                       <p style="margin-top: 20px;">
                         <a href="${supabaseUrl.replace('.supabase.co', '')}/admin/live-chat" 
-                           style="background-color: #0052CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                           style="background-color: #00008B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                           Open Live Chat
                         </a>
                       </p>
                       <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                        This is an automated notification from Recruitify CRM.
+                        This is an automated notification from HireMetrics CRM.
                       </p>
                     </div>
                   `,

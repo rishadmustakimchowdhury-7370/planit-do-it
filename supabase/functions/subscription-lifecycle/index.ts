@@ -20,14 +20,14 @@ function generateGracePeriodNotificationHTML(
   const logoHTML = data.companyLogo 
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px;">
+        <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
           </svg>
         </div>
         <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+          <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
         </span>
       </div>`;
 
@@ -93,7 +93,7 @@ function generateGracePeriodNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://recruitifycrm.com/billing" style="display: inline-block; background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
+                    <a href="https://hiremetrics.co.uk/billing" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
                       💳 Renew Subscription
                     </a>
                   </td>
@@ -106,7 +106,7 @@ function generateGracePeriodNotificationHTML(
                   <td>
                     <p style="margin: 0; color: #1e293b; font-size: 15px;">
                       Best regards,<br>
-                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                      <strong style="color: #00008B;">The HireMetrics CRM Team</strong>
                     </p>
                   </td>
                 </tr>
@@ -118,10 +118,10 @@ function generateGracePeriodNotificationHTML(
           <tr>
             <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;" align="center">
               <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                Powered by <strong style="color: #00008B;">HireMetrics CRM</strong>
               </p>
               <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
               </p>
             </td>
           </tr>
@@ -148,14 +148,14 @@ function generateTrialNotificationHTML(
   const logoHTML = data.companyLogo 
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px;">
+        <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
           </svg>
         </div>
         <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+          <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
         </span>
       </div>`;
 
@@ -235,7 +235,7 @@ function generateTrialNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://recruitifycrm.com/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
+                    <a href="https://hiremetrics.co.uk/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
                       🚀 Start Exploring
                     </a>
                   </td>
@@ -248,7 +248,7 @@ function generateTrialNotificationHTML(
                   <td>
                     <p style="margin: 0; color: #1e293b; font-size: 15px;">
                       Best regards,<br>
-                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                      <strong style="color: #00008B;">The HireMetrics CRM Team</strong>
                     </p>
                   </td>
                 </tr>
@@ -260,10 +260,10 @@ function generateTrialNotificationHTML(
           <tr>
             <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;" align="center">
               <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
-                Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+                Powered by <strong style="color: #00008B;">HireMetrics CRM</strong>
               </p>
               <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+                © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
               </p>
             </td>
           </tr>
@@ -289,14 +289,14 @@ function generateExpiredNotificationHTML(
   const logoHTML = data.companyLogo 
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px;">
+        <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
+            <path d="M3 3v18h18"/>
+            <path d="m19 9-5 5-4-4-3 3"/>
           </svg>
         </div>
         <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+          <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
         </span>
       </div>`;
 
