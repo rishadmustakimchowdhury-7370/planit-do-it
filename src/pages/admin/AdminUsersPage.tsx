@@ -55,6 +55,7 @@ import {
   Package,
   Eye,
   Loader2,
+  CalendarClock,
 } from 'lucide-react';
 
 interface UserWithTenant {
@@ -75,6 +76,8 @@ interface UserWithTenant {
     is_suspended: boolean;
     subscription_ends_at: string | null;
     grace_until: string | null;
+    trial_expires_at: string | null;
+    trial_days: number | null;
   } | null;
 }
 
@@ -98,7 +101,9 @@ export default function AdminUsersPage() {
   const [showPackageDialog, setShowPackageDialog] = useState(false);
   const [showTempLoginDialog, setShowTempLoginDialog] = useState(false);
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
+  const [showTrialDialog, setShowTrialDialog] = useState(false);
   const [graceDays, setGraceDays] = useState('7');
+  const [trialDays, setTrialDays] = useState('14');
   const [selectedPackage, setSelectedPackage] = useState('');
   const [tempLoginMinutes, setTempLoginMinutes] = useState('30');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -131,7 +136,9 @@ export default function AdminUsersPage() {
             is_paused,
             is_suspended,
             subscription_ends_at,
-            grace_until
+            grace_until,
+            trial_expires_at,
+            trial_days
           )
         `)
         .order('created_at', { ascending: false });
@@ -251,6 +258,37 @@ export default function AdminUsersPage() {
     } catch (error) {
       console.error('Error granting grace:', error);
       toast.error('Failed to grant grace period');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGrantTrial = async () => {
+    if (!selectedUser?.tenant_id) return;
+
+    try {
+      setIsProcessing(true);
+      const trialExpires = new Date();
+      trialExpires.setDate(trialExpires.getDate() + parseInt(trialDays));
+
+      const { error } = await supabase
+        .from('tenants')
+        .update({ 
+          trial_expires_at: trialExpires.toISOString(),
+          trial_days: parseInt(trialDays),
+          subscription_status: 'trial',
+        })
+        .eq('id', selectedUser.tenant_id);
+
+      if (error) throw error;
+
+      await logAuditAction('grant_trial', selectedUser.id, { days: trialDays });
+      toast.success(`${trialDays}-day trial period granted`);
+      setShowTrialDialog(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error granting trial:', error);
+      toast.error('Failed to grant trial period');
     } finally {
       setIsProcessing(false);
     }
@@ -412,12 +450,28 @@ export default function AdminUsersPage() {
       return <Badge variant="outline" className="border-orange-500 text-orange-500">On Grace</Badge>;
     }
     if (user.tenant?.subscription_status === 'trial') {
+      const isExpired = user.tenant.trial_expires_at && new Date(user.tenant.trial_expires_at) < new Date();
+      if (isExpired) {
+        return <Badge variant="outline" className="border-destructive text-destructive">Trial Expired</Badge>;
+      }
       return <Badge variant="outline" className="border-yellow-500 text-yellow-500">Trial</Badge>;
     }
     if (user.tenant?.subscription_status === 'active') {
       return <Badge variant="default" className="bg-green-600">Active</Badge>;
     }
     return <Badge variant="secondary">Inactive</Badge>;
+  };
+
+  const getExpiresDate = (user: UserWithTenant) => {
+    // For trial users, show trial expiry date
+    if (user.tenant?.subscription_status === 'trial' && user.tenant.trial_expires_at) {
+      return new Date(user.tenant.trial_expires_at).toLocaleDateString();
+    }
+    // For subscribed users, show subscription end date
+    if (user.tenant?.subscription_ends_at) {
+      return new Date(user.tenant.subscription_ends_at).toLocaleDateString();
+    }
+    return '-';
   };
 
   const filteredUsers = users.filter(user => {
@@ -513,9 +567,7 @@ export default function AdminUsersPage() {
                     <TableCell>{user.tenant?.name || '-'}</TableCell>
                     <TableCell>{getStatusBadge(user)}</TableCell>
                     <TableCell>
-                      {user.tenant?.subscription_ends_at 
-                        ? new Date(user.tenant.subscription_ends_at).toLocaleDateString()
-                        : '-'}
+                      {getExpiresDate(user)}
                     </TableCell>
                     <TableCell>
                       {user.last_login_at
@@ -566,6 +618,15 @@ export default function AdminUsersPage() {
                           >
                             <Clock className="h-4 w-4 mr-2" />
                             Grant Grace Period
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowTrialDialog(true);
+                            }}
+                          >
+                            <CalendarClock className="h-4 w-4 mr-2" />
+                            Grant Trial Period
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleSendPasswordReset(user)}>
@@ -788,6 +849,53 @@ export default function AdminUsersPage() {
             <Button onClick={handleGenerateTempLogin} disabled={isProcessing}>
               {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Generate & Copy Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Grant Trial Dialog */}
+      <Dialog open={showTrialDialog} onOpenChange={setShowTrialDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Grant Trial Period</DialogTitle>
+            <DialogDescription>
+              Give a free trial access to {selectedUser?.full_name || selectedUser?.email}. 
+              They will have full access during the trial period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Trial Duration</Label>
+            <Select value={trialDays} onValueChange={setTrialDays}>
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 Days</SelectItem>
+                <SelectItem value="7">7 Days</SelectItem>
+                <SelectItem value="14">14 Days</SelectItem>
+                <SelectItem value="21">21 Days</SelectItem>
+                <SelectItem value="30">30 Days</SelectItem>
+                <SelectItem value="60">60 Days</SelectItem>
+                <SelectItem value="90">90 Days</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground mt-3">
+              Trial expires: {new Date(Date.now() + parseInt(trialDays) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </p>
+            {selectedUser?.tenant?.subscription_status === 'trial' && selectedUser?.tenant?.trial_expires_at && (
+              <p className="text-sm text-yellow-600 mt-2">
+                Note: User is already on trial (expires {new Date(selectedUser.tenant.trial_expires_at).toLocaleDateString()}). This will extend/reset their trial.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTrialDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGrantTrial} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Grant Trial
             </Button>
           </DialogFooter>
         </DialogContent>
