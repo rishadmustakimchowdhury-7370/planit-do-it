@@ -19,7 +19,6 @@ import {
   Play,
   Phone,
   Mail,
-  Clock,
   Send,
   Loader2,
   Menu,
@@ -32,13 +31,77 @@ import {
   Calendar,
   Zap,
   Shield,
-  ChevronRight
+  TrendingUp,
+  Clock,
+  Award,
+  Globe,
+  Sparkles
 } from 'lucide-react';
+
+// All Features
+const allFeatures = [
+  {
+    icon: Users,
+    title: 'Candidate Management',
+    description: 'Upload, organize, and track candidates with AI-powered CV parsing and structured profiles.',
+    color: 'from-blue-500 to-cyan-500',
+  },
+  {
+    icon: Briefcase,
+    title: 'Job Pipeline',
+    description: 'Create jobs, manage the hiring lifecycle, and track progress with visual Kanban boards.',
+    color: 'from-purple-500 to-pink-500',
+  },
+  {
+    icon: Brain,
+    title: 'AI Matching',
+    description: 'Match candidates to jobs with AI-powered scoring, explanations, and gap analysis.',
+    color: 'from-amber-500 to-orange-500',
+  },
+  {
+    icon: Timer,
+    title: 'Work Tracking',
+    description: 'Real-time tracking of recruiter activity, work sessions, and productivity metrics.',
+    color: 'from-emerald-500 to-teal-500',
+  },
+  {
+    icon: BarChart3,
+    title: 'Performance Analytics',
+    description: 'Comprehensive dashboards for KPIs, CV submissions, interviews, and placements.',
+    color: 'from-rose-500 to-red-500',
+  },
+  {
+    icon: Calendar,
+    title: 'Interview Scheduling',
+    description: 'Schedule interviews, send invitations, and manage calendars seamlessly.',
+    color: 'from-indigo-500 to-violet-500',
+  },
+  {
+    icon: Mail,
+    title: 'Email Integration',
+    description: 'Send personalized emails with templates, tracking, and AI-powered composition.',
+    color: 'from-sky-500 to-blue-500',
+  },
+  {
+    icon: Shield,
+    title: 'Team Permissions',
+    description: 'Role-based access control for owners, managers, and recruiters.',
+    color: 'from-slate-500 to-gray-600',
+  },
+];
+
+// Quick features for hero
+const heroFeatures = [
+  { icon: Zap, text: 'AI-Powered Matching' },
+  { icon: TrendingUp, text: 'Performance Analytics' },
+  { icon: Clock, text: 'Work Time Tracking' },
+  { icon: Award, text: 'Team KPI Dashboard' },
+];
 
 // Pricing Plans
 const plans = [
   {
-    name: 'Basic',
+    name: 'Starter',
     price: '£29',
     period: '/month',
     description: 'For solo recruiters',
@@ -46,7 +109,7 @@ const plans = [
     popular: false,
   },
   {
-    name: 'Starter',
+    name: 'Professional',
     price: '£79',
     period: '/month',
     description: 'For small agencies',
@@ -54,7 +117,7 @@ const plans = [
     popular: true,
   },
   {
-    name: 'Pro',
+    name: 'Agency',
     price: '£149',
     period: '/month',
     description: 'For growing teams',
@@ -63,39 +126,88 @@ const plans = [
   },
 ];
 
-// Features
-const features = [
-  {
-    icon: Users,
-    title: 'Candidate Management',
-    description: 'Upload, organize, and track candidates with structured profiles and CV parsing.',
-  },
-  {
-    icon: Briefcase,
-    title: 'Job Pipeline',
-    description: 'Create jobs, attach clients, and manage the full hiring lifecycle.',
-  },
-  {
-    icon: Brain,
-    title: 'AI Matching',
-    description: 'Match candidates to jobs with AI-powered scoring and transparency.',
-  },
-  {
-    icon: Timer,
-    title: 'Work Tracking',
-    description: 'See who is working, when, and measure recruiter productivity.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Performance Analytics',
-    description: 'Track KPIs, CVs submitted, interviews, and placements.',
-  },
-  {
-    icon: Calendar,
-    title: 'Interview Scheduling',
-    description: 'Schedule interviews and send automatic notifications.',
-  },
-];
+interface TrustedClient {
+  id: string;
+  name: string;
+  logo_url: string;
+  website_url: string | null;
+}
+
+// Trusted Clients Section
+function TrustedClientsSection() {
+  const [clients, setClients] = useState<TrustedClient[]>([]);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data } = await supabase
+        .from('trusted_clients')
+        .select('id, name, logo_url, website_url')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (data && data.length > 0) {
+        setClients(data);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  if (clients.length === 0) {
+    // Fallback placeholder logos
+    return (
+      <section className="py-16 border-y border-border/50 bg-muted/20">
+        <div className="container mx-auto px-6">
+          <p className="text-center text-sm text-muted-foreground mb-8 font-medium tracking-wide uppercase">
+            Trusted by recruitment agencies worldwide
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-x-16 gap-y-8">
+            {['TalentForce', 'RecruitPro', 'HireWise', 'StaffingHub', 'PeoplePlus'].map((company, i) => (
+              <motion.span 
+                key={i} 
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                transition={{ delay: i * 0.1 }}
+                viewport={{ once: true }}
+                className="text-xl font-bold text-muted-foreground/40"
+              >
+                {company}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="py-16 border-y border-border/50 bg-muted/20 overflow-hidden">
+      <div className="container mx-auto px-6">
+        <p className="text-center text-sm text-muted-foreground mb-8 font-medium tracking-wide uppercase">
+          Trusted by recruitment agencies worldwide
+        </p>
+        <div className="relative">
+          <div className="flex animate-marquee gap-16 items-center">
+            {[...clients, ...clients].map((client, i) => (
+              <a
+                key={`${client.id}-${i}`}
+                href={client.website_url || '#'}
+                target={client.website_url ? '_blank' : undefined}
+                rel="noopener noreferrer"
+                className="flex-shrink-0 grayscale hover:grayscale-0 opacity-60 hover:opacity-100 transition-all duration-300"
+              >
+                <img 
+                  src={client.logo_url} 
+                  alt={client.name}
+                  className="h-10 max-w-[140px] object-contain"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 // Footer
 function Footer() {
@@ -124,7 +236,7 @@ function Footer() {
   };
 
   return (
-    <footer className="border-t border-border bg-muted/30">
+    <footer className="border-t border-border bg-card">
       <div className="container mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           <div className="lg:col-span-1">
@@ -132,7 +244,7 @@ function Footer() {
               <Logo size="md" />
             </Link>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
-              Recruitment performance platform for agencies and remote teams.
+              The recruitment analytics platform for agencies and remote teams.
             </p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
@@ -200,7 +312,7 @@ function Footer() {
 
         <div className="border-t border-border mt-12 pt-8 text-center">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {BRAND.name}. All rights reserved. A product of Tasaru Ventures Ltd.
+            © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
           </p>
         </div>
       </div>
@@ -240,9 +352,9 @@ export default function LandingPage() {
           </Link>
           
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors">About</Link>
+            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium">Features</a>
+            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium">Pricing</a>
+            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium">About</Link>
           </nav>
           
           <div className="hidden md:flex items-center gap-3">
@@ -250,7 +362,7 @@ export default function LandingPage() {
               <Button variant="ghost" size="sm">Log in</Button>
             </Link>
             <Link to="/auth?mode=signup">
-              <Button variant="accent" size="sm">
+              <Button size="sm" className="bg-primary hover:bg-primary/90">
                 Start Free Trial
               </Button>
             </Link>
@@ -265,7 +377,11 @@ export default function LandingPage() {
         </div>
         
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-background">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:hidden border-t border-border bg-background"
+          >
             <nav className="container mx-auto px-6 py-4 flex flex-col gap-2">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground">Features</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="py-2 text-muted-foreground">Pricing</a>
@@ -275,36 +391,81 @@ export default function LandingPage() {
                   <Button variant="outline" className="w-full">Log in</Button>
                 </Link>
                 <Link to="/auth?mode=signup" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="accent" className="w-full">Start Free Trial</Button>
+                  <Button className="w-full">Start Free Trial</Button>
                 </Link>
               </div>
             </nav>
-          </div>
+          </motion.div>
         )}
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 md:pt-40 md:pb-28 px-6">
-        <div className="container mx-auto max-w-4xl text-center">
+      <section className="pt-28 pb-20 md:pt-36 md:pb-28 px-6 relative overflow-hidden">
+        {/* Background decorations */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-20 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="container mx-auto max-w-5xl">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="space-y-6"
+            transition={{ duration: 0.6 }}
+            className="text-center space-y-6"
           >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground text-balance">
-              Recruitment that you can{' '}
-              <span className="text-accent">actually measure</span>
+            {/* Badge */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20"
+            >
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">AI-Powered Recruitment Analytics</span>
+            </motion.div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-tight">
+              Recruitment You Can{' '}
+              <span className="relative">
+                <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  Actually Measure
+                </span>
+                <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" fill="none">
+                  <path d="M2 8C50 4 100 2 150 6C200 10 250 6 298 4" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-primary/30" />
+                </svg>
+              </span>
             </h1>
             
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               The performance platform for recruitment agencies. Track productivity, 
-              manage candidates, and hire with full control.
+              manage candidates with AI, and make data-driven hiring decisions.
             </p>
+
+            {/* Hero features */}
+            <div className="flex flex-wrap justify-center gap-4 pt-2">
+              {heroFeatures.map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + i * 0.1 }}
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <feature.icon className="h-4 w-4 text-primary" />
+                  <span>{feature.text}</span>
+                </motion.div>
+              ))}
+            </div>
             
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+            >
               <Link to="/auth?mode=signup">
-                <Button variant="accent" size="lg" className="w-full sm:w-auto gap-2">
+                <Button size="lg" className="w-full sm:w-auto gap-2 h-12 px-8 text-base">
                   Start Free Trial
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -312,92 +473,103 @@ export default function LandingPage() {
               <Button 
                 variant="outline" 
                 size="lg"
-                className="w-full sm:w-auto gap-2"
+                className="w-full sm:w-auto gap-2 h-12 px-8 text-base"
                 onClick={() => demoVideoUrl ? setWatchDemoOpen(true) : setBookDemoOpen(true)}
               >
                 <Play className="h-4 w-4" />
                 Watch Demo
               </Button>
-            </div>
+            </motion.div>
             
-            <p className="text-sm text-muted-foreground pt-2">
-              No credit card required · Free 14-day trial
+            <p className="text-sm text-muted-foreground">
+              No credit card required · Free 14-day trial · Cancel anytime
             </p>
           </motion.div>
 
           {/* Dashboard Preview */}
           <motion.div
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.8, delay: 0.3 }}
             className="mt-16 relative"
           >
-            <div className="rounded-xl border border-border shadow-xl overflow-hidden bg-card">
+            <div className="rounded-2xl border border-border shadow-2xl overflow-hidden bg-card">
               <div className="h-10 bg-muted border-b border-border flex items-center gap-2 px-4">
-                <div className="w-3 h-3 rounded-full bg-border" />
-                <div className="w-3 h-3 rounded-full bg-border" />
-                <div className="w-3 h-3 rounded-full bg-border" />
+                <div className="flex gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-400" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+                </div>
+                <div className="flex-1 flex justify-center">
+                  <div className="px-4 py-1 bg-background rounded-md text-xs text-muted-foreground">
+                    hiremetrics.io/dashboard
+                  </div>
+                </div>
               </div>
               <div className="p-6 bg-background">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: 'Active Jobs', value: '24', icon: Briefcase },
-                    { label: 'Candidates', value: '1,284', icon: Users },
-                    { label: 'AI Matches', value: '856', icon: Brain },
-                    { label: 'Team Active', value: '8/10', icon: Activity },
+                    { label: 'Active Jobs', value: '24', icon: Briefcase, trend: '+3 this week' },
+                    { label: 'Candidates', value: '1,284', icon: Users, trend: '+47 new' },
+                    { label: 'AI Matches', value: '856', icon: Brain, trend: '94% accuracy' },
+                    { label: 'Team Active', value: '8/10', icon: Activity, trend: 'Online now' },
                   ].map((stat, i) => (
-                    <div key={i} className="p-4 rounded-lg border border-border bg-card">
-                      <stat.icon className="h-5 w-5 text-muted-foreground mb-2" />
-                      <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
-                      <div className="text-sm text-muted-foreground">{stat.label}</div>
-                    </div>
+                    <motion.div 
+                      key={i} 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + i * 0.1 }}
+                      className="p-4 rounded-xl border border-border bg-card hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <stat.icon className="h-4 w-4 text-primary" />
+                        <span className="text-xs text-muted-foreground">{stat.label}</span>
+                      </div>
+                      <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{stat.trend}</div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
             </div>
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           </motion.div>
         </div>
       </section>
 
-      {/* Social Proof */}
-      <section className="py-12 border-y border-border bg-muted/30">
-        <div className="container mx-auto px-6">
-          <p className="text-center text-sm text-muted-foreground mb-8">
-            Trusted by recruitment agencies worldwide
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6">
-            {['Agency Pro', 'TalentFirst', 'HireRight', 'RecruitFlow', 'StaffingPlus'].map((company, i) => (
-              <span key={i} className="text-lg font-semibold text-muted-foreground/50">{company}</span>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Trusted Clients */}
+      <TrustedClientsSection />
 
       {/* Features Section */}
-      <section id="features" className="py-20 md:py-28 px-6">
-        <div className="container mx-auto max-w-5xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
-              Everything you need to run your agency
+      <section id="features" className="py-24 px-6">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">Features</span>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mt-2 mb-4">
+              Everything You Need to Hire Better
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               One platform for candidates, jobs, AI matching, and team performance tracking.
             </p>
-          </div>
+          </motion.div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {allFeatures.map((feature, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
                 viewport={{ once: true }}
-                className="p-6 rounded-xl border border-border bg-card hover:shadow-md transition-shadow"
+                className="group p-6 rounded-2xl border border-border bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-300"
               >
-                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <feature.icon className="h-5 w-5 text-accent" />
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <feature.icon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
@@ -408,103 +580,146 @@ export default function LandingPage() {
       </section>
 
       {/* Value Proposition */}
-      <section className="py-20 md:py-28 px-6 bg-muted/30">
-        <div className="container mx-auto max-w-5xl">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-6">
-                Know exactly who is working and how they perform
+      <section className="py-24 px-6 bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <span className="text-sm font-medium text-primary uppercase tracking-wider">Why Hiremetrics</span>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mt-2 mb-6">
+                Know Exactly Who Is Working and How They Perform
               </h2>
-              <p className="text-muted-foreground mb-8 leading-relaxed">
-                Most CRMs track candidates. HireMetrics tracks your team. See work hours, 
+              <p className="text-muted-foreground mb-8 leading-relaxed text-lg">
+                Most CRMs track candidates. Hiremetrics tracks your team. See work hours, 
                 CV submissions, interview schedules, and placement rates—all in one dashboard.
               </p>
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {[
                   'Real-time work tracking for remote teams',
                   'Individual and team KPI dashboards',
                   'AI usage with full cost control',
                   'Role-based access for owners, managers, recruiters'
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">{item}</span>
-                  </li>
+                  <motion.li 
+                    key={i} 
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    viewport={{ once: true }}
+                    className="flex items-start gap-3"
+                  >
+                    <div className="mt-1 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-3 w-3 text-primary" />
+                    </div>
+                    <span className="text-foreground">{item}</span>
+                  </motion.li>
                 ))}
               </ul>
-            </div>
-            <div className="p-8 rounded-xl border border-border bg-card">
+              <div className="mt-8">
+                <Link to="/auth?mode=signup">
+                  <Button size="lg" className="gap-2">
+                    Get Started Free
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="p-8 rounded-2xl border border-border bg-card shadow-xl"
+            >
               <div className="space-y-4">
                 {[
-                  { label: 'Work Sessions Today', value: '8 active', icon: Timer },
-                  { label: 'CVs Submitted', value: '47 this week', icon: FileText },
-                  { label: 'AI Credits Used', value: '234 / 500', icon: Brain },
-                  { label: 'Placements', value: '12 this month', icon: UserCheck },
+                  { label: 'Work Sessions Today', value: '8 active', icon: Timer, color: 'text-emerald-500' },
+                  { label: 'CVs Submitted', value: '47 this week', icon: FileText, color: 'text-blue-500' },
+                  { label: 'AI Credits Used', value: '234 / 500', icon: Brain, color: 'text-purple-500' },
+                  { label: 'Placements', value: '12 this month', icon: UserCheck, color: 'text-amber-500' },
                 ].map((stat, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                  <motion.div 
+                    key={i} 
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    viewport={{ once: true }}
+                    className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                  >
                     <div className="flex items-center gap-3">
-                      <stat.icon className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-sm">{stat.label}</span>
+                      <div className={`p-2 rounded-lg bg-background ${stat.color}`}>
+                        <stat.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-sm font-medium">{stat.label}</span>
                     </div>
-                    <span className="text-sm font-medium">{stat.value}</span>
-                  </div>
+                    <span className="text-sm font-semibold">{stat.value}</span>
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 md:py-28 px-6">
+      <section id="pricing" className="py-24 px-6">
         <div className="container mx-auto max-w-5xl">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
-              Simple, transparent pricing
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">Pricing</span>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mt-2 mb-4">
+              Simple, Transparent Pricing
             </h2>
             <p className="text-lg text-muted-foreground">
               Start free, scale as you grow. No hidden fees.
             </p>
-          </div>
+          </motion.div>
           
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
                 viewport={{ once: true }}
-                className={`relative p-6 rounded-xl border bg-card ${
-                  plan.popular ? 'border-accent shadow-lg' : 'border-border'
+                className={`relative p-8 rounded-2xl border bg-card ${
+                  plan.popular ? 'border-primary shadow-xl scale-105' : 'border-border'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-accent text-accent-foreground text-xs font-medium px-3 py-1 rounded-full">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
                       Most Popular
                     </span>
                   </div>
                 )}
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold mb-1">{plan.name}</h3>
+                  <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-semibold">{plan.price}</span>
+                    <span className="text-4xl font-bold">{plan.price}</span>
                     <span className="text-muted-foreground">{plan.period}</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-6">
+                <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, j) => (
-                    <li key={j} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-4 w-4 text-success flex-shrink-0" />
+                    <li key={j} className="flex items-center gap-3 text-sm">
+                      <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
                       {feature}
                     </li>
                   ))}
                 </ul>
                 <Link to="/auth?mode=signup">
                   <Button 
-                    variant={plan.popular ? 'accent' : 'outline'} 
+                    variant={plan.popular ? 'default' : 'outline'} 
                     className="w-full"
                   >
                     Get Started
@@ -517,30 +732,37 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 md:py-28 px-6 bg-primary text-primary-foreground">
-        <div className="container mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-4">
-            Ready to take control of your recruitment?
-          </h2>
-          <p className="text-primary-foreground/80 mb-8 text-lg">
-            Start your free trial today. No credit card required.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/auth?mode=signup">
-              <Button size="lg" variant="secondary" className="w-full sm:w-auto gap-2">
-                Start Free Trial
-                <ArrowRight className="h-4 w-4" />
+      <section className="py-24 px-6 bg-primary text-primary-foreground relative overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="container mx-auto max-w-3xl text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+              Ready to Transform Your Recruitment?
+            </h2>
+            <p className="text-primary-foreground/80 mb-8 text-lg">
+              Start your free trial today. No credit card required.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/auth?mode=signup">
+                <Button size="lg" variant="secondary" className="w-full sm:w-auto gap-2 h-12 px-8">
+                  Start Free Trial
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="w-full sm:w-auto h-12 px-8 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => setBookDemoOpen(true)}
+              >
+                Book a Demo
               </Button>
-            </Link>
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="w-full sm:w-auto border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => setBookDemoOpen(true)}
-            >
-              Book a Demo
-            </Button>
-          </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -548,6 +770,17 @@ export default function LandingPage() {
 
       <WatchDemoDialog open={watchDemoOpen} onOpenChange={setWatchDemoOpen} videoUrl={demoVideoUrl} />
       <BookDemoDialog open={bookDemoOpen} onOpenChange={setBookDemoOpen} />
+
+      {/* Add marquee animation styles */}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
