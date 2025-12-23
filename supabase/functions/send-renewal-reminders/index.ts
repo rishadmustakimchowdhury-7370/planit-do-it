@@ -284,13 +284,14 @@ Deno.serve(async (req) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    console.log('Checking for expiring subscriptions...');
+    console.log('Checking for expiring subscriptions and trials...');
 
     // Get tenants expiring within 7 days
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 8); // Include 7th day
 
-    const { data: expiringTenants, error: tenantsError } = await supabase
+    // Fetch subscription-based expiring tenants
+    const { data: expiringSubscriptions, error: subError } = await supabase
       .from('tenants')
       .select(`
         id,
@@ -299,32 +300,60 @@ Deno.serve(async (req) => {
         subscription_status,
         subscription_plan_id,
         logo_url,
+        trial_expires_at,
+        trial_days,
         subscription_plans(name)
       `)
       .gte('subscription_ends_at', today.toISOString())
       .lte('subscription_ends_at', sevenDaysFromNow.toISOString())
       .in('subscription_status', ['active', 'past_due']);
 
-    if (tenantsError) {
-      console.error('Error fetching tenants:', tenantsError);
-      throw tenantsError;
+    // Fetch trial-based expiring tenants
+    const { data: expiringTrials, error: trialError } = await supabase
+      .from('tenants')
+      .select(`
+        id,
+        name,
+        subscription_ends_at,
+        subscription_status,
+        subscription_plan_id,
+        logo_url,
+        trial_expires_at,
+        trial_days,
+        subscription_plans(name)
+      `)
+      .gte('trial_expires_at', today.toISOString())
+      .lte('trial_expires_at', sevenDaysFromNow.toISOString())
+      .eq('subscription_status', 'trial');
+
+    if (subError) {
+      console.error('Error fetching subscription tenants:', subError);
     }
+    if (trialError) {
+      console.error('Error fetching trial tenants:', trialError);
+    }
+
+    // Combine both lists
+    const expiringTenants = [
+      ...(expiringSubscriptions || []),
+      ...(expiringTrials || [])
+    ];
 
     console.log('Found expiring tenants:', expiringTenants?.length || 0);
 
     if (!expiringTenants || expiringTenants.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, sent: 0, message: 'No expiring subscriptions found' }),
+        JSON.stringify({ success: true, sent: 0, message: 'No expiring subscriptions or trials found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get super admin emails for notifications
+    // Get super admin emails for notifications (check both super_admin and owner roles)
     let adminEmails: string[] = [];
     const { data: superAdmins } = await supabase
       .from('user_roles')
       .select('user_id')
-      .eq('role', 'super_admin');
+      .in('role', ['super_admin', 'owner']);
 
     if (superAdmins && superAdmins.length > 0) {
       const adminUserIds = superAdmins.map(sa => sa.user_id);
@@ -355,8 +384,14 @@ Deno.serve(async (req) => {
     const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
     for (const tenant of expiringTenants) {
+      // Check if this is a trial or subscription expiry
+      const isTrial = tenant.subscription_status === 'trial' && tenant.trial_expires_at;
+      const expiryDateValue = isTrial ? tenant.trial_expires_at : tenant.subscription_ends_at;
+      
+      if (!expiryDateValue) continue;
+      
       const daysUntilExpiry = Math.ceil(
-        (new Date(tenant.subscription_ends_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        (new Date(expiryDateValue).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       );
 
       // Only send on specific days: 7, 5, 3
@@ -365,8 +400,10 @@ Deno.serve(async (req) => {
       }
 
       const tenantProfiles = profiles?.filter(p => p.tenant_id === tenant.id) || [];
-      const planName = (tenant as any).subscription_plans?.name || 'Subscription';
-      const expiryDate = new Date(tenant.subscription_ends_at!).toLocaleDateString('en-US', {
+      const planName = isTrial 
+        ? `Trial (${tenant.trial_days || 7} days)` 
+        : ((tenant as any).subscription_plans?.name || 'Subscription');
+      const expiryDate = new Date(expiryDateValue).toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',

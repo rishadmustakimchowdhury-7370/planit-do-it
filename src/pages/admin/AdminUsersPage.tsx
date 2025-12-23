@@ -177,22 +177,46 @@ export default function AdminUsersPage() {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUserForm.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Password validation
+    if (newUserForm.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
       // Call edge function to create user with service role
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: {
-          email: newUserForm.email,
+          email: newUserForm.email.trim().toLowerCase(),
           password: newUserForm.password,
-          fullName: newUserForm.fullName,
-          companyName: newUserForm.companyName || `${newUserForm.fullName}'s Workspace`,
+          fullName: newUserForm.fullName.trim(),
+          companyName: newUserForm.companyName?.trim() || `${newUserForm.fullName.trim()}'s Workspace`,
           planId: newUserForm.selectedPlan || null,
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        console.error('Edge function error:', error);
+        // Check for specific error types
+        if (error.message?.includes('non-2xx')) {
+          const errorData = data;
+          throw new Error(errorData?.error || 'Failed to create user. Please check your permissions.');
+        }
+        throw error;
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       await logAuditAction('create_user', data.user.id, { email: newUserForm.email });
       toast.success('User created successfully! Account is ready to use.');
@@ -201,7 +225,20 @@ export default function AdminUsersPage() {
       fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(error.message || 'Failed to create user');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to create user';
+      if (error.message) {
+        if (error.message.includes('already registered') || error.message.includes('already exists')) {
+          errorMessage = 'A user with this email already exists';
+        } else if (error.message.includes('super admin')) {
+          errorMessage = 'You do not have permission to create users. Please contact support.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -241,23 +278,28 @@ export default function AdminUsersPage() {
 
     try {
       setIsProcessing(true);
-      const graceUntil = new Date();
-      graceUntil.setDate(graceUntil.getDate() + parseInt(graceDays));
-
-      const { error } = await supabase
-        .from('tenants')
-        .update({ grace_until: graceUntil.toISOString() })
-        .eq('id', selectedUser.tenant_id);
+      
+      // Use the subscription-lifecycle edge function to grant grace period with email notification
+      const { data, error } = await supabase.functions.invoke('subscription-lifecycle', {
+        body: {
+          action: 'grant_grace_period',
+          tenant_id: selectedUser.tenant_id,
+          grace_days: parseInt(graceDays),
+          admin_id: currentUser?.id,
+          reason: 'Granted by admin from user management',
+        },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       await logAuditAction('grant_grace', selectedUser.id, { days: graceDays });
-      toast.success(`${graceDays}-day grace period granted`);
+      toast.success(`${graceDays}-day grace period granted and notification sent`);
       setShowGraceDialog(false);
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error granting grace:', error);
-      toast.error('Failed to grant grace period');
+      toast.error(error?.message || 'Failed to grant grace period');
     } finally {
       setIsProcessing(false);
     }
@@ -282,8 +324,21 @@ export default function AdminUsersPage() {
 
       if (error) throw error;
 
+      // Send trial notification email
+      try {
+        await supabase.functions.invoke('subscription-lifecycle', {
+          body: {
+            action: 'send_trial_notification',
+            tenant_id: selectedUser.tenant_id,
+          },
+        });
+      } catch (emailError) {
+        console.warn('Failed to send trial notification email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
+
       await logAuditAction('grant_trial', selectedUser.id, { days: trialDays });
-      toast.success(`${trialDays}-day trial period granted`);
+      toast.success(`${trialDays}-day trial period granted and notification sent`);
       setShowTrialDialog(false);
       fetchUsers();
     } catch (error) {
