@@ -420,7 +420,7 @@ Deno.serve(async (req) => {
           daysUntilExpiry,
           expiryDate,
           planName,
-          renewalLink: 'https://recruitifycrm.com/billing',
+          renewalLink: 'https://hiremetrics.co.uk/billing',
           companyLogo: tenant.logo_url || undefined
         });
 

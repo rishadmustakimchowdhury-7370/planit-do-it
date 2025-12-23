@@ -34,11 +34,11 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `You are a helpful customer support chatbot for Recruitify CRM, an AI-powered recruitment CRM platform.
+    const systemPrompt = `You are a helpful customer support chatbot for HireMetrics, an AI-powered recruitment CRM platform.
 
-About Recruitify CRM:
-- Recruitify CRM helps recruiters manage candidates, jobs, and hiring pipelines
-- We offer three plans: Starter ($9/mo), Pro ($29/mo), and Agency ($79/mo)
+About HireMetrics:
+- HireMetrics helps recruiters manage candidates, jobs, and hiring pipelines
+- We offer three plans: Starter (£29/mo), Pro (£49/mo), and Agency (£149/mo)
 - Key features include AI CV matching, Kanban pipelines, and team collaboration
 
 Your guidelines:

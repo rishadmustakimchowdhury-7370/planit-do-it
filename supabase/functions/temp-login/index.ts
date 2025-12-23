@@ -81,7 +81,7 @@ serve(async (req: Request) => {
       type: "magiclink",
       email: profile.email,
       options: {
-        redirectTo: `${req.headers.get("origin") || "https://recruitifycrm.com"}/dashboard`,
+        redirectTo: `${req.headers.get("origin") || "https://hiremetrics.co.uk"}/dashboard`,
       },
     });
 

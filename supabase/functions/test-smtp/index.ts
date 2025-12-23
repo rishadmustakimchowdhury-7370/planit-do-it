@@ -93,16 +93,16 @@ serve(async (req) => {
       await client.send({
         from: `${display_name} <${from_email}>`,
         to: from_email,
-        subject: "RecruitifyCRM - SMTP Test Email",
+        subject: "HireMetrics - SMTP Test Email",
         content: "If you're seeing this email, your SMTP configuration is working correctly!",
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #0052cc;">SMTP Configuration Test</h2>
+            <h2 style="color: #00008B;">SMTP Configuration Test</h2>
             <p>Congratulations! Your SMTP settings are configured correctly.</p>
-            <p>You can now send emails from <strong>${from_email}</strong> via RecruitifyCRM.</p>
+            <p>You can now send emails from <strong>${from_email}</strong> via HireMetrics.</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
             <p style="color: #6b7280; font-size: 12px;">
-              This is an automated test email from RecruitifyCRM.
+              This is an automated test email from HireMetrics.
             </p>
           </div>
         `,
