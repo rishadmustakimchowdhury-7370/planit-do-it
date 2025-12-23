@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
 
 export interface UsageStats {
   limits: {
@@ -48,11 +49,18 @@ export interface UsageStats {
 }
 
 export function useUsageLimits() {
+  const { tenantId, user } = useAuth();
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastWarned, setLastWarned] = useState<Set<string>>(new Set());
 
-  const fetchUsageStats = async () => {
+  const fetchUsageStats = useCallback(async () => {
+    // Don't fetch if no user or tenant
+    if (!user || !tenantId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('get-usage-stats');
 
@@ -96,19 +104,32 @@ export function useUsageLimits() {
       }
     } catch (error) {
       console.error('Error fetching usage stats:', error);
+      // Set default stats on error to prevent infinite loading
+      setUsageStats({
+        limits: { max_users: 2, max_jobs: 10, max_candidates: 150, match_credits_monthly: 50 },
+        usage: {
+          aiCredits: { used: 0, limit: 50, remaining: 50, percent: 0, warning: false, blocked: false },
+          jobs: { used: 0, limit: 10, remaining: 10, percent: 0, warning: false, blocked: false },
+          candidates: { used: 0, limit: 150, remaining: 150, percent: 0, warning: false, blocked: false },
+          teamMembers: { used: 0, limit: 2, remaining: 2, percent: 0, warning: false, blocked: false },
+        },
+        hasWarnings: false,
+        hasBlocks: false,
+      });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, tenantId, lastWarned]);
 
   useEffect(() => {
     fetchUsageStats();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUsageStats, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    // Refresh every 30 seconds only if user is authenticated
+    if (user && tenantId) {
+      const interval = setInterval(fetchUsageStats, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, tenantId, fetchUsageStats]);
 
   const checkLimit = (feature: 'aiCredits' | 'jobs' | 'candidates' | 'teamMembers'): boolean => {
     if (!usageStats) return false;
