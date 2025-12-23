@@ -7,6 +7,19 @@ import { getUserTimezone } from '@/lib/timezones';
 export type WorkAction = 'start_work' | 'start_break' | 'resume_work' | 'end_work';
 export type WorkStatus = 'working' | 'on_break' | 'ended';
 
+// Format duration for email (more readable) - must be defined before useWorkTracking
+function formatDurationForEmail(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) {
+    return `${mins} minute${mins !== 1 ? 's' : ''}`;
+  }
+  if (mins === 0) {
+    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  }
+  return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} minute${mins !== 1 ? 's' : ''}`;
+}
+
 interface WorkSession {
   id: string;
   user_id: string;
@@ -175,13 +188,24 @@ export function useWorkTracking() {
       setCurrentStatus(newStatus);
       await fetchTodaySession();
 
-      // Send email notification to admins
+      // Send email notification to owners/managers
       if (tenantId && user?.email) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
           .eq('id', user.id)
           .single();
+
+        // For end_work, include work summary
+        let workSummary = '';
+        let breakSummary = '';
+        
+        if (action === 'end_work' && todaySession) {
+          const logs = await fetchTodayLogs();
+          const { workMinutes, breakMinutes } = calculateMinutesFromLogs(logs);
+          workSummary = formatDurationForEmail(workMinutes);
+          breakSummary = formatDurationForEmail(breakMinutes);
+        }
 
         // Fire and forget - don't block on email sending
         supabase.functions.invoke('notify-work-activity', {
@@ -191,6 +215,8 @@ export function useWorkTracking() {
             user_email: user.email,
             action: action,
             tenant_id: tenantId,
+            work_summary: workSummary,
+            break_summary: breakSummary,
           }
         }).catch(err => console.error('Email notification error:', err));
       }
@@ -470,3 +496,4 @@ export function formatDuration(minutes: number): string {
   const mins = minutes % 60;
   return `${hours}h ${mins}m`;
 }
+

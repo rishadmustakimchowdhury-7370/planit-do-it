@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, user_name, user_email, action, tenant_id } = await req.json();
+    const { user_id, user_name, user_email, action, tenant_id, work_summary, break_summary } = await req.json();
 
     if (!user_id || !action || !tenant_id) {
       return new Response(
@@ -35,22 +35,32 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get admin/owner emails for this tenant
+    // Get owner and manager emails for this tenant (they should receive notifications)
     const { data: adminRoles } = await supabase
       .from('user_roles')
       .select('user_id')
       .eq('tenant_id', tenant_id)
-      .in('role', ['admin', 'super_admin', 'manager']);
+      .in('role', ['owner', 'manager', 'super_admin']);
 
     if (!adminRoles || adminRoles.length === 0) {
-      console.log('No admins found for tenant:', tenant_id);
+      console.log('No owners/managers found for tenant:', tenant_id);
       return new Response(
-        JSON.stringify({ success: true, message: 'No admins to notify' }),
+        JSON.stringify({ success: true, message: 'No owners/managers to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const adminIds = adminRoles.map(r => r.user_id);
+    // Filter out the user themselves (don't notify about own actions)
+    const adminIds = adminRoles.map(r => r.user_id).filter(id => id !== user_id);
+    
+    if (adminIds.length === 0) {
+      console.log('No other owners/managers to notify');
+      return new Response(
+        JSON.stringify({ success: true, message: 'No other owners/managers to notify' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: adminProfiles } = await supabase
       .from('profiles')
       .select('email, full_name')
@@ -66,36 +76,42 @@ serve(async (req) => {
     }
 
     // Format action message
-    const actionMessages: Record<string, { title: string, message: string, emoji: string }> = {
+    const actionMessages: Record<string, { title: string; message: string; emoji: string; color: string }> = {
       'start_work': {
         title: '🟢 Team Member Started Work',
         message: 'started their work session',
-        emoji: '🟢'
+        emoji: '🟢',
+        color: '#22c55e'
       },
       'start_break': {
-        title: '🟡 Team Member On Break',
+        title: '☕ Team Member On Break',
         message: 'started a break',
-        emoji: '☕'
+        emoji: '☕',
+        color: '#eab308'
       },
       'resume_work': {
-        title: '🔵 Team Member Resumed Work',
+        title: '▶️ Team Member Resumed Work',
         message: 'resumed working',
-        emoji: '▶️'
+        emoji: '▶️',
+        color: '#3b82f6'
       },
       'end_work': {
-        title: '🔴 Team Member Ended Work',
+        title: '🏁 Team Member Ended Work',
         message: 'ended their work session',
-        emoji: '🏁'
+        emoji: '🏁',
+        color: '#ef4444'
       }
     };
 
     const actionInfo = actionMessages[action] || {
       title: 'Work Activity Update',
       message: action,
-      emoji: '📊'
+      emoji: '📊',
+      color: '#6b7280'
     };
 
     const timestamp = new Date().toLocaleString('en-US', {
+      weekday: 'long',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -103,6 +119,28 @@ serve(async (req) => {
       minute: '2-digit',
       hour12: true
     });
+
+    // Build summary section for end_work
+    let summarySection = '';
+    if (action === 'end_work' && (work_summary || break_summary)) {
+      summarySection = `
+        <div style="background: #f0f9ff; border-radius: 8px; padding: 20px; margin-top: 20px;">
+          <h3 style="margin: 0 0 12px 0; color: #0369a1; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">📋 Work Summary</h3>
+          ${work_summary ? `
+            <div style="margin-bottom: 12px;">
+              <p style="margin: 0 0 4px 0; color: #64748b; font-size: 12px; font-weight: 600;">Total Work Time</p>
+              <p style="margin: 0; color: #334155; font-size: 16px; font-weight: bold;">${work_summary}</p>
+            </div>
+          ` : ''}
+          ${break_summary ? `
+            <div>
+              <p style="margin: 0 0 4px 0; color: #64748b; font-size: 12px; font-weight: 600;">Total Break Time</p>
+              <p style="margin: 0; color: #334155; font-size: 16px; font-weight: bold;">${break_summary}</p>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -116,35 +154,49 @@ serve(async (req) => {
           <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
             <div style="background: white; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
               <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #00008B; font-size: 24px; margin: 0 0 8px 0;">${actionInfo.emoji} Work Activity Update</h1>
+                <div style="width: 60px; height: 60px; background: ${actionInfo.color}20; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                  <span style="font-size: 28px;">${actionInfo.emoji}</span>
+                </div>
+                <h1 style="color: #1e293b; font-size: 22px; margin: 0 0 8px 0;">Work Activity Update</h1>
                 <p style="color: #64748b; font-size: 14px; margin: 0;">${timestamp}</p>
               </div>
               
-              <div style="background: #f8fafc; border-left: 4px solid #00008B; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                <p style="margin: 0 0 8px 0; color: #334155; font-size: 16px;">
-                  <strong>${user_name || user_email}</strong> ${actionInfo.message}
+              <div style="background: linear-gradient(135deg, ${actionInfo.color}10, ${actionInfo.color}05); border-left: 4px solid ${actionInfo.color}; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; color: #1e293b; font-size: 18px; font-weight: 600;">
+                  ${user_name || 'Team Member'}
+                </p>
+                <p style="margin: 0 0 12px 0; color: #334155; font-size: 16px;">
+                  ${actionInfo.message}
                 </p>
                 <p style="margin: 0; color: #64748b; font-size: 14px;">
-                  Email: ${user_email}
+                  📧 ${user_email}
                 </p>
               </div>
 
-              <div style="background: #fef3c7; border-radius: 8px; padding: 16px; margin-top: 24px;">
-                <p style="margin: 0; color: #92400e; font-size: 13px;">
-                  💡 <strong>Tip:</strong> You can view all team activity in the Work Tracking dashboard.
-                </p>
+              ${summarySection}
+
+              <div style="text-align: center; margin-top: 32px;">
+                <a href="https://hiremetrics.co.uk/team/work-tracking" 
+                   style="display: inline-block; background: #00008B; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                  View Team Dashboard
+                </a>
               </div>
             </div>
             
-            <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px;">
-              © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
-            </p>
+            <div style="text-align: center; margin-top: 24px;">
+              <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
+              </p>
+              <p style="color: #94a3b8; font-size: 11px; margin: 8px 0 0 0;">
+                You're receiving this because you're an owner or manager of this workspace.
+              </p>
+            </div>
           </div>
         </body>
       </html>
     `;
 
-    // Send emails to all admins
+    // Send emails to all owners/managers
     const emailPromises = adminProfiles.map(admin => 
       fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -155,18 +207,24 @@ serve(async (req) => {
         body: JSON.stringify({
           from: 'HireMetrics <admin@hiremetrics.co.uk>',
           to: [admin.email],
-          subject: actionInfo.title,
+          subject: `${actionInfo.title} - ${user_name || user_email}`,
           html: emailHtml,
         }),
       })
     );
 
-    await Promise.all(emailPromises);
+    const results = await Promise.allSettled(emailPromises);
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const failCount = results.filter(r => r.status === 'rejected').length;
 
-    console.log(`Work activity notifications sent to ${adminProfiles.length} admins`);
+    if (failCount > 0) {
+      console.warn(`${failCount} email(s) failed to send`);
+    }
+
+    console.log(`Work activity notifications sent to ${successCount}/${adminProfiles.length} owners/managers for action: ${action}`);
 
     return new Response(
-      JSON.stringify({ success: true, notified: adminProfiles.length }),
+      JSON.stringify({ success: true, notified: successCount, failed: failCount }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
