@@ -85,7 +85,6 @@ export default function BillingPage() {
   const [currentPlanData, setCurrentPlanData] = useState<SubscriptionPlan | null>(null);
   const [allPlans, setAllPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'plans' | 'invoices'>('plans');
   const [showManageDialog, setShowManageDialog] = useState(false);
   const { usageStats, isLoading: isLoadingUsage } = useUsageLimits();
@@ -164,7 +163,7 @@ export default function BillingPage() {
     // In a real app, this would generate/download a PDF
   };
 
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+  const handleSelectPlan = (plan: SubscriptionPlan) => {
     if (!user) {
       toast.error('Please log in to continue');
       return;
@@ -182,42 +181,8 @@ export default function BillingPage() {
       return;
     }
 
-    setProcessingPlanId(plan.id);
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId: plan.id, billingCycle: 'monthly' }
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        // Stripe Checkout can't run inside an embedded iframe reliably.
-        // In preview (iframe), open a new tab; otherwise, navigate in the same tab.
-        const isInIframe = (() => {
-          try {
-            return window.self !== window.top;
-          } catch {
-            return true;
-          }
-        })();
-
-        if (isInIframe) {
-          const w = window.open(data.url, '_blank', 'noopener,noreferrer');
-          if (!w) {
-            toast.error('Popup blocked. Please allow popups to open checkout.');
-          }
-        } else {
-          window.location.assign(data.url);
-        }
-      } else {
-        throw new Error('No checkout URL returned');
-      }
-    } catch (error: any) {
-      console.error('Checkout error:', error);
-      toast.error(error.message || 'Failed to start checkout');
-    } finally {
-      setProcessingPlanId(null);
-    }
+    // Navigate to checkout page where user can apply promo codes
+    window.location.href = `/checkout?plan=${plan.id}`;
   };
 
   const handleManageSubscription = () => {
@@ -367,7 +332,6 @@ export default function BillingPage() {
               {allPlans.map((plan, i) => {
                 const Icon = planIcons[plan.slug] || Zap;
                 const isCurrentPlan = currentPlanData?.id === plan.id;
-                const isProcessing = processingPlanId === plan.id;
                 const isPopular = plan.slug === 'pro';
 
                 return (
@@ -424,19 +388,10 @@ export default function BillingPage() {
                         <Button 
                           className="w-full" 
                           variant={isCurrentPlan ? 'outline' : isPopular ? 'default' : 'outline'}
-                          disabled={isCurrentPlan || isProcessing}
+                          disabled={isCurrentPlan}
                           onClick={() => handleSelectPlan(plan)}
                         >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Processing...
-                            </>
-                          ) : isCurrentPlan ? (
-                            'Current Plan'
-                          ) : (
-                            'Choose Plan'
-                          )}
+                          {isCurrentPlan ? 'Current Plan' : 'Choose Plan'}
                         </Button>
                       </CardContent>
                     </Card>
