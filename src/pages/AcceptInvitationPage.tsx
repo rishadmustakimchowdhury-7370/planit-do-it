@@ -80,51 +80,44 @@ export default function AcceptInvitationPage() {
       return;
     }
 
+    if (!token) {
+      toast.error('Invalid invitation link');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // First, update the invitation status to 'accepted'
-      const { error: updateError } = await supabase
-        .from('team_invitations')
-        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-        .eq('token', token);
-
-      if (updateError) {
-        console.error('Error updating invitation:', updateError);
-      }
-
-      // Create the user account with emailRedirectTo to avoid confirmation email
-      // Since they clicked an invitation link, their email is already verified
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invitation.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.full_name,
-            tenant_id: invitation.tenant_id,
-            role: invitation.role,
-            invited_via_token: true,
-          },
-          emailRedirectTo: `${window.location.origin}/auth`,
+      // Use an edge function so invited users don’t depend on Supabase confirmation emails / SMTP.
+      const { data, error } = await supabase.functions.invoke('accept-team-invitation', {
+        body: {
+          token,
+          full_name: formData.full_name.trim(),
+          password: formData.password,
         }
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // If email confirmation is required, show appropriate message
-        if (authData.user.identities?.length === 0) {
-          toast.error('This email is already registered. Please sign in instead.');
-          navigate('/auth');
-        } else if (authData.session) {
-          // User was auto-confirmed (no email confirmation required)
-          toast.success('Account created successfully! You are now logged in.');
-          navigate('/dashboard');
-        } else {
-          // Email confirmation is required by Supabase settings
-          toast.success('Account created! Please check your email to confirm, then sign in.');
-          navigate('/auth');
-        }
+      if (error) {
+        throw error;
       }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to create account');
+      }
+
+      // Sign in immediately
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: invitation.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        toast.success('Account created. Please sign in to continue.');
+        navigate('/auth');
+        return;
+      }
+
+      toast.success('Welcome! Your account is ready.');
+      navigate('/dashboard');
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
       toast.error(error.message || 'Failed to create account');

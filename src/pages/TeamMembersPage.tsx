@@ -81,6 +81,7 @@ interface TeamInvitation {
   email: string;
   role: string;
   status: string;
+  token: string;
   expires_at: string;
   created_at: string;
   invited_by: string;
@@ -369,7 +370,7 @@ export default function TeamMembersPage() {
         body: {
           email: invitation.email,
           role: invitation.role,
-          token: invitation.id, // Use ID as token reference
+          token: invitation.token, // resend the original token so the link stays valid
           tenant_id: tenantId,
           invited_by_name: profile?.full_name || 'Your team'
         }
