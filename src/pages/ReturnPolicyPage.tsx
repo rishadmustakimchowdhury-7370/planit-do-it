@@ -67,15 +67,15 @@ export default function ReturnPolicyPage() {
 
             <section className="mb-8">
               <h2 className="text-2xl font-bold mb-4">4. Refund Policy</h2>
-              <h3 className="text-xl font-semibold mb-3">4.1 Money-Back Guarantee</h3>
+              <h3 className="text-xl font-semibold mb-3">4.1 7-Day Money-Back Guarantee</h3>
               <p className="text-muted-foreground mb-4">
-                We offer a 14-day money-back guarantee on all new paid subscriptions. If you're not satisfied within the first 14 days of your paid subscription, contact us for a full refund.
+                <strong>We offer a 7-day money-back guarantee on all new paid subscriptions.</strong> If you're not satisfied within the first 7 days of your paid subscription, contact us for a full refund. No questions asked.
               </p>
 
               <h3 className="text-xl font-semibold mb-3">4.2 Refund Eligibility</h3>
-              <p className="text-muted-foreground mb-4">Refunds may be granted for:</p>
+              <p className="text-muted-foreground mb-4">Refunds are automatically granted for:</p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-2">
-                <li>Requests within 14 days of initial subscription</li>
+                <li><strong>Requests within 7 days of initial subscription</strong></li>
                 <li>Duplicate charges or billing errors</li>
                 <li>Service outages exceeding 48 hours</li>
                 <li>Significant feature changes that affect your use case</li>
@@ -84,8 +84,8 @@ export default function ReturnPolicyPage() {
               <h3 className="text-xl font-semibold mb-3">4.3 Non-Refundable Cases</h3>
               <p className="text-muted-foreground mb-4">Refunds are generally not provided for:</p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-2">
-                <li>Requests made after 14 days of subscription</li>
-                <li>Unused portions of subscription periods after 14 days</li>
+                <li>Requests made after 7 days of subscription</li>
+                <li>Unused portions of subscription periods after 7 days</li>
                 <li>Account termination due to Terms of Service violations</li>
                 <li>Changes in business needs or circumstances</li>
               </ul>
@@ -94,15 +94,15 @@ export default function ReturnPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-bold mb-4">5. How to Request a Refund</h2>
               <p className="text-muted-foreground mb-4">
-                To request a refund, please contact our support team:
+                To request a refund within your 7-day guarantee period, please contact our support team:
               </p>
               <ul className="list-disc pl-6 text-muted-foreground mb-4 space-y-2">
                 <li>Email us at {BRAND.email}</li>
-                <li>Call us at +44 7426 468550</li>
+                <li>Call or WhatsApp us at +447426468550</li>
                 <li>Use the live chat on our website</li>
               </ul>
               <p className="text-muted-foreground mb-4">
-                Please include your account email, reason for the refund, and any relevant details. We aim to process all refund requests within 5-7 business days.
+                Please include your account email and reason for the refund. We aim to process all refund requests within 3-5 business days.
               </p>
             </section>
 
@@ -135,7 +135,7 @@ export default function ReturnPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-bold mb-4">8. Exceptional Circumstances</h2>
               <p className="text-muted-foreground mb-4">
-                We understand that exceptional circumstances may arise. If you believe you have a valid case for a refund outside of these guidelines, please contact us. We review each case individually and aim to find fair solutions.
+                We understand that exceptional circumstances may arise. If you believe you have a valid case for a refund outside of the 7-day window, please contact us. We review each case individually and aim to find fair solutions.
               </p>
             </section>
 
@@ -146,9 +146,16 @@ export default function ReturnPolicyPage() {
               </p>
               <ul className="list-none text-muted-foreground space-y-2">
                 <li><strong>Email:</strong> {BRAND.email}</li>
-                <li><strong>Phone:</strong> +44 7426 468550</li>
+                <li><strong>Phone:</strong> +447426468550 (WhatsApp Available)</li>
                 <li><strong>Live Support:</strong> Available 24/7</li>
-                <li><strong>Company:</strong> Tasaru Ventures Ltd</li>
+                <li><strong>Address:</strong></li>
+                <li className="pl-4">Suite A</li>
+                <li className="pl-4">82 James Carter Road</li>
+                <li className="pl-4">Mildenhall</li>
+                <li className="pl-4">Bury St. Edmunds</li>
+                <li className="pl-4">United Kingdom</li>
+                <li className="pl-4">IP28 7DE</li>
+                <li className="mt-2"><strong>Company:</strong> Tasaru Ventures Ltd</li>
                 <li><strong>Business License:</strong> 16399822</li>
               </ul>
             </section>

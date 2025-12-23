@@ -14,6 +14,7 @@ import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff, BarChart3, Target, T
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BRAND, getLogoHTML } from '@/components/brand/Logo';
+import { MathCaptcha } from '@/components/ui/math-captcha';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -98,6 +99,7 @@ export default function AuthPage() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSignupCaptchaVerified, setIsSignupCaptchaVerified] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showNewConfirmPassword, setShowNewConfirmPassword] = useState(false);
   const { signIn, signUp, signInWithGoogle, user, isLoading: authLoading } = useAuth();
@@ -772,7 +774,10 @@ export default function AuthPage() {
                             )}
                           </div>
 
-                          <Button type="submit" className="w-full h-12 text-base font-medium" disabled={isLoading}>
+                          {/* Math Captcha */}
+                          <MathCaptcha onVerified={setIsSignupCaptchaVerified} />
+
+                          <Button type="submit" className="w-full h-12 text-base font-medium" disabled={isLoading || !isSignupCaptchaVerified}>
                             {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                             Create Account
                           </Button>

@@ -131,8 +131,15 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-none text-muted-foreground space-y-2">
                 <li><strong>Email:</strong> {BRAND.email}</li>
-                <li><strong>Phone:</strong> +44 7426 468550</li>
-                <li><strong>Company:</strong> Tasaru Ventures Ltd</li>
+                <li><strong>Phone:</strong> +447426468550 (WhatsApp Available)</li>
+                <li><strong>Address:</strong></li>
+                <li className="pl-4">Suite A</li>
+                <li className="pl-4">82 James Carter Road</li>
+                <li className="pl-4">Mildenhall</li>
+                <li className="pl-4">Bury St. Edmunds</li>
+                <li className="pl-4">United Kingdom</li>
+                <li className="pl-4">IP28 7DE</li>
+                <li className="mt-2"><strong>Company:</strong> Tasaru Ventures Ltd</li>
                 <li><strong>Business License:</strong> 16399822</li>
               </ul>
             </section>
