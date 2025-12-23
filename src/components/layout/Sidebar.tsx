@@ -118,7 +118,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-sidebar-border/50">
         <Link to="/dashboard" className="flex items-center gap-3">
-          <Logo size={collapsed ? 'sm' : 'md'} showText={!collapsed} />
+          <Logo size={collapsed ? 'sm' : 'md'} showText={!collapsed} variant="light" />
         </Link>
       </div>
 
