@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
-import { SendWhatsAppDialog } from '@/components/communication/SendWhatsAppDialog';
+
 import { 
   ArrowLeft, 
   MapPin, 
@@ -75,7 +75,7 @@ const CandidateDetailPage = () => {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [whatsAppDialogOpen, setWhatsAppDialogOpen] = useState(false);
+  
   const [addToJobDialogOpen, setAddToJobDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -496,17 +496,6 @@ const CandidateDetailPage = () => {
         }}
       />
 
-      {/* WhatsApp Dialog */}
-      {candidate.phone && (
-        <SendWhatsAppDialog
-          open={whatsAppDialogOpen}
-          onOpenChange={setWhatsAppDialogOpen}
-          recipientPhone={candidate.phone}
-          recipientName={candidate.full_name}
-          context="candidate"
-          contextData={{ candidateName: candidate.full_name }}
-        />
-      )}
 
       {/* Add to Job Dialog */}
       <AddToJobDialog
