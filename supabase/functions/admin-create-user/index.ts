@@ -44,9 +44,22 @@ serve(async (req) => {
     }
 
     // Check if caller is super admin
-    const { data: isSuperAdmin } = await supabaseClient.rpc('is_super_admin', { 
-      user_id: caller.id 
-    });
+    // IMPORTANT: RPC param name must match function argument name
+    const { data: isSuperAdmin, error: superAdminError } = await supabaseClient.rpc(
+      "is_super_admin",
+      { _user_id: caller.id }
+    );
+
+    if (superAdminError) {
+      console.error("Error checking super admin status:", superAdminError);
+      return new Response(
+        JSON.stringify({ error: "Failed to verify permissions" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     if (!isSuperAdmin) {
       return new Response(
