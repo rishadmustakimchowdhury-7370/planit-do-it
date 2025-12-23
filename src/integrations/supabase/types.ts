@@ -1805,6 +1805,68 @@ export type Database = {
           },
         ]
       }
+      linkedin_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          connected_at: string | null
+          created_at: string
+          disconnected_at: string | null
+          id: string
+          is_connected: boolean
+          linkedin_avatar_url: string | null
+          linkedin_email: string | null
+          linkedin_name: string | null
+          linkedin_profile_id: string | null
+          linkedin_profile_url: string | null
+          tenant_id: string
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          id?: string
+          is_connected?: boolean
+          linkedin_avatar_url?: string | null
+          linkedin_email?: string | null
+          linkedin_name?: string | null
+          linkedin_profile_id?: string | null
+          linkedin_profile_url?: string | null
+          tenant_id: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          id?: string
+          is_connected?: boolean
+          linkedin_avatar_url?: string | null
+          linkedin_email?: string | null
+          linkedin_name?: string | null
+          linkedin_profile_id?: string | null
+          linkedin_profile_url?: string | null
+          tenant_id?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_message_logs: {
         Row: {
           candidate_id: string

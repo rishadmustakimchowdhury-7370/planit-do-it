@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LinkedInTemplatesManager } from '@/components/linkedin/LinkedInTemplatesManager';
 import { LinkedInCandidatesList } from '@/components/linkedin/LinkedInCandidatesList';
+import { LinkedInConnectionCard } from '@/components/linkedin/LinkedInConnectionCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -331,11 +332,15 @@ export default function LinkedInMessagingPage() {
           {/* Settings Tab - Owner/Manager Only */}
           {(isOwner || isManager) && (
             <TabsContent value="settings" className="space-y-6">
+              {/* LinkedIn Connection */}
+              <LinkedInConnectionCard />
+
+              {/* Messaging Settings */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Linkedin className="w-5 h-5 text-[#0077B5]" />
-                    LinkedIn Messaging Settings
+                    <Settings className="w-5 h-5" />
+                    Messaging Settings
                   </CardTitle>
                   <CardDescription>
                     Configure LinkedIn messaging for your organization
