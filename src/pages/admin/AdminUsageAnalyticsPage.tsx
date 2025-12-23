@@ -42,22 +42,20 @@ export default function AdminUsageAnalyticsPage() {
   const fetchUsageAnalytics = async () => {
     setIsLoading(true);
     try {
-      // Fetch all tenants with subscription plans
+      // Fetch all tenants
       const { data: tenants, error: tenantsError } = await supabase
         .from('tenants')
-        .select(`
-          id,
-          name,
-          subscription_plan_id,
-          subscription_plans (
-            name,
-            max_users,
-            max_jobs,
-            max_candidates,
-            match_credits_monthly
-          )
-        `)
+        .select('id, name, subscription_plan_id')
         .order('name');
+
+      if (tenantsError) throw tenantsError;
+
+      // Fetch subscription plans separately
+      const { data: plans } = await supabase
+        .from('subscription_plans')
+        .select('id, name, max_users, max_jobs, max_candidates, match_credits_monthly');
+      
+      const plansMap = new Map((plans || []).map(p => [p.id, p]));
 
       if (tenantsError) throw tenantsError;
 
@@ -95,7 +93,7 @@ export default function AdminUsageAnalyticsPage() {
             .eq('tenant_id', tenant.id)
             .eq('is_active', true);
 
-          const plan = tenant.subscription_plans || {};
+          const plan = plansMap.get(tenant.subscription_plan_id) || {} as any;
           return {
             tenant_id: tenant.id,
             tenant_name: tenant.name,
