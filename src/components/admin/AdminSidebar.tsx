@@ -17,6 +17,7 @@ import {
   Calendar,
   Search,
   Tag,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const adminNavItems = [
   { title: 'Promo Codes', url: '/admin/promo-codes', icon: Tag },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Testimonials', url: '/admin/testimonials', icon: MessageSquare },
+  { title: 'Trusted Clients', url: '/admin/trusted-clients', icon: Building2 },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
   { title: 'SEO Settings', url: '/admin/seo', icon: Search },
   { title: 'Email Templates', url: '/admin/emails', icon: Mail },
