@@ -134,6 +134,148 @@ function generateGracePeriodNotificationHTML(
   `;
 }
 
+// Generate trial period notification email
+function generateTrialNotificationHTML(
+  data: {
+    userName: string;
+    companyName: string;
+    trialDays: number;
+    trialEndDate: string;
+    companyLogo?: string;
+    isWelcome?: boolean;
+  }
+): string {
+  const logoHTML = data.companyLogo 
+    ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
+    : `<div style="display: inline-flex; align-items: center; gap: 10px;">
+        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 10px; padding: 10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            <rect width="20" height="14" x="2" y="6" rx="2"/>
+          </svg>
+        </div>
+        <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
+          <span style="color: #0052CC;">Recruitify</span><span style="color: #64748b; font-weight: 500;">CRM</span>
+        </span>
+      </div>`;
+
+  const title = data.isWelcome ? '🎉 Your Free Trial Has Started!' : '⏰ Trial Period Extended';
+  const subtitle = data.isWelcome 
+    ? `Welcome aboard! Enjoy ${data.trialDays} days of full access.`
+    : `Your trial has been extended to ${data.trialDays} days.`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f1f5f9;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
+          
+          <!-- Logo Header -->
+          <tr>
+            <td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0;" align="center">
+              ${logoHTML}
+            </td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); padding: 35px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700;">${title}</h1>
+              <p style="margin: 10px 0 0; color: #e9d5ff; font-size: 16px;">${subtitle}</p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">
+                Hello ${data.userName}! 👋
+              </p>
+              <p style="margin: 0 0 25px; color: #475569; font-size: 16px; line-height: 1.7;">
+                ${data.isWelcome 
+                  ? `Great news! A <strong>${data.trialDays}-day free trial</strong> has been activated for your <strong>${data.companyName}</strong> account. You now have full access to all premium features!`
+                  : `Your trial period for <strong>${data.companyName}</strong> has been extended. You now have <strong>${data.trialDays} days</strong> to explore all our features.`
+                }
+              </p>
+              
+              <!-- Trial Period Card -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #faf5ff 0%, #f3e8ff 100%); border-radius: 16px; border: 2px solid #8b5cf6; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 24px; text-align: center;">
+                    <p style="margin: 0 0 8px; color: #6b21a8; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Trial Ends On</p>
+                    <p style="margin: 0; color: #8b5cf6; font-size: 28px; font-weight: 700;">${data.trialEndDate}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px; color: #1e40af; font-size: 14px; font-weight: 600;">✨ What you can do during your trial:</p>
+                    <ul style="margin: 0; padding-left: 20px; color: #3b82f6; font-size: 14px; line-height: 1.8;">
+                      <li>AI-powered candidate matching</li>
+                      <li>Unlimited candidate profiles</li>
+                      <li>Email campaigns & templates</li>
+                      <li>Team collaboration features</li>
+                      <li>Full analytics dashboard</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
+                <tr>
+                  <td align="center">
+                    <a href="https://recruitifycrm.com/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
+                      🚀 Start Exploring
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Signature -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 25px;">
+                <tr>
+                  <td>
+                    <p style="margin: 0; color: #1e293b; font-size: 15px;">
+                      Best regards,<br>
+                      <strong style="color: #0052CC;">The Recruitify CRM Team</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;" align="center">
+              <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
+                Powered by <strong style="color: #0052CC;">Recruitify CRM</strong>
+              </p>
+              <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                © ${new Date().getFullYear()} Recruitify CRM. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
 // Generate expired subscription notification
 function generateExpiredNotificationHTML(
   data: {
@@ -607,6 +749,176 @@ Deno.serve(async (req) => {
           JSON.stringify({ 
             success: true, 
             tenants_past_grace: expiredGrace?.length || 0
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'check_expired_trials': {
+        // Find tenants whose trial has expired
+        const now = new Date();
+        
+        const { data: expiredTrials, error: fetchError } = await supabase
+          .from('tenants')
+          .select(`
+            id,
+            name,
+            logo_url,
+            trial_expires_at,
+            trial_days
+          `)
+          .lt('trial_expires_at', now.toISOString())
+          .eq('subscription_status', 'trial');
+
+        if (fetchError) throw fetchError;
+
+        console.log(`Found ${expiredTrials?.length || 0} tenants with expired trials`);
+
+        let processed = 0;
+        let emailsSent = 0;
+
+        for (const tenant of expiredTrials || []) {
+          // Update tenant status to expired
+          await supabase
+            .from('tenants')
+            .update({
+              subscription_status: 'expired',
+              is_paused: true,
+              paused_at: now.toISOString(),
+              paused_reason: 'Trial period expired',
+              updated_at: now.toISOString()
+            })
+            .eq('id', tenant.id);
+
+          processed++;
+
+          // Notify users
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('tenant_id', tenant.id);
+
+          if (resend && profiles) {
+            for (const profile of profiles) {
+              if (!profile.email) continue;
+              
+              const html = generateExpiredNotificationHTML({
+                userName: profile.full_name || 'Valued Customer',
+                companyName: tenant.name,
+                dataRetentionDays: 30,
+                dataDeleteDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                }),
+                companyLogo: tenant.logo_url
+              });
+
+              try {
+                await resend.emails.send({
+                  from: 'Recruitify CRM <info@recruitifycrm.com>',
+                  to: [profile.email],
+                  subject: `😔 Your Free Trial Has Ended`,
+                  html
+                });
+                emailsSent++;
+              } catch (emailError) {
+                console.error(`Failed to send trial expiry email to ${profile.email}:`, emailError);
+              }
+            }
+          }
+
+          // Log audit
+          await supabase.from('audit_log').insert({
+            action: 'trial_expired',
+            entity_type: 'tenant',
+            entity_id: tenant.id,
+            new_values: { 
+              expired_at: now.toISOString(),
+              trial_days: tenant.trial_days
+            }
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            processed,
+            emails_sent: emailsSent
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'send_trial_notification': {
+        if (!tenant_id) {
+          throw new Error('tenant_id is required');
+        }
+
+        // Get tenant details
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('name, logo_url, trial_expires_at, trial_days')
+          .eq('id', tenant_id)
+          .single();
+
+        if (tenantError) throw tenantError;
+
+        // Get tenant users
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('tenant_id', tenant_id);
+
+        let emailsSent = 0;
+        if (resend && profiles && tenant) {
+          for (const profile of profiles) {
+            if (!profile.email) continue;
+            
+            const trialEndDate = tenant.trial_expires_at 
+              ? new Date(tenant.trial_expires_at).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })
+              : 'N/A';
+
+            const html = generateTrialNotificationHTML({
+              userName: profile.full_name || 'Valued Customer',
+              companyName: tenant.name,
+              trialDays: tenant.trial_days || 14,
+              trialEndDate,
+              companyLogo: tenant.logo_url,
+              isWelcome: true
+            });
+
+            try {
+              await resend.emails.send({
+                from: 'Recruitify CRM <info@recruitifycrm.com>',
+                to: [profile.email],
+                subject: `🎉 Your ${tenant.trial_days || 14}-Day Free Trial Has Started!`,
+                html
+              });
+              emailsSent++;
+            } catch (emailError) {
+              console.error(`Failed to send trial notification to ${profile.email}:`, emailError);
+            }
+          }
+        }
+
+        // Log audit
+        await supabase.from('audit_log').insert({
+          action: 'send_trial_notification',
+          entity_type: 'tenant',
+          entity_id: tenant_id,
+          new_values: { emails_sent: emailsSent }
+        });
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            emails_sent: emailsSent
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
