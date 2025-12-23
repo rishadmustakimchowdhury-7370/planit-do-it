@@ -3155,6 +3155,8 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_status"]
             | null
           suspended_at: string | null
+          trial_days: number | null
+          trial_expires_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -3178,6 +3180,8 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_status"]
             | null
           suspended_at?: string | null
+          trial_days?: number | null
+          trial_expires_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -3201,6 +3205,8 @@ export type Database = {
             | Database["public"]["Enums"]["subscription_status"]
             | null
           suspended_at?: string | null
+          trial_days?: number | null
+          trial_expires_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
