@@ -80,14 +80,14 @@ export function Logo({ size = 'md', showText = true, variant = 'default', classN
       {showText && (
         <div className="flex flex-col">
           <span className={cn('font-semibold tracking-tight leading-none', config.text, textColor)}>
-            HireMetrics
+            Hiremetrics
           </span>
           {size !== 'sm' && (
             <span className={cn(
               "text-[10px] font-medium tracking-wide uppercase mt-0.5",
               variant === 'light' ? 'text-white/70' : 'text-muted-foreground'
             )}>
-              Recruitment Performance OS
+              Recruitment Analytics
             </span>
           )}
         </div>
@@ -99,7 +99,7 @@ export function Logo({ size = 'md', showText = true, variant = 'default', classN
 export function LogoText({ className }: { className?: string }) {
   return (
     <span className={cn('font-heading font-bold text-foreground', className)}>
-      HireMetrics
+      Hiremetrics
     </span>
   );
 }
@@ -117,7 +117,7 @@ export function LogoCompact({ size = 'md', className }: { size?: 'sm' | 'md' | '
         <HireMetricsIcon size={config.icon} className="text-primary-foreground" />
       </div>
       <span className={cn('font-heading font-bold tracking-tight text-foreground', config.text)}>
-        HireMetrics
+        Hiremetrics
       </span>
     </div>
   );
@@ -142,10 +142,10 @@ export function getLogoHTML(options?: { size?: 'sm' | 'md' | 'lg' }) {
       </div>
       <div style="display: flex; flex-direction: column;">
         <span style="font-family: 'Poppins', Arial, sans-serif; font-weight: 700; font-size: ${fontSize}; line-height: 1; color: #0F172A;">
-          HireMetrics
+          Hiremetrics
         </span>
         <span style="font-family: Arial, sans-serif; font-size: 10px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">
-          Recruitment Performance OS
+          Recruitment Analytics
         </span>
       </div>
     </div>
@@ -153,11 +153,11 @@ export function getLogoHTML(options?: { size?: 'sm' | 'md' | 'lg' }) {
 }
 
 export const BRAND = {
-  name: 'HireMetrics',
-  fullName: 'HireMetrics - Recruitment Performance OS',
-  shortName: 'HireMetrics',
-  tagline: 'Track Work. Prove Performance. Hire Better.',
-  category: 'Recruitment Performance OS',
+  name: 'Hiremetrics',
+  fullName: 'Hiremetrics - Recruitment Analytics Platform',
+  shortName: 'Hiremetrics',
+  tagline: 'Measure What Matters. Hire Smarter.',
+  category: 'Recruitment Analytics',
   email: 'info@hiremetrics.io',
   supportEmail: 'support@hiremetrics.io',
   website: 'https://hiremetrics.io',
