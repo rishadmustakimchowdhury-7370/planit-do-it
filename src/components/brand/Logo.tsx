@@ -79,11 +79,14 @@ export function Logo({ size = 'md', showText = true, variant = 'default', classN
       </div>
       {showText && (
         <div className="flex flex-col">
-          <span className={cn('font-heading font-bold tracking-tight leading-none', config.text, textColor)}>
+          <span className={cn('font-semibold tracking-tight leading-none', config.text, textColor)}>
             HireMetrics
           </span>
           {size !== 'sm' && (
-            <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5">
+            <span className={cn(
+              "text-[10px] font-medium tracking-wide uppercase mt-0.5",
+              variant === 'light' ? 'text-white/70' : 'text-muted-foreground'
+            )}>
               Recruitment Performance OS
             </span>
           )}
