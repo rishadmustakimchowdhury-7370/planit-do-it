@@ -255,35 +255,48 @@ const CandidateDetailPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col items-start lg:items-end gap-3 w-full lg:w-auto">
-              <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+            <div className="flex flex-col gap-2.5 w-full lg:w-auto">
+              {/* Top row - Primary actions */}
+              <div className="grid grid-cols-3 gap-2">
                 <Button 
                   size="sm" 
                   variant="outline"
-                  className="gap-1.5 flex-1 sm:flex-none" 
+                  className="gap-1.5 h-9 transition-all duration-150 hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]" 
                   onClick={() => navigate(`/candidates/${candidate.id}/edit`)}
                 >
-                  <Pencil className="w-4 h-4" />
-                  <span className="hidden xs:inline">Edit Profile</span>
-                  <span className="xs:hidden">Edit</span>
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
                 </Button>
-                <Button size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setAddToJobDialogOpen(true)}>
-                  <Briefcase className="w-4 h-4" />
-                  <span className="hidden xs:inline">Add to Job</span>
-                  <span className="xs:hidden">Job</span>
+                <Button 
+                  size="sm" 
+                  className="gap-1.5 h-9 transition-all duration-150 active:scale-[0.98]" 
+                  onClick={() => setAddToJobDialogOpen(true)}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  Job
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={handleDownloadCV}>
-                  <Download className="w-4 h-4" />
-                  <span className="hidden xs:inline">Download CV</span>
-                  <span className="xs:hidden">CV</span>
-                </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 flex-1 sm:flex-none" onClick={() => setEmailDialogOpen(true)}>
-                  <Mail className="w-4 h-4" />
-                  <span className="hidden sm:inline">Send Email</span>
-                  <span className="sm:hidden">Email</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5 h-9 transition-all duration-150 hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]" 
+                  onClick={handleDownloadCV}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  CV
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+
+              {/* Bottom row - Communication actions */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5 h-9 transition-all duration-150 hover:border-info/50 hover:bg-info/5 active:scale-[0.98]" 
+                  onClick={() => setEmailDialogOpen(true)}
+                >
+                  <Mail className="w-3.5 h-3.5 text-info" />
+                  Send Email
+                </Button>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -291,9 +304,9 @@ const CandidateDetailPage = () => {
                         variant="outline" 
                         size="sm" 
                         className={cn(
-                          "gap-1.5 flex-1 sm:flex-none transition-all duration-200",
+                          "gap-1.5 h-9 transition-all duration-150",
                           formatWhatsAppNumber(candidate.phone) 
-                            ? "hover:bg-green-50 hover:border-green-300 dark:hover:bg-green-950/20 active:scale-95" 
+                            ? "hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/20 active:scale-[0.98]" 
                             : "opacity-50 cursor-not-allowed"
                         )}
                         onClick={() => {
@@ -304,7 +317,7 @@ const CandidateDetailPage = () => {
                           openWhatsAppChat(candidate.phone);
                         }}
                       >
-                        <MessageCircle className="w-4 h-4 text-green-500" />
+                        <MessageCircle className="w-3.5 h-3.5 text-green-500" />
                         WhatsApp
                       </Button>
                     </TooltipTrigger>
@@ -315,16 +328,18 @@ const CandidateDetailPage = () => {
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {candidate.linkedin_url && (
+                {candidate.linkedin_url ? (
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-1.5 flex-1 sm:flex-none"
+                    className="gap-1.5 h-9 transition-all duration-150 hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 active:scale-[0.98]"
                     onClick={() => window.open(candidate.linkedin_url!, '_blank')}
                   >
-                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                    <Linkedin className="w-3.5 h-3.5 text-[#0077B5]" />
                     View Profile
                   </Button>
+                ) : (
+                  <div className="h-9" /> 
                 )}
               </div>
             </div>
