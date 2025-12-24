@@ -349,9 +349,12 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "HireMetrics <admin@hiremetrics.co.uk>",
+          // IMPORTANT: Use resend.dev sender to avoid DMARC/spoofing issues
+          // when delivering to @hiremetrics.co.uk inboxes.
+          from: "HireMetrics <onboarding@resend.dev>",
           to: adminEmails,
-          subject: `🔔 New Demo Request from ${data.name}`,
+          reply_to: data.email,
+          subject: `New Demo Request from ${data.name}`,
           html: getAdminEmailTemplate(data),
         }),
       });
