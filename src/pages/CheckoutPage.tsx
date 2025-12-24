@@ -51,12 +51,12 @@ interface BillingOption {
   badge?: string;
 }
 
-const billingOptions: BillingOption[] = [
-  { months: 1, label: '1 Month', discount: 0 },
-  { months: 3, label: '3 Months', discount: 10, badge: 'Save 10%' },
-  { months: 6, label: '6 Months', discount: 15, badge: 'Save 15%' },
-  { months: 12, label: '12 Months', discount: 20, badge: 'Best Value' },
-];
+const defaultDiscounts: Record<number, number> = {
+  1: 0,
+  3: 5,
+  6: 10,
+  12: 15,
+};
 
 const planIcons: Record<string, any> = {
   starter: Zap,
@@ -78,14 +78,38 @@ export default function CheckoutPage() {
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<PromoCodeValidation | null>(null);
   const [selectedBilling, setSelectedBilling] = useState<number>(1);
+  const [discounts, setDiscounts] = useState<Record<number, number>>(defaultDiscounts);
 
   useEffect(() => {
     if (planId) {
       fetchPlan();
+      fetchDiscounts();
     } else {
       navigate('/billing');
     }
   }, [planId]);
+
+  const fetchDiscounts = async () => {
+    try {
+      const { data } = await supabase
+        .from('billing_settings')
+        .select('setting_value')
+        .eq('setting_key', 'multi_month_discounts')
+        .single();
+      
+      if (data?.setting_value) {
+        const value = data.setting_value as Record<string, number>;
+        setDiscounts({
+          1: 0,
+          3: value['3'] ?? 5,
+          6: value['6'] ?? 10,
+          12: value['12'] ?? 15,
+        });
+      }
+    } catch (error) {
+      // Use defaults
+    }
+  };
 
   const fetchPlan = async () => {
     try {
@@ -212,6 +236,13 @@ export default function CheckoutPage() {
       setProcessing(false);
     }
   };
+
+  const billingOptions: BillingOption[] = [
+    { months: 1, label: '1 Month', discount: 0 },
+    { months: 3, label: '3 Months', discount: discounts[3], badge: discounts[3] > 0 ? `Save ${discounts[3]}%` : undefined },
+    { months: 6, label: '6 Months', discount: discounts[6], badge: discounts[6] > 0 ? `Save ${discounts[6]}%` : undefined },
+    { months: 12, label: '12 Months', discount: discounts[12], badge: 'Best Value' },
+  ];
 
   const selectedOption = billingOptions.find(o => o.months === selectedBilling) || billingOptions[0];
   const basePrice = plan ? plan.price_monthly * selectedBilling : 0;

@@ -46,6 +46,7 @@ import AdminLiveChatPage from "./pages/admin/AdminLiveChatPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
 import AdminUserMarketingPage from "./pages/admin/AdminUserMarketingPage";
+import AdminBillingSettingsPage from "./pages/admin/AdminBillingSettingsPage";
 
 import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
 import AdminUsageAnalyticsPage from "./pages/admin/AdminUsageAnalyticsPage";
@@ -177,6 +178,7 @@ const AppRoutes = () => (
     <Route path="/admin/orders" element={<ProtectedRoute><AdminOrdersPage /></ProtectedRoute>} />
     <Route path="/admin/seo" element={<ProtectedRoute><AdminSEOPage /></ProtectedRoute>} />
     <Route path="/admin/promo-codes" element={<ProtectedRoute><AdminPromoCodesPage /></ProtectedRoute>} />
+    <Route path="/admin/billing-settings" element={<ProtectedRoute><AdminBillingSettingsPage /></ProtectedRoute>} />
     <Route path="/admin/trusted-clients" element={<ProtectedRoute><AdminTrustedClientsPage /></ProtectedRoute>} />
     
     {/* Checkout routes */}

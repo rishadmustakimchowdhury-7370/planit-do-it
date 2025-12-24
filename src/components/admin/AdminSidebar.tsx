@@ -31,6 +31,7 @@ const adminNavItems = [
   { title: 'Orders', url: '/admin/orders', icon: CreditCard },
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Promo Codes', url: '/admin/promo-codes', icon: Tag },
+  { title: 'Billing Settings', url: '/admin/billing-settings', icon: CreditCard },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Testimonials', url: '/admin/testimonials', icon: MessageSquare },
   { title: 'Trusted Clients', url: '/admin/trusted-clients', icon: Building2 },
