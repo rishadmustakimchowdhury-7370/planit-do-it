@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { AdminSidebar } from './AdminSidebar';
 import { Loader2, Shield } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -13,6 +14,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children, title, description }: AdminLayoutProps) {
   const { isSuperAdmin, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!isLoading && !isSuperAdmin) {
@@ -31,7 +33,7 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
   if (!isSuperAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
+        <div className="text-center px-4">
           <Shield className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
           <p className="text-muted-foreground">You don't have permission to access this area.</p>
@@ -41,22 +43,25 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen bg-background">
       <AdminSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 lg:p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{title}</h1>
-            {description && (
-              <p className="text-muted-foreground mt-1">{description}</p>
-            )}
+      <div className={isMobile ? '' : 'flex'}>
+        {!isMobile && <div className="w-64 flex-shrink-0" />}
+        <main className="flex-1 overflow-auto">
+          <div className="p-4 md:p-6 lg:p-8">
+            {/* Header */}
+            <div className="mb-6 md:mb-8">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground">{title}</h1>
+              {description && (
+                <p className="text-sm md:text-base text-muted-foreground mt-1">{description}</p>
+              )}
+            </div>
+            
+            {/* Content */}
+            {children}
           </div>
-          
-          {/* Content */}
-          {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

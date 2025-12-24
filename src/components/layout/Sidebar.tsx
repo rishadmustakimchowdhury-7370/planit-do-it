@@ -19,16 +19,20 @@ import {
   UsersRound,
   Clock,
   TrendingUp,
-  ClipboardList
+  ClipboardList,
+  Menu,
+  X
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/lib/auth';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/brand/Logo';
 import { usePermissions, Permission } from '@/hooks/usePermissions';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -49,12 +53,18 @@ const bottomNav = [
 
 const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
 
-export function Sidebar() {
+// Sidebar content component to reuse between desktop and mobile
+function SidebarContent({ 
+  collapsed = false, 
+  onNavigate 
+}: { 
+  collapsed?: boolean; 
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut, isOwner, isManager, isRecruiter, isSuperAdmin } = useAuth();
   const { hasPermission } = usePermissions();
-  const [collapsed, setCollapsed] = useState(false);
   
   // Calculate if current route is a team route
   const isOnTeamRoute = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || 
@@ -72,6 +82,10 @@ export function Sidebar() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleNavClick = () => {
+    onNavigate?.();
   };
 
   const userName = profile?.full_name || profile?.email?.split('@')[0] || 'User';
@@ -109,29 +123,7 @@ export function Sidebar() {
   const isTeamActive = isOnTeamRoute;
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="fixed left-0 top-0 h-screen bg-sidebar flex flex-col z-50 shadow-xl"
-    >
-      {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-sidebar-border/50">
-        <Link to="/dashboard" className="flex items-center gap-3">
-          <Logo size={collapsed ? 'sm' : 'md'} showText={!collapsed} variant="light" />
-        </Link>
-      </div>
-
-      {/* Collapse Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border shadow-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-      >
-        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-      </Button>
-
+    <>
       {/* Main Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         <AnimatePresence>
@@ -162,6 +154,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               to={item.href}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
                 isActive
@@ -211,6 +204,7 @@ export function Sidebar() {
                   <Link
                     key={item.name}
                     to={item.href}
+                    onClick={handleNavClick}
                     className={cn(
                       'flex items-center justify-center px-3 py-2.5 rounded-lg transition-all duration-150',
                       isActive
@@ -251,6 +245,7 @@ export function Sidebar() {
                       <Link
                         key={item.name}
                         to={item.href}
+                        onClick={handleNavClick}
                         className={cn(
                           'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm',
                           isActive
@@ -300,6 +295,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               to={item.href}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
                 isActive
@@ -329,6 +325,7 @@ export function Sidebar() {
         {isSuperAdmin && (
           <Link
             to={adminNav.href}
+            onClick={handleNavClick}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
               location.pathname.startsWith('/admin')
@@ -407,6 +404,74 @@ export function Sidebar() {
           </AnimatePresence>
         </Button>
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const isMobile = useIsMobile();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Mobile sidebar using Sheet
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Header with Menu Button */}
+        <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar flex items-center px-4 z-50 border-b border-sidebar-border/50">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-sidebar-foreground">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border">
+              <div className="h-14 flex items-center px-4 border-b border-sidebar-border/50">
+                <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+                  <Logo size="md" showText variant="light" />
+                </Link>
+              </div>
+              <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+                <SidebarContent onNavigate={() => setMobileOpen(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <Link to="/dashboard" className="ml-3">
+            <Logo size="sm" showText variant="light" />
+          </Link>
+        </div>
+        {/* Spacer for fixed header */}
+        <div className="h-14" />
+      </>
+    );
+  }
+
+  // Desktop sidebar
+  return (
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 72 : 260 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="fixed left-0 top-0 h-screen bg-sidebar flex flex-col z-50 shadow-xl"
+    >
+      {/* Logo */}
+      <div className="h-16 flex items-center px-4 border-b border-sidebar-border/50">
+        <Link to="/dashboard" className="flex items-center gap-3">
+          <Logo size={collapsed ? 'sm' : 'md'} showText={!collapsed} variant="light" />
+        </Link>
+      </div>
+
+      {/* Collapse Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setCollapsed(!collapsed)}
+        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border shadow-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+      </Button>
+
+      <SidebarContent collapsed={collapsed} />
     </motion.aside>
   );
 }
