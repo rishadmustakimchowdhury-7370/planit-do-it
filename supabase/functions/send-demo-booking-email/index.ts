@@ -349,9 +349,9 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          // IMPORTANT: Use resend.dev sender to avoid DMARC/spoofing issues
-          // when delivering to @hiremetrics.co.uk inboxes.
-          from: "HireMetrics <onboarding@resend.dev>",
+          // NOTE: Resend will only deliver to external recipients once the hiremetrics.co.uk
+          // domain is verified in Resend (DNS). See resend.com/domains.
+          from: "HireMetrics CRM <admin@hiremetrics.co.uk>",
           to: adminEmails,
           reply_to: data.email,
           subject: `New Demo Request from ${data.name}`,
