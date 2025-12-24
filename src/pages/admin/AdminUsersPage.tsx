@@ -59,7 +59,11 @@ import {
   Edit,
   ShieldCheck,
   ShieldOff,
+  Bell,
+  CreditCard,
+  Calendar,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 interface UserWithTenant {
   id: string;
@@ -108,10 +112,12 @@ export default function AdminUsersPage() {
   const [showTrialDialog, setShowTrialDialog] = useState(false);
   const [showViewProfileDialog, setShowViewProfileDialog] = useState(false);
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
+  const [showSendReminderDialog, setShowSendReminderDialog] = useState(false);
   const [graceDays, setGraceDays] = useState('7');
   const [trialDays, setTrialDays] = useState('14');
   const [selectedPackage, setSelectedPackage] = useState('');
   const [tempLoginMinutes, setTempLoginMinutes] = useState('30');
+  const [reminderMessage, setReminderMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Add user form
@@ -537,6 +543,69 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleSendReminder = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setIsProcessing(true);
+
+      // Call edge function to send reminder email
+      const { data, error } = await supabase.functions.invoke('send-renewal-reminders', {
+        body: {
+          manual: true,
+          user_email: selectedUser.email,
+          user_name: selectedUser.full_name || selectedUser.email.split('@')[0],
+          custom_message: reminderMessage,
+          subscription_ends_at: selectedUser.tenant?.subscription_ends_at,
+          trial_expires_at: selectedUser.tenant?.trial_expires_at,
+          subscription_status: selectedUser.tenant?.subscription_status,
+        },
+      });
+
+      if (error) throw error;
+
+      await logAuditAction('send_reminder', selectedUser.id, { 
+        type: 'manual_reminder',
+        message: reminderMessage 
+      });
+      
+      toast.success('Reminder sent successfully');
+      setShowSendReminderDialog(false);
+      setReminderMessage('');
+    } catch (error: any) {
+      console.error('Error sending reminder:', error);
+      toast.error(error?.message || 'Failed to send reminder');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getSubscribedDate = (user: UserWithTenant) => {
+    // Use created_at as the subscription start date
+    if (user.created_at) {
+      return new Date(user.created_at).toLocaleDateString();
+    }
+    return '-';
+  };
+
+  const getDaysUntilExpiry = (user: UserWithTenant) => {
+    let expiryDate: Date | null = null;
+    
+    if (user.tenant?.subscription_status === 'trial' && user.tenant.trial_expires_at) {
+      expiryDate = new Date(user.tenant.trial_expires_at);
+    } else if (user.tenant?.subscription_ends_at) {
+      expiryDate = new Date(user.tenant.subscription_ends_at);
+    }
+    
+    if (!expiryDate) return null;
+    
+    const now = new Date();
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
   const handleToggleSuperAdmin = async (user: UserWithTenant) => {
     if (user.id === currentUser?.id) {
       toast.error('You cannot change your own super admin status');
@@ -710,13 +779,16 @@ export default function AdminUsersPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Subscribed</TableHead>
                   <TableHead>Expires</TableHead>
-                  <TableHead>Last Login</TableHead>
+                  <TableHead>Days Left</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
+                {filteredUsers.map((user) => {
+                  const daysLeft = getDaysUntilExpiry(user);
+                  return (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -738,12 +810,23 @@ export default function AdminUsersPage() {
                     <TableCell>{user.tenant?.name || '-'}</TableCell>
                     <TableCell>{getStatusBadge(user)}</TableCell>
                     <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">{getSubscribedDate(user)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       {getExpiresDate(user)}
                     </TableCell>
                     <TableCell>
-                      {user.last_login_at
-                        ? new Date(user.last_login_at).toLocaleDateString()
-                        : 'Never'}
+                      {daysLeft !== null ? (
+                        <Badge 
+                          variant={daysLeft <= 7 ? "destructive" : daysLeft <= 14 ? "outline" : "secondary"}
+                          className={daysLeft <= 7 ? "" : daysLeft <= 14 ? "border-yellow-500 text-yellow-600" : ""}
+                        >
+                          {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
+                        </Badge>
+                      ) : '-'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -821,6 +904,16 @@ export default function AdminUsersPage() {
                             Grant Trial Period
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setReminderMessage('');
+                              setShowSendReminderDialog(true);
+                            }}
+                          >
+                            <Bell className="h-4 w-4 mr-2" />
+                            Send Reminder
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleSendPasswordReset(user)}>
                             <Mail className="h-4 w-4 mr-2" />
                             Send Password Reset
@@ -850,7 +943,8 @@ export default function AdminUsersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -1138,8 +1232,12 @@ export default function AdminUsersPage() {
                   <div className="mt-1">{getStatusBadge(selectedUser)}</div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Created</Label>
-                  <p className="font-medium">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                  <Label className="text-muted-foreground">Subscribed Date</Label>
+                  <p className="font-medium">{getSubscribedDate(selectedUser)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Expiry Date</Label>
+                  <p className="font-medium">{getExpiresDate(selectedUser)}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Last Login</Label>
@@ -1148,6 +1246,51 @@ export default function AdminUsersPage() {
                       ? new Date(selectedUser.last_login_at).toLocaleDateString() 
                       : 'Never'}
                   </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Days Until Expiry</Label>
+                  <p className="font-medium">
+                    {(() => {
+                      const days = getDaysUntilExpiry(selectedUser);
+                      if (days === null) return '-';
+                      if (days < 0) return <span className="text-destructive">{Math.abs(days)} days overdue</span>;
+                      if (days <= 7) return <span className="text-destructive">{days} days</span>;
+                      if (days <= 14) return <span className="text-yellow-600">{days} days</span>;
+                      return `${days} days`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Subscription Info Card */}
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Subscription Details</Label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Plan Type:</span>
+                    <span className="ml-2 font-medium capitalize">{selectedUser.tenant?.subscription_status || 'Unknown'}</span>
+                  </div>
+                  {selectedUser.tenant?.trial_expires_at && (
+                    <div>
+                      <span className="text-muted-foreground">Trial Expires:</span>
+                      <span className="ml-2 font-medium">{new Date(selectedUser.tenant.trial_expires_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {selectedUser.tenant?.subscription_ends_at && (
+                    <div>
+                      <span className="text-muted-foreground">Subscription Ends:</span>
+                      <span className="ml-2 font-medium">{new Date(selectedUser.tenant.subscription_ends_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {selectedUser.tenant?.grace_until && (
+                    <div>
+                      <span className="text-muted-foreground">Grace Until:</span>
+                      <span className="ml-2 font-medium">{new Date(selectedUser.tenant.grace_until).toLocaleDateString()}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1212,6 +1355,71 @@ export default function AdminUsersPage() {
             <Button onClick={handleSaveProfile} disabled={isProcessing}>
               {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Reminder Dialog */}
+      <Dialog open={showSendReminderDialog} onOpenChange={setShowSendReminderDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Reminder</DialogTitle>
+            <DialogDescription>
+              Send a subscription reminder to {selectedUser?.full_name || selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted/50 rounded-lg border space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-medium capitalize">{selectedUser.tenant?.subscription_status || 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Expires:</span>
+                  <span className="font-medium">{getExpiresDate(selectedUser)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Days Left:</span>
+                  <span className={`font-medium ${
+                    (() => {
+                      const days = getDaysUntilExpiry(selectedUser);
+                      if (days === null) return '';
+                      if (days <= 7) return 'text-destructive';
+                      if (days <= 14) return 'text-yellow-600';
+                      return '';
+                    })()
+                  }`}>
+                    {(() => {
+                      const days = getDaysUntilExpiry(selectedUser);
+                      if (days === null) return 'N/A';
+                      if (days < 0) return `${Math.abs(days)} days overdue`;
+                      return `${days} days`;
+                    })()}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Label>Custom Message (Optional)</Label>
+                <Textarea
+                  value={reminderMessage}
+                  onChange={(e) => setReminderMessage(e.target.value)}
+                  placeholder="Add a personalized message to include in the reminder email..."
+                  className="mt-2"
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSendReminderDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendReminder} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Bell className="h-4 w-4 mr-2" />
+              Send Reminder
             </Button>
           </DialogFooter>
         </DialogContent>

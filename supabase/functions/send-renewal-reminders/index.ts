@@ -266,6 +266,139 @@ function generateAdminExpiryNotificationHTML(
   `;
 }
 
+// Manual reminder email template (for admin-triggered reminders)
+function generateManualReminderHTML(
+  data: {
+    userName: string;
+    customMessage?: string;
+    expiryDate?: string;
+    subscriptionStatus?: string;
+    renewalLink: string;
+  }
+): string {
+  const statusLabel = data.subscriptionStatus === 'trial' ? 'trial period' : 'subscription';
+  const expiryInfo = data.expiryDate 
+    ? `Your ${statusLabel} expires on <strong>${data.expiryDate}</strong>.` 
+    : `Your ${statusLabel} will expire soon.`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscription Reminder from HireMetrics</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);">
+          
+          <!-- Logo Header -->
+          <tr>
+            <td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0; text-align: center;">
+              <div style="display: inline-flex; align-items: center; gap: 10px;">
+                <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="m19 9-5 5-4-4-3 3"/>
+                  </svg>
+                </div>
+                <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
+                  <span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span>
+                </span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); padding: 35px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">
+                📬 Subscription Reminder
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">
+                Hi ${data.userName}! 👋
+              </p>
+              <p style="margin: 0 0 25px; color: #475569; font-size: 16px; line-height: 1.7;">
+                ${expiryInfo}
+              </p>
+              
+              ${data.customMessage ? `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; margin-bottom: 25px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0; color: #1e40af; font-size: 15px; line-height: 1.6;">
+                      💬 <strong>Message from our team:</strong><br><br>
+                      ${data.customMessage}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
+                <tr>
+                  <td align="center">
+                    <a href="${data.renewalLink}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">
+                      🔄 View Subscription Options
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center; line-height: 1.6;">
+                Need help or have questions? Reply to this email or contact our support team.
+              </p>
+              
+              <!-- Signature -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 25px; margin-top: 25px;">
+                <tr>
+                  <td>
+                    <p style="margin: 0; color: #1e293b; font-size: 15px;">
+                      Best regards,<br>
+                      <strong style="color: #00008B;">The HireMetrics CRM Team</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">
+                      Powered by <strong style="color: #00008B;">HireMetrics CRM</strong>
+                    </p>
+                    <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                      © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -279,6 +412,66 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if this is a manual reminder request
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (e) {
+      // No body, proceed with automated reminders
+    }
+
+    // Handle manual reminder request from admin
+    if (body.manual && body.user_email) {
+      console.log('Processing manual reminder for:', body.user_email);
+      
+      if (!resendApiKey) {
+        throw new Error('RESEND_API_KEY is not configured');
+      }
+
+      const resend = new Resend(resendApiKey);
+      
+      // Calculate expiry date string
+      let expiryDate: string | undefined;
+      if (body.subscription_ends_at) {
+        expiryDate = new Date(body.subscription_ends_at).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      } else if (body.trial_expires_at) {
+        expiryDate = new Date(body.trial_expires_at).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+
+      const emailHtml = generateManualReminderHTML({
+        userName: body.user_name || body.user_email.split('@')[0],
+        customMessage: body.custom_message,
+        expiryDate,
+        subscriptionStatus: body.subscription_status,
+        renewalLink: 'https://hiremetrics.lovable.app/billing',
+      });
+
+      const emailResult = await resend.emails.send({
+        from: 'HireMetrics <admin@hiremetrics.co.uk>',
+        to: [body.user_email],
+        subject: '📬 Subscription Reminder from HireMetrics',
+        html: emailHtml,
+      });
+
+      console.log('Manual reminder sent:', emailResult);
+
+      return new Response(
+        JSON.stringify({ success: true, sent: 1, type: 'manual' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Automated reminder logic
     // Find tenants expiring in the next 7 days (and send reminders at 7, 5, 3 days)
     const reminderDays = [7, 5, 3];
     const today = new Date();
