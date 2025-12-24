@@ -13,7 +13,7 @@ const logStep = (step: string, details?: any) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
-// Professional email template with CRM branding
+// Professional email template with CRM branding and downloadable invoice
 function generateSubscriptionEmailHTML(
   type: 'confirmation' | 'upgrade' | 'renewal',
   data: {
@@ -23,6 +23,7 @@ function generateSubscriptionEmailHTML(
     currency: string;
     nextBillingDate?: string;
     invoiceUrl?: string;
+    invoicePdfUrl?: string;
     companyLogo?: string;
   }
 ): string {
@@ -52,7 +53,7 @@ function generateSubscriptionEmailHTML(
     renewal: 'Your subscription has been renewed successfully.'
   };
 
-  const formattedAmount = new Intl.NumberFormat('en-US', {
+  const formattedAmount = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: data.currency.toUpperCase()
   }).format(data.amount / 100);
@@ -148,14 +149,29 @@ function generateSubscriptionEmailHTML(
                 </tr>
               </table>
 
-              ${data.invoiceUrl ? `
-              <!-- Invoice Button -->
+              <!-- Invoice Buttons -->
+              ${data.invoiceUrl || data.invoicePdfUrl ? `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="${data.invoiceUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      📄 View Invoice
-                    </a>
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        ${data.invoiceUrl ? `
+                        <td style="padding-right: 12px;">
+                          <a href="${data.invoiceUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                            📄 View Invoice
+                          </a>
+                        </td>
+                        ` : ''}
+                        ${data.invoicePdfUrl ? `
+                        <td>
+                          <a href="${data.invoicePdfUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                            ⬇️ Download PDF
+                          </a>
+                        </td>
+                        ` : ''}
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -219,7 +235,7 @@ function generateSubscriptionEmailHTML(
   `;
 }
 
-// Admin notification email template
+// Enhanced admin notification email template with full details
 function generateAdminNotificationHTML(
   data: {
     userName: string;
@@ -228,19 +244,25 @@ function generateAdminNotificationHTML(
     amount: number;
     currency: string;
     orderId: string;
+    isNewUser?: boolean;
+    tenantName?: string;
+    registrationDate?: string;
+    phone?: string;
   }
 ): string {
-  const formattedAmount = new Intl.NumberFormat('en-US', {
+  const formattedAmount = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: data.currency.toUpperCase()
   }).format(data.amount / 100);
+
+  const eventType = data.isNewUser ? '🎉 New User Registration & Upgrade' : '💰 New Subscription Payment';
 
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>New Subscription Payment</title>
+  <title>${eventType}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f1f5f9;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 40px 20px;">
@@ -251,7 +273,10 @@ function generateAdminNotificationHTML(
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px;">💰 New Subscription Payment</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px;">${eventType}</h1>
+              <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                ${new Date().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}
+              </p>
             </td>
           </tr>
           
@@ -259,40 +284,74 @@ function generateAdminNotificationHTML(
           <tr>
             <td style="padding: 30px;">
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                A new subscription payment has been received:
+                ${data.isNewUser ? 'A new user has registered and upgraded their package:' : 'A new subscription payment has been received:'}
               </p>
               
-              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <!-- Customer Info Card -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
                 <tr>
                   <td style="padding: 20px;">
+                    <h3 style="margin: 0 0 15px; color: #1e293b; font-size: 16px; font-weight: 600;">👤 Customer Details</h3>
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Customer</td>
+                        <td style="padding: 8px 0; color: #64748b; font-size: 14px; width: 140px;">Name</td>
                         <td style="padding: 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">${data.userName}</td>
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Email</td>
-                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${data.userEmail}</td>
+                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">
+                          <a href="mailto:${data.userEmail}" style="color: #00008B; text-decoration: none;">${data.userEmail}</a>
+                        </td>
+                      </tr>
+                      ${data.phone ? `
+                      <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Phone</td>
+                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${data.phone}</td>
+                      </tr>
+                      ` : ''}
+                      ${data.tenantName ? `
+                      <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Company</td>
+                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">${data.tenantName}</td>
+                      </tr>
+                      ` : ''}
+                      ${data.registrationDate ? `
+                      <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Registered</td>
+                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px;">${data.registrationDate}</td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Payment Info Card -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; border: 1px solid #a7f3d0;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <h3 style="margin: 0 0 15px; color: #065f46; font-size: 16px; font-weight: 600;">💳 Payment Details</h3>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 8px 0; color: #065f46; font-size: 14px; width: 140px;">Plan</td>
+                        <td style="padding: 8px 0; color: #065f46; font-size: 14px; font-weight: 600;">${data.planName}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Plan</td>
-                        <td style="padding: 8px 0; color: #1e293b; font-size: 14px; font-weight: 600;">${data.planName}</td>
+                        <td style="padding: 8px 0; color: #065f46; font-size: 14px;">Amount</td>
+                        <td style="padding: 8px 0; color: #059669; font-size: 20px; font-weight: 700;">${formattedAmount}</td>
                       </tr>
                       <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Amount</td>
-                        <td style="padding: 8px 0; color: #059669; font-size: 16px; font-weight: 700;">${formattedAmount}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 8px 0; color: #64748b; font-size: 14px;">Order ID</td>
-                        <td style="padding: 8px 0; color: #1e293b; font-size: 12px; font-family: monospace;">${data.orderId}</td>
+                        <td style="padding: 8px 0; color: #065f46; font-size: 14px;">Order ID</td>
+                        <td style="padding: 8px 0; color: #065f46; font-size: 12px; font-family: monospace; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px;">${data.orderId}</td>
                       </tr>
                     </table>
                   </td>
                 </tr>
               </table>
               
-              <p style="margin: 20px 0 0; color: #64748b; font-size: 14px;">
-                ⚠️ Please review and approve the order in the admin panel if required.
+              <p style="margin: 25px 0 0; color: #64748b; font-size: 14px;">
+                ✅ Payment verified and processed automatically. <br>
+                🔗 <a href="https://hiremetrics.co.uk/admin/orders" style="color: #00008B;">View in Admin Panel</a>
               </p>
             </td>
           </tr>
@@ -404,7 +463,7 @@ serve(async (req) => {
                 .select(`
                   *,
                   subscription_plans(name),
-                  profiles:user_id(full_name, email)
+                  profiles:user_id(full_name, email, phone, created_at)
                 `)
                 .eq('id', orderId)
                 .single();
@@ -415,40 +474,47 @@ serve(async (req) => {
                 const userEmail = order.profiles?.email;
                 const planName = order.subscription_plans?.name || 'Subscription';
                 
-                // Get invoice URL if available
+                // Get invoice URLs if available (both hosted and PDF for download)
                 let invoiceUrl = null;
+                let invoicePdfUrl = null;
                 if (session.invoice) {
                   const invoice = await stripe.invoices.retrieve(session.invoice as string);
                   invoiceUrl = invoice.hosted_invoice_url;
+                  invoicePdfUrl = invoice.invoice_pdf;
                 }
 
                 // Get next billing date for subscriptions
                 let nextBillingDate = null;
                 if (session.subscription) {
                   const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-                  nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+                  nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-GB', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                   });
                 }
 
-                // Fetch tenant logo
+                // Fetch tenant info
                 const { data: tenant } = await supabase
                   .from('tenants')
-                  .select('logo_url')
+                  .select('logo_url, name')
                   .eq('id', order.tenant_id)
                   .single();
 
-                // Send confirmation email to user
+                // Check if this is a new user (registered within the last hour)
+                const userCreatedAt = order.profiles?.created_at ? new Date(order.profiles.created_at) : null;
+                const isNewUser = userCreatedAt && (Date.now() - userCreatedAt.getTime()) < 3600000; // 1 hour
+
+                // Send confirmation email to user with downloadable invoice
                 if (userEmail) {
                   const userEmailHtml = generateSubscriptionEmailHTML('confirmation', {
                     userName,
                     planName,
-                  amount: order.amount * 100, // Convert to cents
-                  currency: order.currency,
-                  nextBillingDate: nextBillingDate || undefined,
-                  invoiceUrl: invoiceUrl || undefined,
+                    amount: order.amount * 100, // Convert to cents
+                    currency: order.currency,
+                    nextBillingDate: nextBillingDate || undefined,
+                    invoiceUrl: invoiceUrl || undefined,
+                    invoicePdfUrl: invoicePdfUrl || undefined,
                     companyLogo: tenant?.logo_url
                   });
 
@@ -458,10 +524,10 @@ serve(async (req) => {
                     subject: `🎉 Payment Confirmed - ${planName} Plan`,
                     html: userEmailHtml,
                   });
-                  logStep("Confirmation email sent to user", { email: userEmail });
+                  logStep("Confirmation email sent to user with invoice", { email: userEmail, hasInvoicePdf: !!invoicePdfUrl });
                 }
 
-                // Send notification to super admins
+                // Send notification to super admins with full details
                 const { data: superAdmins } = await supabase
                   .from('user_roles')
                   .select('user_id')
@@ -483,16 +549,30 @@ serve(async (req) => {
                       planName,
                       amount: order.amount * 100,
                       currency: order.currency,
-                      orderId
+                      orderId,
+                      isNewUser: isNewUser || false,
+                      tenantName: tenant?.name,
+                      registrationDate: userCreatedAt ? userCreatedAt.toLocaleDateString('en-GB', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : undefined,
+                      phone: order.profiles?.phone
                     });
+
+                    const emailSubject = isNewUser 
+                      ? `🎉 New User Upgrade - ${planName} (${userName})`
+                      : `💰 New Payment Received - ${planName} (${userName})`;
 
                     await resend.emails.send({
                       from: 'HireMetrics <admin@hiremetrics.co.uk>',
                       to: adminEmails,
-                      subject: `💰 New Payment Received - ${planName} (${userName})`,
+                      subject: emailSubject,
                       html: adminEmailHtml,
                     });
-                    logStep("Admin notification email sent", { adminEmails });
+                    logStep("Admin notification email sent", { adminEmails, isNewUser });
                   }
                 }
               }

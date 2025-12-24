@@ -85,8 +85,8 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
         </DialogHeader>
 
         <div ref={invoiceRef} className="bg-white text-black" id="invoice-preview">
-          {/* Modern Header with Gradient */}
-          <div style={{ background: 'linear-gradient(to right, #0052CC, #0747A6)', color: 'white', padding: '32px', borderRadius: '8px 8px 0 0' }}>
+          {/* Modern Header with HireMetrics Branding */}
+          <div style={{ background: 'linear-gradient(135deg, #00008B 0%, #0000CD 100%)', color: 'white', padding: '32px', borderRadius: '8px 8px 0 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 {invoice.company_logo ? (
@@ -94,10 +94,13 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '10px' }}>
-                      <Briefcase style={{ color: 'white' }} size={28} />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 3v18h18"/>
+                        <path d="m19 9-5 5-4-4-3 3"/>
+                      </svg>
                     </div>
                     <span style={{ fontSize: '28px', fontWeight: 'bold', letterSpacing: '-0.5px' }}>
-                      Recruitify<span style={{ fontWeight: '300', opacity: '0.8' }}>CRM</span>
+                      {BRAND.name}<span style={{ fontWeight: '300', opacity: '0.8' }}> CRM</span>
                     </span>
                   </div>
                 )}
@@ -105,10 +108,11 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
                   {invoice.company_address && <p>{invoice.company_address}</p>}
                   {invoice.company_phone && <p>Tel: {invoice.company_phone}</p>}
                   <p>Email: {BRAND.email}</p>
+                  <p>Website: {BRAND.website}</p>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.1)', padding: '12px 24px', borderRadius: '8px' }}>
+                <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.15)', padding: '12px 24px', borderRadius: '8px', backdropFilter: 'blur(10px)' }}>
                   <h1 style={{ fontSize: '36px', fontWeight: 'bold', letterSpacing: '-1px' }}>INVOICE</h1>
                 </div>
                 <div style={{ marginTop: '16px', color: 'rgba(255,255,255,0.9)' }}>
@@ -244,17 +248,20 @@ export function InvoicePreview({ open, onOpenChange, invoice, tenant, user }: In
             {/* Footer */}
             <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '24px', textAlign: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', backgroundColor: '#0052CC', padding: '6px' }}>
-                  <Briefcase style={{ color: 'white' }} size={16} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', background: 'linear-gradient(135deg, #00008B 0%, #0000CD 100%)', padding: '6px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="m19 9-5 5-4-4-3 3"/>
+                  </svg>
                 </div>
                 <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                  <span style={{ color: '#0052CC' }}>Recruitify</span>
-                  <span style={{ color: '#6b7280' }}>CRM</span>
+                  <span style={{ color: '#00008B' }}>{BRAND.name}</span>
+                  <span style={{ color: '#6b7280' }}> CRM</span>
                 </span>
               </div>
               <p style={{ fontSize: '14px', color: '#6b7280' }}>Thank you for your business!</p>
               <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
-                {BRAND.email} • recruitifycrm.com
+                {BRAND.email} • {BRAND.website}
               </p>
             </div>
           </div>
