@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { getStripeCredentials } from "../_shared/stripe-credentials.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -378,22 +379,31 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-    apiVersion: "2025-08-27.basil",
-  });
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } }
   );
 
+  // Get dynamic Stripe credentials
+  const stripeCredentials = await getStripeCredentials(supabase);
+  if (!stripeCredentials.secretKey) {
+    return new Response(JSON.stringify({ error: "Stripe not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const stripe = new Stripe(stripeCredentials.secretKey, {
+    apiVersion: "2025-08-27.basil",
+  });
+
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
   try {
     const signature = req.headers.get("stripe-signature");
     const body = await req.text();
-    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    const webhookSecret = stripeCredentials.webhookSecret;
 
     let event: Stripe.Event;
 
