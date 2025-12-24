@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -272,12 +273,49 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("RESEND_API_KEY not configured");
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const data: DemoBookingRequest = await req.json();
     console.log("Processing demo booking for:", data.email);
+
+    // Fetch all super admin emails from the database
+    const { data: superAdmins, error: superAdminError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "super_admin");
+
+    let adminEmails: string[] = [];
+
+    if (superAdminError) {
+      console.error("Error fetching super admins:", superAdminError);
+    } else if (superAdmins && superAdmins.length > 0) {
+      // Get emails from profiles
+      const userIds = superAdmins.map((sa) => sa.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("email")
+        .in("id", userIds);
+
+      if (profilesError) {
+        console.error("Error fetching super admin profiles:", profilesError);
+      } else if (profiles) {
+        adminEmails = profiles.map((p) => p.email).filter(Boolean);
+      }
+    }
+
+    // Fallback to default admin email if no super admins found
+    if (adminEmails.length === 0) {
+      adminEmails = ["admin@hiremetrics.co.uk"];
+    }
+
+    console.log("Sending admin notification to:", adminEmails);
 
     const results = {
       visitorEmail: null as any,
       adminEmail: null as any,
+      adminRecipients: adminEmails,
     };
 
     // Send confirmation email to visitor
@@ -302,7 +340,7 @@ const handler = async (req: Request): Promise<Response> => {
       results.visitorEmail = { error: error.message };
     }
 
-    // Send notification email to admin
+    // Send notification email to all super admins
     try {
       const adminResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -312,7 +350,7 @@ const handler = async (req: Request): Promise<Response> => {
         },
         body: JSON.stringify({
           from: "HireMetrics <admin@hiremetrics.co.uk>",
-          to: ["admin@hiremetrics.co.uk"],
+          to: adminEmails,
           subject: `🔔 New Demo Request from ${data.name}`,
           html: getAdminEmailTemplate(data),
         }),
