@@ -132,6 +132,88 @@ serve(async (req) => {
           .update(updates)
           .eq('id', profile.tenant_id);
       }
+
+      // Assign 'owner' role to the new user for their tenant
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: newUser.user.id,
+          role: 'owner',
+          tenant_id: profile.tenant_id,
+        });
+
+      if (roleError) {
+        console.error("Error assigning owner role:", roleError);
+        // Don't fail the whole operation, just log the error
+      } else {
+        console.log(`Owner role assigned to user: ${email}`);
+      }
+    }
+
+    // Send welcome email to the new user
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (resendApiKey) {
+      try {
+        const appUrl = Deno.env.get("APP_URL") || "https://efdvolifacsnmiinifiq.lovableproject.com";
+        const welcomeEmailHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Welcome to HireMetrics</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+              <h1 style="color: white; margin: 0;">Welcome to HireMetrics!</h1>
+            </div>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb; border-top: none;">
+              <p>Hi <strong>${fullName}</strong>,</p>
+              <p>Your account has been successfully created by the HireMetrics admin team. You now have <strong>Owner</strong> access to your workspace${companyName ? ` "${companyName}"` : ""}.</p>
+              <p>Here are your login credentials:</p>
+              <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+                <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
+              </div>
+              <p style="color: #ef4444; font-size: 14px;">⚠️ For security, please change your password after your first login.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${appUrl}/auth" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Login to HireMetrics</a>
+              </div>
+              <p>If you have any questions, feel free to reach out to our support team.</p>
+              <p>Best regards,<br><strong>The HireMetrics Team</strong></p>
+            </div>
+            <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+              <p>© ${new Date().getFullYear()} HireMetrics. All rights reserved.</p>
+            </div>
+          </body>
+          </html>
+        `;
+
+        const emailResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "HireMetrics <admin@hiremetrics.co.uk>",
+            to: [email],
+            subject: "Welcome to HireMetrics - Your Account is Ready!",
+            html: welcomeEmailHtml,
+          }),
+        });
+
+        if (emailResponse.ok) {
+          console.log(`Welcome email sent to: ${email}`);
+        } else {
+          const errorData = await emailResponse.text();
+          console.error("Failed to send welcome email:", errorData);
+        }
+      } catch (emailError) {
+        console.error("Error sending welcome email:", emailError);
+        // Don't fail the user creation if email fails
+      }
+    } else {
+      console.warn("RESEND_API_KEY not configured, skipping welcome email");
     }
 
     console.log(`User created successfully: ${email}`);
