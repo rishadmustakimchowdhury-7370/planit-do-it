@@ -19,10 +19,14 @@ import {
   Tag,
   Building2,
   Megaphone,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useState } from 'react';
 
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -46,7 +50,7 @@ const adminNavItems = [
   { title: 'Settings', url: '/admin/settings', icon: Settings },
 ];
 
-export function AdminSidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -58,14 +62,14 @@ export function AdminSidebar() {
   };
 
   return (
-    <div className="w-64 border-r border-border bg-card/50 flex flex-col h-full">
+    <>
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="h-6 w-6 text-primary" />
           <span className="font-bold text-lg">Super Admin</span>
         </div>
-        <NavLink to="/dashboard">
+        <NavLink to="/dashboard" onClick={onNavigate}>
           <Button variant="ghost" size="sm" className="w-full justify-start">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to App
@@ -81,6 +85,7 @@ export function AdminSidebar() {
               key={item.url}
               to={item.url}
               end={item.url === '/admin'}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 'hover:bg-accent/50 hover:text-accent-foreground',
@@ -96,6 +101,47 @@ export function AdminSidebar() {
           ))}
         </nav>
       </ScrollArea>
+    </>
+  );
+}
+
+export function AdminSidebar() {
+  const isMobile = useIsMobile();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Mobile sidebar using Sheet
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile Header with Menu Button */}
+        <div className="fixed top-0 left-0 right-0 h-14 bg-card flex items-center px-4 z-50 border-b border-border">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 bg-card border-border">
+              <div className="flex flex-col h-full">
+                <SidebarContent onNavigate={() => setMobileOpen(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <div className="ml-3 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            <span className="font-bold">Super Admin</span>
+          </div>
+        </div>
+        {/* Spacer for fixed header */}
+        <div className="h-14" />
+      </>
+    );
+  }
+
+  // Desktop sidebar
+  return (
+    <div className="w-64 border-r border-border bg-card/50 flex flex-col h-full">
+      <SidebarContent />
     </div>
   );
 }
