@@ -418,11 +418,11 @@ export function Sidebar() {
     return (
       <>
         {/* Mobile Header with Menu Button */}
-        <div className="fixed top-0 left-0 right-0 h-14 bg-sidebar flex items-center px-4 z-50 border-b border-sidebar-border/50">
+        <div className="fixed top-0 left-0 right-0 h-14 bg-primary flex items-center px-4 z-[60] border-b border-primary-foreground/20 shadow-md">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-sidebar-foreground">
-                <Menu className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+                <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border">
