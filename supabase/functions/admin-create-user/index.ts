@@ -154,7 +154,7 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       try {
-        const appUrl = Deno.env.get("APP_URL") || "https://hiremetrics.lovable.app";
+        const appUrl = Deno.env.get("APP_URL") || "https://planit-do-it.lovable.app";
         const welcomeEmailHtml = `
           <!DOCTYPE html>
           <html>
