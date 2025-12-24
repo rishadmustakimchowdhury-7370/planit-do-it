@@ -49,21 +49,42 @@ serve(async (req) => {
       );
     }
 
-    // Check if caller is owner or manager in the tenant
-    const { data: callerRole, error: roleError } = await supabaseAdmin
+    // Check if caller is super_admin (can delete any user)
+    const { data: superAdminCheck } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', caller.id)
-      .eq('tenant_id', tenant_id)
-      .in('role', ['owner', 'manager'])
+      .eq('role', 'super_admin')
       .single();
 
-    if (roleError || !callerRole) {
-      console.error('Role check error:', roleError);
-      return new Response(
-        JSON.stringify({ error: 'You do not have permission to delete users' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const isSuperAdmin = !!superAdminCheck;
+
+    // If not super_admin, check if caller is owner or manager in the tenant
+    let callerRole = null;
+    if (!isSuperAdmin) {
+      if (!tenant_id) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_id is required for non-super_admin users' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: roleData, error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', caller.id)
+        .eq('tenant_id', tenant_id)
+        .in('role', ['owner', 'manager'])
+        .single();
+
+      if (roleError || !roleData) {
+        console.error('Role check error:', roleError);
+        return new Response(
+          JSON.stringify({ error: 'You do not have permission to delete users' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      callerRole = roleData;
     }
 
     // Prevent deleting yourself
@@ -74,35 +95,45 @@ serve(async (req) => {
       );
     }
 
-    // Check if target user is in the same tenant
+    // For super_admin: get the target user's tenant from their profile
+    let targetTenantId = tenant_id;
+    if (isSuperAdmin && !tenant_id) {
+      const { data: targetProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user_id)
+        .single();
+      
+      targetTenantId = targetProfile?.tenant_id;
+    }
+
+    // Check if target user exists
     const { data: targetRole, error: targetError } = await supabaseAdmin
       .from('user_roles')
-      .select('role')
+      .select('role, tenant_id')
       .eq('user_id', user_id)
-      .eq('tenant_id', tenant_id)
       .single();
 
     if (targetError || !targetRole) {
       return new Response(
-        JSON.stringify({ error: 'User not found in your team' }),
+        JSON.stringify({ error: 'User not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Managers cannot delete owners
-    if (callerRole.role === 'manager' && targetRole.role === 'owner') {
+    // Non-super_admin: Managers cannot delete owners
+    if (!isSuperAdmin && callerRole?.role === 'manager' && targetRole.role === 'owner') {
       return new Response(
         JSON.stringify({ error: 'Managers cannot delete owners' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Delete user's role in this tenant first
+    // Delete user's role(s)
     const { error: deleteRoleError } = await supabaseAdmin
       .from('user_roles')
       .delete()
-      .eq('user_id', user_id)
-      .eq('tenant_id', tenant_id);
+      .eq('user_id', user_id);
 
     if (deleteRoleError) {
       console.error('Error deleting user role:', deleteRoleError);
@@ -129,7 +160,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`User ${caller.id} (${callerRole.role}) deleted user ${user_id}`);
+    console.log(`User ${caller.id} (${isSuperAdmin ? 'super_admin' : callerRole?.role}) deleted user ${user_id}`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'User deleted successfully' }),
