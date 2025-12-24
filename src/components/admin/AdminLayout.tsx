@@ -11,14 +11,14 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children, title, description }: AdminLayoutProps) {
-  const { isOwner, isLoading, user } = useAuth();
+  const { isSuperAdmin, isLoading, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !isOwner) {
+    if (!isLoading && !isSuperAdmin) {
       navigate('/dashboard');
     }
-  }, [isOwner, isLoading, navigate]);
+  }, [isSuperAdmin, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -28,7 +28,7 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
     );
   }
 
-  if (!isOwner) {
+  if (!isSuperAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">

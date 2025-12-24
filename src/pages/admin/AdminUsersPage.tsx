@@ -56,6 +56,9 @@ import {
   Eye,
   Loader2,
   CalendarClock,
+  Edit,
+  ShieldCheck,
+  ShieldOff,
 } from 'lucide-react';
 
 interface UserWithTenant {
@@ -79,6 +82,7 @@ interface UserWithTenant {
     trial_expires_at: string | null;
     trial_days: number | null;
   } | null;
+  is_super_admin?: boolean;
 }
 
 interface SubscriptionPlan {
@@ -102,6 +106,8 @@ export default function AdminUsersPage() {
   const [showTempLoginDialog, setShowTempLoginDialog] = useState(false);
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [showTrialDialog, setShowTrialDialog] = useState(false);
+  const [showViewProfileDialog, setShowViewProfileDialog] = useState(false);
+  const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
   const [graceDays, setGraceDays] = useState('7');
   const [trialDays, setTrialDays] = useState('14');
   const [selectedPackage, setSelectedPackage] = useState('');
@@ -115,6 +121,13 @@ export default function AdminUsersPage() {
     password: '',
     companyName: '',
     selectedPlan: '',
+  });
+
+  // Edit user form
+  const [editUserForm, setEditUserForm] = useState({
+    fullName: '',
+    phone: '',
+    jobTitle: '',
   });
 
   useEffect(() => {
@@ -145,7 +158,20 @@ export default function AdminUsersPage() {
 
       if (error) throw error;
 
-      setUsers(profiles as unknown as UserWithTenant[]);
+      // Fetch super admin status for each user
+      const { data: superAdminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'super_admin');
+
+      const superAdminIds = new Set(superAdminRoles?.map(r => r.user_id) || []);
+
+      const usersWithSuperAdmin = (profiles as unknown as UserWithTenant[]).map(user => ({
+        ...user,
+        is_super_admin: superAdminIds.has(user.id),
+      }));
+
+      setUsers(usersWithSuperAdmin);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
@@ -467,6 +493,96 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleViewProfile = (user: UserWithTenant) => {
+    setSelectedUser(user);
+    setShowViewProfileDialog(true);
+  };
+
+  const handleEditProfile = (user: UserWithTenant) => {
+    setSelectedUser(user);
+    setEditUserForm({
+      fullName: user.full_name || '',
+      phone: user.phone || '',
+      jobTitle: user.job_title || '',
+    });
+    setShowEditProfileDialog(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setIsProcessing(true);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editUserForm.fullName,
+          phone: editUserForm.phone,
+          job_title: editUserForm.jobTitle,
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      await logAuditAction('edit_profile', selectedUser.id, editUserForm);
+      toast.success('Profile updated successfully');
+      setShowEditProfileDialog(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleToggleSuperAdmin = async (user: UserWithTenant) => {
+    if (user.id === currentUser?.id) {
+      toast.error('You cannot change your own super admin status');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      if (user.is_super_admin) {
+        // Remove super admin role
+        const { error } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('role', 'super_admin');
+
+        if (error) throw error;
+
+        await logAuditAction('revoke_super_admin', user.id);
+        toast.success('Super Admin access revoked');
+      } else {
+        // Add super admin role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            role: 'super_admin',
+            tenant_id: null,
+          });
+
+        if (error) throw error;
+
+        await logAuditAction('grant_super_admin', user.id);
+        toast.success('Super Admin access granted');
+      }
+
+      fetchUsers();
+    } catch (error) {
+      console.error('Error toggling super admin:', error);
+      toast.error('Failed to update super admin status');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleExportUsers = () => {
     const csvData = users.map(u => ({
       name: u.full_name || '',
@@ -638,9 +754,30 @@ export default function AdminUsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewProfile(user)}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditProfile(user)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleToggleSuperAdmin(user)}
+                            disabled={user.id === currentUser?.id}
+                          >
+                            {user.is_super_admin ? (
+                              <>
+                                <ShieldOff className="h-4 w-4 mr-2" />
+                                Revoke Super Admin
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-4 w-4 mr-2" />
+                                Make Super Admin
+                              </>
+                            )}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -951,6 +1088,130 @@ export default function AdminUsersPage() {
             <Button onClick={handleGrantTrial} disabled={isProcessing}>
               {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Grant Trial
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Profile Dialog */}
+      <Dialog open={showViewProfileDialog} onOpenChange={setShowViewProfileDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+            <DialogDescription>
+              View details for {selectedUser?.full_name || selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedUser.avatar_url || undefined} />
+                  <AvatarFallback className="text-lg">
+                    {selectedUser.full_name?.charAt(0) || selectedUser.email.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-semibold text-lg">{selectedUser.full_name || 'No name'}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                  {selectedUser.is_super_admin && (
+                    <Badge variant="default" className="mt-1 bg-purple-600">Super Admin</Badge>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div>
+                  <Label className="text-muted-foreground">Phone</Label>
+                  <p className="font-medium">{selectedUser.phone || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Job Title</Label>
+                  <p className="font-medium">{selectedUser.job_title || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Company</Label>
+                  <p className="font-medium">{selectedUser.tenant?.name || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedUser)}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Created</Label>
+                  <p className="font-medium">{new Date(selectedUser.created_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Last Login</Label>
+                  <p className="font-medium">
+                    {selectedUser.last_login_at 
+                      ? new Date(selectedUser.last_login_at).toLocaleDateString() 
+                      : 'Never'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowViewProfileDialog(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setShowViewProfileDialog(false);
+              if (selectedUser) handleEditProfile(selectedUser);
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={showEditProfileDialog} onOpenChange={setShowEditProfileDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>
+              Update profile for {selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={editUserForm.fullName}
+                onChange={(e) => setEditUserForm({ ...editUserForm, fullName: e.target.value })}
+                placeholder="John Doe"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={editUserForm.phone}
+                onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                placeholder="+1 234 567 8900"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Job Title</Label>
+              <Input
+                value={editUserForm.jobTitle}
+                onChange={(e) => setEditUserForm({ ...editUserForm, jobTitle: e.target.value })}
+                placeholder="Senior Recruiter"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditProfileDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={isProcessing}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
