@@ -52,7 +52,7 @@ const adminNav = { name: 'Super Admin', href: '/admin', icon: Shield };
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut, isOwner, isManager, isRecruiter } = useAuth();
+  const { profile, signOut, isOwner, isManager, isRecruiter, isSuperAdmin } = useAuth();
   const { hasPermission } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
   
@@ -325,8 +325,8 @@ export function Sidebar() {
           );
         })}
 
-        {/* Owner/Admin Link */}
-        {isOwner && (
+        {/* Super Admin Link - Only visible to super_admin users */}
+        {isSuperAdmin && (
           <Link
             to={adminNav.href}
             className={cn(
