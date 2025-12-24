@@ -3901,6 +3901,7 @@ export type Database = {
         Args: { _credits_needed: number; _user_id: string }
         Returns: boolean
       }
+      increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
