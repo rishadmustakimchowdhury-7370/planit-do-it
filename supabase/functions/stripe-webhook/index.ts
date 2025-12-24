@@ -477,13 +477,7 @@ serve(async (req) => {
                     order_id: orderId,
                   });
                 
-                // Increment uses_count
-                await supabase
-                  .from('promo_codes')
-                  .update({ uses_count: supabase.rpc ? undefined : undefined })
-                  .eq('id', promoData.id);
-                
-                // Actually increment via raw SQL
+                // Increment uses_count using rpc function
                 await supabase.rpc('increment_promo_uses', { promo_id: promoData.id });
                 
                 logStep("Promo code usage recorded", { promoCode, userId });
