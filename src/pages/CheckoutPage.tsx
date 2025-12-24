@@ -44,6 +44,20 @@ interface PromoCodeValidation {
   discount_amount: number;
 }
 
+interface BillingOption {
+  months: number;
+  label: string;
+  discount: number;
+  badge?: string;
+}
+
+const billingOptions: BillingOption[] = [
+  { months: 1, label: '1 Month', discount: 0 },
+  { months: 3, label: '3 Months', discount: 10, badge: 'Save 10%' },
+  { months: 6, label: '6 Months', discount: 15, badge: 'Save 15%' },
+  { months: 12, label: '12 Months', discount: 20, badge: 'Best Value' },
+];
+
 const planIcons: Record<string, any> = {
   starter: Zap,
   pro: Sparkles,
@@ -63,6 +77,7 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState('');
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<PromoCodeValidation | null>(null);
+  const [selectedBilling, setSelectedBilling] = useState<number>(1);
 
   useEffect(() => {
     if (planId) {
@@ -161,7 +176,11 @@ export default function CheckoutPage() {
     setProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId, billingCycle: 'monthly', promoCode: appliedPromo?.code }
+        body: { 
+          planId, 
+          billingMonths: selectedBilling,
+          promoCode: appliedPromo?.code 
+        }
       });
 
       if (error) throw error;
@@ -194,7 +213,11 @@ export default function CheckoutPage() {
     }
   };
 
-  const finalPrice = plan ? (appliedPromo ? plan.price_monthly - appliedPromo.discount_amount : plan.price_monthly) : 0;
+  const selectedOption = billingOptions.find(o => o.months === selectedBilling) || billingOptions[0];
+  const basePrice = plan ? plan.price_monthly * selectedBilling : 0;
+  const billingDiscount = basePrice * (selectedOption.discount / 100);
+  const promoDiscount = appliedPromo ? appliedPromo.discount_amount * selectedBilling : 0;
+  const finalPrice = basePrice - billingDiscount - promoDiscount;
 
   if (loading || authLoading) {
     return (
@@ -249,7 +272,42 @@ export default function CheckoutPage() {
                       <p className="text-sm text-muted-foreground">{plan.description}</p>
                     </div>
                   </div>
-                  <Badge variant="secondary">Monthly</Badge>
+                  <Badge variant="secondary">{selectedOption.label}</Badge>
+                </div>
+
+                <Separator />
+
+                {/* Billing Duration Selection */}
+                <div>
+                  <h4 className="font-medium mb-3">Choose Billing Duration</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {billingOptions.map((option) => (
+                      <button
+                        key={option.months}
+                        onClick={() => setSelectedBilling(option.months)}
+                        className={`relative p-3 rounded-lg border-2 transition-all text-left ${
+                          selectedBilling === option.months
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        {option.badge && (
+                          <span className="absolute -top-2 right-2 text-[10px] font-bold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                            {option.badge}
+                          </span>
+                        )}
+                        <div className="font-medium">{option.label}</div>
+                        {option.discount > 0 && (
+                          <div className="text-xs text-green-600 font-medium">
+                            Save {option.discount}%
+                          </div>
+                        )}
+                        <div className="text-sm text-muted-foreground mt-1">
+                          £{(plan!.price_monthly * (1 - option.discount / 100)).toFixed(2)}/mo
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <Separator />
@@ -359,13 +417,19 @@ export default function CheckoutPage() {
                 {/* Price Breakdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>{plan.name} Plan (Monthly)</span>
-                    <span>£{plan.price_monthly.toFixed(2)}</span>
+                    <span>{plan.name} Plan × {selectedBilling} month{selectedBilling > 1 ? 's' : ''}</span>
+                    <span>£{basePrice.toFixed(2)}</span>
                   </div>
+                  {selectedOption.discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Duration Discount ({selectedOption.discount}%)</span>
+                      <span>-£{billingDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {appliedPromo && (
-                    <div className="flex justify-between text-sm text-success">
-                      <span>Discount ({appliedPromo.code})</span>
-                      <span>-£{appliedPromo.discount_amount.toFixed(2)}</span>
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Promo ({appliedPromo.code})</span>
+                      <span>-£{promoDiscount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -374,7 +438,12 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
-                  <span>£{finalPrice.toFixed(2)} GBP/month</span>
+                  <div className="text-right">
+                    <div>£{finalPrice.toFixed(2)} GBP</div>
+                    <div className="text-xs text-muted-foreground font-normal">
+                      (£{(finalPrice / selectedBilling).toFixed(2)}/month)
+                    </div>
+                  </div>
                 </div>
 
                 {/* Checkout Button */}

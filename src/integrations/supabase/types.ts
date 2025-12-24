@@ -2627,6 +2627,7 @@ export type Database = {
       promo_codes: {
         Row: {
           applicable_plans: Json | null
+          banner_text: string | null
           code: string
           created_at: string | null
           created_by: string | null
@@ -2638,6 +2639,7 @@ export type Database = {
           is_active: boolean | null
           max_uses: number | null
           min_purchase_amount: number | null
+          show_as_banner: boolean | null
           updated_at: string | null
           uses_count: number | null
           valid_from: string | null
@@ -2645,6 +2647,7 @@ export type Database = {
         }
         Insert: {
           applicable_plans?: Json | null
+          banner_text?: string | null
           code: string
           created_at?: string | null
           created_by?: string | null
@@ -2656,6 +2659,7 @@ export type Database = {
           is_active?: boolean | null
           max_uses?: number | null
           min_purchase_amount?: number | null
+          show_as_banner?: boolean | null
           updated_at?: string | null
           uses_count?: number | null
           valid_from?: string | null
@@ -2663,6 +2667,7 @@ export type Database = {
         }
         Update: {
           applicable_plans?: Json | null
+          banner_text?: string | null
           code?: string
           created_at?: string | null
           created_by?: string | null
@@ -2674,6 +2679,7 @@ export type Database = {
           is_active?: boolean | null
           max_uses?: number | null
           min_purchase_amount?: number | null
+          show_as_banner?: boolean | null
           updated_at?: string | null
           uses_count?: number | null
           valid_from?: string | null

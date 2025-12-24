@@ -7,6 +7,7 @@ import { RecentJobs } from '@/components/dashboard/RecentJobs';
 import { TopCandidates } from '@/components/dashboard/TopCandidates';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { VideoTutorials } from '@/components/dashboard/VideoTutorials';
+import { PromoBanner } from '@/components/promo/PromoBanner';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Briefcase, Users, Calendar, Trophy, Building2, TrendingUp } from 'lucide-react';
@@ -147,6 +148,8 @@ export default function DashboardPage() {
   return (
     <AppLayout>
       <div className="space-y-8">
+        {/* Promo Banner */}
+        <PromoBanner variant="dashboard" />
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

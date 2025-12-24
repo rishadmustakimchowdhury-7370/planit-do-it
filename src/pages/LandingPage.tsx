@@ -9,6 +9,7 @@ import { Logo, BRAND } from '@/components/brand/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
+import { PromoBanner } from '@/components/promo/PromoBanner';
 import { 
   ArrowRight, 
   Users, 
@@ -351,6 +352,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Promo Banner */}
+      <PromoBanner variant="landing" />
+      
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
