@@ -20,6 +20,7 @@ import {
   Building2,
   Megaphone,
   Menu,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ const adminNavItems = [
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Promo Codes', url: '/admin/promo-codes', icon: Tag },
   { title: 'Billing Settings', url: '/admin/billing-settings', icon: CreditCard },
+  { title: 'Stripe Connect', url: '/admin/stripe-connect', icon: Link2 },
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Testimonials', url: '/admin/testimonials', icon: MessageSquare },
   { title: 'Trusted Clients', url: '/admin/trusted-clients', icon: Building2 },
