@@ -16,7 +16,7 @@ interface Profile {
 }
 
 interface UserRole {
-  role: 'owner' | 'manager' | 'recruiter';
+  role: 'super_admin' | 'owner' | 'manager' | 'recruiter';
   tenant_id: string | null;
 }
 
@@ -29,6 +29,7 @@ interface AuthContextType {
   isOwner: boolean;
   isManager: boolean;
   isRecruiter: boolean;
+  isSuperAdmin: boolean;
   tenantId: string | null;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -189,6 +190,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ? roles.filter((r) => r.tenant_id === tenantId || r.tenant_id === null)
     : roles;
 
+  // super_admin role has no tenant restriction
+  const isSuperAdmin = roles.some((r) => r.role === 'super_admin');
   const isOwner = rolesForTenant.some((r) => r.role === 'owner');
   const isManager = rolesForTenant.some((r) => r.role === 'manager');
   const isRecruiter = rolesForTenant.some((r) => r.role === 'recruiter');
@@ -204,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isOwner,
         isManager,
         isRecruiter,
+        isSuperAdmin,
         tenantId,
         signUp,
         signIn,

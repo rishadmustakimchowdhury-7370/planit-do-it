@@ -5,7 +5,7 @@ import { usePermissions, Permission } from '@/hooks/usePermissions';
 
 interface RoleGateProps {
   children: ReactNode;
-  allowedRoles: ('owner' | 'manager' | 'recruiter')[];
+  allowedRoles: ('super_admin' | 'owner' | 'manager' | 'recruiter')[];
   requiredPermission?: Permission;
   fallback?: ReactNode;
   redirectTo?: string;
@@ -24,7 +24,7 @@ interface RoleGateProps {
  * </RoleGate>
  */
 export function RoleGate({ children, allowedRoles, requiredPermission, fallback, redirectTo }: RoleGateProps) {
-  const { roles, isLoading, isOwner } = useAuth();
+  const { roles, isLoading, isOwner, isSuperAdmin } = useAuth();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
 
   if (isLoading || permissionsLoading) {
@@ -34,8 +34,13 @@ export function RoleGate({ children, allowedRoles, requiredPermission, fallback,
   const userRole = roles[0]?.role;
   const hasRoleAccess = userRole && allowedRoles.includes(userRole);
 
-  // Owners always have access
-  if (isOwner) {
+  // Super admins always have access
+  if (isSuperAdmin) {
+    return <>{children}</>;
+  }
+
+  // Owners have access unless super_admin is specifically required
+  if (isOwner && !allowedRoles.every(r => r === 'super_admin')) {
     return <>{children}</>;
   }
 
@@ -64,6 +69,7 @@ export function useRoleCheck() {
   const userRole = roles[0]?.role;
 
   return {
+    isSuperAdmin: userRole === 'super_admin',
     isOwner: userRole === 'owner',
     isManager: userRole === 'manager',
     isRecruiter: userRole === 'recruiter',
