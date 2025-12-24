@@ -2596,6 +2596,55 @@ export type Database = {
           },
         ]
       }
+      promo_code_usage: {
+        Row: {
+          id: string
+          order_id: string | null
+          promo_code_id: string
+          tenant_id: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          order_id?: string | null
+          promo_code_id: string
+          tenant_id: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          order_id?: string | null
+          promo_code_id?: string
+          tenant_id?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_usage_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usage_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promo_code_uses: {
         Row: {
           discount_applied: number
