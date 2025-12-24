@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Loader2, CalendarIcon, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { MathCaptcha } from '@/components/ui/math-captcha';
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
@@ -34,6 +35,7 @@ export function BookDemoDialog({ open, onOpenChange }: BookDemoDialogProps) {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [date, setDate] = useState<Date>();
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -45,6 +47,10 @@ export function BookDemoDialog({ open, onOpenChange }: BookDemoDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isCaptchaVerified) {
+      toast.error('Please solve the math problem to verify you\'re human');
+      return;
+    }
     if (!date || !formData.preferred_time) {
       toast.error('Please select a date and time');
       return;
@@ -94,6 +100,7 @@ export function BookDemoDialog({ open, onOpenChange }: BookDemoDialogProps) {
     // Reset form after close
     setTimeout(() => {
       setSubmitted(false);
+      setIsCaptchaVerified(false);
       setFormData({
         name: '',
         email: '',
@@ -245,7 +252,9 @@ export function BookDemoDialog({ open, onOpenChange }: BookDemoDialogProps) {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <MathCaptcha onVerified={setIsCaptchaVerified} />
+
+          <Button type="submit" className="w-full" disabled={loading || !isCaptchaVerified}>
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {loading ? 'Booking...' : 'Book Demo'}
           </Button>
