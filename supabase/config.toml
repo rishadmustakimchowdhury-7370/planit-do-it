@@ -95,3 +95,6 @@ verify_jwt = true
 
 [functions.linkedin-extension-api]
 verify_jwt = false
+
+[functions.notify-admin-new-user]
+verify_jwt = false
