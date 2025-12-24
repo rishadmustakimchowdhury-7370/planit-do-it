@@ -60,6 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (profileData) {
+        // Check if user is deactivated
+        if (profileData.is_active === false) {
+          console.log('User account is deactivated');
+          await supabase.auth.signOut();
+          setProfile(null);
+          setRoles([]);
+          return;
+        }
         setProfile(profileData as Profile);
       }
 
@@ -73,9 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (rolesData) {
-        setRoles(rolesData as UserRole[]);
+      // If no roles found, user has been removed from the team
+      if (!rolesData || rolesData.length === 0) {
+        console.log('User has no roles - access removed');
+        await supabase.auth.signOut();
+        setProfile(null);
+        setRoles([]);
+        return;
       }
+
+      setRoles(rolesData as UserRole[]);
     } catch (error) {
       console.error('Error in fetchProfile:', error);
     }
