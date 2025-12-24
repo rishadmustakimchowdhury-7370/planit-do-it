@@ -26,12 +26,16 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { planId, promoCode } = await req.json();
-    logStep("Request params", { planId, promoCode });
+    const { planId, promoCode, billingMonths = 1 } = await req.json();
+    logStep("Request params", { planId, promoCode, billingMonths });
 
     if (!planId) {
       throw new Error("Missing planId");
     }
+    
+    // Billing duration discounts
+    const durationDiscounts: Record<number, number> = { 1: 0, 3: 10, 6: 15, 12: 20 };
+    const durationDiscount = durationDiscounts[billingMonths] || 0;
 
     // Get authenticated user
     const authHeader = req.headers.get("Authorization")!;
@@ -113,6 +117,12 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
+    // Calculate total with discounts
+    const baseAmount = plan.price_monthly * billingMonths;
+    const durationDiscountAmount = baseAmount * (durationDiscount / 100);
+    const promoDiscountAmount = discountAmount * billingMonths;
+    const finalAmount = baseAmount - durationDiscountAmount - promoDiscountAmount;
+
     // Create order record (pending)
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
@@ -120,9 +130,9 @@ serve(async (req) => {
         user_id: user.id,
         tenant_id: profile?.tenant_id,
         plan_id: planId,
-        amount: plan.price_monthly - discountAmount,
+        amount: finalAmount,
         currency: 'gbp',
-        billing_cycle: 'monthly',
+        billing_cycle: billingMonths === 1 ? 'monthly' : `${billingMonths}_months`,
         status: 'pending',
         approval_status: 'pending_approval',
         metadata: {
@@ -130,8 +140,10 @@ serve(async (req) => {
           user_email: user.email,
           user_name: profile?.full_name,
           promo_code: validPromoCode?.code || null,
-          discount_amount: discountAmount,
-          original_amount: plan.price_monthly,
+          promo_discount: promoDiscountAmount,
+          duration_discount: durationDiscountAmount,
+          original_amount: baseAmount,
+          billing_months: billingMonths,
         }
       })
       .select()

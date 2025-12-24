@@ -28,6 +28,8 @@ interface PromoCode {
   valid_until: string | null;
   is_active: boolean;
   created_at: string;
+  show_as_banner: boolean;
+  banner_text: string | null;
 }
 
 export default function AdminPromoCodesPage() {
@@ -46,6 +48,8 @@ export default function AdminPromoCodesPage() {
     max_uses: '',
     valid_until: '',
     is_active: true,
+    show_as_banner: false,
+    banner_text: '',
   });
 
   useEffect(() => {
@@ -80,6 +84,8 @@ export default function AdminPromoCodesPage() {
         max_uses: code.max_uses?.toString() || '',
         valid_until: code.valid_until ? format(new Date(code.valid_until), 'yyyy-MM-dd') : '',
         is_active: code.is_active,
+        show_as_banner: code.show_as_banner || false,
+        banner_text: code.banner_text || '',
       });
     } else {
       setEditingCode(null);
@@ -92,6 +98,8 @@ export default function AdminPromoCodesPage() {
         max_uses: '',
         valid_until: '',
         is_active: true,
+        show_as_banner: false,
+        banner_text: '',
       });
     }
     setDialogOpen(true);
@@ -114,6 +122,8 @@ export default function AdminPromoCodesPage() {
         max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
         valid_until: formData.valid_until ? new Date(formData.valid_until).toISOString() : null,
         is_active: formData.is_active,
+        show_as_banner: formData.show_as_banner,
+        banner_text: formData.banner_text || null,
       };
 
       if (editingCode) {
@@ -365,6 +375,30 @@ export default function AdminPromoCodesPage() {
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Show as Banner</Label>
+                  <p className="text-xs text-muted-foreground">Display this promo on homepage and dashboard</p>
+                </div>
+                <Switch
+                  checked={formData.show_as_banner}
+                  onCheckedChange={(checked) => setFormData({ ...formData, show_as_banner: checked })}
+                />
+              </div>
+
+              {formData.show_as_banner && (
+                <div className="space-y-2">
+                  <Label>Banner Text</Label>
+                  <Input
+                    placeholder="e.g., Limited time offer! Get 20% off all plans"
+                    value={formData.banner_text}
+                    onChange={(e) => setFormData({ ...formData, banner_text: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
