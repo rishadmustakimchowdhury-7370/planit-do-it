@@ -98,3 +98,9 @@ verify_jwt = false
 
 [functions.notify-admin-new-user]
 verify_jwt = false
+
+[functions.generate-invoice-pdf]
+verify_jwt = false
+
+[functions.ai-generate-template]
+verify_jwt = true
