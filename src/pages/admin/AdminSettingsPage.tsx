@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Settings, Bell, Shield, Globe, Database, Play } from 'lucide-react';
+import { StripeConnectCard } from '@/components/admin/StripeConnectCard';
 
 interface PlatformSettings {
   maintenance_mode: boolean;
@@ -250,6 +251,9 @@ export default function AdminSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Stripe Integration */}
+        <StripeConnectCard />
 
         {/* Save Button */}
         <div className="flex justify-end">

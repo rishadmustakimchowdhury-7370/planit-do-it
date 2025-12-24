@@ -2911,6 +2911,54 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_connect: {
+        Row: {
+          account_email: string | null
+          account_name: string | null
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string
+          id: string
+          is_connected: boolean | null
+          livemode: boolean | null
+          stripe_account_id: string | null
+          stripe_publishable_key: string | null
+          stripe_secret_key_encrypted: string | null
+          stripe_webhook_secret_encrypted: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_email?: string | null
+          account_name?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean | null
+          livemode?: boolean | null
+          stripe_account_id?: string | null
+          stripe_publishable_key?: string | null
+          stripe_secret_key_encrypted?: string | null
+          stripe_webhook_secret_encrypted?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_email?: string | null
+          account_name?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean | null
+          livemode?: boolean | null
+          stripe_account_id?: string | null
+          stripe_publishable_key?: string | null
+          stripe_secret_key_encrypted?: string | null
+          stripe_webhook_secret_encrypted?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
