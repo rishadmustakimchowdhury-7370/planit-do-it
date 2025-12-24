@@ -161,6 +161,21 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Check if user already used this promo code
+      if (user) {
+        const { data: usageData } = await supabase
+          .from('promo_code_usage')
+          .select('id')
+          .eq('promo_code_id', data.id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (usageData) {
+          toast.error('You have already used this promo code');
+          return;
+        }
+      }
+
       // Calculate discount
       let discountAmount = 0;
       if (data.discount_type === 'percentage') {

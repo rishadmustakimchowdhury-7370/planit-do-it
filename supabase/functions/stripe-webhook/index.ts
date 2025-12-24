@@ -452,6 +452,43 @@ serve(async (req) => {
             logStep("Failed to update order", { error, orderId });
           } else {
             logStep("Order updated successfully", { orderId, status: updateData.status });
+            
+            // Record promo code usage if applicable
+            if (session.payment_status === 'paid' && session.metadata?.promo_code) {
+              const promoCode = session.metadata.promo_code;
+              const userId = session.metadata.user_id;
+              const tenantId = session.metadata.tenant_id;
+              
+              // Get promo code ID
+              const { data: promoData } = await supabase
+                .from('promo_codes')
+                .select('id')
+                .eq('code', promoCode)
+                .single();
+              
+              if (promoData && userId && tenantId) {
+                // Record usage
+                await supabase
+                  .from('promo_code_usage')
+                  .insert({
+                    promo_code_id: promoData.id,
+                    user_id: userId,
+                    tenant_id: tenantId,
+                    order_id: orderId,
+                  });
+                
+                // Increment uses_count
+                await supabase
+                  .from('promo_codes')
+                  .update({ uses_count: supabase.rpc ? undefined : undefined })
+                  .eq('id', promoData.id);
+                
+                // Actually increment via raw SQL
+                await supabase.rpc('increment_promo_uses', { promo_id: promoData.id });
+                
+                logStep("Promo code usage recorded", { promoCode, userId });
+              }
+            }
           }
 
           // Send confirmation emails if payment succeeded

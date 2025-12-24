@@ -75,7 +75,18 @@ serve(async (req) => {
         const validUntil = promo.valid_until ? new Date(promo.valid_until) : null;
         const withinUsageLimit = !promo.max_uses || promo.uses_count < promo.max_uses;
         
-        if (withinUsageLimit && (!validUntil || validUntil > now)) {
+        // Check if user has already used this promo code
+        const { data: existingUsage } = await supabaseClient
+          .from('promo_code_usage')
+          .select('id')
+          .eq('promo_code_id', promo.id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (existingUsage) {
+          logStep("User already used this promo code", { code: promo.code, userId: user.id });
+          // Don't apply the promo code if already used
+        } else if (withinUsageLimit && (!validUntil || validUntil > now)) {
           validPromoCode = promo;
           if (promo.discount_type === 'percentage') {
             discountAmount = (plan.price_monthly * promo.discount_value) / 100;
