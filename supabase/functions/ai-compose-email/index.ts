@@ -6,17 +6,20 @@ const corsHeaders = {
 };
 
 interface ComposeRequest {
-  candidate_first_name: string;
+  candidate_first_name?: string;
   candidate_last_name?: string;
-  job_title: string;
+  job_title?: string;
   location?: string;
   company_name?: string;
-  recruiter_name: string;
-  purpose: 'screening_call' | 'interview_invite' | 'job_pitch' | 'follow_up' | 'offer' | 'rejection' | 'custom';
-  tone: 'brief' | 'formal' | 'friendly';
-  length: 'short' | 'medium' | 'long';
+  recruiter_name?: string;
+  purpose: 'screening_call' | 'interview_invite' | 'job_pitch' | 'follow_up' | 'offer' | 'rejection' | 'custom' | 'promotion' | 'newsletter' | 'announcement' | 'reengagement' | 'welcome' | 'upgrade';
+  tone?: 'brief' | 'formal' | 'friendly';
+  length?: 'short' | 'medium' | 'long';
   template_context?: string;
   custom_instructions?: string;
+  customInstructions?: string;
+  recipientCount?: number;
+  isMarketing?: boolean;
 }
 
 serve(async (req) => {
@@ -39,31 +42,85 @@ serve(async (req) => {
       company_name,
       recruiter_name,
       purpose,
-      tone,
-      length,
+      tone = 'friendly',
+      length = 'medium',
       template_context,
       custom_instructions,
+      customInstructions,
+      recipientCount,
+      isMarketing,
     } = body;
 
+    const customPrompt = customInstructions || custom_instructions;
+
     // Build the AI prompt with strict structure enforcement
-    const toneGuide = {
+    const toneGuide: Record<string, string> = {
       brief: 'concise and to-the-point, no fluff',
       formal: 'professional and polished business tone',
       friendly: 'warm, personable, and approachable',
     };
 
-    const purposeGuide: Record<string, string> = {
+    // Marketing email purposes
+    const marketingPurposeGuide: Record<string, string> = {
+      promotion: 'a promotional email offering a special deal or discount on our recruitment CRM platform',
+      newsletter: 'a newsletter email with updates, tips, and news about recruitment industry',
+      announcement: 'an announcement email about new features or important updates to our platform',
+      reengagement: 're-engagement email to inactive users encouraging them to return to the platform',
+      welcome: 'a welcome email for new users who just signed up',
+      upgrade: 'an upgrade reminder email encouraging users to upgrade to a paid plan',
+    };
+
+    const recruitmentPurposeGuide: Record<string, string> = {
       screening_call: 'inviting the candidate to a phone screening call',
       interview_invite: 'inviting the candidate to an interview',
       job_pitch: 'presenting a job opportunity to the candidate',
       follow_up: 'following up on a previous conversation or application',
       offer: 'extending a job offer to the candidate',
       rejection: 'politely declining the candidate for the position',
-      custom: custom_instructions || 'general outreach to the candidate',
+      custom: customPrompt || 'general outreach to the candidate',
     };
 
-    // Strict formatting rules for professional emails
-    const systemPrompt = `You are an expert recruitment email writer. You MUST follow this EXACT structure for every email:
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (isMarketing) {
+      // Marketing email generation
+      const marketingPurpose = marketingPurposeGuide[purpose] || customPrompt || 'a general marketing email';
+      
+      systemPrompt = `You are an expert marketing email copywriter for HireMetrics CRM, a modern recruitment software platform. Write compelling, professional marketing emails that drive engagement and conversions.
+
+STRUCTURE:
+1. Greeting: Start with a warm, professional greeting (e.g., "Hi there," or "Hello,")
+2. [blank line]
+3. Opening Hook: 1-2 sentences that capture attention and establish relevance
+4. [blank line]
+5. Main Content: 2-3 paragraphs explaining the value proposition, benefits, or announcement
+6. [blank line]
+7. Call to Action: Clear, compelling CTA with urgency if appropriate
+8. [blank line]
+9. Sign-off: "Best regards," followed by "The HireMetrics Team"
+
+CRITICAL RULES:
+- Tone: ${toneGuide[tone]}
+- Write for mass email delivery to ${recipientCount || 'multiple'} recipients
+- NO placeholder variables like {{name}} - keep greetings general
+- NO markdown, NO HTML tags in the output
+- Make it scannable with short paragraphs
+- Include a clear benefit-focused call to action
+- Keep it under 200 words for optimal engagement
+- Be genuine and avoid overly salesy language
+- ALSO suggest a compelling subject line at the END in format: "SUBJECT: [your subject line here]"`;
+
+      userPrompt = `Write a marketing email for: ${marketingPurpose}
+
+Additional context/instructions: ${customPrompt || 'None provided'}
+
+Generate a professional marketing email that will resonate with recruitment professionals and hiring managers. Remember to suggest a subject line at the end.`;
+    } else {
+      // Original recruitment email generation
+      const purposeGuide = recruitmentPurposeGuide;
+
+      systemPrompt = `You are an expert recruitment email writer. You MUST follow this EXACT structure for every email:
 
 STRUCTURE (follow exactly - use ACTUAL candidate name, job title, and location provided, NOT placeholders):
 1. Greeting: "Hi ${candidate_first_name}," (use the actual first name provided, on its own line)
@@ -90,7 +147,7 @@ CRITICAL FORMATTING RULES:
 - Each paragraph should be substantial (2-3 complete sentences)
 - IMPORTANT: Separate each paragraph with TWO newlines (blank line between them) for proper formatting`;
 
-    const userPrompt = `Write a recruitment email for: ${purposeGuide[purpose]}
+      userPrompt = `Write a recruitment email for: ${purposeGuide[purpose] || 'general outreach'}
 
 ACTUAL VALUES TO USE (NOT placeholders):
 - Candidate First Name: ${candidate_first_name}
@@ -99,7 +156,7 @@ ACTUAL VALUES TO USE (NOT placeholders):
 - Location: ${location || 'flexible/remote'}
 - Company Name: ${company_name || 'our client company'}
 - Your Name (Recruiter): ${recruiter_name}
-${custom_instructions ? `\nAdditional Instructions: ${custom_instructions}` : ''}
+${customPrompt ? `\nAdditional Instructions: ${customPrompt}` : ''}
 
 REQUIREMENTS:
 1. Start with "Hi ${candidate_first_name}," as the greeting
@@ -109,6 +166,7 @@ REQUIREMENTS:
 5. Use actual values above, NOT template variables or placeholders
 
 Generate the email now:`;
+    }
 
     console.log("Calling Lovable AI for email composition...");
 
@@ -151,14 +209,21 @@ Generate the email now:`;
     const data = await response.json();
     let generatedText = data.choices?.[0]?.message?.content || "";
 
+    // Extract subject line for marketing emails
+    let suggestedSubject = '';
+    if (isMarketing) {
+      const subjectMatch = generatedText.match(/SUBJECT:\s*(.+?)(?:\n|$)/i);
+      if (subjectMatch) {
+        suggestedSubject = subjectMatch[1].trim();
+        generatedText = generatedText.replace(/SUBJECT:\s*.+?(?:\n|$)/i, '').trim();
+      }
+    }
+
     // Clean up and ensure proper paragraph formatting
     generatedText = generatedText
       .trim()
-      // Remove any remaining placeholders
       .replace(/\{\{[^}]+\}\}/g, '')
-      // Normalize line breaks - ensure double newlines between paragraphs
       .replace(/\n{3,}/g, '\n\n')
-      // Ensure greeting has proper spacing
       .replace(/^(Hi [^,]+,)\s*\n?/i, '$1\n\n');
 
     console.log("Email generated successfully");
@@ -166,6 +231,7 @@ Generate the email now:`;
     return new Response(
       JSON.stringify({ 
         email_body: generatedText,
+        suggested_subject: suggestedSubject || undefined,
         ai_generated: true,
         purpose,
         tone,

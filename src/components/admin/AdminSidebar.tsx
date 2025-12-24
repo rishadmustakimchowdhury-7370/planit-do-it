@@ -18,6 +18,7 @@ import {
   Search,
   Tag,
   Building2,
+  Megaphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const adminNavItems = [
   { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Users', url: '/admin/users', icon: Users },
+  { title: 'User Marketing', url: '/admin/marketing', icon: Megaphone },
   { title: 'Orders', url: '/admin/orders', icon: CreditCard },
   { title: 'Packages', url: '/admin/packages', icon: Package },
   { title: 'Promo Codes', url: '/admin/promo-codes', icon: Tag },
