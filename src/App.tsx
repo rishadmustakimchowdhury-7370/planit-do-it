@@ -45,6 +45,7 @@ import AdminVideosPage from "./pages/admin/AdminVideosPage";
 import AdminLiveChatPage from "./pages/admin/AdminLiveChatPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminPackagesPage from "./pages/admin/AdminPackagesPage";
+import AdminUserMarketingPage from "./pages/admin/AdminUserMarketingPage";
 
 import AdminTestimonialsPage from "./pages/admin/AdminTestimonialsPage";
 import AdminUsageAnalyticsPage from "./pages/admin/AdminUsageAnalyticsPage";
@@ -160,6 +161,7 @@ const AppRoutes = () => (
     {/* Super Admin routes */}
     <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
     <Route path="/admin/users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+    <Route path="/admin/marketing" element={<ProtectedRoute><AdminUserMarketingPage /></ProtectedRoute>} />
     <Route path="/admin/packages" element={<ProtectedRoute><AdminPackagesPage /></ProtectedRoute>} />
     <Route path="/admin/pages" element={<ProtectedRoute><AdminPagesPage /></ProtectedRoute>} />
     <Route path="/admin/branding" element={<ProtectedRoute><AdminBrandingPage /></ProtectedRoute>} />
