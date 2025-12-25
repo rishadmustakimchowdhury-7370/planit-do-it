@@ -62,6 +62,7 @@ import {
   Bell,
   CreditCard,
   Calendar,
+  UserX,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -114,6 +115,8 @@ export default function AdminUsersPage() {
   const [showViewProfileDialog, setShowViewProfileDialog] = useState(false);
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
   const [showSendReminderDialog, setShowSendReminderDialog] = useState(false);
+  const [showDeleteOrphanedDialog, setShowDeleteOrphanedDialog] = useState(false);
+  const [orphanedEmail, setOrphanedEmail] = useState('');
   const [graceDays, setGraceDays] = useState('7');
   const [trialDays, setTrialDays] = useState('14');
   const [selectedPackage, setSelectedPackage] = useState('');
@@ -688,6 +691,37 @@ export default function AdminUsersPage() {
     toast.success('Users exported');
   };
 
+  const handleDeleteOrphanedUser = async () => {
+    if (!orphanedEmail) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      const { data, error } = await supabase.functions.invoke('delete-orphaned-user', {
+        body: { email: orphanedEmail.trim().toLowerCase() }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      await logAuditAction('delete_orphaned_user', data.deleted_user_id || '', { email: orphanedEmail });
+      toast.success(data.message || 'Orphaned user deleted successfully');
+      setShowDeleteOrphanedDialog(false);
+      setOrphanedEmail('');
+    } catch (error: any) {
+      console.error('Error deleting orphaned user:', error);
+      toast.error(error.message || 'Failed to delete orphaned user');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const getStatusBadge = (user: UserWithTenant) => {
     if (user.tenant?.is_suspended) {
       return <Badge variant="destructive">Suspended</Badge>;
@@ -769,6 +803,10 @@ export default function AdminUsersPage() {
         <Button onClick={() => setShowAddUserDialog(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Add User
+        </Button>
+        <Button variant="outline" onClick={() => setShowDeleteOrphanedDialog(true)}>
+          <UserX className="h-4 w-4 mr-2" />
+          Delete Orphaned
         </Button>
       </div>
 
@@ -1454,6 +1492,52 @@ export default function AdminUsersPage() {
               {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Bell className="h-4 w-4 mr-2" />
               Send Reminder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Orphaned User Dialog */}
+      <Dialog open={showDeleteOrphanedDialog} onOpenChange={setShowDeleteOrphanedDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Orphaned User</DialogTitle>
+            <DialogDescription>
+              Delete a user that exists in auth.users but not in the CRM profiles table.
+              This is useful when a user was partially deleted or signup failed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-sm text-destructive">
+                <strong>Warning:</strong> This will permanently delete the user from Supabase Auth.
+                They will be able to sign up again with the same email.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="orphaned-email">Email Address</Label>
+              <Input
+                id="orphaned-email"
+                type="email"
+                value={orphanedEmail}
+                onChange={(e) => setOrphanedEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteOrphanedDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteOrphanedUser} 
+              disabled={isProcessing || !orphanedEmail}
+            >
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete User
             </Button>
           </DialogFooter>
         </DialogContent>
