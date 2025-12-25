@@ -192,10 +192,13 @@ serve(async (req) => {
 
     if (!superAdmins || superAdmins.length === 0) {
       logStep("No super admins found, using fallback email");
-      // Send to fallback email
       const resend = new Resend(resendApiKey);
-      await resend.emails.send({
-        from: 'HireMetrics <onboarding@resend.dev>',
+
+      // small jitter to reduce collisions with other functions hitting Resend at the same time
+      await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
+
+      const fallbackResult = await sendResendEmailWithRetry(resend, {
+        from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: ['admin@hiremetrics.co.uk'],
         subject: `🎉 New User Registration - ${full_name || email}`,
         html: generateNewUserEmailHTML({
@@ -206,7 +209,14 @@ serve(async (req) => {
           source,
         }),
       });
-      return new Response(JSON.stringify({ success: true, fallback: true }), {
+
+      if (fallbackResult.error) {
+        logStep("Fallback admin email failed", { error: fallbackResult.error });
+      } else {
+        logStep("Fallback admin email sent", { emailId: fallbackResult.data?.id });
+      }
+
+      return new Response(JSON.stringify({ success: true, fallback: true, emailResult: fallbackResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -243,14 +253,20 @@ serve(async (req) => {
       source,
     });
 
-    const emailResult = await resend.emails.send({
-      from: 'HireMetrics <onboarding@resend.dev>',
+    await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
+
+    const emailResult = await sendResendEmailWithRetry(resend, {
+      from: 'HireMetrics <admin@hiremetrics.co.uk>',
       to: adminEmails,
       subject: `🎉 New User Registration - ${full_name || email}`,
       html: emailHtml,
     });
 
-    logStep("Admin notification sent", { emailResult, adminEmails });
+    if (emailResult.error) {
+      logStep("Admin notification email failed", { error: emailResult.error, adminEmails });
+    }
+
+    logStep("Admin notification attempted", { emailResult, adminEmails });
 
     // Also create in-app notifications for super admins
     // Get tenant_id for each super admin from their profile

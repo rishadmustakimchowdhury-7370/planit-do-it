@@ -481,14 +481,21 @@ serve(async (req) => {
           appUrl,
         });
 
-        await resend.emails.send({
-          from: 'HireMetrics <onboarding@resend.dev>',
+        const welcomeResult = await sendResendEmailWithRetry(resend, {
+          from: 'HireMetrics <admin@hiremetrics.co.uk>',
           to: [email],
           subject: '🎉 Welcome to HireMetrics - Your Account is Ready!',
           html: welcomeHtml,
         });
 
-        logStep("Welcome email sent to new user", { email });
+        if (welcomeResult.error) {
+          throw new Error(welcomeResult.error?.message ?? 'Resend welcome email failed');
+        }
+
+        logStep("Welcome email sent to new user", { email, emailId: welcomeResult.data?.id });
+
+        // avoid sending two emails within the same second from this function
+        await new Promise((r) => setTimeout(r, 700));
       } catch (emailError) {
         logStep("Error sending welcome email", { error: emailError });
       }
@@ -528,14 +535,18 @@ serve(async (req) => {
               createdBy: callerProfile?.full_name || callerProfile?.email || 'Admin',
             });
 
-            await resend.emails.send({
-              from: 'HireMetrics <onboarding@resend.dev>',
+            const adminEmailResult = await sendResendEmailWithRetry(resend, {
+              from: 'HireMetrics <admin@hiremetrics.co.uk>',
               to: adminEmails,
               subject: `👤 New User Created: ${fullName}`,
               html: adminNotificationHtml,
             });
 
-            logStep("Admin notification sent", { adminEmails });
+            if (adminEmailResult.error) {
+              throw new Error(adminEmailResult.error?.message ?? 'Resend admin notification failed');
+            }
+
+            logStep("Admin notification sent", { adminEmails, emailId: adminEmailResult.data?.id });
           }
         }
       } catch (adminEmailError) {

@@ -590,13 +590,21 @@ serve(async (req) => {
                     companyLogo: tenant?.logo_url
                   });
 
-                  await resend.emails.send({
+                  const userSendResult = await sendResendEmailWithRetry(resend, {
                     from: 'HireMetrics <admin@hiremetrics.co.uk>',
                     to: [userEmail],
                     subject: `🎉 Payment Confirmed - ${planName} Plan`,
                     html: userEmailHtml,
                   });
-                  logStep("Confirmation email sent to user with invoice", { email: userEmail, hasInvoicePdf: !!invoicePdfUrl });
+
+                  if (userSendResult.error) {
+                    throw new Error(userSendResult.error?.message ?? 'Resend payment confirmation failed');
+                  }
+
+                  logStep("Confirmation email sent to user with invoice", { email: userEmail, hasInvoicePdf: !!invoicePdfUrl, emailId: userSendResult.data?.id });
+
+                  // avoid rate limit when sending admin email right after user email
+                  await new Promise((r) => setTimeout(r, 700));
                 }
 
                 // Send notification to super admins with full details
@@ -638,13 +646,18 @@ serve(async (req) => {
                       ? `🎉 New User Upgrade - ${planName} (${userName})`
                       : `💰 New Payment Received - ${planName} (${userName})`;
 
-                    await resend.emails.send({
+                    const adminSendResult = await sendResendEmailWithRetry(resend, {
                       from: 'HireMetrics <admin@hiremetrics.co.uk>',
                       to: adminEmails,
                       subject: emailSubject,
                       html: adminEmailHtml,
                     });
-                    logStep("Admin notification email sent", { adminEmails, isNewUser });
+
+                    if (adminSendResult.error) {
+                      throw new Error(adminSendResult.error?.message ?? 'Resend admin payment notification failed');
+                    }
+
+                    logStep("Admin notification email sent", { adminEmails, isNewUser, emailId: adminSendResult.data?.id });
                   }
                 }
               }
@@ -763,13 +776,18 @@ serve(async (req) => {
                   companyLogo: tenant?.logo_url
                 });
 
-                await resend.emails.send({
+                const renewalSendResult = await sendResendEmailWithRetry(resend, {
                   from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [userEmail],
                   subject: `✅ Subscription Renewed - ${planName}`,
                   html: renewalEmailHtml,
                 });
-                logStep("Renewal confirmation email sent", { email: userEmail });
+
+                if (renewalSendResult.error) {
+                  throw new Error(renewalSendResult.error?.message ?? 'Resend renewal email failed');
+                }
+
+                logStep("Renewal confirmation email sent", { email: userEmail, emailId: renewalSendResult.data?.id });
               }
             } catch (emailError) {
               logStep("Failed to send renewal email", { error: emailError });

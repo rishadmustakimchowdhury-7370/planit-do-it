@@ -592,7 +592,7 @@ serve(async (req) => {
               const invoiceBytes = encoder.encode(invoiceAttachmentHtml);
               const base64Invoice = btoa(String.fromCharCode(...invoiceBytes));
 
-              const emailResult = await resend.emails.send({
+              const emailResult = await sendResendEmailWithRetry(resend, {
                 from: 'HireMetrics <admin@hiremetrics.co.uk>',
                 to: [userEmail],
                 subject: `🧾 Your Invoice ${invoiceNumber} - ${planName} Plan`,
@@ -605,10 +605,14 @@ serve(async (req) => {
                 ]
               });
 
-              logStep("Invoice email sent", { 
-                email: userEmail, 
+              if (emailResult.error) {
+                throw new Error(emailResult.error?.message ?? 'Resend invoice email failed');
+              }
+
+              logStep("Invoice email sent", {
+                email: userEmail,
                 invoiceNumber,
-                emailId: emailResult.data?.id 
+                emailId: emailResult.data?.id
               });
 
               // Store invoice in database
