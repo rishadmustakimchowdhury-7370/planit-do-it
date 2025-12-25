@@ -252,16 +252,11 @@ export default function AdminUsersPage() {
 
       if (error) {
         console.error('Edge function error:', error);
-        // Check for specific error types
-        if (error.message?.includes('non-2xx')) {
-          const errorData = data;
-          throw new Error(errorData?.error || 'Failed to create user. Please check your permissions.');
-        }
         throw error;
       }
-      
-      if (data?.error) {
-        throw new Error(data.error);
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to create user');
       }
 
       await logAuditAction('create_user', data.user.id, { email: newUserForm.email });
@@ -271,19 +266,19 @@ export default function AdminUsersPage() {
       fetchUsers();
     } catch (error: any) {
       console.error('Error creating user:', error);
-      
+
       // Provide more specific error messages
       let errorMessage = 'Failed to create user';
-      if (error.message) {
-        if (error.message.includes('already registered') || error.message.includes('already exists')) {
-          errorMessage = 'A user with this email already exists';
-        } else if (error.message.includes('super admin')) {
-          errorMessage = 'You do not have permission to create users. Please contact support.';
-        } else {
-          errorMessage = error.message;
-        }
+      const msg = error?.message || '';
+
+      if (msg.includes('already been registered') || msg.includes('email_exists') || msg.includes('already exists')) {
+        errorMessage = 'A user with this email already exists';
+      } else if (msg.includes('Only super admins') || msg.includes('forbidden')) {
+        errorMessage = 'You do not have permission to create users.';
+      } else if (msg) {
+        errorMessage = msg;
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
