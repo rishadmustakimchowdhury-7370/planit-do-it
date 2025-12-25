@@ -13,6 +13,12 @@ const logStep = (step: string, details?: any) => {
   console.log(`[ADMIN-CREATE-USER] ${step}${detailsStr}`);
 };
 
+const jsonResponse = (payload: unknown) =>
+  new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 interface CreateUserRequest {
   email: string;
   password: string;
@@ -250,11 +256,13 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       logStep("Missing authorization header");
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: "Missing authorization header",
+        code: "missing_authorization",
+      });
     }
+
 
     // Create admin client with service role key for all operations
     const supabaseAdmin = createClient(
@@ -278,11 +286,9 @@ serve(async (req) => {
 
     if (userError || !caller) {
       logStep("Unauthorized - no valid user", { error: userError });
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ success: false, error: "Unauthorized", code: "unauthorized" });
     }
+
 
     logStep("Caller identified", { callerId: caller.id, callerEmail: caller.email });
 
@@ -296,32 +302,38 @@ serve(async (req) => {
 
     if (roleError) {
       logStep("Error checking super admin status", { error: roleError });
-      return new Response(
-        JSON.stringify({ error: "Failed to verify permissions" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: "Failed to verify permissions",
+        code: "permission_check_failed",
+      });
     }
+
 
     const isSuperAdmin = !!superAdminRole;
     logStep("Super admin check", { isSuperAdmin });
 
     if (!isSuperAdmin) {
       logStep("Permission denied - not a super admin");
-      return new Response(
-        JSON.stringify({ error: "Only super admins can create users" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: "Only super admins can create users",
+        code: "forbidden",
+      });
     }
+
 
     const { email, password, fullName, companyName, planId }: CreateUserRequest = await req.json();
     logStep("Request data", { email, fullName, companyName, planId });
 
     if (!email || !password || !fullName) {
-      return new Response(
-        JSON.stringify({ error: "Email, password, and full name are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: "Email, password, and full name are required",
+        code: "validation_error",
+      });
     }
+
 
     // Create user using service role
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -335,18 +347,22 @@ serve(async (req) => {
 
     if (createError) {
       logStep("Error creating user", { error: createError });
-      return new Response(
-        JSON.stringify({ error: createError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: createError.message,
+        code: (createError as any)?.code ?? "create_user_failed",
+      });
     }
 
+
     if (!newUser.user) {
-      return new Response(
-        JSON.stringify({ error: "Failed to create user" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({
+        success: false,
+        error: "Failed to create user",
+        code: "create_user_failed",
+      });
     }
+
 
     logStep("User created in auth", { userId: newUser.user.id });
 
@@ -500,27 +516,20 @@ serve(async (req) => {
 
     logStep("User creation completed successfully", { email });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user: {
-          id: newUser.user.id,
-          email: newUser.user.email,
-        },
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      user: {
+        id: newUser.user.id,
+        email: newUser.user.email,
+      },
+    });
   } catch (error: any) {
     logStep("ERROR", { message: error.message, stack: error.stack });
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({
+      success: false,
+      error: error?.message ?? "Unknown error",
+      code: "internal_error",
+    });
   }
 });
+
