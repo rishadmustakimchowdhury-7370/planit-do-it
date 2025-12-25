@@ -164,7 +164,7 @@ serve(async (req) => {
       // Send to fallback email
       const resend = new Resend(resendApiKey);
       await resend.emails.send({
-        from: 'HireMetrics <admin@hiremetrics.co.uk>',
+        from: 'HireMetrics <onboarding@resend.dev>',
         to: ['admin@hiremetrics.co.uk'],
         subject: `🎉 New User Registration - ${full_name || email}`,
         html: generateNewUserEmailHTML({
@@ -213,7 +213,7 @@ serve(async (req) => {
     });
 
     const emailResult = await resend.emails.send({
-      from: 'HireMetrics <admin@hiremetrics.co.uk>',
+      from: 'HireMetrics <onboarding@resend.dev>',
       to: adminEmails,
       subject: `🎉 New User Registration - ${full_name || email}`,
       html: emailHtml,
