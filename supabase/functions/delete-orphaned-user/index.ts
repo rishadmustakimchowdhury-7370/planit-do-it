@@ -104,45 +104,94 @@ serve(async (req) => {
       );
     }
 
-    // Clear job assignments referencing this user
-    const { error: jobsError } = await supabaseAdmin
-      .from('jobs')
-      .update({ assigned_to: null })
-      .eq('assigned_to', targetUser.id);
+    console.log('Clearing all FK references for user:', targetUser.id);
 
-    if (jobsError) {
-      console.error('Error clearing job assignments:', jobsError);
-    }
+    // Clear all foreign key references to this user
+    // Jobs table
+    await supabaseAdmin.from('jobs').update({ assigned_to: null }).eq('assigned_to', targetUser.id);
+    await supabaseAdmin.from('jobs').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // Job assignees
+    await supabaseAdmin.from('job_assignees').delete().eq('user_id', targetUser.id);
+    
+    // Clients table
+    await supabaseAdmin.from('clients').update({ created_by: null }).eq('created_by', targetUser.id);
+    await supabaseAdmin.from('clients').update({ default_recruiter_id: null }).eq('default_recruiter_id', targetUser.id);
+    
+    // Candidates table
+    await supabaseAdmin.from('candidates').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // AI usage
+    await supabaseAdmin.from('ai_usage').update({ user_id: null }).eq('user_id', targetUser.id);
+    
+    // Activities
+    await supabaseAdmin.from('activities').update({ user_id: null }).eq('user_id', targetUser.id);
+    
+    // Chat conversations
+    await supabaseAdmin.from('chat_conversations').update({ assigned_to: null }).eq('assigned_to', targetUser.id);
+    
+    // Email accounts
+    await supabaseAdmin.from('email_accounts').delete().eq('user_id', targetUser.id);
+    
+    // User email templates
+    await supabaseAdmin.from('user_email_templates').delete().eq('user_id', targetUser.id);
+    
+    // Candidate emails
+    await supabaseAdmin.from('candidate_emails').update({ sent_by: null }).eq('sent_by', targetUser.id);
+    
+    // Client emails
+    await supabaseAdmin.from('client_emails').update({ sent_by: null }).eq('sent_by', targetUser.id);
+    
+    // Events
+    await supabaseAdmin.from('events').delete().eq('organizer_id', targetUser.id);
+    
+    // Event participants
+    await supabaseAdmin.from('event_participants').delete().eq('user_id', targetUser.id);
+    
+    // Client attachments
+    await supabaseAdmin.from('client_attachments').update({ uploaded_by: null }).eq('uploaded_by', targetUser.id);
+    
+    // Client activities
+    await supabaseAdmin.from('client_activities').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // Import jobs
+    await supabaseAdmin.from('import_jobs').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // Support tickets
+    await supabaseAdmin.from('support_tickets').update({ assigned_to: null }).eq('assigned_to', targetUser.id);
+    await supabaseAdmin.from('support_tickets').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // Audit log
+    await supabaseAdmin.from('audit_log').update({ user_id: null }).eq('user_id', targetUser.id);
+    
+    // Temp login links
+    await supabaseAdmin.from('temp_login_links').delete().eq('user_id', targetUser.id);
+    
+    // Site branding
+    await supabaseAdmin.from('site_branding').update({ updated_by: null }).eq('updated_by', targetUser.id);
+    
+    // CMS pages
+    await supabaseAdmin.from('cms_pages').update({ created_by: null }).eq('created_by', targetUser.id);
+    
+    // Platform settings
+    await supabaseAdmin.from('platform_settings').update({ updated_by: null }).eq('updated_by', targetUser.id);
+    
+    // User invites
+    await supabaseAdmin.from('user_invites').update({ invited_by: null }).eq('invited_by', targetUser.id);
+    
+    // LinkedIn connections
+    await supabaseAdmin.from('linkedin_connections').delete().eq('user_id', targetUser.id);
+    
+    // LinkedIn outreach campaigns
+    await supabaseAdmin.from('linkedin_outreach_campaigns').delete().eq('user_id', targetUser.id);
+    
+    // User roles
+    await supabaseAdmin.from('user_roles').delete().eq('user_id', targetUser.id);
+    
+    // Profiles
+    await supabaseAdmin.from('profiles').delete().eq('id', targetUser.id);
 
-    // Clear job_assignees referencing this user
-    const { error: assigneesError } = await supabaseAdmin
-      .from('job_assignees')
-      .delete()
-      .eq('user_id', targetUser.id);
-
-    if (assigneesError) {
-      console.error('Error clearing job_assignees:', assigneesError);
-    }
-
-    // Clean up any orphaned user_roles
-    const { error: rolesError } = await supabaseAdmin
-      .from('user_roles')
-      .delete()
-      .eq('user_id', targetUser.id);
-
-    if (rolesError) {
-      console.error('Error cleaning up user_roles:', rolesError);
-    }
-
-    // Clean up any orphaned profiles (shouldn't exist but just in case)
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .delete()
-      .eq('id', targetUser.id);
-
-    if (profileError) {
-      console.error('Error cleaning up profiles:', profileError);
-    }
+    console.log('All FK references cleared for user:', targetUser.id);
 
     // Delete user from auth.users
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUser.id);
