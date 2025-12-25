@@ -222,23 +222,36 @@ serve(async (req) => {
     logStep("Admin notification sent", { emailResult, adminEmails });
 
     // Also create in-app notifications for super admins
-    const notifications = adminUserIds.map(userId => ({
-      user_id: userId,
-      tenant_id: null, // Super admins may not have tenant
-      title: 'New User Registration',
-      message: `${full_name || email} has registered on HireMetrics`,
-      type: 'info',
-      metadata: { user_email: email, user_name: full_name }
-    }));
+    // Get tenant_id for each super admin from their profile
+    const { data: adminProfilesWithTenant } = await supabase
+      .from('profiles')
+      .select('id, tenant_id')
+      .in('id', adminUserIds);
 
-    const { error: notifError } = await supabase
-      .from('notifications')
-      .insert(notifications);
+    const notifications = adminUserIds.map(userId => {
+      const profile = adminProfilesWithTenant?.find(p => p.id === userId);
+      return {
+        user_id: userId,
+        tenant_id: profile?.tenant_id || null,
+        title: 'New User Registration',
+        message: `${full_name || email} has registered on HireMetrics`,
+        type: 'info',
+        metadata: { user_email: email, user_name: full_name }
+      };
+    }).filter(n => n.tenant_id !== null); // Only insert if tenant_id exists
 
-    if (notifError) {
-      logStep("Warning: Failed to create in-app notifications", { error: notifError });
+    if (notifications.length > 0) {
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (notifError) {
+        logStep("Warning: Failed to create in-app notifications", { error: notifError });
+      } else {
+        logStep("In-app notifications created", { count: notifications.length });
+      }
     } else {
-      logStep("In-app notifications created", { count: notifications.length });
+      logStep("Skipped in-app notifications - no valid tenant_id found for super admins");
     }
 
     return new Response(JSON.stringify({ success: true, adminEmails }), {

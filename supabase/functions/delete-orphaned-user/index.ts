@@ -16,7 +16,7 @@ function jsonResponse(body: unknown, init: JsonResponseInit = {}) {
 }
 
 async function findAuthUserByEmail(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   emailLower: string
 ) {
   const perPage = 1000;
@@ -27,7 +27,7 @@ async function findAuthUserByEmail(
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
     if (error) return { user: null, error };
 
-    const found = data.users.find((u) => (u.email ?? "").toLowerCase() === emailLower);
+    const found = data.users.find((u: any) => (u.email ?? "").toLowerCase() === emailLower);
     if (found) return { user: found, error: null };
 
     if (data.users.length < perPage) break;
