@@ -11,6 +11,7 @@ interface ActivePromo {
   banner_text: string | null;
   discount_type: string;
   discount_value: number;
+  valid_until: string | null;
 }
 
 interface PromoBannerProps {
@@ -29,24 +30,32 @@ export function PromoBanner({ variant = 'landing' }: PromoBannerProps) {
     try {
       const { data, error } = await supabase
         .from('promo_codes')
-        .select('id, code, banner_text, discount_type, discount_value')
+        .select('id, code, banner_text, discount_type, discount_value, valid_until')
         .eq('is_active', true)
         .eq('show_as_banner', true)
-        .or('valid_until.is.null,valid_until.gt.now()')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (!error && data) {
-        // Check if already dismissed in this session
-        const dismissedPromos = sessionStorage.getItem('dismissed_promos');
-        if (dismissedPromos && JSON.parse(dismissedPromos).includes(data.id)) {
+      if (error) {
+        console.error('Error fetching promo:', error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const promo = data[0];
+        // Check if promo is still valid
+        if (promo.valid_until && new Date(promo.valid_until) < new Date()) {
           return;
         }
-        setPromo(data);
+        // Check if already dismissed in this session
+        const dismissedPromos = sessionStorage.getItem('dismissed_promos');
+        if (dismissedPromos && JSON.parse(dismissedPromos).includes(promo.id)) {
+          return;
+        }
+        setPromo(promo);
       }
     } catch (error) {
-      // No active banner promo - that's okay
+      console.error('Error fetching promo banner:', error);
     }
   };
 
