@@ -86,17 +86,11 @@ export function PublicPromoBanner() {
           aria-label={`Copy promo code ${promo.code}`}
         >
           <div className="relative overflow-hidden">
-            <div className="flex w-max whitespace-nowrap animate-promo-marquee">
-              <div className="flex items-center gap-8 pr-8">
-                <span className="text-sm font-semibold">{message}</span>
-                <span className="text-sm font-semibold">{message}</span>
-                <span className="text-sm font-semibold">{message}</span>
-              </div>
-              <div className="flex items-center gap-8 pr-8" aria-hidden="true">
-                <span className="text-sm font-semibold">{message}</span>
-                <span className="text-sm font-semibold">{message}</span>
-                <span className="text-sm font-semibold">{message}</span>
-              </div>
+            <div className="flex w-max whitespace-nowrap animate-marquee">
+              <span className="text-sm font-semibold px-4">{message}</span>
+              <span className="text-sm font-semibold px-4">{message}</span>
+              <span className="text-sm font-semibold px-4">{message}</span>
+              <span className="text-sm font-semibold px-4">{message}</span>
             </div>
           </div>
         </button>
