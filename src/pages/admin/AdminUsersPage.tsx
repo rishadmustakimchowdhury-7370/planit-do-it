@@ -87,6 +87,7 @@ interface UserWithTenant {
     trial_days: number | null;
   } | null;
   is_super_admin?: boolean;
+  tenant_role?: string | null;
 }
 
 interface SubscriptionPlan {
@@ -172,9 +173,22 @@ export default function AdminUsersPage() {
 
       const superAdminIds = new Set(superAdminRoles?.map(r => r.user_id) || []);
 
+      // Fetch tenant roles for each user
+      const { data: tenantRoles } = await supabase
+        .from('user_roles')
+        .select('user_id, tenant_id, role')
+        .neq('role', 'super_admin');
+
+      const roleMap = new Map<string, string>();
+      tenantRoles?.forEach(r => {
+        // Map user_id + tenant_id to role
+        roleMap.set(`${r.user_id}_${r.tenant_id}`, r.role);
+      });
+
       const usersWithSuperAdmin = (profiles as unknown as UserWithTenant[]).map(user => ({
         ...user,
         is_super_admin: superAdminIds.has(user.id),
+        tenant_role: user.tenant_id ? roleMap.get(`${user.id}_${user.tenant_id}`) || null : null,
       }));
 
       setUsers(usersWithSuperAdmin);
@@ -778,6 +792,7 @@ export default function AdminUsersPage() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Company</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Subscribed</TableHead>
                   <TableHead>Expires</TableHead>
@@ -799,7 +814,14 @@ export default function AdminUsersPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{user.full_name || 'No name'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{user.full_name || 'No name'}</p>
+                            {user.is_super_admin && (
+                              <Badge variant="outline" className="text-xs border-purple-500 text-purple-500">
+                                Super Admin
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">{user.email}</p>
                           {user.phone && (
                             <p className="text-xs text-muted-foreground">{user.phone}</p>
@@ -808,6 +830,16 @@ export default function AdminUsersPage() {
                       </div>
                     </TableCell>
                     <TableCell>{user.tenant?.name || '-'}</TableCell>
+                    <TableCell>
+                      {user.tenant_role ? (
+                        <Badge 
+                          variant={user.tenant_role === 'owner' ? 'default' : 'secondary'}
+                          className={user.tenant_role === 'owner' ? 'bg-blue-600' : user.tenant_role === 'manager' ? 'bg-amber-600' : ''}
+                        >
+                          {user.tenant_role.charAt(0).toUpperCase() + user.tenant_role.slice(1)}
+                        </Badge>
+                      ) : '-'}
+                    </TableCell>
                     <TableCell>{getStatusBadge(user)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -816,7 +848,14 @@ export default function AdminUsersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {getExpiresDate(user)}
+                      {getExpiresDate(user) !== '-' ? (
+                        <div className="flex items-center gap-1">
+                          <CalendarClock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">{getExpiresDate(user)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No expiry</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {daysLeft !== null ? (
