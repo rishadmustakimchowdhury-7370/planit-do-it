@@ -14,6 +14,37 @@ const logStep = (step: string, details?: any) => {
   console.log(`[VERIFY-PAYMENT] ${step}${detailsStr}`);
 };
 
+type ResendSendResult = { data: any; error: any };
+
+async function sendResendEmailWithRetry(
+  resend: Resend,
+  payload: Parameters<Resend["emails"]["send"]>[0],
+  maxAttempts = 5
+): Promise<ResendSendResult> {
+  let lastResult: ResendSendResult = { data: null, error: null };
+  let delayMs = 700;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = (await resend.emails.send(payload)) as ResendSendResult;
+    lastResult = result;
+
+    const err = result?.error;
+    if (!err) return result;
+
+    const statusCode = err?.statusCode;
+    const name = err?.name;
+    const isRateLimit = statusCode === 429 || name === "rate_limit_exceeded";
+
+    if (!isRateLimit || attempt === maxAttempts) return result;
+
+    logStep("Resend rate-limited, retrying", { attempt, delayMs, statusCode, name });
+    await new Promise((r) => setTimeout(r, delayMs));
+    delayMs = Math.min(delayMs * 2, 5000);
+  }
+
+  return lastResult;
+}
+
 // Generate professional invoice HTML for email
 function generateInvoiceEmailHTML(data: {
   invoiceNumber: string;
