@@ -107,3 +107,6 @@ verify_jwt = true
 
 [functions.stripe-connect-auth]
 verify_jwt = true
+
+[functions.delete-orphaned-user]
+verify_jwt = true
