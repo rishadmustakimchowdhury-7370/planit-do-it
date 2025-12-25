@@ -12,7 +12,7 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children, title, description }: AdminLayoutProps) {
-  const { isSuperAdmin, isLoading, user } = useAuth();
+  const { isSuperAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -44,19 +44,18 @@ export function AdminLayout({ children, title, description }: AdminLayoutProps) 
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSidebar />
-      <div className={isMobile ? '' : 'flex'}>
-        {!isMobile && <div className="w-64 flex-shrink-0" />}
-        <main className="flex-1 overflow-auto">
+      <div className={isMobile ? 'min-h-screen' : 'flex min-h-screen'}>
+        <AdminSidebar />
+        <main className={isMobile ? 'w-full' : 'flex-1'}>
           <div className="p-4 md:p-6 lg:p-8">
             {/* Header */}
-            <div className="mb-6 md:mb-8">
+            <header className="mb-6 md:mb-8">
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground">{title}</h1>
               {description && (
                 <p className="text-sm md:text-base text-muted-foreground mt-1">{description}</p>
               )}
-            </div>
-            
+            </header>
+
             {/* Content */}
             {children}
           </div>

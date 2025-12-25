@@ -142,7 +142,7 @@ export function AdminSidebar() {
 
   // Desktop sidebar
   return (
-    <div className="w-64 border-r border-border bg-card/50 flex flex-col h-full">
+    <div className="w-64 border-r border-border bg-card/50 flex flex-col min-h-screen">
       <SidebarContent />
     </div>
   );
