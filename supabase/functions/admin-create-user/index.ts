@@ -451,7 +451,7 @@ serve(async (req) => {
         });
 
         await resend.emails.send({
-          from: 'HireMetrics <admin@hiremetrics.co.uk>',
+          from: 'HireMetrics <onboarding@resend.dev>',
           to: [email],
           subject: '🎉 Welcome to HireMetrics - Your Account is Ready!',
           html: welcomeHtml,
@@ -498,7 +498,7 @@ serve(async (req) => {
             });
 
             await resend.emails.send({
-              from: 'HireMetrics <admin@hiremetrics.co.uk>',
+              from: 'HireMetrics <onboarding@resend.dev>',
               to: adminEmails,
               subject: `👤 New User Created: ${fullName}`,
               html: adminNotificationHtml,
