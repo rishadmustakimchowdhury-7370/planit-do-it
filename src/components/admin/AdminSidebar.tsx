@@ -80,8 +80,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 p-3">
-        <nav className="space-y-1">
+      <ScrollArea className="flex-1 overflow-y-auto">
+        <nav className="space-y-1 p-3 pb-6">
           {adminNavItems.map((item) => (
             <NavLink
               key={item.url}
@@ -89,7 +89,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               end={item.url === '/admin'}
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 'hover:bg-accent/50 hover:text-accent-foreground',
                 isActive(item.url)
                   ? 'bg-primary/10 text-primary'
