@@ -104,6 +104,26 @@ serve(async (req) => {
       );
     }
 
+    // Clear job assignments referencing this user
+    const { error: jobsError } = await supabaseAdmin
+      .from('jobs')
+      .update({ assigned_to: null })
+      .eq('assigned_to', targetUser.id);
+
+    if (jobsError) {
+      console.error('Error clearing job assignments:', jobsError);
+    }
+
+    // Clear job_assignees referencing this user
+    const { error: assigneesError } = await supabaseAdmin
+      .from('job_assignees')
+      .delete()
+      .eq('user_id', targetUser.id);
+
+    if (assigneesError) {
+      console.error('Error clearing job_assignees:', assigneesError);
+    }
+
     // Clean up any orphaned user_roles
     const { error: rolesError } = await supabaseAdmin
       .from('user_roles')
