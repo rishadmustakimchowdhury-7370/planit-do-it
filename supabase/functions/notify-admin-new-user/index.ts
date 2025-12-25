@@ -224,8 +224,9 @@ serve(async (req) => {
     // Also create in-app notifications for super admins
     const notifications = adminUserIds.map(userId => ({
       user_id: userId,
+      tenant_id: null, // Super admins may not have tenant
       title: 'New User Registration',
-      content: `${full_name || email} has registered on HireMetrics`,
+      message: `${full_name || email} has registered on HireMetrics`,
       type: 'info',
       metadata: { user_email: email, user_name: full_name }
     }));
