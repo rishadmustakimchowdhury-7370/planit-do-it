@@ -200,6 +200,7 @@ serve(async (req) => {
       const fallbackResult = await sendResendEmailWithRetry(resend, {
         from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: ['admin@hiremetrics.co.uk'],
+        reply_to: 'admin@hiremetrics.co.uk',
         subject: `🎉 New User Registration - ${full_name || email}`,
         html: generateNewUserEmailHTML({
           userName: full_name || email.split('@')[0],
@@ -258,6 +259,7 @@ serve(async (req) => {
     const emailResult = await sendResendEmailWithRetry(resend, {
       from: 'HireMetrics <admin@hiremetrics.co.uk>',
       to: adminEmails,
+      reply_to: 'admin@hiremetrics.co.uk',
       subject: `🎉 New User Registration - ${full_name || email}`,
       html: emailHtml,
     });

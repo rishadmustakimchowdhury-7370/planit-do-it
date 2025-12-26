@@ -95,11 +95,15 @@ serve(async (req) => {
 
       if (smtpError) throw smtpError;
     } else {
-      // Fallback to Resend
+      // Fallback to Resend with centralized config
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       if (!RESEND_API_KEY) {
         throw new Error("No email configuration available");
       }
+
+      // Use centralized email configuration
+      const fromAddress = "HireMetrics <admin@hiremetrics.co.uk>";
+      const replyToAddress = "admin@hiremetrics.co.uk";
 
       const resendResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -108,10 +112,11 @@ serve(async (req) => {
           Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "Recruitment Platform <onboarding@resend.dev>",
+          from: fromAddress,
           to: [recruiter_email],
           subject: `New Job Assignment: ${job_title}`,
           html: htmlContent,
+          reply_to: replyToAddress,
         }),
       });
 

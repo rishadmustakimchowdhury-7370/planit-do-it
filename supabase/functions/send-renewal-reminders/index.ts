@@ -459,6 +459,7 @@ Deno.serve(async (req) => {
       const emailResult = await resend.emails.send({
         from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: [body.user_email],
+        reply_to: 'admin@hiremetrics.co.uk',
         subject: '📬 Subscription Reminder from HireMetrics',
         html: emailHtml,
       });
@@ -622,6 +623,7 @@ Deno.serve(async (req) => {
             await resend.emails.send({
               from: 'HireMetrics <admin@hiremetrics.co.uk>',
               to: [profile.email],
+              reply_to: 'admin@hiremetrics.co.uk',
               subject: daysUntilExpiry <= 3 
                 ? `🚨 Urgent: Your subscription expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}!`
                 : `📅 Reminder: Your subscription expires in ${daysUntilExpiry} days`,
@@ -667,6 +669,7 @@ Deno.serve(async (req) => {
           await resend.emails.send({
             from: 'HireMetrics <admin@hiremetrics.co.uk>',
             to: adminEmails,
+            reply_to: 'admin@hiremetrics.co.uk',
             subject: `⚠️ Subscription Expiring: ${tenant.name} (${daysUntilExpiry} days)`,
             html: adminHtml,
           });

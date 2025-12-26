@@ -102,6 +102,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: [email],
+        reply_to: 'admin@hiremetrics.co.uk',
         subject: `${invited_by_name} invited you to join their team on HireMetrics CRM`,
         html: emailHtml,
       }),
