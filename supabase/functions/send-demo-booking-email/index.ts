@@ -327,8 +327,9 @@ const handler = async (req: Request): Promise<Response> => {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: "HireMetrics CRM <admin@hiremetrics.co.uk>",
+          from: "HireMetrics <admin@hiremetrics.co.uk>",
           to: [data.email],
+          reply_to: "admin@hiremetrics.co.uk",
           subject: "🎉 Your Demo Booking is Confirmed - HireMetrics CRM",
           html: getVisitorEmailTemplate(data),
         }),
@@ -351,9 +352,9 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           // NOTE: Resend will only deliver to external recipients once the hiremetrics.co.uk
           // domain is verified in Resend (DNS). See resend.com/domains.
-          from: "HireMetrics CRM <admin@hiremetrics.co.uk>",
+          from: "HireMetrics <admin@hiremetrics.co.uk>",
           to: adminEmails,
-          reply_to: data.email,
+          reply_to: data.email || "admin@hiremetrics.co.uk",
           subject: `New Demo Request from ${data.name}`,
           html: getAdminEmailTemplate(data),
         }),

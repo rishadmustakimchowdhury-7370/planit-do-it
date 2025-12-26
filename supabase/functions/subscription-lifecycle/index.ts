@@ -494,6 +494,7 @@ Deno.serve(async (req) => {
               await resend.emails.send({
                 from: 'HireMetrics <admin@hiremetrics.co.uk>',
                 to: [profile.email],
+                reply_to: 'admin@hiremetrics.co.uk',
                 subject: `🎁 Good News! Grace Period Granted (${grace_days} days)`,
                 html
               });
@@ -587,6 +588,7 @@ Deno.serve(async (req) => {
                 await resend.emails.send({
                   from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
+                  reply_to: 'admin@hiremetrics.co.uk',
                   subject: `😔 Your HireMetrics Subscription Has Expired`,
                   html
                 });
@@ -685,6 +687,7 @@ Deno.serve(async (req) => {
                 await resend.emails.send({
                   from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
+                  reply_to: 'admin@hiremetrics.co.uk',
                   subject: `⚠️ Your Grace Period Has Ended - Account Paused`,
                   html
                 });
@@ -818,6 +821,7 @@ Deno.serve(async (req) => {
                 await resend.emails.send({
                   from: 'HireMetrics <admin@hiremetrics.co.uk>',
                   to: [profile.email],
+                  reply_to: 'admin@hiremetrics.co.uk',
                   subject: `😔 Your Free Trial Has Ended`,
                   html
                 });
@@ -897,6 +901,7 @@ Deno.serve(async (req) => {
               await resend.emails.send({
                 from: 'HireMetrics <admin@hiremetrics.co.uk>',
                 to: [profile.email],
+                reply_to: 'admin@hiremetrics.co.uk',
                 subject: `🎉 Your ${tenant.trial_days || 14}-Day Free Trial Has Started!`,
                 html
               });

@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import {
+  sendEmailWithFetch,
+  getFromAddress,
+  getReplyToAddress,
+  ADMIN_EMAIL,
+  logEmailEvent,
+  type EmailSenderType,
+} from "../_shared/email-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,26 +20,25 @@ interface SendEmailRequest {
   subject?: string;
   html?: string;
   variables?: Record<string, string>;
+  senderType?: EmailSenderType;
+  replyTo?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    
-    if (!resendApiKey) {
-      console.error("RESEND_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ error: "Email service not configured. Please add RESEND_API_KEY." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { template_name, to, subject, html, variables }: SendEmailRequest = await req.json();
+    const {
+      template_name,
+      to,
+      subject,
+      html,
+      variables,
+      senderType = "default",
+      replyTo,
+    }: SendEmailRequest = await req.json();
 
     let emailSubject = subject;
     let emailHtml = html;
@@ -79,37 +86,33 @@ const handler = async (req: Request): Promise<Response> => {
 
     const recipients = Array.isArray(to) ? to : [to];
     
-    console.log(`Sending email to ${recipients.join(", ")} with subject: ${emailSubject}`);
-
-    // Use Resend API directly via fetch
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "HireMetrics <admin@hiremetrics.co.uk>",
-        to: recipients,
-        subject: emailSubject,
-        html: emailHtml,
-      }),
+    logEmailEvent("Sending email", {
+      to: recipients,
+      subject: emailSubject,
+      senderType,
     });
 
-    const emailData = await emailResponse.json();
+    // Use centralized email sending with retry
+    const result = await sendEmailWithFetch({
+      to: recipients,
+      subject: emailSubject,
+      html: emailHtml,
+      senderType,
+      replyTo: replyTo || getReplyToAddress(senderType),
+    });
 
-    if (!emailResponse.ok) {
-      console.error("Resend API error:", emailData);
+    if (!result.success) {
+      console.error("Email send failed:", result.error);
       return new Response(
-        JSON.stringify({ error: emailData.message || "Failed to send email" }),
-        { status: emailResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: result.error || "Failed to send email" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Email sent successfully:", emailData);
+    logEmailEvent("Email sent successfully", { messageId: result.data?.id });
 
     return new Response(
-      JSON.stringify({ success: true, data: emailData }),
+      JSON.stringify({ success: true, data: result.data }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {

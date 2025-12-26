@@ -471,15 +471,16 @@ serve(async (req: Request) => {
             action !== 'cancel' ? icsContent : undefined
           );
         } else if (resendApiKey) {
-          // Fallback to Resend with system email
+          // Fallback to Resend with centralized HireMetrics email
           const resend = new Resend(resendApiKey);
-          const fromEmail = `${organizerName} <info@recruitifycrm.com>`;
+          const fromEmail = 'HireMetrics <admin@hiremetrics.co.uk>';
+          const replyToEmail = organizerEmail || 'admin@hiremetrics.co.uk';
           
-          console.log(`Sending via Resend from: ${fromEmail} to: ${participant.email}, reply-to: ${organizerEmail}`);
+          console.log(`Sending via Resend from: ${fromEmail} to: ${participant.email}, reply-to: ${replyToEmail}`);
           
           await resend.emails.send({
             from: fromEmail,
-            reply_to: organizerEmail,
+            reply_to: replyToEmail,
             to: [participant.email],
             subject: subject,
             html: htmlContent,
