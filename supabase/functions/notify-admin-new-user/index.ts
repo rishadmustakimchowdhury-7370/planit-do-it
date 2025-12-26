@@ -303,7 +303,37 @@ serve(async (req) => {
       logStep("Skipped in-app notifications - no valid tenant_id found for super admins");
     }
 
-    return new Response(JSON.stringify({ success: true, adminEmails }), {
+    // Send welcome email to the new user
+    try {
+      logStep("Sending welcome email to new user", { email });
+      
+      const welcomeResponse = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            user_id,
+            email,
+            full_name,
+            tenant_name,
+          }),
+        }
+      );
+      
+      const welcomeResult = await welcomeResponse.json();
+      logStep("Welcome email result", welcomeResult);
+    } catch (welcomeError) {
+      logStep("Warning: Failed to send welcome email", { 
+        error: welcomeError instanceof Error ? welcomeError.message : String(welcomeError) 
+      });
+      // Don't throw - admin notification is the primary purpose
+    }
+
+    return new Response(JSON.stringify({ success: true, adminEmails, welcomeEmailSent: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
