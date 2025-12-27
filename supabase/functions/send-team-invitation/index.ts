@@ -1,4 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import {
+  createResendClient,
+  sendEmailWithRetry,
+  isDuplicateEmail,
+  generateDedupKey,
+  logEmailEvent,
+} from "../_shared/email-config.ts";
+import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,13 +14,12 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, role, token, tenant_id, invited_by_name } = await req.json();
+    const { email, role, token, tenant_id, invited_by_name, owner_name } = await req.json();
 
     if (!email || !token) {
       return new Response(
@@ -21,22 +28,22 @@ serve(async (req) => {
       );
     }
 
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (!RESEND_API_KEY) {
-      console.error('RESEND_API_KEY not configured');
+    // Dedup check
+    const dedupKey = generateDedupKey(email, "team_invitation", token);
+    if (isDuplicateEmail(dedupKey)) {
       return new Response(
-        JSON.stringify({ error: 'Email service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, message: "Duplicate prevented" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get the app URL from request origin or environment
     const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
-    const appUrl = origin || Deno.env.get('APP_URL') || 'http://localhost:3000';
+    const appUrl = origin || Deno.env.get('APP_URL') || 'https://hiremetrics.co.uk';
     const inviteUrl = `${appUrl}/accept-invitation?token=${token}`;
 
     const roleLabels: Record<string, string> = {
       admin: 'Owner',
+      owner: 'Owner',
       manager: 'Manager',
       recruiter: 'Recruiter',
       support: 'Support',
@@ -44,6 +51,7 @@ serve(async (req) => {
     };
 
     const roleName = roleLabels[role] || role;
+    const inviterName = invited_by_name || owner_name || "Your team";
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -55,73 +63,80 @@ serve(async (req) => {
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
           <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-            <div style="background: white; border-radius: 12px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-              <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="color: #0052CC; font-size: 24px; margin: 0 0 8px 0;">🎉 You're Invited!</h1>
-                <p style="color: #64748b; font-size: 16px; margin: 0;">Join your team on HireMetrics CRM</p>
-              </div>
+            <div style="text-align: center; margin-bottom: 24px;">
+              <span style="font-size: 24px; font-weight: 700; color: #0052CC;">HireMetrics</span>
+            </div>
+            <div style="background: white; border-radius: 12px; padding: 40px; border: 1px solid #e5e7eb;">
+              <h1 style="color: #111827; font-size: 20px; margin: 0 0 16px 0;">You're Invited to Join a Team</h1>
               
-              <div style="background: #f8fafc; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-                <p style="margin: 0 0 12px 0; color: #334155;">
-                  <strong>${invited_by_name}</strong> has invited you to join their recruitment team as a <strong>${roleName}</strong>.
-                </p>
-                <p style="margin: 0; color: #64748b; font-size: 14px;">
-                  As a ${roleName}, you'll be able to collaborate on recruitment activities and help find the best candidates.
-                </p>
+              <p style="color: #4b5563; margin: 0 0 24px 0; line-height: 1.6;">
+                <strong>${inviterName}</strong> has invited you to join their organisation on HireMetrics as a <strong>${roleName}</strong>.
+              </p>
+              
+              <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                <div style="margin: 4px 0;"><strong style="color: #374151;">Role:</strong> <span style="color: #4b5563;">${roleName}</span></div>
+                <div style="margin: 4px 0;"><strong style="color: #374151;">Invited by:</strong> <span style="color: #4b5563;">${inviterName}</span></div>
               </div>
 
               <div style="text-align: center; margin: 32px 0;">
                 <a href="${inviteUrl}" 
-                   style="display: inline-block; background: #00008B; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+                   style="display: inline-block; background: #0052CC; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
                   Accept Invitation
                 </a>
               </div>
 
-              <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 24px 0 0 0;">
-                This invitation will expire in 7 days. If the button doesn't work, copy and paste this link:<br>
-                <a href="${inviteUrl}" style="color: #00008B; word-break: break-all;">${inviteUrl}</a>
+              <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0 0;">
+                This invitation will expire in 7 days.<br>
+                If the button doesn't work, copy this link: <a href="${inviteUrl}" style="color: #0052CC; word-break: break-all;">${inviteUrl}</a>
               </p>
             </div>
             
-            <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px;">
-              © ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.
-            </p>
+            <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #9ca3af;">
+              <p>HireMetrics - Enterprise Recruitment Platform</p>
+              <p>This email was sent because you were invited to join a team on HireMetrics.</p>
+            </div>
           </div>
         </body>
       </html>
     `;
 
-    console.log(`Sending team invitation to ${email}`);
+    logEmailEvent("send_team_invitation", { email, role, tenant_id });
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'HireMetrics <admin@hiremetrics.co.uk>',
-        to: [email],
-        reply_to: 'admin@hiremetrics.co.uk',
-        subject: `${invited_by_name} invited you to join their team on HireMetrics CRM`,
-        html: emailHtml,
-      }),
+    const resend = createResendClient();
+    const { data: emailData, error: emailError } = await sendEmailWithRetry(resend, {
+      to: email,
+      subject: `${inviterName} invited you to join their team on HireMetrics`,
+      html: emailHtml,
+      senderType: "notifications",
     });
 
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Resend API error:', responseData);
+    if (emailError) {
+      console.error('Failed to send team invitation:', emailError);
       return new Response(
-        JSON.stringify({ error: 'Failed to send email', details: responseData }),
+        JSON.stringify({ error: 'Failed to send email', details: emailError }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Team invitation email sent successfully:', responseData);
+    // Dispatch notification to super admin about new team member being added
+    if (tenant_id) {
+      await dispatchNotification({
+        event_type: "team_member_added",
+        tenant_id,
+        data: {
+          owner_name: inviterName,
+          member_email: email,
+          member_role: roleName,
+        },
+        skip_email: false,
+        skip_notification: true, // Super admin doesn't need in-app notif, just email
+      });
+    }
+
+    console.log('Team invitation email sent successfully');
 
     return new Response(
-      JSON.stringify({ success: true, message_id: responseData.id }),
+      JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

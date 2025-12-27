@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +148,18 @@ serve(async (req) => {
       .eq("email", invitation.email)
       .eq("tenant_id", invitation.tenant_id)
       .eq("status", "pending");
+
+    // 5) Dispatch notification - team member accepted
+    await dispatchNotification({
+      event_type: "team_member_accepted",
+      tenant_id: invitation.tenant_id,
+      actor_user_id: userId,
+      data: {
+        member_name: full_name,
+        member_email: invitation.email,
+        member_role: invitation.role,
+      },
+    });
 
     return new Response(
       JSON.stringify({
