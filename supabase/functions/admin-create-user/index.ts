@@ -410,22 +410,54 @@ serve(async (req) => {
     logStep("Profile retrieved", { profile });
 
     let planName = null;
+    const STARTER_PLAN_ID = '79f26caa-22dd-4ff6-8f1c-48ac94c0cc25'; // Starter plan for trials
+    const TRIAL_DAYS = 7;
 
     // Update tenant with plan and company name if provided
     if (profile?.tenant_id) {
       const updates: any = {};
       if (companyName) updates.name = companyName;
+      
       if (planId) {
+        // Manual package assignment with active status
         updates.subscription_plan_id = planId;
         updates.subscription_status = 'active';
 
         // Get plan name for email
         const { data: plan } = await supabaseAdmin
           .from('subscription_plans')
-          .select('name')
+          .select('name, match_credits_monthly')
           .eq('id', planId)
           .single();
         planName = plan?.name;
+        if (plan?.match_credits_monthly) {
+          updates.match_credits_remaining = plan.match_credits_monthly;
+          updates.match_credits_limit = plan.match_credits_monthly;
+        }
+      } else {
+        // Auto-assign 7-day trial with Starter plan
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + TRIAL_DAYS);
+        
+        updates.subscription_plan_id = STARTER_PLAN_ID;
+        updates.subscription_status = 'trial';
+        updates.trial_expires_at = trialEndDate.toISOString();
+        updates.trial_days = TRIAL_DAYS;
+        
+        // Get Starter plan details for credits
+        const { data: starterPlan } = await supabaseAdmin
+          .from('subscription_plans')
+          .select('name, match_credits_monthly')
+          .eq('id', STARTER_PLAN_ID)
+          .single();
+        
+        planName = starterPlan?.name || 'Starter (Trial)';
+        if (starterPlan?.match_credits_monthly) {
+          updates.match_credits_remaining = starterPlan.match_credits_monthly;
+          updates.match_credits_limit = starterPlan.match_credits_monthly;
+        }
+        
+        logStep("Auto-assigned 7-day trial with Starter plan", { trialEndDate: trialEndDate.toISOString() });
       }
 
       if (Object.keys(updates).length > 0) {
@@ -463,6 +495,23 @@ serve(async (req) => {
       } else {
         logStep("Owner role already exists");
       }
+      
+      // Log audit entry for trial/package assignment
+      await supabaseAdmin
+        .from('audit_log')
+        .insert({
+          action: planId ? 'package_assigned' : 'trial_started',
+          entity_type: 'tenant',
+          entity_id: profile.tenant_id,
+          user_id: caller.id,
+          tenant_id: profile.tenant_id,
+          new_values: {
+            plan_id: planId || STARTER_PLAN_ID,
+            plan_name: planName,
+            status: planId ? 'active' : 'trial',
+            trial_days: planId ? null : TRIAL_DAYS,
+          },
+        });
     }
 
     // Send emails

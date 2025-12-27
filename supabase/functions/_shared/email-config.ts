@@ -57,6 +57,17 @@ export const EMAIL_SENDERS = {
 export type EmailSenderType = keyof typeof EMAIL_SENDERS;
 
 // ============================================================================
+// SIMPLIFIED EMAIL_CONFIG for backward compatibility
+// ============================================================================
+
+export const EMAIL_CONFIG = {
+  sender: "HireMetrics <admin@hiremetrics.co.uk>",
+  replyTo: "admin@hiremetrics.co.uk",
+  adminEmail: "admin@hiremetrics.co.uk",
+  domain: "hiremetrics.co.uk",
+} as const;
+
+// ============================================================================
 // ADMIN EMAIL ADDRESS (for receiving alerts, notifications, etc.)
 // ============================================================================
 
