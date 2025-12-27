@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
+import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
