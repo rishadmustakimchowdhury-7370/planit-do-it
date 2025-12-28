@@ -37,9 +37,12 @@ serve(async (req) => {
       );
     }
 
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
-    const appUrl = origin || Deno.env.get('APP_URL') || 'https://hiremetrics.co.uk';
+    // IMPORTANT: Use the production URL directly - edge function origin headers are unreliable
+    // The APP_URL env var can be set in Supabase function secrets if needed
+    const appUrl = Deno.env.get('APP_URL') || 'https://hiremetrics.co.uk';
     const inviteUrl = `${appUrl}/accept-invitation?token=${token}`;
+    
+    console.log('[SEND-TEAM-INVITATION] Generated invite URL:', inviteUrl);
 
     const roleLabels: Record<string, string> = {
       admin: 'Owner',
