@@ -550,10 +550,37 @@ serve(async (req) => {
                 // Get invoice URLs if available (both hosted and PDF for download)
                 let invoiceUrl = null;
                 let invoicePdfUrl = null;
+                let invoiceNumber = null;
                 if (session.invoice) {
                   const invoice = await stripe.invoices.retrieve(session.invoice as string);
                   invoiceUrl = invoice.hosted_invoice_url;
                   invoicePdfUrl = invoice.invoice_pdf;
+                  invoiceNumber = invoice.number;
+                }
+
+                // Generate CRM invoice record
+                try {
+                  const invoiceData = {
+                    tenant_id: order.tenant_id,
+                    invoice_number: invoiceNumber || `INV-${orderId.slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`,
+                    amount: order.amount,
+                    currency: order.currency || 'GBP',
+                    status: 'paid',
+                    paid_at: new Date().toISOString(),
+                    stripe_invoice_id: session.invoice as string || null,
+                    notes: `Payment for ${planName} plan`,
+                    line_items: [{
+                      description: `${planName} Plan - Monthly Subscription`,
+                      quantity: 1,
+                      rate: order.amount,
+                      amount: order.amount
+                    }],
+                  };
+
+                  await supabase.from('invoices').upsert(invoiceData, { onConflict: 'invoice_number' });
+                  logStep("CRM Invoice created", { invoiceNumber: invoiceData.invoice_number });
+                } catch (invErr) {
+                  logStep("Failed to create CRM invoice", { error: invErr });
                 }
 
                 // Get next billing date for subscriptions
@@ -578,7 +605,7 @@ serve(async (req) => {
                 const userCreatedAt = order.profiles?.created_at ? new Date(order.profiles.created_at) : null;
                 const isNewUser = userCreatedAt && (Date.now() - userCreatedAt.getTime()) < 3600000; // 1 hour
 
-                // Send confirmation email to user with downloadable invoice
+                // ========== EMAIL 1: Confirmation email to user with downloadable invoice ==========
                 if (userEmail) {
                   const userEmailHtml = generateSubscriptionEmailHTML('confirmation', {
                     userName,
@@ -598,17 +625,92 @@ serve(async (req) => {
                     html: userEmailHtml,
                   });
 
-                  if (userSendResult.error) {
-                    throw new Error(userSendResult.error?.message ?? 'Resend payment confirmation failed');
-                  }
+                  // Log email
+                  await supabase.from('email_logs').insert({
+                    tenant_id: order.tenant_id,
+                    recipient_email: userEmail,
+                    subject: `🎉 Payment Confirmed - ${planName} Plan`,
+                    template_name: 'payment_confirmation',
+                    status: userSendResult.error ? 'failed' : 'sent',
+                    error_message: userSendResult.error?.message,
+                    sent_by: order.user_id,
+                    metadata: { 
+                      event: 'payment_successful', 
+                      amount: order.amount, 
+                      plan: planName,
+                      has_invoice_pdf: !!invoicePdfUrl
+                    },
+                  });
 
-                  logStep("Confirmation email sent to user with invoice", { email: userEmail, hasInvoicePdf: !!invoicePdfUrl, emailId: userSendResult.data?.id });
+                  if (userSendResult.error) {
+                    logStep("Failed to send user confirmation email", { error: userSendResult.error });
+                  } else {
+                    logStep("Confirmation email sent to user with invoice", { 
+                      email: userEmail, 
+                      hasInvoicePdf: !!invoicePdfUrl, 
+                      emailId: userSendResult.data?.id 
+                    });
+                  }
 
                   // avoid rate limit when sending admin email right after user email
                   await new Promise((r) => setTimeout(r, 700));
                 }
 
-                // Send notification to super admins with full details
+                // ========== EMAIL 2: Notification to Owner (if different from user) ==========
+                const { data: ownerRole } = await supabase
+                  .from('user_roles')
+                  .select('user_id')
+                  .eq('tenant_id', order.tenant_id)
+                  .eq('role', 'owner')
+                  .neq('user_id', order.user_id)
+                  .limit(1)
+                  .single();
+
+                if (ownerRole) {
+                  const { data: ownerProfile } = await supabase
+                    .from('profiles')
+                    .select('email, full_name')
+                    .eq('id', ownerRole.user_id)
+                    .single();
+
+                  if (ownerProfile?.email) {
+                    const ownerEmailHtml = generateSubscriptionEmailHTML('confirmation', {
+                      userName: ownerProfile.full_name || 'Team Owner',
+                      planName,
+                      amount: order.amount * 100,
+                      currency: order.currency,
+                      nextBillingDate: nextBillingDate || undefined,
+                      invoiceUrl: invoiceUrl || undefined,
+                      invoicePdfUrl: invoicePdfUrl || undefined,
+                      companyLogo: tenant?.logo_url
+                    });
+
+                    const ownerSendResult = await sendResendEmailWithRetry(resend, {
+                      from: 'HireMetrics <admin@hiremetrics.co.uk>',
+                      to: [ownerProfile.email],
+                      subject: `🎉 Payment Confirmed - ${planName} Plan`,
+                      html: ownerEmailHtml,
+                    });
+
+                    await supabase.from('email_logs').insert({
+                      tenant_id: order.tenant_id,
+                      recipient_email: ownerProfile.email,
+                      subject: `🎉 Payment Confirmed - ${planName} Plan`,
+                      template_name: 'payment_confirmation_owner',
+                      status: ownerSendResult.error ? 'failed' : 'sent',
+                      error_message: ownerSendResult.error?.message,
+                      metadata: { event: 'payment_successful', amount: order.amount },
+                    });
+
+                    if (!ownerSendResult.error) {
+                      logStep("Owner payment email sent", { email: ownerProfile.email });
+                    }
+
+                    await new Promise((r) => setTimeout(r, 700));
+                  }
+                }
+
+                // ========== EMAIL 3: Notification to super admins with full details ==========
                 const { data: superAdmins } = await supabase
                   .from('user_roles')
                   .select('user_id')
@@ -654,11 +756,29 @@ serve(async (req) => {
                       html: adminEmailHtml,
                     });
 
-                    if (adminSendResult.error) {
-                      throw new Error(adminSendResult.error?.message ?? 'Resend admin payment notification failed');
+                    // Log admin emails
+                    for (const adminEmail of adminEmails) {
+                      await supabase.from('email_logs').insert({
+                        tenant_id: order.tenant_id,
+                        recipient_email: adminEmail,
+                        subject: emailSubject,
+                        template_name: 'admin_payment_notification',
+                        status: adminSendResult.error ? 'failed' : 'sent',
+                        error_message: adminSendResult.error?.message,
+                        metadata: { 
+                          event: 'payment_successful', 
+                          customer_name: userName,
+                          amount: order.amount,
+                          plan: planName
+                        },
+                      });
                     }
 
-                    logStep("Admin notification email sent", { adminEmails, isNewUser, emailId: adminSendResult.data?.id });
+                    if (adminSendResult.error) {
+                      logStep("Failed to send admin notification", { error: adminSendResult.error });
+                    } else {
+                      logStep("Admin notification email sent", { adminEmails, isNewUser, emailId: adminSendResult.data?.id });
+                    }
                   }
                 }
               }
@@ -699,14 +819,83 @@ serve(async (req) => {
 
         const orderId = paymentIntent.metadata?.order_id;
         if (orderId) {
-          await supabase
+          // Update order status
+          const { data: order } = await supabase
             .from('orders')
             .update({
               status: 'failed',
               metadata: { failure_message: paymentIntent.last_payment_error?.message },
               updated_at: new Date().toISOString(),
             })
-            .eq('id', orderId);
+            .eq('id', orderId)
+            .select(`
+              *,
+              subscription_plans(name),
+              profiles:user_id(full_name, email)
+            `)
+            .single();
+
+          // Send failure notification to owner
+          if (order && resendApiKey) {
+            try {
+              const resend = new Resend(resendApiKey);
+              const userEmail = order.profiles?.email;
+              const userName = order.profiles?.full_name || 'Valued Customer';
+              const planName = order.subscription_plans?.name || 'Subscription';
+
+              if (userEmail) {
+                const failureHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <span style="font-size: 24px; font-weight: 700; color: #0052CC;">HireMetrics</span>
+    </div>
+    <div style="background: white; border-radius: 12px; padding: 40px; border: 1px solid #e5e7eb;">
+      <h1 style="color: #dc2626; font-size: 20px; margin: 0 0 16px 0;">⚠️ Payment Failed</h1>
+      <p style="color: #4b5563; margin: 0 0 24px 0; line-height: 1.6;">
+        Hello ${userName}, we were unable to process your payment for the ${planName} plan.
+      </p>
+      <div style="background: #fef2f2; border-radius: 8px; padding: 16px; margin-bottom: 24px; border: 1px solid #fecaca;">
+        <div style="margin: 4px 0;"><strong style="color: #991b1b;">Reason:</strong> <span style="color: #b91c1c;">${paymentIntent.last_payment_error?.message || 'Payment declined'}</span></div>
+      </div>
+      <p style="color: #4b5563; margin: 0 0 24px 0; line-height: 1.6;">
+        Please update your payment method to avoid any service interruption.
+      </p>
+      <div style="text-align: center;">
+        <a href="https://hiremetrics.co.uk/billing" style="display: inline-block; background: #0052CC; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+          Update Payment Method
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+                await sendResendEmailWithRetry(resend, {
+                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
+                  to: [userEmail],
+                  subject: `⚠️ Payment Failed - Action Required`,
+                  html: failureHtml,
+                });
+
+                await supabase.from('email_logs').insert({
+                  tenant_id: order.tenant_id,
+                  recipient_email: userEmail,
+                  subject: '⚠️ Payment Failed - Action Required',
+                  template_name: 'payment_failed',
+                  status: 'sent',
+                  metadata: { event: 'payment_failed', reason: paymentIntent.last_payment_error?.message },
+                });
+
+                logStep("Payment failure email sent", { email: userEmail });
+              }
+            } catch (emailError) {
+              logStep("Failed to send payment failure email", { error: emailError });
+            }
+          }
         }
         break;
       }
@@ -782,6 +971,21 @@ serve(async (req) => {
                   to: [userEmail],
                   subject: `✅ Subscription Renewed - ${planName}`,
                   html: renewalEmailHtml,
+                });
+
+                // Log renewal email
+                await supabase.from('email_logs').insert({
+                  tenant_id: order.tenant_id,
+                  recipient_email: userEmail,
+                  subject: `✅ Subscription Renewed - ${planName}`,
+                  template_name: 'subscription_renewal',
+                  status: renewalSendResult.error ? 'failed' : 'sent',
+                  error_message: renewalSendResult.error?.message,
+                  metadata: { 
+                    event: 'invoice_paid', 
+                    amount: invoice.amount_paid,
+                    plan: planName
+                  },
                 });
 
                 if (renewalSendResult.error) {
