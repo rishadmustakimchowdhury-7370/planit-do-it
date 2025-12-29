@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { getAppBaseUrl, getAuthUrl, getAdminUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -174,6 +175,7 @@ function generateAdminNotificationHTML(data: {
   companyName?: string;
   planName?: string;
   createdBy: string;
+  adminUrl: string;
 }): string {
   return `
 <!DOCTYPE html>
@@ -248,7 +250,7 @@ function generateAdminNotificationHTML(data: {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-top: 10px;">
-                    <a href="https://hiremetrics.lovable.app/admin/users" 
+                    <a href="${data.adminUrl}" 
                        style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                       View in Admin Panel
                     </a>
@@ -518,7 +520,8 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
-      const appUrl = "https://hiremetrics.lovable.app";
+      const appUrl = getAppBaseUrl();
+      logStep("Using environment-aware app URL", { appUrl });
 
       // 1. Send welcome email to new user
       try {
@@ -582,6 +585,7 @@ serve(async (req) => {
               companyName,
               planName: planName || undefined,
               createdBy: callerProfile?.full_name || callerProfile?.email || 'Admin',
+              adminUrl: getAdminUrl("users"),
             });
 
             const adminEmailResult = await sendResendEmailWithRetry(resend, {

@@ -7,6 +7,7 @@ import {
   generateDedupKey,
   logEmailEvent,
 } from "../_shared/email-config.ts";
+import { getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -212,9 +213,11 @@ serve(async (req) => {
       );
     }
 
-    // Prepare email data
+    // Prepare email data - use environment-aware URL
     const userName = full_name || email.split("@")[0];
-    const dashboardUrl = "https://hiremetrics.lovable.app/dashboard";
+    const dashboardUrl = getDashboardUrl();
+
+    console.log("[SEND-WELCOME-EMAIL] Using dashboard URL:", dashboardUrl);
 
     const htmlContent = generateWelcomeEmailHTML({
       userName,
