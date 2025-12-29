@@ -7,6 +7,7 @@ import {
   logEmailEvent,
 } from "../_shared/email-config.ts";
 import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
+import { getInviteAcceptUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,10 +38,8 @@ serve(async (req) => {
       );
     }
 
-    // IMPORTANT: Use the production URL directly - edge function origin headers are unreliable
-    // The APP_URL env var can be set in Supabase function secrets if needed
-    const appUrl = Deno.env.get('APP_URL') || 'https://hiremetrics.co.uk';
-    const inviteUrl = `${appUrl}/accept-invitation?token=${token}`;
+    // Use centralized environment-aware URL utility
+    const inviteUrl = getInviteAcceptUrl(token);
     
     console.log('[SEND-TEAM-INVITATION] Generated invite URL:', inviteUrl);
 
