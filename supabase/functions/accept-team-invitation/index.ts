@@ -6,6 +6,12 @@ import {
   logEmailEvent,
   ADMIN_EMAIL,
 } from "../_shared/email-config.ts";
+import {
+  getAppBaseUrl,
+  getDashboardUrl,
+  getAdminUrl,
+  getTeamUrl,
+} from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,8 +28,6 @@ type AcceptInviteRequest = {
   full_name: string;
   password: string;
 };
-
-const APP_URL = "https://hiremetrics.co.uk";
 
 // ============================================================================
 // EMAIL TEMPLATES
@@ -100,6 +104,7 @@ function generateOwnerNotificationHTML(data: {
   roleName: string;
   teamName: string;
   activatedAt: string;
+  teamUrl: string;
 }): string {
   return `
 <!DOCTYPE html>
@@ -129,7 +134,7 @@ function generateOwnerNotificationHTML(data: {
       </div>
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/team" 
+        <a href="${data.teamUrl}" 
            style="display: inline-block; background: #0052CC; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
           View Team
         </a>
@@ -152,6 +157,7 @@ function generateAdminNotificationHTML(data: {
   teamName: string;
   ownerName: string;
   activatedAt: string;
+  adminUrl: string;
 }): string {
   return `
 <!DOCTYPE html>
@@ -183,7 +189,7 @@ function generateAdminNotificationHTML(data: {
       </div>
 
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/admin/users" 
+        <a href="${data.adminUrl}" 
            style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
           View in Admin Panel
         </a>
@@ -472,11 +478,14 @@ serve(async (req) => {
     // Email 1: Welcome email to team member
     try {
       logStep("Sending welcome email to team member", { email: invitation.email });
+      const dashboardUrl = getDashboardUrl();
+      logStep("Using dashboard URL", { dashboardUrl });
+      
       const welcomeHtml = generateWelcomeEmailHTML({
         memberName: full_name,
         roleName,
         teamName,
-        dashboardUrl: `${APP_URL}/dashboard`,
+        dashboardUrl,
       });
 
       await sendEmailWithRetry(resend, {
@@ -515,6 +524,7 @@ serve(async (req) => {
           roleName,
           teamName,
           activatedAt,
+          teamUrl: getTeamUrl(),
         });
 
         await sendEmailWithRetry(resend, {
@@ -554,6 +564,7 @@ serve(async (req) => {
         teamName,
         ownerName: ownerName || "Unknown",
         activatedAt,
+        adminUrl: getAdminUrl("users"),
       });
 
       await sendEmailWithRetry(resend, {
