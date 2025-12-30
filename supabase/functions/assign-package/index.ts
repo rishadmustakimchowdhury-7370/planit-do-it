@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { EMAIL_CONFIG } from "../_shared/email-config.ts";
+import { getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -253,6 +254,9 @@ function generatePackageAssignmentHTML(data: {
   endDate: string;
   isTrial: boolean;
 }): string {
+  // Resolve dashboard URL at runtime
+  const dashboardUrl = getDashboardUrl();
+  
   const headerTitle = data.isTrial 
     ? '🎉 Your Free Trial Has Started!' 
     : '✅ Package Assignment Confirmed';
@@ -322,7 +326,7 @@ function generatePackageAssignmentHTML(data: {
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
                 <tr>
                   <td align="center">
-                    <a href="https://hiremetrics.co.uk/dashboard" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">
+                    <a href="${dashboardUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">
                       Access Dashboard
                     </a>
                   </td>

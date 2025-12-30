@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
+import { getBillingUrl, getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +19,10 @@ function generateGracePeriodNotificationHTML(
     companyLogo?: string;
   }
 ): string {
-  const logoHTML = data.companyLogo 
+  // Resolve billing URL at runtime
+  const billingUrl = getBillingUrl();
+  
+  const logoHTML = data.companyLogo
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
         <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
@@ -94,7 +98,7 @@ function generateGracePeriodNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://hiremetrics.co.uk/billing" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
+                    <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
                       💳 Renew Subscription
                     </a>
                   </td>
@@ -146,7 +150,10 @@ function generateTrialNotificationHTML(
     isWelcome?: boolean;
   }
 ): string {
-  const logoHTML = data.companyLogo 
+  // Resolve dashboard URL at runtime
+  const dashboardUrl = getDashboardUrl();
+  
+  const logoHTML = data.companyLogo
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
         <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
@@ -236,7 +243,7 @@ function generateTrialNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://hiremetrics.co.uk/dashboard" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
+                    <a href="${dashboardUrl}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px;">
                       🚀 Start Exploring
                     </a>
                   </td>
@@ -287,7 +294,10 @@ function generateExpiredNotificationHTML(
     companyLogo?: string;
   }
 ): string {
-  const logoHTML = data.companyLogo 
+  // Resolve billing URL at runtime
+  const billingUrl = getBillingUrl();
+  
+  const logoHTML = data.companyLogo
     ? `<img src="${data.companyLogo}" alt="Company Logo" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
         <div style="background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); border-radius: 10px; padding: 10px;">
@@ -369,7 +379,7 @@ function generateExpiredNotificationHTML(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;">
                 <tr>
                   <td align="center">
-                    <a href="https://hiremetrics.co.uk/billing" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">
+                    <a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">
                       🔄 Reactivate Now
                     </a>
                   </td>
