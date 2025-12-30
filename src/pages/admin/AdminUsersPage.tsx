@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -30,6 +31,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -63,6 +74,8 @@ import {
   CreditCard,
   Calendar,
   UserX,
+  CheckSquare,
+  XSquare,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -105,6 +118,12 @@ export default function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
+  // Bulk selection state
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showBulkPackageDialog, setShowBulkPackageDialog] = useState(false);
+  const [bulkPackage, setBulkPackage] = useState('');
+  
   // Dialog states
   const [selectedUser, setSelectedUser] = useState<UserWithTenant | null>(null);
   const [showGraceDialog, setShowGraceDialog] = useState(false);
@@ -116,6 +135,7 @@ export default function AdminUsersPage() {
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
   const [showSendReminderDialog, setShowSendReminderDialog] = useState(false);
   const [showDeleteOrphanedDialog, setShowDeleteOrphanedDialog] = useState(false);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [orphanedEmail, setOrphanedEmail] = useState('');
   const [graceDays, setGraceDays] = useState('7');
   const [trialDays, setTrialDays] = useState('14');
@@ -441,13 +461,18 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (user: UserWithTenant) => {
+    setSelectedUser(user);
+    setShowDeleteConfirmDialog(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!selectedUser) return;
+    
     try {
       setIsProcessing(true);
 
-      // Call the delete-user edge function to permanently delete from auth.users
-      // This will cascade delete from profiles and user_roles due to FK constraints
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { user_id: user.id }
+        body: { user_id: selectedUser.id }
       });
 
       if (error) throw error;
@@ -456,12 +481,131 @@ export default function AdminUsersPage() {
         throw new Error(data.error);
       }
 
-      await logAuditAction('delete_user', user.id);
+      await logAuditAction('delete_user', selectedUser.id);
       toast.success('User permanently deleted from the system');
+      setShowDeleteConfirmDialog(false);
+      setSelectedUser(null);
       fetchUsers();
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast.error(error.message || 'Failed to delete user');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Bulk selection handlers
+  const handleSelectAll = () => {
+    if (selectedUsers.size === filteredUsers.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
+    }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUsers.size === 0) return;
+
+    try {
+      setIsProcessing(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of selectedUsers) {
+        try {
+          const { data, error } = await supabase.functions.invoke('delete-user', {
+            body: { user_id: userId }
+          });
+
+          if (error || data?.error) {
+            errorCount++;
+            console.error(`Failed to delete user ${userId}:`, error || data?.error);
+          } else {
+            successCount++;
+            await logAuditAction('delete_user', userId);
+          }
+        } catch (e) {
+          errorCount++;
+          console.error(`Failed to delete user ${userId}:`, e);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully deleted ${successCount} user(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to delete ${errorCount} user(s)`);
+      }
+
+      setShowBulkDeleteDialog(false);
+      setSelectedUsers(new Set());
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error in bulk delete:', error);
+      toast.error('Failed to complete bulk delete');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBulkAssignPackage = async () => {
+    if (selectedUsers.size === 0 || !bulkPackage) return;
+
+    try {
+      setIsProcessing(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Get tenant IDs for selected users
+      const usersToUpdate = users.filter(u => selectedUsers.has(u.id) && u.tenant_id);
+
+      for (const user of usersToUpdate) {
+        try {
+          const { error } = await supabase
+            .from('tenants')
+            .update({ 
+              subscription_plan_id: bulkPackage,
+              subscription_status: 'active',
+            })
+            .eq('id', user.tenant_id!);
+
+          if (error) {
+            errorCount++;
+            console.error(`Failed to assign package for ${user.email}:`, error);
+          } else {
+            successCount++;
+            await logAuditAction('assign_package', user.id, { package_id: bulkPackage });
+          }
+        } catch (e) {
+          errorCount++;
+          console.error(`Failed to assign package for ${user.email}:`, e);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully assigned package to ${successCount} user(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to assign package to ${errorCount} user(s)`);
+      }
+
+      setShowBulkPackageDialog(false);
+      setBulkPackage('');
+      setSelectedUsers(new Set());
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error in bulk assign package:', error);
+      toast.error('Failed to complete bulk package assignment');
     } finally {
       setIsProcessing(false);
     }
@@ -810,6 +954,46 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedUsers.size > 0 && (
+        <Card className="mb-4 border-primary/50 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-primary" />
+                <span className="font-medium">{selectedUsers.size} user(s) selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkPackageDialog(true)}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Assign Package
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowBulkDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedUsers(new Set())}
+                >
+                  <XSquare className="h-4 w-4 mr-2" />
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Users Table */}
       <Card>
         <CardContent className="p-0">
@@ -823,6 +1007,12 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Role</TableHead>
@@ -836,8 +1026,15 @@ export default function AdminUsersPage() {
               <TableBody>
                 {filteredUsers.map((user) => {
                   const daysLeft = getDaysUntilExpiry(user);
+                  const isSelected = selectedUsers.has(user.id);
                   return (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className={isSelected ? 'bg-primary/5' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleSelectUser(user.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
@@ -1002,11 +1199,7 @@ export default function AdminUsersPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             className="text-destructive"
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete ${user.full_name || user.email}? This action cannot be undone.`)) {
-                                handleDeleteUser(user);
-                              }
-                            }}
+                            onClick={() => handleDeleteUser(user)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete User
@@ -1538,6 +1731,90 @@ export default function AdminUsersPage() {
               {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Trash2 className="h-4 w-4 mr-2" />
               Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Single Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{selectedUser?.full_name || selectedUser?.email}</strong>? 
+              This action cannot be undone. All user data will be permanently removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteUser}
+              disabled={isProcessing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete User
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedUsers.size} Users?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{selectedUsers.size}</strong> selected user(s)? 
+              This action cannot be undone. All user data will be permanently removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isProcessing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete {selectedUsers.size} Users
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Assign Package Dialog */}
+      <Dialog open={showBulkPackageDialog} onOpenChange={setShowBulkPackageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Package to {selectedUsers.size} Users</DialogTitle>
+            <DialogDescription>
+              Select a package to assign to all selected users. Their subscription status will be set to active.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Select Package</Label>
+            <Select value={bulkPackage} onValueChange={setBulkPackage}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Choose a package" />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((plan) => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkPackageDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkAssignPackage} disabled={isProcessing || !bulkPackage}>
+              {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Assign to {selectedUsers.size} Users
             </Button>
           </DialogFooter>
         </DialogContent>
