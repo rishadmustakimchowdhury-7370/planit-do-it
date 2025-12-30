@@ -151,27 +151,11 @@ serve(async (req) => {
     logStep("Owner for reassignment", { ownerUserId });
 
     // ============================================
-    // STEP 1: Revoke all active sessions
+    // STEP 1: Clean up FK references FIRST (before auth.users deletion)
     // ============================================
-    logStep("Revoking user sessions...");
-    try {
-      // Sign out user from all sessions
-      const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id, 'global');
-      if (signOutError) {
-        logStep("Warning: Could not sign out user", { error: signOutError.message });
-      } else {
-        logStep("User signed out from all sessions");
-      }
-    } catch (e) {
-      logStep("Warning: Session revocation failed", { error: e });
-    }
+    logStep("Cleaning up FK references before auth deletion...");
 
-    // ============================================
-    // STEP 2: Clean up and reassign records
-    // ============================================
-    logStep("Cleaning up user records...");
-
-    // Reassign events to owner (don't delete them)
+    // Reassign events to owner (events_organizer_id_fkey)
     const { error: eventsReassignError } = await supabaseAdmin
       .from('events')
       .update({ organizer_id: ownerUserId })
@@ -179,12 +163,39 @@ serve(async (req) => {
     if (eventsReassignError) logStep("Events reassign error", { error: eventsReassignError });
     else logStep("Events reassigned to owner");
 
+    // Clear team_invitations accepted_by (team_invitations_accepted_by_fkey)
+    const { error: invitationsError } = await supabaseAdmin
+      .from('team_invitations')
+      .update({ accepted_by: null })
+      .eq('accepted_by', user_id);
+    if (invitationsError) logStep("Team invitations cleanup error", { error: invitationsError });
+    else logStep("Team invitations cleaned up");
+
     // Remove from event participants
     const { error: participantsError } = await supabaseAdmin
       .from('event_participants')
       .delete()
       .eq('user_id', user_id);
     if (participantsError) logStep("Event participants cleanup error", { error: participantsError });
+
+    // ============================================
+    // STEP 2: Delete from auth.users
+    // ============================================
+    logStep("Deleting from auth.users...");
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+    if (deleteAuthError) {
+      logStep("Auth deletion FAILED", { error: deleteAuthError.message });
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete user: ' + deleteAuthError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    logStep("User deleted from auth.users");
+
+    // ============================================
+    // STEP 3: Clean up remaining records (cascade may have handled some)
+    // ============================================
+    logStep("Cleaning up remaining user records...");
 
     // Reassign jobs created by user to owner
     const { error: jobsCreatedError } = await supabaseAdmin
@@ -284,42 +295,27 @@ serve(async (req) => {
       .eq('user_id', user_id);
     if (notificationsError) logStep("Notifications error", { error: notificationsError });
 
-    // Delete credit transactions (keep history but nullify user)
-    // Actually we need to keep these for audit, just log it
     logStep("Credit transactions preserved for audit");
 
     // ============================================
-    // STEP 3: Delete user role
+    // STEP 3: Delete user role (if not already cascade deleted)
     // ============================================
     const { error: deleteRoleError } = await supabaseAdmin
       .from('user_roles')
       .delete()
       .eq('user_id', user_id);
-    if (deleteRoleError) logStep("Role deletion error", { error: deleteRoleError });
+    if (deleteRoleError) logStep("Role deletion error (may already be deleted)", { error: deleteRoleError });
     else logStep("User role deleted");
 
     // ============================================
-    // STEP 4: Delete user profile
+    // STEP 4: Delete user profile (if not already cascade deleted)
     // ============================================
     const { error: deleteProfileError } = await supabaseAdmin
       .from('profiles')
       .delete()
       .eq('id', user_id);
-    if (deleteProfileError) logStep("Profile deletion error", { error: deleteProfileError });
+    if (deleteProfileError) logStep("Profile deletion error (may already be deleted)", { error: deleteProfileError });
     else logStep("User profile deleted");
-
-    // ============================================
-    // STEP 5: Delete from auth.users (hard delete)
-    // ============================================
-    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
-    if (deleteAuthError) {
-      logStep("Auth deletion FAILED", { error: deleteAuthError.message });
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user from auth system: ' + deleteAuthError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    logStep("User deleted from auth.users");
 
     // ============================================
     // STEP 6: Log audit entry
