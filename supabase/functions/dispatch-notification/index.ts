@@ -9,6 +9,7 @@ import {
   logEmailEvent,
   type EmailSenderType,
 } from "../_shared/email-config.ts";
+import { getAppBaseUrl, getDashboardUrl, getBillingUrl, getTeamUrl, getAdminUrl, buildAppUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,16 +85,21 @@ const EVENT_RECIPIENTS: Record<NotificationEventType, {
 };
 
 // ============================================================================
-// EMAIL TEMPLATES
+// EMAIL TEMPLATES - URLs are resolved at runtime using centralized utility
 // ============================================================================
-
-const APP_URL = Deno.env.get("APP_URL") || "https://hiremetrics.co.uk";
 
 function getEmailTemplate(eventType: NotificationEventType, data: Record<string, unknown>): {
   subject: string;
   html: string;
   senderType: EmailSenderType;
 } {
+  // Resolve all URLs at runtime using centralized utility
+  const appBaseUrl = getAppBaseUrl();
+  const dashboardUrl = getDashboardUrl();
+  const billingUrl = getBillingUrl();
+  const teamUrl = getTeamUrl();
+  const adminUsersUrl = getAdminUrl("users");
+
   const baseStyles = `
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
@@ -122,7 +128,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
     <div class="footer">
       <p>HireMetrics - Enterprise Recruitment Platform</p>
       <p>This email was sent from HireMetrics CRM.</p>
-      <p><a href="${APP_URL}">Visit Dashboard</a></p>
+      <p><a href="${dashboardUrl}">Visit Dashboard</a></p>
     </div>
   `;
 
@@ -161,7 +167,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Role:</span> ${data.member_role || "N/A"}</div>
             <div class="highlight-item"><span class="label">Date:</span> ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}</div>
           </div>
-          <a href="${APP_URL}/admin/users" class="button">View in Admin Panel</a>
+          <a href="${adminUsersUrl}" class="button">View in Admin Panel</a>
         `),
       };
 
@@ -176,7 +182,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Member:</span> ${data.member_name || data.member_email || "N/A"}</div>
             <div class="highlight-item"><span class="label">Role:</span> ${data.member_role || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/team" class="button">View Team</a>
+          <a href="${teamUrl}" class="button">View Team</a>
         `),
       };
 
@@ -193,7 +199,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
             <div class="highlight-item"><span class="label">Created By:</span> ${data.created_by_name || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/jobs/${data.job_id}" class="button">View Job</a>
+          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
         `),
       };
 
@@ -209,7 +215,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
             <div class="highlight-item"><span class="label">Assigned By:</span> ${data.assigned_by_name || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/jobs/${data.job_id}" class="button">View Job Details</a>
+          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job Details</a>
         `),
       };
 
@@ -225,7 +231,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
             <div class="highlight-item"><span class="label">Reason:</span> ${data.reason || "Not specified"}</div>
           </div>
-          <a href="${APP_URL}/jobs/${data.job_id}" class="button">View Job</a>
+          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
         `),
       };
 
@@ -242,7 +248,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
             <div class="highlight-item"><span class="label">Hired Candidate:</span> ${data.candidate_name || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/jobs/${data.job_id}" class="button">View Job</a>
+          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
         `),
       };
 
@@ -259,7 +265,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
             <div class="highlight-item"><span class="label">Submitted By:</span> ${data.submitted_by_name || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/candidates/${data.candidate_id}" class="button">View Candidate</a>
+          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
         `),
       };
 
@@ -276,7 +282,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">New Status:</span> ${data.new_status || "N/A"}</div>
             <div class="highlight-item"><span class="label">Previous Status:</span> ${data.old_status || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/candidates/${data.candidate_id}" class="button">View Candidate</a>
+          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
         `),
       };
 
@@ -292,7 +298,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
             <div class="highlight-item"><span class="label">Date/Time:</span> ${data.interview_time || "TBC"}</div>
           </div>
-          <a href="${APP_URL}/events/${data.event_id}" class="button">View Event</a>
+          <a href="${buildAppUrl(`/events/${data.event_id}`)}" class="button">View Event</a>
         `),
       };
 
@@ -308,7 +314,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
             <div class="highlight-item"><span class="label">Reason:</span> ${data.reason || "Not specified"}</div>
           </div>
-          <a href="${APP_URL}/candidates/${data.candidate_id}" class="button">View Candidate</a>
+          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
         `),
       };
 
@@ -324,7 +330,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
             <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
           </div>
-          <a href="${APP_URL}/candidates/${data.candidate_id}" class="button">View Candidate</a>
+          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
         `),
       };
 
@@ -341,7 +347,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">New Package:</span> ${data.new_package || "N/A"}</div>
             <div class="highlight-item"><span class="label">Effective:</span> ${data.effective_date || "Immediately"}</div>
           </div>
-          <a href="${APP_URL}/billing" class="button">View Billing</a>
+          <a href="${billingUrl}" class="button">View Billing</a>
         `),
       };
 
@@ -358,7 +364,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Date:</span> ${new Date().toLocaleDateString("en-GB")}</div>
           </div>
           <p class="text">Your invoice is attached to this email.</p>
-          <a href="${APP_URL}/billing" class="button">View Billing History</a>
+          <a href="${billingUrl}" class="button">View Billing History</a>
         `),
       };
 
@@ -373,7 +379,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Amount:</span> ${data.currency || "GBP"} ${data.amount || "N/A"}</div>
             <div class="highlight-item"><span class="label">Reason:</span> ${data.failure_reason || "Payment declined"}</div>
           </div>
-          <a href="${APP_URL}/billing" class="button">Update Payment Method</a>
+          <a href="${billingUrl}" class="button">Update Payment Method</a>
         `),
       };
 
@@ -388,7 +394,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
             <div class="highlight-item"><span class="label">Package:</span> ${data.package_name || "N/A"}</div>
             <div class="highlight-item"><span class="label">Expired:</span> ${data.expired_date || new Date().toLocaleDateString("en-GB")}</div>
           </div>
-          <a href="${APP_URL}/billing" class="button">Renew Subscription</a>
+          <a href="${billingUrl}" class="button">Renew Subscription</a>
         `),
       };
 
@@ -399,7 +405,7 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         html: wrapEmail(`
           <h1 class="title">Notification</h1>
           <p class="text">You have a new notification from HireMetrics.</p>
-          <a href="${APP_URL}/dashboard" class="button">View Dashboard</a>
+          <a href="${dashboardUrl}" class="button">View Dashboard</a>
         `),
       };
   }
