@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { getAdminUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,7 @@ function generateNewUserEmailHTML(data: {
   tenantName?: string;
   registrationDate: string;
   source?: string;
+  adminUrl: string;
 }): string {
   return `
 <!DOCTYPE html>
@@ -127,7 +129,7 @@ function generateNewUserEmailHTML(data: {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="text-align: center; padding-top: 10px;">
-                    <a href="https://hiremetrics.lovable.app/admin/users" 
+                    <a href="${data.adminUrl}" 
                        style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 14px;">
                       View in Admin Panel
                     </a>
@@ -197,6 +199,9 @@ serve(async (req) => {
       // small jitter to reduce collisions with other functions hitting Resend at the same time
       await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
 
+      const adminUrl = getAdminUrl("users");
+      console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL:", adminUrl);
+
       const fallbackResult = await sendResendEmailWithRetry(resend, {
         from: 'HireMetrics <admin@hiremetrics.co.uk>',
         to: ['admin@hiremetrics.co.uk'],
@@ -208,6 +213,7 @@ serve(async (req) => {
           tenantName: tenant_name,
           registrationDate: new Date().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }),
           source,
+          adminUrl,
         }),
       });
 
@@ -246,12 +252,16 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey);
     
+    const adminUrl = getAdminUrl("users");
+    console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL for super admins:", adminUrl);
+
     const emailHtml = generateNewUserEmailHTML({
       userName: full_name || email.split('@')[0],
       userEmail: email,
       tenantName: tenant_name,
       registrationDate: new Date().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }),
       source,
+      adminUrl,
     });
 
     await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
