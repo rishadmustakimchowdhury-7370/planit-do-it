@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const SUPER_ADMIN_EMAIL = "admin@hiremetrics.co.uk";
 
 interface Participant {
   id: string;
@@ -31,21 +32,6 @@ interface SMTPConfig {
   from_email: string;
   from_name: string;
 }
-
-// Default HireMetrics logo (base64 encoded SVG)
-const DEFAULT_LOGO_HTML = `
-<div style="display: inline-flex; align-items: center; gap: 10px;">
-  <div style="background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: center;">
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-      <rect width="20" height="14" x="2" y="6" rx="2"/>
-    </svg>
-  </div>
-  <span style="font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;">
-    <span style="color: #00008B;">Hire</span><span style="color: #64748b; font-weight: 500;">Metrics</span>
-  </span>
-</div>
-`;
 
 // Generate ICS calendar file content
 function generateICS(event: any, participants: Participant[], action: string): string {
@@ -99,16 +85,7 @@ END:VEVENT
 END:VCALENDAR`.replace(/\n/g, '\r\n');
 }
 
-// Minify HTML to prevent quoted-printable encoding artifacts like "=20"
-function minifyHTML(html: string): string {
-  return html
-    .replace(/\n\s*/g, '') // Remove newlines and leading whitespace
-    .replace(/>\s+</g, '><') // Remove whitespace between tags
-    .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
-    .trim();
-}
-
-// Generate modern HTML email content with logo
+// Generate modern HTML email content
 function generateEmailHTML(
   event: any, 
   participant: Participant, 
@@ -200,15 +177,12 @@ function generateEmailHTML(
     ? `<tr><td style="padding:0 40px 25px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border-radius:12px;border:1px solid #bfdbfe;"><tr><td style="padding:16px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top" style="font-size:24px;">📆</td><td style="padding-left:12px;"><p style="margin:0;color:#1e40af;font-size:14px;font-weight:600;">Add to your calendar</p><p style="margin:4px 0 0;color:#3b82f6;font-size:13px;">Open the attached .ics file to add this event to your calendar.</p></td></tr></table></td></tr></table></td></tr>`
     : '';
 
-  // Only show company name if it's different from organizer name
   const showCompanyName = displayCompanyName !== organizerName;
   const signatureHTML = showCompanyName 
     ? `<p style="margin:15px 0 0;color:#1e293b;font-size:15px;line-height:1.6;">Best regards,<br/><strong style="color:#00008B;">${organizerName}</strong><br/><span style="color:#64748b;font-size:13px;">${displayCompanyName}</span></p>`
     : `<p style="margin:15px 0 0;color:#1e293b;font-size:15px;line-height:1.6;">Best regards,<br/><strong style="color:#00008B;">${organizerName}</strong></p>`;
 
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>${actionTitle}: ${event.title}</title></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background-color:#f1f5f9;-webkit-font-smoothing:antialiased;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;"><tr><td align="center" style="padding:40px 20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:30px 40px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">${logoHTML}</td></tr></table></td></tr><tr><td style="background:linear-gradient(135deg,${actionColor.bg} 0%,${actionColor.bg}dd 100%);padding:35px 40px;text-align:center;"><h1 style="margin:0;color:${actionColor.text};font-size:28px;font-weight:700;letter-spacing:-0.5px;">${actionTitle}</h1></td></tr><tr><td style="padding:40px;"><p style="margin:0 0 20px;color:#1e293b;font-size:18px;font-weight:600;">Hello ${firstName}!</p><p style="margin:0 0 30px;color:#475569;font-size:16px;line-height:1.7;">${actionMessage}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(145deg,#f8fafc 0%,#f1f5f9 100%);border-radius:16px;border:1px solid #e2e8f0;margin-bottom:30px;overflow:hidden;"><tr><td style="padding:20px 24px 0;"><span style="display:inline-block;background-color:${eventTypeColor}15;color:${eventTypeColor};padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${eventTypeLabels[event.event_type] || 'Event'}</span></td></tr><tr><td style="padding:16px 24px 8px;"><h2 style="margin:0;color:#0f172a;font-size:24px;font-weight:700;line-height:1.3;">${event.title}</h2></td></tr><tr><td style="padding:16px 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dbeafe;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">📅</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Date</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatDate(startDate, event.timezone)}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fce7f3;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">⏰</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Time</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatTime(startDate, event.timezone)} - ${formatTime(endDate, event.timezone)}</div><div style="color:#94a3b8;font-size:12px;margin-top:2px;">${event.timezone}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dcfce7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">${event.location_type === 'online' ? '🌐' : '📍'}</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Location</div><div style="font-size:15px;">${locationDisplay}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fef3c7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">👤</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Organizer</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${organizerName}</div></td></tr></table></td></tr></table></td></tr>${descriptionBlock}</table>${meetingLinkButton ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">${meetingLinkButton}</table>` : ''}${calendarNote}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e2e8f0;padding-top:25px;"><tr><td><p style="margin:0 0 5px;color:#475569;font-size:15px;line-height:1.6;">Looking forward to connecting with you!</p>${signatureHTML}</td></tr></table></td></tr><tr><td style="background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);padding:24px 40px;border-top:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><p style="margin:0 0 8px;color:#64748b;font-size:13px;">Powered by <strong style="color:#00008B;">HireMetrics</strong></p><p style="margin:0;color:#94a3b8;font-size:11px;">&copy; ${new Date().getFullYear()} HireMetrics. All rights reserved.</p></td></tr></table></td></tr></table><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin-top:20px;"><tr><td align="center"><p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">If you have any questions, please reply to this email or contact the organizer directly.</p></td></tr></table></td></tr></table></body></html>`;
-
-  return html;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${actionTitle}: ${event.title}</title></head><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background-color:#f1f5f9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;"><tr><td align="center" style="padding:40px 20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><tr><td style="padding:30px 40px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);border-bottom:1px solid #e2e8f0;text-align:center;">${logoHTML}</td></tr><tr><td style="background:linear-gradient(135deg,${actionColor.bg} 0%,${actionColor.bg}dd 100%);padding:35px 40px;text-align:center;"><h1 style="margin:0;color:${actionColor.text};font-size:28px;font-weight:700;letter-spacing:-0.5px;">${actionTitle}</h1></td></tr><tr><td style="padding:40px;"><p style="margin:0 0 20px;color:#1e293b;font-size:18px;font-weight:600;">Hello ${firstName}!</p><p style="margin:0 0 30px;color:#475569;font-size:16px;line-height:1.7;">${actionMessage}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(145deg,#f8fafc 0%,#f1f5f9 100%);border-radius:16px;border:1px solid #e2e8f0;margin-bottom:30px;overflow:hidden;"><tr><td style="padding:20px 24px 0;"><span style="display:inline-block;background-color:${eventTypeColor}15;color:${eventTypeColor};padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;">${eventTypeLabels[event.event_type] || 'Event'}</span></td></tr><tr><td style="padding:16px 24px 8px;"><h2 style="margin:0;color:#0f172a;font-size:24px;font-weight:700;line-height:1.3;">${event.title}</h2></td></tr><tr><td style="padding:16px 24px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dbeafe;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">📅</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Date</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatDate(startDate, event.timezone)}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fce7f3;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">⏰</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Time</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${formatTime(startDate, event.timezone)} - ${formatTime(endDate, event.timezone)}</div><div style="color:#94a3b8;font-size:12px;margin-top:2px;">${event.timezone}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;border-bottom:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#dcfce7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">${event.location_type === 'online' ? '🌐' : '📍'}</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Location</div><div style="font-size:15px;">${locationDisplay}</div></td></tr></table></td></tr><tr><td style="padding:12px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top"><div style="width:36px;height:36px;background-color:#fef3c7;border-radius:10px;text-align:center;line-height:36px;font-size:18px;">👤</div></td><td style="padding-left:12px;"><div style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Organizer</div><div style="color:#1e293b;font-size:15px;font-weight:500;">${organizerName}</div></td></tr></table></td></tr></table></td></tr>${descriptionBlock}</table>${meetingLinkButton ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">${meetingLinkButton}</table>` : ''}${calendarNote}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e2e8f0;padding-top:25px;"><tr><td><p style="margin:0 0 5px;color:#475569;font-size:15px;line-height:1.6;">Looking forward to connecting with you!</p>${signatureHTML}</td></tr></table></td></tr><tr><td style="background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);padding:24px 40px;border-top:1px solid #e2e8f0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><p style="margin:0 0 8px;color:#64748b;font-size:13px;">Powered by <strong style="color:#00008B;">HireMetrics</strong></p><p style="margin:0;color:#94a3b8;font-size:11px;">© ${new Date().getFullYear()} HireMetrics. All rights reserved.</p></td></tr></table></td></tr></table></td></tr></table></body></html>`;
 }
 
 // Send email via SMTP
@@ -219,9 +193,9 @@ async function sendViaSMTP(
   html: string,
   icsContent?: string
 ): Promise<void> {
-  const isDirectTLS = config.port === 465 || (config.use_tls && config.port !== 587);
+  const isDirectTLS = config.port === 465;
   
-  console.log(`SMTP config: host=${config.host}, port=${config.port}, directTLS=${isDirectTLS}`);
+  console.log(`[SMTP] Sending from ${config.from_email} to ${to}`);
 
   const client = new SMTPClient({
     connection: {
@@ -243,12 +217,12 @@ async function sendViaSMTP(
     html: html,
   };
 
-  // Add ICS attachment if provided
   if (icsContent) {
     emailOptions.attachments = [{
       filename: 'invite.ics',
-      content: icsContent,
+      content: new TextEncoder().encode(icsContent),
       contentType: 'text/calendar; method=REQUEST',
+      encoding: 'binary',
     }];
   }
 
@@ -264,22 +238,18 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: SendEventInvitationRequest = await req.json();
     const { event_id, action, participant_ids } = body;
 
-    console.log(`Processing ${action} for event ${event_id}`);
+    console.log(`[SMTP] Processing ${action} for event ${event_id}`);
 
     // Fetch event details
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select(`
-        *,
-        jobs(title)
-      `)
+      .select(`*, jobs(title)`)
       .eq('id', event_id)
       .single();
 
@@ -295,10 +265,10 @@ serve(async (req: Request) => {
       .single();
 
     const organizerName = organizer?.full_name || 'Recruiter';
-    const organizerEmail = organizer?.email || 'noreply@recruitifycrm.com';
+    const organizerEmail = organizer?.email || SUPER_ADMIN_EMAIL;
     const tenantId = organizer?.tenant_id || event.tenant_id;
 
-    // Fetch tenant branding (logo and company name)
+    // Fetch tenant branding
     let companyLogoUrl: string | null = null;
     let companyName: string | null = null;
 
@@ -313,29 +283,107 @@ serve(async (req: Request) => {
         companyLogoUrl = tenant.logo_url;
         companyName = tenant.name;
       }
+
+      const { data: branding } = await supabase
+        .from('branding_settings')
+        .select('logo_url, company_name')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (branding) {
+        companyLogoUrl = branding.logo_url || companyLogoUrl;
+        companyName = branding.company_name || companyName;
+      }
     }
 
-    console.log(`Tenant branding: logo=${companyLogoUrl ? 'yes' : 'no'}, name=${companyName || 'Recruitify CRM'}`);
+    // Fetch participants
+    let participantQuery = supabase
+      .from('event_participants')
+      .select('*')
+      .eq('event_id', event_id);
 
-    // Fetch organizer's configured SMTP email account (user-owned email identity)
+    if (participant_ids && participant_ids.length > 0) {
+      participantQuery = participantQuery.in('id', participant_ids);
+    }
+
+    const { data: eventParticipants, error: participantError } = await participantQuery;
+
+    if (participantError) {
+      throw new Error(`Failed to fetch participants: ${participantError.message}`);
+    }
+
+    // Resolve participant details
+    const participants: Participant[] = [];
+    for (const ep of eventParticipants || []) {
+      let email = ep.external_email || '';
+      let name = ep.external_name || '';
+
+      if (ep.participant_type === 'user' && ep.user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', ep.user_id)
+          .single();
+        if (profile) {
+          email = profile.email || '';
+          name = profile.full_name || '';
+        }
+      } else if (ep.participant_type === 'candidate' && ep.candidate_id) {
+        const { data: candidate } = await supabase
+          .from('candidates')
+          .select('email, full_name')
+          .eq('id', ep.candidate_id)
+          .single();
+        if (candidate) {
+          email = candidate.email || '';
+          name = candidate.full_name || '';
+        }
+      } else if (ep.participant_type === 'client' && ep.client_id) {
+        const { data: client } = await supabase
+          .from('clients')
+          .select('contact_email, contact_name')
+          .eq('id', ep.client_id)
+          .single();
+        if (client) {
+          email = client.contact_email || '';
+          name = client.contact_name || '';
+        }
+      }
+
+      if (email) {
+        participants.push({
+          id: ep.id,
+          participant_type: ep.participant_type,
+          email,
+          name: name || email.split('@')[0],
+          role: ep.role,
+        });
+      }
+    }
+
+    if (participants.length === 0) {
+      console.log('[SMTP] No participants with valid emails found');
+      return new Response(
+        JSON.stringify({ success: true, message: 'No participants with valid emails', sent: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get organizer's SMTP config or use system SMTP
+    let smtpConfig: SMTPConfig;
+
     const { data: emailAccount } = await supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', event.organizer_id)
+      .eq('tenant_id', tenantId)
       .eq('status', 'connected')
       .eq('provider', 'smtp')
       .order('is_default', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Determine if we can use SMTP
-    const canUseSMTP = emailAccount && 
-      emailAccount.smtp_host && 
-      emailAccount.smtp_user && 
-      emailAccount.smtp_password;
-
-    let smtpConfig: SMTPConfig | null = null;
-    if (canUseSMTP) {
+    if (emailAccount && emailAccount.smtp_host && emailAccount.smtp_user && emailAccount.smtp_password) {
       smtpConfig = {
         host: emailAccount.smtp_host,
         port: emailAccount.smtp_port || 587,
@@ -345,200 +393,96 @@ serve(async (req: Request) => {
         from_email: emailAccount.from_email,
         from_name: emailAccount.display_name || organizerName,
       };
-      console.log(`Using user's SMTP account: ${smtpConfig.from_email}`);
     } else {
-      console.log(`No SMTP account configured, falling back to Resend with system email`);
-    }
+      // Use system SMTP
+      const host = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+      const port = parseInt(Deno.env.get("SMTP_PORT") || "587", 10);
+      const user = Deno.env.get("SMTP_USER");
+      const password = Deno.env.get("SMTP_PASSWORD");
 
-    // Fetch participants
-    let participantsQuery = supabase
-      .from('event_participants')
-      .select(`
-        id,
-        participant_type,
-        role,
-        candidate_id,
-        client_id,
-        user_id,
-        external_name,
-        external_email,
-        candidates(full_name, email),
-        clients(name, contact_email)
-      `)
-      .eq('event_id', event_id);
-
-    if (participant_ids && participant_ids.length > 0) {
-      participantsQuery = participantsQuery.in('id', participant_ids);
-    }
-
-    const { data: rawParticipants, error: participantsError } = await participantsQuery;
-
-    if (participantsError) {
-      throw new Error(`Failed to fetch participants: ${participantsError.message}`);
-    }
-
-    // Fetch user profiles separately for user-type participants
-    const userIds = (rawParticipants || [])
-      .filter((p: any) => p.participant_type === 'user' && p.user_id)
-      .map((p: any) => p.user_id);
-    
-    let userProfiles: Record<string, { full_name: string; email: string }> = {};
-    
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
-      
-      userProfiles = (profiles || []).reduce((acc: any, p: any) => {
-        acc[p.id] = { full_name: p.full_name, email: p.email };
-        return acc;
-      }, {});
-    }
-
-    // Transform participants to a usable format
-    const participants: Participant[] = (rawParticipants || []).map((p: any) => {
-      let email = '';
-      let name = '';
-
-      if (p.participant_type === 'candidate' && p.candidates) {
-        email = p.candidates.email;
-        name = p.candidates.full_name;
-      } else if (p.participant_type === 'client' && p.clients) {
-        email = p.clients.contact_email || '';
-        name = p.clients.name;
-      } else if (p.participant_type === 'user' && p.user_id && userProfiles[p.user_id]) {
-        email = userProfiles[p.user_id].email;
-        name = userProfiles[p.user_id].full_name;
-      } else if (p.participant_type === 'external') {
-        email = p.external_email || '';
-        name = p.external_name || 'Guest';
+      if (!user || !password) {
+        throw new Error("No SMTP configuration available");
       }
 
-      return {
-        id: p.id,
-        participant_type: p.participant_type,
-        email,
-        name,
-        role: p.role
+      smtpConfig = {
+        host,
+        port,
+        username: user,
+        password,
+        use_tls: port === 587,
+        from_email: SUPER_ADMIN_EMAIL,
+        from_name: organizerName,
       };
-    }).filter((p: Participant) => p.email);
-
-    console.log(`Sending ${action} to ${participants.length} participants`);
+    }
 
     // Add organizer info to event for ICS generation
     const eventWithOrganizer = {
       ...event,
       organizer_name: organizerName,
-      organizer_email: smtpConfig?.from_email || organizerEmail
+      organizer_email: smtpConfig.from_email,
     };
 
-    // Generate ICS file
-    const icsContent = generateICS(eventWithOrganizer, participants, action);
-    const icsBase64 = btoa(icsContent);
+    // Generate ICS content
+    const icsContent = action !== 'cancel' ? generateICS(eventWithOrganizer, participants, action) : undefined;
 
-    // Send emails to each participant
-    const results = [];
+    // Send emails
+    let sentCount = 0;
+    const errors: string[] = [];
+
     for (const participant of participants) {
       try {
-        const htmlContent = generateEmailHTML(
-          eventWithOrganizer, 
-          participant, 
-          action, 
+        const emailHtml = generateEmailHTML(
+          event,
+          participant,
+          action,
           organizerName,
           companyLogoUrl,
           companyName
         );
-        
-        const subjectPrefix = action === 'cancel' 
-          ? '❌ Cancelled: ' 
-          : action === 'update' 
-          ? '🔄 Updated: ' 
-          : action === 'reminder'
-          ? '⏰ Reminder: '
-          : '📩 ';
 
-        const subject = `${subjectPrefix}${event.title}`;
+        const subjectPrefixes: Record<string, string> = {
+          invite: '📅 ',
+          update: '🔄 ',
+          cancel: '❌ ',
+          reminder: '⏰ ',
+        };
 
-        if (smtpConfig) {
-          // Send via user's SMTP account
-          console.log(`Sending via SMTP from: ${smtpConfig.from_email} to: ${participant.email}`);
-          await sendViaSMTP(
-            smtpConfig,
-            participant.email,
-            subject,
-            htmlContent,
-            action !== 'cancel' ? icsContent : undefined
-          );
-        } else if (resendApiKey) {
-          // Fallback to Resend with centralized HireMetrics email
-          const resend = new Resend(resendApiKey);
-          const fromEmail = 'HireMetrics <admin@hiremetrics.co.uk>';
-          const replyToEmail = organizerEmail || 'admin@hiremetrics.co.uk';
-          
-          console.log(`Sending via Resend from: ${fromEmail} to: ${participant.email}, reply-to: ${replyToEmail}`);
-          
-          await resend.emails.send({
-            from: fromEmail,
-            reply_to: replyToEmail,
-            to: [participant.email],
-            subject: subject,
-            html: htmlContent,
-            attachments: action !== 'cancel' ? [
-              {
-                filename: 'invite.ics',
-                content: icsBase64
-              }
-            ] : undefined
-          });
-        } else {
-          throw new Error("No email sending method available. Please configure SMTP or RESEND_API_KEY.");
-        }
+        const subject = `${subjectPrefixes[action] || ''}${action === 'cancel' ? 'Cancelled: ' : ''}${event.title}`;
 
-        // Update participant invitation status
+        await sendViaSMTP(smtpConfig, participant.email, subject, emailHtml, icsContent);
+
+        // Update invitation sent timestamp
         await supabase
           .from('event_participants')
-          .update({ 
-            invitation_sent_at: new Date().toISOString(),
-            ...(action === 'reminder' && { 
-              [`reminder_${participant_ids ? '1h' : '24h'}_sent`]: true 
-            })
-          })
+          .update({ invitation_sent_at: new Date().toISOString() })
           .eq('id', participant.id);
 
-        results.push({ 
-          participant_id: participant.id, 
-          email: participant.email, 
-          success: true,
-          method: smtpConfig ? 'smtp' : 'resend'
-        });
-
-        console.log(`Email sent to ${participant.email} via ${smtpConfig ? 'SMTP' : 'Resend'}`);
-      } catch (emailError: any) {
-        console.error(`Failed to send to ${participant.email}:`, emailError);
-        results.push({ 
-          participant_id: participant.id, 
-          email: participant.email, 
-          success: false, 
-          error: emailError.message 
-        });
+        sentCount++;
+        console.log(`[SMTP] Email sent to ${participant.email}`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[SMTP] Failed to send to ${participant.email}:`, errorMsg);
+        errors.push(`${participant.email}: ${errorMsg}`);
       }
     }
 
+    console.log(`[SMTP] Event invitations sent: ${sentCount}/${participants.length}`);
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        sent_count: results.filter(r => r.success).length,
-        failed_count: results.filter(r => !r.success).length,
-        results 
+      JSON.stringify({
+        success: true,
+        message: `Invitations sent successfully`,
+        sent: sentCount,
+        total: participants.length,
+        errors: errors.length > 0 ? errors : undefined,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
-    console.error("Error in send-event-invitation:", error);
+  } catch (error) {
+    console.error('[SMTP] Error in send-event-invitation:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
