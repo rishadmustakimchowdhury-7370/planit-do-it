@@ -48,8 +48,21 @@ export interface UsageStats {
   hasBlocks: boolean;
 }
 
+// Unlimited stats for super admins
+const UNLIMITED_STATS: UsageStats = {
+  limits: { max_users: 999999, max_jobs: 999999, max_candidates: 999999, match_credits_monthly: 999999 },
+  usage: {
+    aiCredits: { used: 0, limit: 999999, remaining: 999999, percent: 0, warning: false, blocked: false },
+    jobs: { used: 0, limit: 999999, remaining: 999999, percent: 0, warning: false, blocked: false },
+    candidates: { used: 0, limit: 999999, remaining: 999999, percent: 0, warning: false, blocked: false },
+    teamMembers: { used: 0, limit: 999999, remaining: 999999, percent: 0, warning: false, blocked: false },
+  },
+  hasWarnings: false,
+  hasBlocks: false,
+};
+
 export function useUsageLimits() {
-  const { tenantId, user } = useAuth();
+  const { tenantId, user, isSuperAdmin } = useAuth();
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastWarned, setLastWarned] = useState<Set<string>>(new Set());
@@ -57,6 +70,13 @@ export function useUsageLimits() {
   const fetchUsageStats = useCallback(async () => {
     // Don't fetch if no user or tenant
     if (!user || !tenantId) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Super admins get unlimited access - no need to fetch stats
+    if (isSuperAdmin) {
+      setUsageStats(UNLIMITED_STATS);
       setIsLoading(false);
       return;
     }
@@ -119,7 +139,7 @@ export function useUsageLimits() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, tenantId, lastWarned]);
+  }, [user, tenantId, isSuperAdmin, lastWarned]);
 
   useEffect(() => {
     fetchUsageStats();
@@ -132,6 +152,8 @@ export function useUsageLimits() {
   }, [user, tenantId, fetchUsageStats]);
 
   const checkLimit = (feature: 'aiCredits' | 'jobs' | 'candidates' | 'teamMembers'): boolean => {
+    // Super admins never hit limits
+    if (isSuperAdmin) return false;
     if (!usageStats) return false;
     return usageStats.usage[feature].blocked;
   };
