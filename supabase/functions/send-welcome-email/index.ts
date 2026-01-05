@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import {
-  createResendClient,
-  sendEmailWithRetry,
+  sendSystemEmail,
   isDuplicateEmail,
   generateDedupKey,
   logEmailEvent,
-} from "../_shared/email-config.ts";
+} from "../_shared/smtp-sender.ts";
 import { getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
@@ -60,22 +59,18 @@ function generateWelcomeEmailHTML(data: {
           <!-- Main Content -->
           <tr>
             <td style="padding: 40px;">
-              <!-- Greeting -->
               <h1 style="margin: 0 0 24px; color: #1e293b; font-size: 24px; font-weight: 600;">
                 ${greeting},
               </h1>
               
-              <!-- Introduction Paragraph -->
               <p style="margin: 0 0 20px; color: #475569; font-size: 16px;">
                 Thank you for registering with HireMetrics. Your account has been created successfully, and you now have access to our enterprise recruitment management platform.
               </p>
               
-              <!-- Value Proposition Paragraph -->
               <p style="margin: 0 0 20px; color: #475569; font-size: 16px;">
-                With HireMetrics, you can streamline your recruitment operations by managing candidates, tracking job applications, coordinating with clients, and leveraging AI-powered matching to find the best talent efficiently. Our platform is designed to support your hiring workflow from start to finish.
+                With HireMetrics, you can streamline your recruitment operations by managing candidates, tracking job applications, coordinating with clients, and leveraging AI-powered matching to find the best talent efficiently.
               </p>
               
-              <!-- Call-to-Action Paragraph -->
               <p style="margin: 0 0 32px; color: #475569; font-size: 16px;">
                 To get started, access your dashboard where you can create job listings, import candidates, and begin managing your recruitment pipeline.
               </p>
@@ -152,40 +147,6 @@ function generateWelcomeEmailHTML(data: {
   `;
 }
 
-function generatePlainTextVersion(data: {
-  userName: string;
-  dashboardUrl: string;
-}): string {
-  const greeting = data.userName ? `Dear ${data.userName}` : "Welcome";
-  
-  return `
-${greeting},
-
-Thank you for registering with HireMetrics. Your account has been created successfully, and you now have access to our enterprise recruitment management platform.
-
-With HireMetrics, you can streamline your recruitment operations by managing candidates, tracking job applications, coordinating with clients, and leveraging AI-powered matching to find the best talent efficiently. Our platform is designed to support your hiring workflow from start to finish.
-
-To get started, access your dashboard where you can create job listings, import candidates, and begin managing your recruitment pipeline.
-
-Access Your Dashboard: ${data.dashboardUrl}
-
-What you can do next:
-- Create and publish job listings
-- Add candidates manually or import from CSV
-- Use AI matching to find suitable candidates
-- Track your recruitment pipeline and analytics
-
-Best regards,
-The HireMetrics Team
-
----
-HireMetrics
-Need help? Contact us at admin@hiremetrics.co.uk
-
-This email was sent because you created an account on HireMetrics.
-  `.trim();
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -213,7 +174,7 @@ serve(async (req) => {
       );
     }
 
-    // Prepare email data - use environment-aware URL
+    // Prepare email data
     const userName = full_name || email.split("@")[0];
     const dashboardUrl = getDashboardUrl();
 
@@ -224,31 +185,19 @@ serve(async (req) => {
       dashboardUrl,
     });
 
-    // Send welcome email with retry
-    const resend = createResendClient();
-    
-    // Small jitter to avoid rate limiting
-    await new Promise((r) => setTimeout(r, Math.floor(100 + Math.random() * 300)));
-
-    const result = await sendEmailWithRetry(resend, {
+    // Send welcome email via SMTP (System email - from Super Admin)
+    const result = await sendSystemEmail({
       to: email,
       subject: "Welcome to HireMetrics – Your Account is Ready",
       html: htmlContent,
-      senderType: "default",
     });
 
-    if (result.error) {
-      logEmailEvent("Welcome email failed", { 
-        email, 
-        error: result.error 
-      });
-      throw new Error(result.error.message || "Failed to send welcome email");
+    if (!result.success) {
+      logEmailEvent("Welcome email failed", { email, error: result.error });
+      throw new Error(result.error || "Failed to send welcome email");
     }
 
-    logEmailEvent("Welcome email sent successfully", { 
-      email, 
-      messageId: result.data?.id 
-    });
+    logEmailEvent("Welcome email sent successfully", { email, from: result.from });
 
     // Log to email_logs table for tracking
     const supabase = createClient(
@@ -279,16 +228,12 @@ serve(async (req) => {
       tenant_id: tenantId,
       metadata: {
         user_name: userName,
-        message_id: result.data?.id,
+        method: "smtp",
       },
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        messageId: result.data?.id,
-        email 
-      }),
+      JSON.stringify({ success: true, email, from: result.from }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
@@ -298,10 +243,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

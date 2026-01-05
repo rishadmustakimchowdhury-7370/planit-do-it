@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import {
+  sendSystemEmail,
+  sendAuditEmail,
+  SUPER_ADMIN_EMAIL,
+} from "../_shared/smtp-sender.ts";
 import { getAdminUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
@@ -12,37 +16,6 @@ const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[NOTIFY-ADMIN-NEW-USER] ${step}${detailsStr}`);
 };
-
-type ResendSendResult = { data: any; error: any };
-
-async function sendResendEmailWithRetry(
-  resend: Resend,
-  payload: Parameters<Resend["emails"]["send"]>[0],
-  maxAttempts = 5
-): Promise<ResendSendResult> {
-  let lastResult: ResendSendResult = { data: null, error: null };
-  let delayMs = 700;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = (await resend.emails.send(payload)) as ResendSendResult;
-    lastResult = result;
-
-    const err = result?.error;
-    if (!err) return result;
-
-    const statusCode = err?.statusCode;
-    const name = err?.name;
-    const isRateLimit = statusCode === 429 || name === "rate_limit_exceeded";
-
-    if (!isRateLimit || attempt === maxAttempts) return result;
-
-    logStep("Resend rate-limited, retrying", { attempt, delayMs, statusCode, name });
-    await new Promise((r) => setTimeout(r, delayMs));
-    delayMs = Math.min(delayMs * 2, 5000);
-  }
-
-  return lastResult;
-}
 
 function generateNewUserEmailHTML(data: {
   userName: string;
@@ -171,89 +144,13 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-
     const body = await req.json();
     const { user_id, email, full_name, tenant_name, source } = body;
 
     logStep("Processing new user notification", { user_id, email, full_name });
 
-    // Get super admin emails
-    const { data: superAdmins, error: saError } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .eq('role', 'super_admin');
-
-    if (saError) {
-      logStep("Error fetching super admins", { error: saError });
-      throw saError;
-    }
-
-    if (!superAdmins || superAdmins.length === 0) {
-      logStep("No super admins found, using fallback email");
-      const resend = new Resend(resendApiKey);
-
-      // small jitter to reduce collisions with other functions hitting Resend at the same time
-      await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
-
-      const adminUrl = getAdminUrl("users");
-      console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL:", adminUrl);
-
-      const fallbackResult = await sendResendEmailWithRetry(resend, {
-        from: 'HireMetrics <admin@hiremetrics.co.uk>',
-        to: ['admin@hiremetrics.co.uk'],
-        reply_to: 'admin@hiremetrics.co.uk',
-        subject: `🎉 New User Registration - ${full_name || email}`,
-        html: generateNewUserEmailHTML({
-          userName: full_name || email.split('@')[0],
-          userEmail: email,
-          tenantName: tenant_name,
-          registrationDate: new Date().toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' }),
-          source,
-          adminUrl,
-        }),
-      });
-
-      if (fallbackResult.error) {
-        logStep("Fallback admin email failed", { error: fallbackResult.error });
-      } else {
-        logStep("Fallback admin email sent", { emailId: fallbackResult.data?.id });
-      }
-
-      return new Response(JSON.stringify({ success: true, fallback: true, emailResult: fallbackResult }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const adminUserIds = superAdmins.map(sa => sa.user_id);
-    logStep("Found super admins", { count: adminUserIds.length });
-
-    const { data: adminProfiles, error: apError } = await supabase
-      .from('profiles')
-      .select('email, full_name')
-      .in('id', adminUserIds)
-      .eq('is_active', true);
-
-    if (apError) {
-      logStep("Error fetching admin profiles", { error: apError });
-      throw apError;
-    }
-
-    const adminEmails = adminProfiles?.map(p => p.email).filter(Boolean) || [];
-    logStep("Admin emails to notify", { adminEmails });
-
-    if (adminEmails.length === 0) {
-      adminEmails.push('admin@hiremetrics.co.uk');
-      logStep("Using fallback admin email");
-    }
-
-    const resend = new Resend(resendApiKey);
-    
     const adminUrl = getAdminUrl("users");
-    console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL for super admins:", adminUrl);
+    console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL:", adminUrl);
 
     const emailHtml = generateNewUserEmailHTML({
       userName: full_name || email.split('@')[0],
@@ -264,53 +161,55 @@ serve(async (req) => {
       adminUrl,
     });
 
-    await new Promise((r) => setTimeout(r, Math.floor(200 + Math.random() * 400)));
+    // Send audit email to Super Admin via SMTP
+    const emailResult = await sendAuditEmail(
+      `🎉 New User Registration - ${full_name || email}`,
+      emailHtml
+    );
 
-    const emailResult = await sendResendEmailWithRetry(resend, {
-      from: 'HireMetrics <admin@hiremetrics.co.uk>',
-      to: adminEmails,
-      reply_to: 'admin@hiremetrics.co.uk',
-      subject: `🎉 New User Registration - ${full_name || email}`,
-      html: emailHtml,
-    });
-
-    if (emailResult.error) {
-      logStep("Admin notification email failed", { error: emailResult.error, adminEmails });
+    if (!emailResult.success) {
+      logStep("Admin notification email failed", { error: emailResult.error });
+    } else {
+      logStep("Admin notification email sent", { from: emailResult.from });
     }
 
-    logStep("Admin notification attempted", { emailResult, adminEmails });
+    // Create in-app notifications for super admins
+    const { data: superAdmins } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'super_admin');
 
-    // Also create in-app notifications for super admins
-    // Get tenant_id for each super admin from their profile
-    const { data: adminProfilesWithTenant } = await supabase
-      .from('profiles')
-      .select('id, tenant_id')
-      .in('id', adminUserIds);
+    if (superAdmins && superAdmins.length > 0) {
+      const adminUserIds = superAdmins.map(sa => sa.user_id);
+      
+      const { data: adminProfilesWithTenant } = await supabase
+        .from('profiles')
+        .select('id, tenant_id')
+        .in('id', adminUserIds);
 
-    const notifications = adminUserIds.map(userId => {
-      const profile = adminProfilesWithTenant?.find(p => p.id === userId);
-      return {
-        user_id: userId,
-        tenant_id: profile?.tenant_id || null,
-        title: 'New User Registration',
-        message: `${full_name || email} has registered on HireMetrics`,
-        type: 'info',
-        metadata: { user_email: email, user_name: full_name }
-      };
-    }).filter(n => n.tenant_id !== null); // Only insert if tenant_id exists
+      const notifications = adminUserIds.map(userId => {
+        const profile = adminProfilesWithTenant?.find(p => p.id === userId);
+        return {
+          user_id: userId,
+          tenant_id: profile?.tenant_id || null,
+          title: 'New User Registration',
+          message: `${full_name || email} has registered on HireMetrics`,
+          type: 'info',
+          metadata: { user_email: email, user_name: full_name }
+        };
+      }).filter(n => n.tenant_id !== null);
 
-    if (notifications.length > 0) {
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert(notifications);
+      if (notifications.length > 0) {
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
 
-      if (notifError) {
-        logStep("Warning: Failed to create in-app notifications", { error: notifError });
-      } else {
-        logStep("In-app notifications created", { count: notifications.length });
+        if (notifError) {
+          logStep("Warning: Failed to create in-app notifications", { error: notifError });
+        } else {
+          logStep("In-app notifications created", { count: notifications.length });
+        }
       }
-    } else {
-      logStep("Skipped in-app notifications - no valid tenant_id found for super admins");
     }
 
     // Send welcome email to the new user
@@ -340,10 +239,9 @@ serve(async (req) => {
       logStep("Warning: Failed to send welcome email", { 
         error: welcomeError instanceof Error ? welcomeError.message : String(welcomeError) 
       });
-      // Don't throw - admin notification is the primary purpose
     }
 
-    return new Response(JSON.stringify({ success: true, adminEmails, welcomeEmailSent: true }), {
+    return new Response(JSON.stringify({ success: true, welcomeEmailSent: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {

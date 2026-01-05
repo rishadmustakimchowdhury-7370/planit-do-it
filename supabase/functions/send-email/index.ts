@@ -1,18 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
-  sendEmailWithFetch,
-  getFromAddress,
-  getReplyToAddress,
-  ADMIN_EMAIL,
+  sendSystemEmail,
+  sendBillingEmail,
+  sendTeamEmail,
+  sendOperationalEmail,
   logEmailEvent,
-  type EmailSenderType,
-} from "../_shared/email-config.ts";
+  SUPER_ADMIN_EMAIL,
+} from "../_shared/smtp-sender.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Email category determines the sender
+type EmailCategory = "system" | "billing" | "team" | "operational";
 
 interface SendEmailRequest {
   template_name?: string;
@@ -20,8 +23,12 @@ interface SendEmailRequest {
   subject?: string;
   html?: string;
   variables?: Record<string, string>;
-  senderType?: EmailSenderType;
+  category?: EmailCategory;
+  tenant_id?: string;
+  sender_user_id?: string;
+  sender_name?: string;
   replyTo?: string;
+  attachments?: Array<{ filename: string; content: string }>;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -36,8 +43,12 @@ const handler = async (req: Request): Promise<Response> => {
       subject,
       html,
       variables,
-      senderType = "default",
+      category = "system",
+      tenant_id,
+      sender_user_id,
+      sender_name,
       replyTo,
+      attachments,
     }: SendEmailRequest = await req.json();
 
     let emailSubject = subject;
@@ -89,17 +100,52 @@ const handler = async (req: Request): Promise<Response> => {
     logEmailEvent("Sending email", {
       to: recipients,
       subject: emailSubject,
-      senderType,
+      category,
     });
 
-    // Use centralized email sending with retry
-    const result = await sendEmailWithFetch({
+    // Prepare payload
+    const emailPayload = {
       to: recipients,
       subject: emailSubject,
       html: emailHtml,
-      senderType,
-      replyTo: replyTo || getReplyToAddress(senderType),
-    });
+      replyTo,
+      attachments: attachments?.map(a => ({
+        filename: a.filename,
+        content: a.content,
+      })),
+    };
+
+    let result;
+
+    // Route to appropriate sender based on category
+    switch (category) {
+      case "billing":
+        result = await sendBillingEmail(emailPayload);
+        break;
+      
+      case "team":
+        result = await sendTeamEmail(
+          tenant_id || "",
+          sender_user_id,
+          sender_name || "HireMetrics",
+          emailPayload
+        );
+        break;
+      
+      case "operational":
+        result = await sendOperationalEmail(
+          tenant_id || "",
+          sender_user_id || "",
+          sender_name || "HireMetrics",
+          emailPayload
+        );
+        break;
+      
+      case "system":
+      default:
+        result = await sendSystemEmail(emailPayload);
+        break;
+    }
 
     if (!result.success) {
       console.error("Email send failed:", result.error);
@@ -109,10 +155,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    logEmailEvent("Email sent successfully", { messageId: result.data?.id });
+    logEmailEvent("Email sent successfully", { from: result.from, method: result.method });
 
     return new Response(
-      JSON.stringify({ success: true, data: result.data }),
+      JSON.stringify({ success: true, from: result.from, method: result.method }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {

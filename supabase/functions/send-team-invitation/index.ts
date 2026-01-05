@@ -1,14 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import {
+  sendTeamEmail,
+  sendAuditEmail,
   isDuplicateEmail,
   generateDedupKey,
   logEmailEvent,
-  ADMIN_EMAIL,
-} from "../_shared/email-config.ts";
-import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
-import { getInviteAcceptUrl, getAppBaseUrl } from "../_shared/app-url.ts";
-import { sendOrgEmail } from "../_shared/org-smtp-sender.ts";
+  SUPER_ADMIN_EMAIL,
+} from "../_shared/smtp-sender.ts";
+import { getInviteAcceptUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -69,6 +69,64 @@ function generateInvitationEmailHtml(data: {
   `;
 }
 
+function generateAuditEmailHtml(data: {
+  inviterName: string;
+  memberEmail: string;
+  roleName: string;
+  organizationName?: string;
+  sentFrom: string;
+}): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Team Member Invited - Audit Notification</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <div style="background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
+            <h2 style="color: #1e293b; margin: 0 0 20px;">📋 Audit: Team Member Invited</h2>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Invited By</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px; font-weight: 600;">${data.inviterName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Member Email</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.memberEmail}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Role</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.roleName}</td>
+              </tr>
+              ${data.organizationName ? `
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Organization</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.organizationName}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Sent From</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.sentFrom}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Timestamp</td>
+                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${new Date().toISOString()}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
+            This is an automated audit notification from HireMetrics.
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -94,11 +152,7 @@ serve(async (req) => {
     }
 
     console.log('[SEND-TEAM-INVITATION] Processing invitation:', { 
-      email, 
-      role, 
-      tenant_id, 
-      invited_by_id,
-      hasToken: !!token 
+      email, role, tenant_id, invited_by_id, hasToken: !!token 
     });
 
     // Dedup check
@@ -158,14 +212,17 @@ serve(async (req) => {
 
     logEmailEvent("send_team_invitation", { email, role, tenant_id, invited_by_id });
 
-    // Send email using organization SMTP (falls back to Resend if no SMTP configured)
-    const emailResult = await sendOrgEmail({
-      tenant_id: tenant_id || "",
-      sender_user_id: invited_by_id,
-      to: email,
-      subject: `${inviterName} invited you to join their team on HireMetrics`,
-      html: emailHtml,
-    });
+    // Send email using Team Email (Owner/Manager SMTP or fallback)
+    const emailResult = await sendTeamEmail(
+      tenant_id || "",
+      invited_by_id,
+      inviterName,
+      {
+        to: email,
+        subject: `${inviterName} invited you to join their team on HireMetrics`,
+        html: emailHtml,
+      }
+    );
 
     if (!emailResult.success) {
       console.error('[SEND-TEAM-INVITATION] Failed to send email:', emailResult.error);
@@ -179,28 +236,26 @@ serve(async (req) => {
       );
     }
 
-    console.log('[SEND-TEAM-INVITATION] Email sent successfully via', emailResult.method, 'from', emailResult.from_email);
+    console.log('[SEND-TEAM-INVITATION] Email sent successfully via', emailResult.method, 'from', emailResult.from);
 
-    // Dispatch notification to super admin about new team member being added
-    if (tenant_id) {
-      await dispatchNotification({
-        event_type: "team_member_added",
-        tenant_id,
-        data: {
-          owner_name: inviterName,
-          member_email: email,
-          member_role: roleName,
-          sent_from: emailResult.from_email,
-        },
-        skip_email: false,
-        skip_notification: true, // Super admin doesn't need in-app notif, just email
-      });
-    }
+    // Send audit email to Super Admin
+    const auditHtml = generateAuditEmailHtml({
+      inviterName,
+      memberEmail: email,
+      roleName,
+      organizationName,
+      sentFrom: emailResult.from,
+    });
+
+    await sendAuditEmail(
+      `📋 Audit: Team Member Invited - ${email}`,
+      auditHtml
+    );
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        from_email: emailResult.from_email,
+        from_email: emailResult.from,
         method: emailResult.method 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
