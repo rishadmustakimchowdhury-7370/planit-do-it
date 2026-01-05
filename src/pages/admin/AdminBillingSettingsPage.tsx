@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Percent } from 'lucide-react';
@@ -14,9 +15,12 @@ interface MultiMonthDiscounts {
   12: number;
 }
 
+type DiscountMode = 'total' | 'per_month';
+
 export default function AdminBillingSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [discountMode, setDiscountMode] = useState<DiscountMode>('total');
   const [discounts, setDiscounts] = useState<MultiMonthDiscounts>({
     3: 5,
     6: 10,
@@ -38,13 +42,16 @@ export default function AdminBillingSettingsPage() {
       if (error && error.code !== 'PGRST116') throw error;
       
       if (data?.setting_value) {
-        const value = data.setting_value as unknown as MultiMonthDiscounts;
+        const value = data.setting_value as any;
         if (value && typeof value === 'object') {
           setDiscounts({
-            3: value[3] ?? 5,
-            6: value[6] ?? 10,
-            12: value[12] ?? 15,
+            3: value['3'] ?? value[3] ?? 5,
+            6: value['6'] ?? value[6] ?? 10,
+            12: value['12'] ?? value[12] ?? 15,
           });
+          if (value.discount_mode) {
+            setDiscountMode(value.discount_mode as DiscountMode);
+          }
         }
       }
     } catch (error: any) {
@@ -64,7 +71,7 @@ export default function AdminBillingSettingsPage() {
         .eq('setting_key', 'multi_month_discounts')
         .single();
 
-      const discountValue = { "3": discounts[3], "6": discounts[6], "12": discounts[12] };
+      const discountValue = { "3": discounts[3], "6": discounts[6], "12": discounts[12], "discount_mode": discountMode };
 
       if (existing) {
         const { error } = await supabase
@@ -117,6 +124,36 @@ export default function AdminBillingSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Discount Mode Selection */}
+            <div className="p-4 border rounded-lg bg-muted/30">
+              <Label className="text-base font-medium mb-3 block">Discount Application Mode</Label>
+              <RadioGroup
+                value={discountMode}
+                onValueChange={(value) => setDiscountMode(value as DiscountMode)}
+                className="flex flex-col gap-3"
+              >
+                <div className="flex items-start gap-3 p-3 border rounded-lg bg-background cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="total" id="total" className="mt-0.5" />
+                  <div>
+                    <Label htmlFor="total" className="font-medium cursor-pointer">Off Total Amount</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Discount is applied once to the entire subscription total
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 border rounded-lg bg-background cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="per_month" id="per_month" className="mt-0.5" />
+                  <div>
+                    <Label htmlFor="per_month" className="font-medium cursor-pointer">Off Each Month</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Discount is applied to each monthly payment
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Discount Percentages */}
             <div className="grid gap-6">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
@@ -193,9 +230,9 @@ export default function AdminBillingSettingsPage() {
               <h4 className="font-medium text-sm mb-2">Preview</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• 1 Month: No discount (full price)</li>
-                <li>• 3 Months: {discounts[3]}% off each month</li>
-                <li>• 6 Months: {discounts[6]}% off each month</li>
-                <li>• 12 Months: {discounts[12]}% off each month</li>
+                <li>• 3 Months: {discounts[3]}% off {discountMode === 'total' ? 'total amount' : 'each month'}</li>
+                <li>• 6 Months: {discounts[6]}% off {discountMode === 'total' ? 'total amount' : 'each month'}</li>
+                <li>• 12 Months: {discounts[12]}% off {discountMode === 'total' ? 'total amount' : 'each month'}</li>
               </ul>
             </div>
           </CardContent>
