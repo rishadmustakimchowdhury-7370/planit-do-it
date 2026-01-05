@@ -37,6 +37,7 @@ import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
+import { useBrandedDownload } from '@/hooks/useBrandedDownload';
 
 interface Candidate {
   id: string;
@@ -72,6 +73,7 @@ const CandidateDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { tenantId, isOwner, isManager } = useAuth();
+  const { downloadBranded, isDownloading } = useBrandedDownload();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -113,45 +115,12 @@ const CandidateDetailPage = () => {
       return;
     }
 
-    try {
-      // Extract just the file path from the URL if it's a full URL
-      let filePath = candidate.cv_file_url;
-      
-      // If it's a full URL, extract the path after /documents/
-      if (filePath.includes('/documents/')) {
-        filePath = filePath.split('/documents/').pop() || filePath;
-      }
-      
-      // Remove any query parameters
-      filePath = filePath.split('?')[0];
-
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(filePath);
-
-      if (error) {
-        console.error('Download error:', error);
-        throw error;
-      }
-
-      // Determine file extension from original path
-      const extension = filePath.split('.').pop() || 'pdf';
-      
-      // Create download link
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success('CV downloaded successfully');
-    } catch (error: any) {
-      console.error('Error downloading CV:', error);
-      toast.error(error.message || 'Failed to download CV. The file may not exist.');
-    }
+    // Use branded download
+    await downloadBranded({
+      fileUrl: candidate.cv_file_url,
+      documentType: 'cv',
+      entityName: candidate.full_name
+    });
   };
 
 
@@ -280,8 +249,13 @@ const CandidateDetailPage = () => {
                   size="sm" 
                   className="gap-1.5 h-9 transition-all duration-150 hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]" 
                   onClick={handleDownloadCV}
+                  disabled={isDownloading}
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  {isDownloading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
                   CV
                 </Button>
               </div>
@@ -404,8 +378,18 @@ const CandidateDetailPage = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold">Resume</h3>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCV}>
-                  <Download className="w-4 h-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5" 
+                  onClick={handleDownloadCV}
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
                   Download
                 </Button>
               </div>
