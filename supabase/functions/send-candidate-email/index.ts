@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import {
+  getHireMetricsLogoInline,
+  HIREMETRICS_BRAND,
+} from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +12,6 @@ const corsHeaders = {
 };
 
 const SUPER_ADMIN_EMAIL = "admin@hiremetrics.co.uk";
-const SUPER_ADMIN_NAME = "HireMetrics";
 
 interface Attachment {
   name: string;
@@ -50,15 +53,60 @@ interface SendEmailRequest {
   use_system_fallback?: boolean;
 }
 
-// Professional HTML email template
+interface OrgBranding {
+  logoUrl: string | null;
+  companyName: string | null;
+  primaryColor: string | null;
+}
+
+// Get organization logo HTML (right side)
+function getOrgLogoHTML(branding: OrgBranding): string {
+  if (!branding.logoUrl && !branding.companyName) {
+    return "";
+  }
+  
+  const color = branding.primaryColor || "#374151";
+  
+  if (branding.logoUrl) {
+    return `
+      <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;">
+        <tr>
+          <td style="vertical-align:middle;">
+            <img src="${branding.logoUrl}" 
+                 alt="${branding.companyName || 'Organization'}" 
+                 height="40" 
+                 style="display:block; border:0; max-width:150px; height:auto; max-height:40px;" />
+          </td>
+        </tr>
+      </table>
+    `.trim();
+  }
+  
+  // Text fallback if no logo
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;">
+      <tr>
+        <td style="vertical-align:middle;">
+          <div style="background:${color}; border-radius:8px; padding:8px 12px; display:inline-block;">
+            <span style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; font-weight:600; font-size:14px; color:#ffffff;">
+              ${branding.companyName || "Organization"}
+            </span>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `.trim();
+}
+
+// Professional HTML email template with DUAL LOGOS
+// HireMetrics logo (left) + Organization logo (right)
 const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
   recruiterName: string,
   recruiterEmail: string,
   attachmentLinks?: Attachment[],
-  companyName?: string,
-  companyLogo?: string
+  orgBranding?: OrgBranding
 ): string => {
   const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
   
@@ -86,28 +134,116 @@ const createEmailHtml = (
       <div style="margin-top: 20px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
         <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #374151;">📎 Attachments</p>
         ${attachmentLinks.map(att => `
-          <a href="${att.url}" style="display: inline-block; margin: 4px 8px 4px 0; padding: 8px 14px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
+          <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 4px 8px 4px 0; padding: 8px 14px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
         `).join('')}
       </div>`;
   }
 
-  const logoHtml = companyLogo 
-    ? `<img src="${companyLogo}" alt="${companyName || 'Company'}" style="max-height: 45px; max-width: 180px; object-fit: contain;" />`
-    : `<div style="display: inline-flex; align-items: center; gap: 10px;">
-        <div style="background: linear-gradient(135deg, #0052CC 0%, #0066FF 100%); border-radius: 8px; padding: 8px; display: inline-block;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            <rect width="20" height="14" x="2" y="6" rx="2"/>
-          </svg>
-        </div>
-        <span style="font-size: 18px; font-weight: 700; color: #1e293b;">${companyName || 'HireMetrics'}</span>
-      </div>`;
+  // Dual logo header: HireMetrics (left) + Org logo (right)
+  const hireMetricsLogo = getHireMetricsLogoInline();
+  const orgLogo = orgBranding ? getOrgLogoHTML(orgBranding) : "";
+  const displayCompanyName = orgBranding?.companyName || 'Your Recruitment Partner';
 
-  const displayCompanyName = companyName || 'HireMetrics';
+  const headerHtml = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+      <tr>
+        <td align="left" style="width: 50%;">
+          ${hireMetricsLogo}
+        </td>
+        <td align="right" style="width: 50%;">
+          ${orgLogo}
+        </td>
+      </tr>
+    </table>
+  `;
+
   const currentYear = new Date().getFullYear();
 
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Email</title></head><body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;"><tr><td style="padding: 32px 16px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;"><tr><td style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">${logoHtml}</td></tr><tr><td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">${formattedBody}${signatureHtml}${attachmentsHtml}</td></tr><tr><td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="text-align: center;"><p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">Sent via ${displayCompanyName}</p><p style="margin: 0; font-size: 12px; color: #94a3b8;">© ${currentYear} ${displayCompanyName}. All rights reserved.</p></td></tr></table></td></tr></table><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0;"><tr><td style="text-align: center; padding: 0 16px;"><p style="margin: 0; font-size: 11px; color: #9ca3af;">This email was sent by ${recruiterName} from ${displayCompanyName}. If you believe you received this email in error, please disregard it.</p></td></tr></table></td></tr></table></body></html>`;
+  // Footer with both logos
+  const footerHtml = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+      <tr>
+        <td align="center">
+          <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 16px;">
+            <tr>
+              <td style="padding-right: 16px; border-right: 1px solid #e2e8f0;">
+                ${hireMetricsLogo}
+              </td>
+              <td style="padding-left: 16px;">
+                ${orgLogo || `<span style="font-family:Arial,sans-serif; font-size:14px; color:#64748b;">${displayCompanyName}</span>`}
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 0 0 4px 0; font-size: 12px; color: #64748b;">
+            Sent via <strong>HireMetrics</strong> on behalf of <strong>${displayCompanyName}</strong>
+          </p>
+          <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+            © ${currentYear} HireMetrics. All rights reserved.
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+  <title>Email</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+    <tr>
+      <td style="padding: 32px 16px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; max-width: 600px;">
+          <tr>
+            <td>
+              ${headerHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">
+              ${formattedBody}
+              ${signatureHtml}
+              ${attachmentsHtml}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0; max-width: 600px;">
+          <tr>
+            <td style="text-align: center; padding: 0 16px;">
+              <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                This email was sent by ${recruiterName}. If you believe you received this email in error, please disregard it.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 };
+
+// Base64 encode for enterprise email compliance
+function base64EncodeUtf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
 
 // Send email via SMTP (primary method)
 async function sendViaSMTP(
@@ -140,14 +276,20 @@ async function sendViaSMTP(
     const ccList = ccEmail ? ccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
     const bccList = bccEmail ? bccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
 
+    // Use base64 encoding for enterprise compliance
     await client.send({
       from: `${account.display_name} <${account.from_email}>`,
       to: toList,
       cc: ccList.length > 0 ? ccList : undefined,
       bcc: bccList.length > 0 ? bccList : undefined,
       subject: subject,
-      content: "Please view this email in an HTML-compatible client.",
-      html: htmlBody,
+      mimeContent: [
+        {
+          mimeType: "text/html; charset=UTF-8",
+          content: base64EncodeUtf8(htmlBody),
+          transferEncoding: "base64",
+        },
+      ],
     });
 
     await client.close();
@@ -171,7 +313,7 @@ async function sendViaSystemSMTP(
   htmlBody: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const host = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
-  const port = parseInt(Deno.env.get("SMTP_PORT") || "587", 10);
+  const port = parseInt(Deno.env.get("SMTP_PORT") || "465", 10);
   const user = Deno.env.get("SMTP_USER");
   const password = Deno.env.get("SMTP_PASSWORD");
 
@@ -197,6 +339,7 @@ async function sendViaSystemSMTP(
     const ccList = ccEmail ? ccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
     const bccList = bccEmail ? bccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
 
+    // Use base64 encoding for enterprise compliance
     await client.send({
       from: `${senderName} <${SUPER_ADMIN_EMAIL}>`,
       replyTo: replyToEmail,
@@ -204,8 +347,13 @@ async function sendViaSystemSMTP(
       cc: ccList.length > 0 ? ccList : undefined,
       bcc: bccList.length > 0 ? bccList : undefined,
       subject: subject,
-      content: "Please view this email in an HTML-compatible client.",
-      html: htmlBody,
+      mimeContent: [
+        {
+          mimeType: "text/html; charset=UTF-8",
+          content: base64EncodeUtf8(htmlBody),
+          transferEncoding: "base64",
+        },
+      ],
     });
 
     await client.close();
@@ -253,14 +401,18 @@ serve(async (req) => {
       throw new Error("User has no tenant");
     }
 
+    // Fetch organization branding for dual-logo header
     const { data: branding } = await supabaseAdmin
       .from("branding_settings")
-      .select("company_name, logo_url")
+      .select("company_name, logo_url, primary_color")
       .eq("tenant_id", profile.tenant_id)
       .single();
 
-    const companyName = branding?.company_name || null;
-    const companyLogo = branding?.logo_url || null;
+    const orgBranding: OrgBranding = {
+      logoUrl: branding?.logo_url || null,
+      companyName: branding?.company_name || null,
+      primaryColor: branding?.primary_color || null,
+    };
 
     const body: SendEmailRequest = await req.json();
     const {
@@ -349,14 +501,14 @@ serve(async (req) => {
     const senderEmail = emailAccount?.from_email || profile.email || SUPER_ADMIN_EMAIL;
     const senderName = emailAccount?.display_name || recruiterName;
 
+    // Create email HTML with DUAL LOGOS (HireMetrics + Org)
     const emailHtml = createEmailHtml(
       body_text,
       signature ?? profile.email_signature,
       senderName,
       senderEmail,
       attachments,
-      companyName,
-      companyLogo
+      orgBranding
     );
 
     // Handle scheduled emails
