@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-import { getAppBaseUrl, getAuthUrl, getAdminUrl } from "../_shared/app-url.ts";
+import { sendSystemEmail, sendAuditEmail } from "../_shared/smtp-sender.ts";
+import { getAppBaseUrl, getAdminUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,37 +13,6 @@ const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[ADMIN-CREATE-USER] ${step}${detailsStr}`);
 };
-
-type ResendSendResult = { data: any; error: any };
-
-async function sendResendEmailWithRetry(
-  resend: Resend,
-  payload: Parameters<Resend["emails"]["send"]>[0],
-  maxAttempts = 5
-): Promise<ResendSendResult> {
-  let lastResult: ResendSendResult = { data: null, error: null };
-  let delayMs = 700;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = (await resend.emails.send(payload)) as ResendSendResult;
-    lastResult = result;
-
-    const err = result?.error;
-    if (!err) return result;
-
-    const statusCode = err?.statusCode;
-    const name = err?.name;
-    const isRateLimit = statusCode === 429 || name === "rate_limit_exceeded";
-
-    if (!isRateLimit || attempt === maxAttempts) return result;
-
-    logStep("Resend rate-limited, retrying", { attempt, delayMs, statusCode, name });
-    await new Promise((r) => setTimeout(r, delayMs));
-    delayMs = Math.min(delayMs * 2, 5000);
-  }
-
-  return lastResult;
-}
 
 const jsonResponse = (payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -516,14 +485,12 @@ serve(async (req) => {
         });
     }
 
-    // Send emails
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
-      const appUrl = getAppBaseUrl();
+    // Send emails via SMTP (enterprise-safe: base64 HTML, absolute URLs)
+    try {
+      const appUrl = getAppBaseUrl(req);
       logStep("Using environment-aware app URL", { appUrl });
 
-      // 1. Send welcome email to new user
+      // 1) Welcome email to new user
       try {
         const welcomeHtml = generateWelcomeEmailHTML({
           fullName,
@@ -533,28 +500,26 @@ serve(async (req) => {
           appUrl,
         });
 
-        const welcomeResult = await sendResendEmailWithRetry(resend, {
-          from: 'HireMetrics <admin@hiremetrics.co.uk>',
-          to: [email],
-          subject: '🎉 Welcome to HireMetrics - Your Account is Ready!',
+        const welcomeResult = await sendSystemEmail({
+          to: email,
+          subject: "Welcome to HireMetrics – Your Account is Ready",
           html: welcomeHtml,
         });
 
-        if (welcomeResult.error) {
-          throw new Error(welcomeResult.error?.message ?? 'Resend welcome email failed');
+        if (!welcomeResult.success) {
+          throw new Error(welcomeResult.error || "SMTP welcome email failed");
         }
 
-        logStep("Welcome email sent to new user", { email, emailId: welcomeResult.data?.id });
+        logStep("Welcome email sent to new user", { email, from: welcomeResult.from });
 
         // avoid sending two emails within the same second from this function
         await new Promise((r) => setTimeout(r, 700));
       } catch (emailError) {
-        logStep("Error sending welcome email", { error: emailError });
+        logStep("Error sending welcome email", { error: emailError instanceof Error ? emailError.message : String(emailError) });
       }
 
-      // 2. Send notification to all super admins
+      // 2) Notify super admins
       try {
-        // Get all super admin emails
         const { data: superAdmins } = await supabaseAdmin
           .from('user_roles')
           .select('user_id')
@@ -562,7 +527,7 @@ serve(async (req) => {
 
         if (superAdmins && superAdmins.length > 0) {
           const adminUserIds = superAdmins.map(sa => sa.user_id);
-          
+
           const { data: adminProfiles } = await supabaseAdmin
             .from('profiles')
             .select('email, full_name')
@@ -570,9 +535,8 @@ serve(async (req) => {
             .eq('is_active', true);
 
           const adminEmails = adminProfiles?.map(p => p.email).filter(Boolean) || [];
-          
+
           if (adminEmails.length > 0) {
-            // Get caller name
             const { data: callerProfile } = await supabaseAdmin
               .from('profiles')
               .select('full_name, email')
@@ -585,28 +549,27 @@ serve(async (req) => {
               companyName,
               planName: planName || undefined,
               createdBy: callerProfile?.full_name || callerProfile?.email || 'Admin',
-              adminUrl: getAdminUrl("users"),
+              adminUrl: getAdminUrl("users", req),
             });
 
-            const adminEmailResult = await sendResendEmailWithRetry(resend, {
-              from: 'HireMetrics <admin@hiremetrics.co.uk>',
-              to: adminEmails,
-              subject: `👤 New User Created: ${fullName}`,
-              html: adminNotificationHtml,
-            });
+            const adminEmailResult = await sendAuditEmail(
+              `New User Created: ${fullName}`,
+              adminNotificationHtml,
+              adminEmails.filter((e) => e !== null && e !== undefined) as string[]
+            );
 
-            if (adminEmailResult.error) {
-              throw new Error(adminEmailResult.error?.message ?? 'Resend admin notification failed');
+            if (!adminEmailResult.success) {
+              throw new Error(adminEmailResult.error || "SMTP admin notification failed");
             }
 
-            logStep("Admin notification sent", { adminEmails, emailId: adminEmailResult.data?.id });
+            logStep("Admin notification sent", { adminEmails, from: adminEmailResult.from });
           }
         }
       } catch (adminEmailError) {
-        logStep("Error sending admin notification", { error: adminEmailError });
+        logStep("Error sending admin notification", { error: adminEmailError instanceof Error ? adminEmailError.message : String(adminEmailError) });
       }
-    } else {
-      logStep("RESEND_API_KEY not configured, skipping emails");
+    } catch (e) {
+      logStep("Email pipeline error", { error: e instanceof Error ? e.message : String(e) });
     }
 
     logStep("User creation completed successfully", { email });

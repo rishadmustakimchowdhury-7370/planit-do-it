@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { Resend } from "https://esm.sh/resend@2.0.0";
-import { EMAIL_CONFIG } from "../_shared/email-config.ts";
+import { sendBillingEmail } from "../_shared/smtp-sender.ts";
 import { getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
@@ -195,31 +194,33 @@ serve(async (req) => {
         .single();
 
       if (ownerProfile?.email) {
-        const resendApiKey = Deno.env.get("RESEND_API_KEY");
-        if (resendApiKey) {
-          const resend = new Resend(resendApiKey);
-          
-          try {
-            await resend.emails.send({
-              from: EMAIL_CONFIG.sender,
-              to: [ownerProfile.email],
-              reply_to: EMAIL_CONFIG.replyTo,
-              subject: is_trial 
-                ? `Your HireMetrics Trial Has Started` 
-                : `Your HireMetrics Package Has Been Updated`,
-              html: generatePackageAssignmentHTML({
-                userName: ownerProfile.full_name || 'Valued Customer',
-                companyName: tenant.name,
-                planName: plan.name,
-                startDate: startDateObj.toLocaleDateString('en-GB', { dateStyle: 'long' }),
-                endDate: endDateObj.toLocaleDateString('en-GB', { dateStyle: 'long' }),
-                isTrial: is_trial || false,
-              }),
-            });
-            logStep("Owner notification sent", { email: ownerProfile.email });
-          } catch (e) {
-            logStep("Email send error", { error: e });
+        try {
+          const dashboardUrl = getDashboardUrl(req);
+          const html = generatePackageAssignmentHTML({
+            userName: ownerProfile.full_name || 'Valued Customer',
+            companyName: tenant.name,
+            planName: plan.name,
+            startDate: startDateObj.toLocaleDateString('en-GB', { dateStyle: 'long' }),
+            endDate: endDateObj.toLocaleDateString('en-GB', { dateStyle: 'long' }),
+            isTrial: is_trial || false,
+            dashboardUrl,
+          });
+
+          const result = await sendBillingEmail({
+            to: ownerProfile.email,
+            subject: is_trial
+              ? "Your HireMetrics Trial Has Started"
+              : "Your HireMetrics Package Has Been Updated",
+            html,
+          });
+
+          if (!result.success) {
+            throw new Error(result.error || "Failed to send package email");
           }
+
+          logStep("Owner notification sent", { email: ownerProfile.email, from: result.from });
+        } catch (e) {
+          logStep("Email send error", { error: e instanceof Error ? e.message : String(e) });
         }
       }
     }
@@ -253,11 +254,11 @@ function generatePackageAssignmentHTML(data: {
   startDate: string;
   endDate: string;
   isTrial: boolean;
+  dashboardUrl: string;
 }): string {
-  // Resolve dashboard URL at runtime
-  const dashboardUrl = getDashboardUrl();
-  
-  const headerTitle = data.isTrial 
+  const dashboardUrl = data.dashboardUrl;
+
+  const headerTitle = data.isTrial
     ? '🎉 Your Free Trial Has Started!' 
     : '✅ Package Assignment Confirmed';
   

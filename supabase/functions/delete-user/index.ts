@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { EMAIL_CONFIG } from "../_shared/email-config.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { sendTeamEmail } from "../_shared/smtp-sender.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -352,12 +351,9 @@ serve(async (req) => {
     logStep("Tenant team count recalculated", { teamCount });
 
     // ============================================
-    // STEP 8: Send notification emails
+    // STEP 8: Send notification emails (SMTP-only)
     // ============================================
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
-
+    try {
       // Get owner email to notify
       if (ownerUserId !== user_id && ownerUserId !== caller.id) {
         const { data: ownerProfile } = await supabaseAdmin
@@ -367,11 +363,12 @@ serve(async (req) => {
           .single();
 
         if (ownerProfile?.email) {
-          try {
-            await resend.emails.send({
-              from: EMAIL_CONFIG.sender,
-              to: [ownerProfile.email],
-              reply_to: EMAIL_CONFIG.replyTo,
+          const result = await sendTeamEmail(
+            targetTenantId,
+            caller.id,
+            caller.email || 'Administrator',
+            {
+              to: ownerProfile.email,
               subject: `Team Member Removed: ${targetProfile.full_name || targetProfile.email}`,
               html: generateDeletionNotificationHTML({
                 ownerName: ownerProfile.full_name || 'Team Owner',
@@ -379,13 +376,18 @@ serve(async (req) => {
                 deletedUserEmail: targetProfile.email,
                 deletedByName: caller.email || 'Administrator',
               }),
-            });
-            logStep("Owner notified of deletion");
-          } catch (e) {
-            logStep("Failed to send owner notification", { error: e });
+            }
+          );
+
+          if (!result.success) {
+            logStep("Failed to send owner notification", { error: result.error });
+          } else {
+            logStep("Owner notified of deletion", { email: ownerProfile.email, from: result.from });
           }
         }
       }
+    } catch (e) {
+      logStep("Failed to send owner notification", { error: e instanceof Error ? e.message : String(e) });
     }
 
     logStep("User deletion completed successfully", { 

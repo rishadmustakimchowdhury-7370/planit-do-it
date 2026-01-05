@@ -79,9 +79,9 @@ function generateWelcomeEmailHTML(data: {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="text-align: center;">
-                    <a href="${data.dashboardUrl}" 
-                       style="display: inline-block; background-color: #00008B; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
-                      Access Your Dashboard
+                     <a href="${data.dashboardUrl}" target="_blank" rel="noopener noreferrer"
+                        style="display: inline-block; background-color: #00008B; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                       Access Your Dashboard
                     </a>
                   </td>
                 </tr>
@@ -176,7 +176,7 @@ serve(async (req) => {
 
     // Prepare email data
     const userName = full_name || email.split("@")[0];
-    const dashboardUrl = getDashboardUrl();
+    const dashboardUrl = getDashboardUrl(req);
 
     console.log("[SEND-WELCOME-EMAIL] Using dashboard URL:", dashboardUrl);
 

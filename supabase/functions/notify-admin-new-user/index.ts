@@ -149,7 +149,7 @@ serve(async (req) => {
 
     logStep("Processing new user notification", { user_id, email, full_name });
 
-    const adminUrl = getAdminUrl("users");
+    const adminUrl = getAdminUrl("users", req);
     console.log("[NOTIFY-ADMIN-NEW-USER] Using admin URL:", adminUrl);
 
     const emailHtml = generateNewUserEmailHTML({
@@ -212,32 +212,44 @@ serve(async (req) => {
       }
     }
 
-    // Send welcome email to the new user
+    // Send welcome email to the new user (direct SMTP; no internal fetch)
     try {
       logStep("Sending welcome email to new user", { email });
-      
-      const welcomeResponse = await fetch(
-        `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-welcome-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            user_id,
-            email,
-            full_name,
-            tenant_name,
-          }),
-        }
-      );
-      
-      const welcomeResult = await welcomeResponse.json();
+
+      const dashboardUrl = `${Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL") || new URL(req.headers.get("origin") || req.url).origin}/dashboard`;
+
+      const welcomeHtml = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Welcome to HireMetrics</title></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f1f5f9;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 20px;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<tr><td style="padding:28px 30px;border-bottom:1px solid #e2e8f0;text-align:center;">
+<h1 style="margin:0;color:#0f172a;font-size:20px;">Welcome to HireMetrics</h1>
+</td></tr>
+<tr><td style="padding:30px;">
+<p style="margin:0 0 16px 0;color:#334155;font-size:16px;">Thank you for registering with HireMetrics. Your account has been created successfully.</p>
+<p style="margin:0 0 24px 0;color:#334155;font-size:16px;">You can access your dashboard using the button below.</p>
+<div style="text-align:center;">
+<a href="${dashboardUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 30px;background-color:#0B1C8C;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;border-radius:8px;">Access Your Dashboard</a>
+</div>
+</td></tr>
+<tr><td style="padding:20px 30px;background-color:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+<p style="margin:0;color:#64748b;font-size:12px;">Need help? admin@hiremetrics.co.uk</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+      const welcomeResult = await sendSystemEmail({
+        to: email,
+        subject: "Welcome to HireMetrics – Your Account is Ready",
+        html: welcomeHtml,
+      });
+
       logStep("Welcome email result", welcomeResult);
     } catch (welcomeError) {
-      logStep("Warning: Failed to send welcome email", { 
-        error: welcomeError instanceof Error ? welcomeError.message : String(welcomeError) 
+      logStep("Warning: Failed to send welcome email", {
+        error: welcomeError instanceof Error ? welcomeError.message : String(welcomeError),
       });
     }
 
