@@ -89,10 +89,12 @@ interface EmailAccount {
 
 /**
  * Get Super Admin SMTP configuration from environment
+ * Default to port 465 (direct TLS) which is more reliable in Deno
  */
 function getSuperAdminSMTPConfig(): SMTPConfig {
   const host = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
-  const port = parseInt(Deno.env.get("SMTP_PORT") || "587", 10);
+  // Default to 465 (direct TLS) - more reliable than 587 (STARTTLS) in Deno
+  const port = parseInt(Deno.env.get("SMTP_PORT") || "465", 10);
   const user = Deno.env.get("SMTP_USER");
   const password = Deno.env.get("SMTP_PASSWORD");
 
@@ -100,20 +102,27 @@ function getSuperAdminSMTPConfig(): SMTPConfig {
     throw new Error("SMTP credentials not configured. Set SMTP_USER and SMTP_PASSWORD.");
   }
 
-  return { host, port, user, password, useTLS: port === 587 };
+  console.log(`[SMTP] Super Admin config - Host: ${host}, Port: ${port}, User: ${user}`);
+  
+  return { host, port, user, password, useTLS: true };
 }
 
 /**
  * Create SMTP client from config
+ * Note: For Gmail, port 465 with direct TLS is more reliable in Deno
  */
 function createSMTPClient(config: SMTPConfig): SMTPClient {
-  const isDirectTLS = config.port === 465;
+  // Port 465 = direct TLS (implicit SSL)
+  // Port 587 = STARTTLS (explicit TLS upgrade)
+  const useDirectTLS = config.port === 465;
+  
+  console.log(`[SMTP] Creating client for ${config.host}:${config.port} (TLS: ${useDirectTLS})`);
   
   return new SMTPClient({
     connection: {
       hostname: config.host,
       port: config.port,
-      tls: isDirectTLS,
+      tls: useDirectTLS,
       auth: {
         username: config.user,
         password: config.password,
