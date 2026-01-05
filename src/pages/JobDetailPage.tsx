@@ -31,7 +31,8 @@ import {
   MoreHorizontal,
   Trash2,
   Eye,
-  UserCog
+  UserCog,
+  Download
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useBrandedDownload } from '@/hooks/useBrandedDownload';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,6 +115,7 @@ interface Job {
   created_at: string | null;
   client_id: string | null;
   assigned_to: string | null;
+  jd_file_url: string | null;
   clients?: { name: string } | null;
 }
 
@@ -138,6 +141,7 @@ const JobDetailPage = () => {
   const navigate = useNavigate();
   const { tenantId } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const { downloadBranded, isDownloading } = useBrandedDownload();
   const [job, setJob] = useState<Job | null>(null);
   const [candidates, setCandidates] = useState<JobCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,7 +189,7 @@ const JobDetailPage = () => {
         .maybeSingle();
 
       if (jobError) throw jobError;
-      setJob(jobData);
+      setJob(jobData as Job);
 
       if (jobData) {
         const { data: candidatesData, error: candidatesError } = await supabase
@@ -348,6 +352,74 @@ const JobDetailPage = () => {
       console.error('Error updating stage:', error);
       toast.error('Failed to update status');
     }
+  };
+
+  const handleDownloadJD = async () => {
+    if (!job) return;
+
+    // If there's an uploaded JD file, use branded download
+    if (job.jd_file_url) {
+      await downloadBranded({
+        fileUrl: job.jd_file_url,
+        documentType: 'jd',
+        entityName: job.title
+      });
+      return;
+    }
+
+    // Otherwise, generate JD from description
+    if (!job.description && !job.requirements) {
+      toast.error('No job description available');
+      return;
+    }
+
+    // Create HTML JD from description
+    const jdHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Job Description - ${job.title}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    h1 { color: #0B1C8C; margin-bottom: 8px; }
+    .company { color: #666; font-size: 18px; margin-bottom: 24px; }
+    .meta { display: flex; gap: 24px; margin-bottom: 32px; color: #666; }
+    h2 { color: #333; margin-top: 32px; margin-bottom: 16px; }
+    .description { line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <h1>${job.title}</h1>
+  ${job.clients?.name ? `<p class="company">${job.clients.name}</p>` : ''}
+  <div class="meta">
+    ${job.location ? `<span>📍 ${job.location}</span>` : ''}
+    ${formatSalary() !== 'Not specified' ? `<span>💰 ${formatSalary()}</span>` : ''}
+  </div>
+  
+  ${job.description ? `
+  <h2>Description</h2>
+  <div class="description">${job.description}</div>
+  ` : ''}
+  
+  ${job.requirements ? `
+  <h2>Requirements</h2>
+  <div class="description">${job.requirements}</div>
+  ` : ''}
+</body>
+</html>`;
+
+    const blob = new Blob([jdHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${job.title.replace(/\s+/g, '_')}_JD.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success('Job description downloaded');
   };
 
   const formatSalary = () => {
@@ -801,10 +873,26 @@ const JobDetailPage = () => {
             animate={{ opacity: 1 }}
             className="bg-card rounded-2xl border border-border p-8 shadow-sm"
           >
-            <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-accent" />
-              Job Description
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-accent" />
+                Job Description
+              </h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadJD}
+                disabled={isDownloading}
+                className="gap-1.5"
+              >
+                {isDownloading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Download JD
+              </Button>
+            </div>
             {job.description ? (
               <div 
                 className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-medium [&_a]:text-accent [&_a]:underline"
