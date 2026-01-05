@@ -10,12 +10,31 @@
  * 
  * SMTP Configuration:
  * - Host: smtp.gmail.com
- * - Port: 587 (STARTTLS)
+ * - Port: 465 (Direct TLS)
  * - Auth: Google Workspace App Password
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+
+// Re-export email templates for convenience
+export {
+  getHireMetricsLogoHTML,
+  getHireMetricsLogoInline,
+  getOrgBranding,
+  buildSystemEmailHeader,
+  buildOperationalEmailHeader,
+  buildSystemEmailFooter,
+  buildOperationalEmailFooter,
+  buildEmailButton,
+  wrapSystemEmail,
+  wrapOperationalEmail,
+  emailHeading,
+  emailParagraph,
+  emailDivider,
+  emailInfoBox,
+  HIREMETRICS_BRAND,
+} from "./email-templates.ts";
 
 // ============================================================================
 // CONSTANTS

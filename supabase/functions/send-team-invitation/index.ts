@@ -6,7 +6,13 @@ import {
   isDuplicateEmail,
   generateDedupKey,
   logEmailEvent,
-  SUPER_ADMIN_EMAIL,
+  getOrgBranding,
+  wrapOperationalEmail,
+  wrapSystemEmail,
+  emailHeading,
+  emailParagraph,
+  buildEmailButton,
+  emailInfoBox,
 } from "../_shared/smtp-sender.ts";
 import { getInviteAcceptUrl } from "../_shared/app-url.ts";
 
@@ -20,53 +26,49 @@ function generateInvitationEmailHtml(data: {
   roleName: string;
   inviteUrl: string;
   organizationName?: string;
-}): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Team Invitation</title>
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <span style="font-size: 24px; font-weight: 700; color: #0052CC;">HireMetrics</span>
-          </div>
-          <div style="background: white; border-radius: 12px; padding: 40px; border: 1px solid #e5e7eb;">
-            <h1 style="color: #111827; font-size: 20px; margin: 0 0 16px 0;">You're Invited to Join a Team</h1>
-            
-            <p style="color: #4b5563; margin: 0 0 24px 0; line-height: 1.6;">
-              <strong>${data.inviterName}</strong> has invited you to join ${data.organizationName ? `<strong>${data.organizationName}</strong>` : 'their organisation'} on HireMetrics as a <strong>${data.roleName}</strong>.
-            </p>
-            
-            <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-              <div style="margin: 4px 0;"><strong style="color: #374151;">Role:</strong> <span style="color: #4b5563;">${data.roleName}</span></div>
-              <div style="margin: 4px 0;"><strong style="color: #374151;">Invited by:</strong> <span style="color: #4b5563;">${data.inviterName}</span></div>
-            </div>
-
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${data.inviteUrl}" 
-                 style="display: inline-block; background: #0052CC; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
-                Accept Invitation
-              </a>
-            </div>
-
-            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 24px 0 0 0;">
-              This invitation will expire in 7 days.<br>
-              If the button doesn't work, copy this link: <a href="${data.inviteUrl}" style="color: #0052CC; word-break: break-all;">${data.inviteUrl}</a>
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 24px; font-size: 12px; color: #9ca3af;">
-            <p>HireMetrics - Enterprise Recruitment Platform</p>
-            <p>This email was sent because you were invited to join a team on HireMetrics.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+}, orgBranding: { logoUrl: string | null; companyName: string | null; primaryColor: string | null }): string {
+  const orgName = data.organizationName || orgBranding.companyName || "their organisation";
+  
+  const bodyContent = `
+    ${emailHeading("You're Invited to Join a Team", 1)}
+    
+    ${emailParagraph(`<strong>${data.inviterName}</strong> has invited you to join <strong>${orgName}</strong> on HireMetrics as a <strong>${data.roleName}</strong>.`)}
+    
+    ${emailInfoBox(`
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          <td style="padding:4px 0; color:#374151; font-size:14px;"><strong>Role:</strong></td>
+          <td style="padding:4px 0; color:#4b5563; font-size:14px;">${data.roleName}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 0; color:#374151; font-size:14px;"><strong>Invited by:</strong></td>
+          <td style="padding:4px 0; color:#4b5563; font-size:14px;">${data.inviterName}</td>
+        </tr>
+        ${data.organizationName ? `
+        <tr>
+          <td style="padding:4px 0; color:#374151; font-size:14px;"><strong>Organization:</strong></td>
+          <td style="padding:4px 0; color:#4b5563; font-size:14px;">${data.organizationName}</td>
+        </tr>
+        ` : ''}
+      </table>
+    `, "info")}
+    
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0;">
+      <tr>
+        <td align="center">
+          ${buildEmailButton("Accept Invitation", data.inviteUrl)}
+        </td>
+      </tr>
+    </table>
+    
+    <p style="margin:0; font-family:Arial,sans-serif; font-size:12px; color:#9ca3af; text-align:center; line-height:1.6;">
+      This invitation will expire in 7 days.<br/>
+      If the button doesn't work, copy this link: <a href="${data.inviteUrl}" target="_blank" rel="noopener noreferrer" style="color:#00008B; word-break:break-all;">${data.inviteUrl}</a>
+    </p>
   `;
+  
+  // Use operational email wrapper with dual logos (HireMetrics + Org)
+  return wrapOperationalEmail(bodyContent, orgBranding);
 }
 
 function generateAuditEmailHtml(data: {
@@ -76,55 +78,44 @@ function generateAuditEmailHtml(data: {
   organizationName?: string;
   sentFrom: string;
 }): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Team Member Invited - Audit Notification</title>
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-          <div style="background: white; border-radius: 12px; padding: 30px; border: 1px solid #e2e8f0;">
-            <h2 style="color: #1e293b; margin: 0 0 20px;">📋 Audit: Team Member Invited</h2>
-            
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Invited By</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px; font-weight: 600;">${data.inviterName}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Member Email</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.memberEmail}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Role</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.roleName}</td>
-              </tr>
-              ${data.organizationName ? `
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Organization</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.organizationName}</td>
-              </tr>
-              ` : ''}
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Sent From</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${data.sentFrom}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; color: #64748b; font-size: 14px;">Timestamp</td>
-                <td style="padding: 10px 0; color: #1e293b; font-size: 14px;">${new Date().toISOString()}</td>
-              </tr>
-            </table>
-          </div>
-          
-          <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
-            This is an automated audit notification from HireMetrics.
-          </p>
-        </div>
-      </body>
-    </html>
+  const bodyContent = `
+    ${emailHeading("📋 Audit: Team Member Invited", 2)}
+    
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px; border-bottom:1px solid #e2e8f0; width:140px;">Invited By</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px; font-weight:600; border-bottom:1px solid #e2e8f0;">${data.inviterName}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px; border-bottom:1px solid #e2e8f0;">Member Email</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px; border-bottom:1px solid #e2e8f0;">${data.memberEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px; border-bottom:1px solid #e2e8f0;">Role</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px; border-bottom:1px solid #e2e8f0;">${data.roleName}</td>
+      </tr>
+      ${data.organizationName ? `
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px; border-bottom:1px solid #e2e8f0;">Organization</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px; border-bottom:1px solid #e2e8f0;">${data.organizationName}</td>
+      </tr>
+      ` : ''}
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px; border-bottom:1px solid #e2e8f0;">Sent From</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px; border-bottom:1px solid #e2e8f0;">${data.sentFrom}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0; color:#64748b; font-size:14px;">Timestamp</td>
+        <td style="padding:10px 0; color:#1e293b; font-size:14px;">${new Date().toISOString()}</td>
+      </tr>
+    </table>
+    
+    <p style="margin:24px 0 0 0; font-family:Arial,sans-serif; font-size:12px; color:#94a3b8; text-align:center;">
+      This is an automated audit notification from HireMetrics.
+    </p>
   `;
+  
+  return wrapSystemEmail(bodyContent);
 }
 
 serve(async (req) => {
@@ -181,25 +172,39 @@ serve(async (req) => {
     const roleName = roleLabels[role] || role;
     const inviterName = invited_by_name || owner_name || "Your team";
 
-    // Get organization name if tenant_id is provided
+    // Get organization branding for dual-logo header
+    interface OrgBranding {
+      logoUrl: string | null;
+      companyName: string | null;
+      primaryColor: string | null;
+    }
+    let orgBranding: OrgBranding = { logoUrl: null, companyName: null, primaryColor: null };
     let organizationName: string | undefined;
+    
     if (tenant_id) {
       try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        orgBranding = await getOrgBranding(tenant_id);
+        organizationName = orgBranding.companyName || undefined;
         
-        const { data: tenant } = await supabase
-          .from("tenants")
-          .select("name")
-          .eq("id", tenant_id)
-          .single();
-        
-        if (tenant) {
-          organizationName = tenant.name as string;
+        // If no company name from branding, try tenants table
+        if (!organizationName) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          
+          const { data: tenant } = await supabase
+            .from("tenants")
+            .select("name")
+            .eq("id", tenant_id)
+            .single();
+          
+          if (tenant?.name) {
+            organizationName = tenant.name as string;
+            orgBranding = { ...orgBranding, companyName: organizationName };
+          }
         }
       } catch (e) {
-        console.warn('[SEND-TEAM-INVITATION] Failed to fetch tenant name:', e);
+        console.warn('[SEND-TEAM-INVITATION] Failed to fetch org branding:', e);
       }
     }
 
@@ -208,7 +213,7 @@ serve(async (req) => {
       roleName,
       inviteUrl,
       organizationName,
-    });
+    }, orgBranding);
 
     logEmailEvent("send_team_invitation", { email, role, tenant_id, invited_by_id });
 
