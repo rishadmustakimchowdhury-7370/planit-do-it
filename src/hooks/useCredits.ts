@@ -29,11 +29,18 @@ export const CREDIT_COSTS = {
 } as const;
 
 export function useCredits() {
-  const { tenantId, user } = useAuth();
+  const { tenantId, user, isSuperAdmin } = useAuth();
   const [balance, setBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBalance = useCallback(async () => {
+    // Super admins: treat credits as unlimited (bypass hard credit blocking)
+    if (isSuperAdmin) {
+      setBalance(999999);
+      setIsLoading(false);
+      return;
+    }
+
     if (!tenantId) return;
 
     try {
@@ -50,13 +57,14 @@ export function useCredits() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, isSuperAdmin]);
 
   useEffect(() => {
     fetchBalance();
   }, [fetchBalance]);
 
   const checkSufficientCredits = async (requiredCredits: number): Promise<boolean> => {
+    if (isSuperAdmin) return true;
     if (!tenantId) return false;
 
     try {
@@ -66,11 +74,11 @@ export function useCredits() {
       });
 
       if (error) throw error;
-      
+
       if (!data) {
         toast.error(`Insufficient credits. You need ${requiredCredits} credits but have ${balance}.`);
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error checking credits:', error);
@@ -79,10 +87,12 @@ export function useCredits() {
   };
 
   const deductCredits = async (actionType: keyof typeof CREDIT_COSTS, metadata?: any): Promise<boolean> => {
+    // Super admins: bypass credit deduction and credit RPCs
+    if (isSuperAdmin) return true;
     if (!tenantId || !user?.id) return false;
 
     const cost = CREDIT_COSTS[actionType];
-    
+
     try {
       const { data, error } = await supabase.rpc('deduct_credits', {
         p_tenant_id: tenantId,
@@ -96,7 +106,7 @@ export function useCredits() {
 
       if (data) {
         await fetchBalance();
-        
+
         // Log AI activity for tracking
         const activityMap: Record<string, string> = {
           ai_match: 'ai_match_run',
@@ -104,7 +114,7 @@ export function useCredits() {
           email_compose: 'ai_email_compose',
           brand_cv: 'ai_brand_cv',
         };
-        
+
         const activityType = activityMap[actionType];
         if (activityType) {
           await supabase.from('recruiter_activities').insert({
@@ -114,7 +124,7 @@ export function useCredits() {
             metadata: { credits_used: cost, ...metadata },
           });
         }
-        
+
         return true;
       } else {
         toast.error(`Insufficient credits. This action requires ${cost} credits.`);
