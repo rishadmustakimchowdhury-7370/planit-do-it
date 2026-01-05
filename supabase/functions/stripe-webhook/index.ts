@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
 import { getStripeCredentials } from "../_shared/stripe-credentials.ts";
 import { dispatchNotification } from "../_shared/notification-dispatcher.ts";
+import { 
+  sendBillingEmail, 
+  sendAuditEmail,
+  SUPER_ADMIN_EMAIL,
+} from "../_shared/smtp-sender.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,35 +19,40 @@ const logStep = (step: string, details?: any) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
-type ResendSendResult = { data: any; error: any };
-
-async function sendResendEmailWithRetry(
-  resend: Resend,
-  payload: Parameters<Resend["emails"]["send"]>[0],
-  maxAttempts = 5
-): Promise<ResendSendResult> {
-  let lastResult: ResendSendResult = { data: null, error: null };
-  let delayMs = 700;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = (await resend.emails.send(payload)) as ResendSendResult;
-    lastResult = result;
-
-    const err = result?.error;
-    if (!err) return result;
-
-    const statusCode = err?.statusCode;
-    const name = err?.name;
-    const isRateLimit = statusCode === 429 || name === "rate_limit_exceeded";
-
-    if (!isRateLimit || attempt === maxAttempts) return result;
-
-    logStep("Resend rate-limited, retrying", { attempt, delayMs, statusCode, name });
-    await new Promise((r) => setTimeout(r, delayMs));
-    delayMs = Math.min(delayMs * 2, 5000);
+// Helper function to send billing emails via SMTP
+async function sendBillingEmailWithLog(
+  supabase: any,
+  payload: { to: string; subject: string; html: string },
+  logData: {
+    tenant_id?: string;
+    template_name: string;
+    event: string;
+    metadata?: Record<string, any>;
   }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await sendBillingEmail({
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+    });
 
-  return lastResult;
+    // Log email
+    await supabase.from('email_logs').insert({
+      tenant_id: logData.tenant_id,
+      recipient_email: payload.to,
+      subject: payload.subject,
+      template_name: logData.template_name,
+      status: result.success ? 'sent' : 'failed',
+      error_message: result.error,
+      metadata: { event: logData.event, ...logData.metadata },
+    });
+
+    return result;
+  } catch (error) {
+    logStep("Email send error", { error });
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
 }
 
 // Professional email template with CRM branding and downloadable invoice
@@ -430,7 +439,7 @@ serve(async (req) => {
     apiVersion: "2025-08-27.basil",
   });
 
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  // SMTP is used for all emails now (no Resend API key needed)
 
   try {
     const signature = req.headers.get("stripe-signature");
@@ -528,7 +537,7 @@ serve(async (req) => {
           }
 
           // Send confirmation emails if payment succeeded
-          if (session.payment_status === 'paid' && resendApiKey) {
+          if (session.payment_status === 'paid') {
             try {
               // Fetch order details with user and plan info
               const { data: order } = await supabase
@@ -542,7 +551,6 @@ serve(async (req) => {
                 .single();
 
               if (order) {
-                const resend = new Resend(resendApiKey);
                 const userName = order.profiles?.full_name || 'Valued Customer';
                 const userEmail = order.profiles?.email;
                 const planName = order.subscription_plans?.name || 'Subscription';
@@ -618,42 +626,32 @@ serve(async (req) => {
                     companyLogo: tenant?.logo_url
                   });
 
-                  const userSendResult = await sendResendEmailWithRetry(resend, {
-                    from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                    to: [userEmail],
-                    subject: `🎉 Payment Confirmed - ${planName} Plan`,
-                    html: userEmailHtml,
-                  });
-
-                  // Log email
-                  await supabase.from('email_logs').insert({
-                    tenant_id: order.tenant_id,
-                    recipient_email: userEmail,
-                    subject: `🎉 Payment Confirmed - ${planName} Plan`,
-                    template_name: 'payment_confirmation',
-                    status: userSendResult.error ? 'failed' : 'sent',
-                    error_message: userSendResult.error?.message,
-                    sent_by: order.user_id,
-                    metadata: { 
-                      event: 'payment_successful', 
-                      amount: order.amount, 
-                      plan: planName,
-                      has_invoice_pdf: !!invoicePdfUrl
+                  const userSendResult = await sendBillingEmailWithLog(
+                    supabase,
+                    {
+                      to: userEmail,
+                      subject: `🎉 Payment Confirmed - ${planName} Plan`,
+                      html: userEmailHtml,
                     },
-                  });
+                    {
+                      tenant_id: order.tenant_id,
+                      template_name: 'payment_confirmation',
+                      event: 'payment_successful',
+                      metadata: { amount: order.amount, plan: planName, has_invoice_pdf: !!invoicePdfUrl },
+                    }
+                  );
 
-                  if (userSendResult.error) {
+                  if (!userSendResult.success) {
                     logStep("Failed to send user confirmation email", { error: userSendResult.error });
                   } else {
                     logStep("Confirmation email sent to user with invoice", { 
                       email: userEmail, 
-                      hasInvoicePdf: !!invoicePdfUrl, 
-                      emailId: userSendResult.data?.id 
+                      hasInvoicePdf: !!invoicePdfUrl,
                     });
                   }
 
-                  // avoid rate limit when sending admin email right after user email
-                  await new Promise((r) => setTimeout(r, 700));
+                  // Small delay to avoid rate limiting
+                  await new Promise((r) => setTimeout(r, 500));
                 }
 
                 // ========== EMAIL 2: Notification to Owner (if different from user) ==========
@@ -685,28 +683,26 @@ serve(async (req) => {
                       companyLogo: tenant?.logo_url
                     });
 
-                    const ownerSendResult = await sendResendEmailWithRetry(resend, {
-                      from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                      to: [ownerProfile.email],
-                      subject: `🎉 Payment Confirmed - ${planName} Plan`,
-                      html: ownerEmailHtml,
-                    });
+                    const ownerSendResult = await sendBillingEmailWithLog(
+                      supabase,
+                      {
+                        to: ownerProfile.email,
+                        subject: `🎉 Payment Confirmed - ${planName} Plan`,
+                        html: ownerEmailHtml,
+                      },
+                      {
+                        tenant_id: order.tenant_id,
+                        template_name: 'payment_confirmation_owner',
+                        event: 'payment_successful',
+                        metadata: { amount: order.amount },
+                      }
+                    );
 
-                    await supabase.from('email_logs').insert({
-                      tenant_id: order.tenant_id,
-                      recipient_email: ownerProfile.email,
-                      subject: `🎉 Payment Confirmed - ${planName} Plan`,
-                      template_name: 'payment_confirmation_owner',
-                      status: ownerSendResult.error ? 'failed' : 'sent',
-                      error_message: ownerSendResult.error?.message,
-                      metadata: { event: 'payment_successful', amount: order.amount },
-                    });
-
-                    if (!ownerSendResult.error) {
+                    if (ownerSendResult.success) {
                       logStep("Owner payment email sent", { email: ownerProfile.email });
                     }
 
-                    await new Promise((r) => setTimeout(r, 700));
+                    await new Promise((r) => setTimeout(r, 500));
                   }
                 }
 
@@ -749,12 +745,12 @@ serve(async (req) => {
                       ? `🎉 New User Upgrade - ${planName} (${userName})`
                       : `💰 New Payment Received - ${planName} (${userName})`;
 
-                    const adminSendResult = await sendResendEmailWithRetry(resend, {
-                      from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                      to: adminEmails,
-                      subject: emailSubject,
-                      html: adminEmailHtml,
-                    });
+                    // Send admin audit email via SMTP
+                    const adminSendResult = await sendAuditEmail(
+                      emailSubject,
+                      adminEmailHtml,
+                      adminEmails.filter(e => e !== SUPER_ADMIN_EMAIL)
+                    );
 
                     // Log admin emails
                     for (const adminEmail of adminEmails) {
@@ -763,8 +759,8 @@ serve(async (req) => {
                         recipient_email: adminEmail,
                         subject: emailSubject,
                         template_name: 'admin_payment_notification',
-                        status: adminSendResult.error ? 'failed' : 'sent',
-                        error_message: adminSendResult.error?.message,
+                        status: adminSendResult.success ? 'sent' : 'failed',
+                        error_message: adminSendResult.error,
                         metadata: { 
                           event: 'payment_successful', 
                           customer_name: userName,
@@ -774,10 +770,10 @@ serve(async (req) => {
                       });
                     }
 
-                    if (adminSendResult.error) {
+                    if (!adminSendResult.success) {
                       logStep("Failed to send admin notification", { error: adminSendResult.error });
                     } else {
-                      logStep("Admin notification email sent", { adminEmails, isNewUser, emailId: adminSendResult.data?.id });
+                      logStep("Admin notification email sent", { adminEmails, isNewUser });
                     }
                   }
                 }
@@ -836,9 +832,8 @@ serve(async (req) => {
             .single();
 
           // Send failure notification to owner
-          if (order && resendApiKey) {
+          if (order) {
             try {
-              const resend = new Resend(resendApiKey);
               const userEmail = order.profiles?.email;
               const userName = order.profiles?.full_name || 'Valued Customer';
               const planName = order.subscription_plans?.name || 'Subscription';
@@ -874,23 +869,24 @@ serve(async (req) => {
 </body>
 </html>`;
 
-                await sendResendEmailWithRetry(resend, {
-                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                  to: [userEmail],
-                  subject: `⚠️ Payment Failed - Action Required`,
-                  html: failureHtml,
-                });
+                const failResult = await sendBillingEmailWithLog(
+                  supabase,
+                  {
+                    to: userEmail,
+                    subject: `⚠️ Payment Failed - Action Required`,
+                    html: failureHtml,
+                  },
+                  {
+                    tenant_id: order.tenant_id,
+                    template_name: 'payment_failed',
+                    event: 'payment_failed',
+                    metadata: { reason: paymentIntent.last_payment_error?.message },
+                  }
+                );
 
-                await supabase.from('email_logs').insert({
-                  tenant_id: order.tenant_id,
-                  recipient_email: userEmail,
-                  subject: '⚠️ Payment Failed - Action Required',
-                  template_name: 'payment_failed',
-                  status: 'sent',
-                  metadata: { event: 'payment_failed', reason: paymentIntent.last_payment_error?.message },
-                });
-
-                logStep("Payment failure email sent", { email: userEmail });
+                if (failResult.success) {
+                  logStep("Payment failure email sent", { email: userEmail });
+                }
               }
             } catch (emailError) {
               logStep("Failed to send payment failure email", { error: emailError });
@@ -922,9 +918,8 @@ serve(async (req) => {
             .single();
 
           // Send renewal confirmation email
-          if (order && resendApiKey) {
+          if (order) {
             try {
-              const resend = new Resend(resendApiKey);
               const userName = order.profiles?.full_name || 'Valued Customer';
               const userEmail = order.profiles?.email;
               const planName = order.subscription_plans?.name || 'Subscription';
@@ -966,33 +961,26 @@ serve(async (req) => {
                   companyLogo: tenant?.logo_url
                 });
 
-                const renewalSendResult = await sendResendEmailWithRetry(resend, {
-                  from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                  to: [userEmail],
-                  subject: `✅ Subscription Renewed - ${planName}`,
-                  html: renewalEmailHtml,
-                });
-
-                // Log renewal email
-                await supabase.from('email_logs').insert({
-                  tenant_id: order.tenant_id,
-                  recipient_email: userEmail,
-                  subject: `✅ Subscription Renewed - ${planName}`,
-                  template_name: 'subscription_renewal',
-                  status: renewalSendResult.error ? 'failed' : 'sent',
-                  error_message: renewalSendResult.error?.message,
-                  metadata: { 
-                    event: 'invoice_paid', 
-                    amount: invoice.amount_paid,
-                    plan: planName
+                const renewalSendResult = await sendBillingEmailWithLog(
+                  supabase,
+                  {
+                    to: userEmail,
+                    subject: `✅ Subscription Renewed - ${planName}`,
+                    html: renewalEmailHtml,
                   },
-                });
+                  {
+                    tenant_id: order.tenant_id,
+                    template_name: 'subscription_renewal',
+                    event: 'invoice_paid',
+                    metadata: { amount: invoice.amount_paid, plan: planName },
+                  }
+                );
 
-                if (renewalSendResult.error) {
-                  throw new Error(renewalSendResult.error?.message ?? 'Resend renewal email failed');
+                if (!renewalSendResult.success) {
+                  throw new Error(renewalSendResult.error ?? 'SMTP renewal email failed');
                 }
 
-                logStep("Renewal confirmation email sent", { email: userEmail, emailId: renewalSendResult.data?.id });
+                logStep("Renewal confirmation email sent", { email: userEmail });
               }
             } catch (emailError) {
               logStep("Failed to send renewal email", { error: emailError });
