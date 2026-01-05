@@ -7,6 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SUPER_ADMIN_EMAIL = "admin@hiremetrics.co.uk";
+const SUPER_ADMIN_NAME = "HireMetrics";
+
 interface Attachment {
   name: string;
   url: string;
@@ -44,10 +47,10 @@ interface SendEmailRequest {
   timezone?: string | null;
   attachments?: Attachment[];
   signature?: string | null;
-  use_system_fallback?: boolean; // If true, allows system email as fallback
+  use_system_fallback?: boolean;
 }
 
-// Professional HTML email template with header, logo, and footer
+// Professional HTML email template
 const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
@@ -57,10 +60,8 @@ const createEmailHtml = (
   companyName?: string,
   companyLogo?: string
 ): string => {
-  // Check if body is already HTML
   const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
   
-  // Convert plain text line breaks to HTML paragraphs only if not already HTML
   const formattedBody = isHtml 
     ? bodyText 
     : bodyText
@@ -79,7 +80,6 @@ const createEmailHtml = (
         <p style="margin: 0; color: #6b7280; font-size: 13px;">${recruiterEmail}</p>
       </div>`;
 
-  // Attachments section
   let attachmentsHtml = '';
   if (attachmentLinks && attachmentLinks.length > 0) {
     attachmentsHtml = `
@@ -91,7 +91,6 @@ const createEmailHtml = (
       </div>`;
   }
 
-  // Logo HTML - use provided logo or default styled text
   const logoHtml = companyLogo 
     ? `<img src="${companyLogo}" alt="${companyName || 'Company'}" style="max-height: 45px; max-width: 180px; object-fit: contain;" />`
     : `<div style="display: inline-flex; align-items: center; gap: 10px;">
@@ -101,101 +100,35 @@ const createEmailHtml = (
             <rect width="20" height="14" x="2" y="6" rx="2"/>
           </svg>
         </div>
-        <span style="font-size: 18px; font-weight: 700; color: #1e293b;">${companyName || 'RecruitifyCRM'}</span>
+        <span style="font-size: 18px; font-weight: 700; color: #1e293b;">${companyName || 'HireMetrics'}</span>
       </div>`;
 
-  const displayCompanyName = companyName || 'RecruitifyCRM';
+  const displayCompanyName = companyName || 'HireMetrics';
   const currentYear = new Date().getFullYear();
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Email</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
-    <tr>
-      <td style="padding: 32px 16px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden;">
-          
-          <!-- Header with Logo -->
-          <tr>
-            <td style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
-              ${logoHtml}
-            </td>
-          </tr>
-          
-          <!-- Body -->
-          <tr>
-            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">
-              ${formattedBody}
-              ${signatureHtml}
-              ${attachmentsHtml}
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td style="text-align: center;">
-                    <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">
-                      Sent via ${displayCompanyName}
-                    </p>
-                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-                      © ${currentYear} ${displayCompanyName}. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          
-        </table>
-        
-        <!-- Unsubscribe / Privacy Footer -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0;">
-          <tr>
-            <td style="text-align: center; padding: 0 16px;">
-              <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                This email was sent by ${recruiterName} from ${displayCompanyName}.
-                If you believe you received this email in error, please disregard it.
-              </p>
-            </td>
-          </tr>
-        </table>
-        
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Email</title></head><body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;"><tr><td style="padding: 32px 16px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;"><tr><td style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">${logoHtml}</td></tr><tr><td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">${formattedBody}${signatureHtml}${attachmentsHtml}</td></tr><tr><td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;"><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td style="text-align: center;"><p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b;">Sent via ${displayCompanyName}</p><p style="margin: 0; font-size: 12px; color: #94a3b8;">© ${currentYear} ${displayCompanyName}. All rights reserved.</p></td></tr></table></td></tr></table><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0;"><tr><td style="text-align: center; padding: 0 16px;"><p style="margin: 0; font-size: 11px; color: #9ca3af;">This email was sent by ${recruiterName} from ${displayCompanyName}. If you believe you received this email in error, please disregard it.</p></td></tr></table></td></tr></table></body></html>`;
 };
 
-// Send email via SMTP
+// Send email via SMTP (primary method)
 async function sendViaSMTP(
   account: EmailAccount,
   toEmail: string,
   ccEmail: string | null,
   bccEmail: string | null,
   subject: string,
-  htmlBody: string,
-  attachments?: Attachment[]
+  htmlBody: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   if (!account.smtp_host || !account.smtp_user || !account.smtp_password) {
     return { success: false, error: "SMTP account not properly configured" };
   }
 
   try {
+    const isDirectTLS = account.smtp_port === 465;
     const client = new SMTPClient({
       connection: {
         hostname: account.smtp_host,
         port: account.smtp_port || 587,
-        tls: account.smtp_use_tls ?? true,
+        tls: isDirectTLS,
         auth: {
           username: account.smtp_user,
           password: account.smtp_password,
@@ -219,73 +152,69 @@ async function sendViaSMTP(
 
     await client.close();
 
-    console.log(`Email sent via SMTP from ${account.from_email} to ${toEmail}`);
+    console.log(`[SMTP] Email sent from ${account.from_email} to ${toEmail}`);
     return { success: true, messageId: crypto.randomUUID() };
   } catch (error) {
-    console.error("SMTP send error:", error);
+    console.error("[SMTP] Send error:", error);
     return { success: false, error: error instanceof Error ? error.message : "SMTP send failed" };
   }
 }
 
-// Send email via Resend (system fallback)
-async function sendViaResend(
-  resendApiKey: string,
-  supabaseUrl: string,
-  fromName: string,
+// Send email via Super Admin SMTP fallback
+async function sendViaSystemSMTP(
+  senderName: string,
   replyToEmail: string,
   toEmail: string,
   ccEmail: string | null,
   bccEmail: string | null,
   subject: string,
-  htmlBody: string,
-  attachments?: Attachment[]
+  htmlBody: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const host = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+  const port = parseInt(Deno.env.get("SMTP_PORT") || "587", 10);
+  const user = Deno.env.get("SMTP_USER");
+  const password = Deno.env.get("SMTP_PASSWORD");
+
+  if (!user || !password) {
+    return { success: false, error: "System SMTP not configured. Please contact support." };
+  }
+
   try {
-    const trackingId = crypto.randomUUID();
-    const trackingPixel = `<img src="${supabaseUrl}/functions/v1/track-email?id=${trackingId}&type=open" width="1" height="1" style="display:none" alt=""/>`;
-    const emailWithTracking = htmlBody.replace('</body>', `${trackingPixel}</body>`);
-
-    const toRecipients = [toEmail];
-    const ccRecipients = ccEmail ? ccEmail.split(',').map(e => e.trim()).filter(Boolean) : [];
-    const bccRecipients = bccEmail ? bccEmail.split(',').map(e => e.trim()).filter(Boolean) : [];
-
-    const resendAttachments = attachments?.map(att => ({
-      filename: att.name,
-      path: att.url,
-    })) || [];
-
-    const emailPayload: Record<string, unknown> = {
-      from: `${fromName} <admin@hiremetrics.co.uk>`,
-      reply_to: replyToEmail,
-      to: toRecipients,
-      subject: subject,
-      html: emailWithTracking,
-    };
-    
-    if (ccRecipients.length > 0) emailPayload.cc = ccRecipients;
-    if (bccRecipients.length > 0) emailPayload.bcc = bccRecipients;
-    if (resendAttachments.length > 0) emailPayload.attachments = resendAttachments;
-
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
+    const isDirectTLS = port === 465;
+    const client = new SMTPClient({
+      connection: {
+        hostname: host,
+        port: port,
+        tls: isDirectTLS,
+        auth: {
+          username: user,
+          password: password,
+        },
       },
-      body: JSON.stringify(emailPayload),
     });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || "Resend API error");
-    }
+    const toList = toEmail.split(",").map(e => e.trim()).filter(Boolean);
+    const ccList = ccEmail ? ccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
+    const bccList = bccEmail ? bccEmail.split(",").map(e => e.trim()).filter(Boolean) : [];
 
-    console.log(`Email sent via Resend (system) to ${toEmail}, reply-to: ${replyToEmail}`);
-    return { success: true, messageId: data.id };
+    await client.send({
+      from: `${senderName} <${SUPER_ADMIN_EMAIL}>`,
+      replyTo: replyToEmail,
+      to: toList,
+      cc: ccList.length > 0 ? ccList : undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
+      subject: subject,
+      content: "Please view this email in an HTML-compatible client.",
+      html: htmlBody,
+    });
+
+    await client.close();
+
+    console.log(`[SMTP] System email sent from ${SUPER_ADMIN_EMAIL} (on behalf of ${senderName}) to ${toEmail}`);
+    return { success: true, messageId: crypto.randomUUID() };
   } catch (error) {
-    console.error("Resend send error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Resend send failed" };
+    console.error("[SMTP] System send error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "SMTP send failed" };
   }
 }
 
@@ -295,12 +224,10 @@ serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Get user from auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("Missing authorization header");
@@ -311,13 +238,11 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get current user
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) {
       throw new Error("Unauthorized");
     }
 
-    // Get user's tenant and profile details
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("tenant_id, full_name, email_signature, email")
@@ -328,7 +253,6 @@ serve(async (req) => {
       throw new Error("User has no tenant");
     }
 
-    // Fetch branding settings for the tenant
     const { data: branding } = await supabaseAdmin
       .from("branding_settings")
       .select("company_name, logo_url")
@@ -358,17 +282,14 @@ serve(async (req) => {
       use_system_fallback = false,
     } = body;
 
-    // Determine if this is a client or candidate email
     const isClientEmail = !!client_id && !candidate_id;
-
     const recruiterName = profile.full_name || "Recruiter";
-    const recruiterEmail = profile.email || "noreply@recruitifycrm.com";
+    const recruiterEmail = profile.email || SUPER_ADMIN_EMAIL;
 
-    // Try to get user's email account
+    // Find user's email account
     let emailAccount: EmailAccount | null = null;
-    let sendingMethod: "smtp" | "resend" | "blocked" = "blocked";
+    let sendingMethod: "smtp" | "system_smtp" | "blocked" = "blocked";
 
-    // First, try to get the specified account
     if (from_account_id) {
       const { data: account } = await supabaseAdmin
         .from("email_accounts")
@@ -383,7 +304,6 @@ serve(async (req) => {
       }
     }
 
-    // If no specific account, try to get user's default account
     if (!emailAccount) {
       const { data: defaultAccount } = await supabaseAdmin
         .from("email_accounts")
@@ -398,7 +318,6 @@ serve(async (req) => {
       }
     }
 
-    // If still no account, try any connected account for the user
     if (!emailAccount) {
       const { data: anyAccount } = await supabaseAdmin
         .from("email_accounts")
@@ -414,22 +333,22 @@ serve(async (req) => {
       }
     }
 
-    // Determine sending method
-    if (emailAccount && emailAccount.provider === "smtp") {
+    // Determine sending method - SMTP only, no third-party APIs
+    if (emailAccount && emailAccount.provider === "smtp" && emailAccount.smtp_host) {
       sendingMethod = "smtp";
-    } else if (use_system_fallback && RESEND_API_KEY) {
-      sendingMethod = "resend";
-    } else if (!emailAccount && RESEND_API_KEY) {
-      // No user account configured - we'll still send but with clear warning
-      sendingMethod = "resend";
-      console.warn(`No email account configured for user ${user.id}, using system fallback`);
+    } else if (use_system_fallback || !emailAccount) {
+      // Check if system SMTP is configured
+      const systemSmtpUser = Deno.env.get("SMTP_USER");
+      const systemSmtpPass = Deno.env.get("SMTP_PASSWORD");
+      if (systemSmtpUser && systemSmtpPass) {
+        sendingMethod = "system_smtp";
+        console.log(`[SMTP] No user account configured for user ${user.id}, using system SMTP fallback`);
+      }
     }
 
-    // Determine sender email for display/logging
-    const senderEmail = emailAccount?.from_email || profile.email || "admin@hiremetrics.co.uk";
+    const senderEmail = emailAccount?.from_email || profile.email || SUPER_ADMIN_EMAIL;
     const senderName = emailAccount?.display_name || recruiterName;
 
-    // Create professional HTML email with branding
     const emailHtml = createEmailHtml(
       body_text,
       signature ?? profile.email_signature,
@@ -481,7 +400,7 @@ serve(async (req) => {
 
       if (insertError) throw insertError;
 
-      console.log(`Email ${emailRecord.id} scheduled for: ${scheduled_at} (${timezone || "UTC"})`);
+      console.log(`[SMTP] Email ${emailRecord.id} scheduled for: ${scheduled_at} (${timezone || "UTC"})`);
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -506,29 +425,24 @@ serve(async (req) => {
         cc_email || null,
         bcc_email || null,
         subject,
-        emailHtml,
-        attachments
+        emailHtml
       );
 
-      // Update account last used
       if (sendResult.success) {
         await supabaseAdmin
           .from("email_accounts")
           .update({ last_sync_at: new Date().toISOString() })
           .eq("id", emailAccount.id);
       }
-    } else if (sendingMethod === "resend" && RESEND_API_KEY) {
-      sendResult = await sendViaResend(
-        RESEND_API_KEY,
-        SUPABASE_URL,
+    } else if (sendingMethod === "system_smtp") {
+      sendResult = await sendViaSystemSMTP(
         senderName,
         recruiterEmail,
         to_email,
         cc_email || null,
         bcc_email || null,
         subject,
-        emailHtml,
-        attachments
+        emailHtml
       );
     } else {
       sendResult = { 

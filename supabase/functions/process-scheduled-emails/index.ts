@@ -1,29 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Convert scheduled time in user's timezone to UTC for comparison
-function getScheduledTimeInUTC(scheduledAt: string, timezone: string): Date {
-  try {
-    // Parse the scheduled datetime
-    const scheduled = new Date(scheduledAt);
-    
-    // If timezone is provided, we need to interpret the stored time as being in that timezone
-    // The stored time is already in ISO format, so we just compare directly
-    return scheduled;
-  } catch (e) {
-    console.error('Error parsing scheduled time:', e);
-    return new Date(scheduledAt);
-  }
-}
+const SUPER_ADMIN_EMAIL = "admin@hiremetrics.co.uk";
 
-// Send email via user's SMTP or fallback to Resend
+// Send email via user's SMTP or fallback to system SMTP
 async function sendEmail(
   email: any,
-  resendApiKey: string | undefined,
   supabase: any
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   // Check if user has a configured SMTP account
@@ -34,58 +21,87 @@ async function sendEmail(
       .eq('id', email.from_account_id)
       .single();
     
-    if (account && account.provider === 'smtp' && account.smtp_host) {
-      console.log(`Attempting SMTP send via ${account.smtp_host} for email ${email.id}`);
-      // For now, fall through to Resend - SMTP support will be added later
-      // TODO: Implement actual SMTP sending with nodemailer
+    if (account && account.provider === 'smtp' && account.smtp_host && account.smtp_user && account.smtp_password) {
+      console.log(`[SMTP] Attempting send via ${account.smtp_host} for email ${email.id}`);
+      
+      try {
+        const isDirectTLS = account.smtp_port === 465;
+        const client = new SMTPClient({
+          connection: {
+            hostname: account.smtp_host,
+            port: account.smtp_port || 587,
+            tls: isDirectTLS,
+            auth: {
+              username: account.smtp_user,
+              password: account.smtp_password,
+            },
+          },
+        });
+
+        await client.send({
+          from: `${account.display_name} <${account.from_email}>`,
+          to: [email.to_email],
+          subject: email.subject,
+          content: "Please view this email in an HTML-compatible client.",
+          html: email.body_text,
+        });
+
+        await client.close();
+
+        // Update account last sync
+        await supabase
+          .from('email_accounts')
+          .update({ last_sync_at: new Date().toISOString(), status: 'connected' })
+          .eq('id', account.id);
+
+        return { success: true, messageId: crypto.randomUUID() };
+      } catch (error) {
+        console.error(`[SMTP] User account send error:`, error);
+        // Fall through to system SMTP
+      }
     }
   }
 
-  // Fallback to Resend API
-  if (!resendApiKey) {
-    return { success: false, error: 'No email provider configured' };
+  // Fallback to system SMTP
+  const host = Deno.env.get("SMTP_HOST") || "smtp.gmail.com";
+  const port = parseInt(Deno.env.get("SMTP_PORT") || "587", 10);
+  const user = Deno.env.get("SMTP_USER");
+  const password = Deno.env.get("SMTP_PASSWORD");
+
+  if (!user || !password) {
+    return { success: false, error: 'System SMTP not configured' };
   }
 
   try {
-    // Parse attachments if present
-    let attachments: any[] = [];
-    if (email.attachments && Array.isArray(email.attachments)) {
-      attachments = email.attachments.map((att: any) => ({
-        filename: att.name,
-        path: att.url, // Resend can fetch from URL
-      }));
-    }
-
-    const emailPayload: Record<string, unknown> = {
-      from: `HireMetrics <admin@hiremetrics.co.uk>`,
-      reply_to: email.from_email,
-      to: [email.to_email],
-      subject: email.subject,
-      html: email.body_text,
-    };
-
-    if (attachments.length > 0) {
-      emailPayload.attachments = attachments;
-    }
-
-    const emailResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
+    const isDirectTLS = port === 465;
+    const client = new SMTPClient({
+      connection: {
+        hostname: host,
+        port: port,
+        tls: isDirectTLS,
+        auth: {
+          username: user,
+          password: password,
+        },
       },
-      body: JSON.stringify(emailPayload),
     });
 
-    const resendData = await emailResponse.json();
+    await client.send({
+      from: `HireMetrics <${SUPER_ADMIN_EMAIL}>`,
+      replyTo: email.from_email,
+      to: [email.to_email],
+      subject: email.subject,
+      content: "Please view this email in an HTML-compatible client.",
+      html: email.body_text,
+    });
 
-    if (emailResponse.ok) {
-      return { success: true, messageId: resendData.id };
-    } else {
-      return { success: false, error: resendData.message || 'Failed to send' };
-    }
+    await client.close();
+
+    console.log(`[SMTP] Email sent via system SMTP to ${email.to_email}`);
+    return { success: true, messageId: crypto.randomUUID() };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Unknown error' };
+    console.error('[SMTP] System send error:', error);
+    return { success: false, error: error.message || 'SMTP send failed' };
   }
 }
 
@@ -97,30 +113,17 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ error: 'Email service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find scheduled emails that are due
-    // We check emails where scheduled_at <= now
     const now = new Date().toISOString();
-    
-    console.log(`Processing scheduled emails at ${now}`);
+    console.log(`[SMTP] Processing scheduled emails at ${now}`);
     
     const { data: scheduledEmails, error: fetchError } = await supabase
       .from('candidate_emails')
       .select('*')
       .eq('status', 'scheduled')
       .lte('scheduled_at', now)
-      .lt('retry_count', 3) // Max 3 retries
+      .lt('retry_count', 3)
       .order('scheduled_at', { ascending: true })
       .limit(50);
 
@@ -129,7 +132,7 @@ Deno.serve(async (req) => {
       throw fetchError;
     }
 
-    console.log(`Found ${scheduledEmails?.length || 0} scheduled emails to process`);
+    console.log(`[SMTP] Found ${scheduledEmails?.length || 0} scheduled emails to process`);
 
     if (!scheduledEmails || scheduledEmails.length === 0) {
       return new Response(
@@ -143,12 +146,11 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const email of scheduledEmails) {
-      console.log(`Processing email ${email.id} scheduled for ${email.scheduled_at} (tz: ${email.timezone || 'UTC'})`);
+      console.log(`[SMTP] Processing email ${email.id} scheduled for ${email.scheduled_at}`);
       
-      const result = await sendEmail(email, resendApiKey, supabase);
+      const result = await sendEmail(email, supabase);
       
       if (result.success) {
-        // Update email status to sent
         const { error: updateError } = await supabase
           .from('candidate_emails')
           .update({
@@ -165,9 +167,8 @@ Deno.serve(async (req) => {
 
         successCount++;
         results.push({ id: email.id, status: 'sent', messageId: result.messageId });
-        console.log(`Email ${email.id} sent successfully. Message ID: ${result.messageId}`);
+        console.log(`[SMTP] Email ${email.id} sent successfully`);
       } else {
-        // Increment retry count and update error
         const newRetryCount = (email.retry_count || 0) + 1;
         const newStatus = newRetryCount >= 3 ? 'failed' : 'scheduled';
         
@@ -191,7 +192,7 @@ Deno.serve(async (req) => {
           error: result.error,
           retries: newRetryCount,
         });
-        console.error(`Email ${email.id} failed (retry ${newRetryCount}/3):`, result.error);
+        console.error(`[SMTP] Email ${email.id} failed (retry ${newRetryCount}/3):`, result.error);
       }
     }
 
@@ -208,7 +209,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`Completed: ${successCount} sent, ${failCount} failed`);
+    console.log(`[SMTP] Completed: ${successCount} sent, ${failCount} failed`);
 
     return new Response(
       JSON.stringify({ 
