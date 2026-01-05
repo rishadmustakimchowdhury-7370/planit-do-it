@@ -10,6 +10,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import { 
   ArrowLeft, 
@@ -26,7 +32,10 @@ import {
   Linkedin,
   Inbox,
   Briefcase,
-  Pencil
+  Pencil,
+  ChevronDown,
+  FileDown,
+  Stamp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -109,7 +118,7 @@ const CandidateDetailPage = () => {
     }
   };
 
-  const handleDownloadCV = async () => {
+  const handleDownloadBrandedCV = async () => {
     if (!candidate?.cv_file_url) {
       toast.error('No CV file available for this candidate');
       return;
@@ -121,6 +130,50 @@ const CandidateDetailPage = () => {
       documentType: 'cv',
       entityName: candidate.full_name
     });
+  };
+
+  const handleDownloadOriginalCV = async () => {
+    if (!candidate?.cv_file_url) {
+      toast.error('No CV file available for this candidate');
+      return;
+    }
+
+    try {
+      // Get the file from Supabase storage
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(candidate.cv_file_url.split('/documents/')[1] || candidate.cv_file_url);
+
+      if (error) {
+        // Try direct download if storage path fails
+        const response = await fetch(candidate.cv_file_url);
+        if (!response.ok) throw new Error('Failed to download file');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV_Original.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Original CV downloaded');
+        return;
+      }
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${candidate.full_name.replace(/\s+/g, '_')}_CV_Original.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Original CV downloaded');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast.error('Failed to download CV');
+    }
   };
 
 
@@ -224,51 +277,71 @@ const CandidateDetailPage = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5 w-full lg:w-auto">
+            <div className="flex flex-col gap-3 w-full lg:w-auto">
               {/* Top row - Primary actions */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   size="sm" 
                   variant="outline"
-                  className="gap-1.5 h-9 transition-all duration-150 hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]" 
+                  className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm active:scale-[0.97]" 
                   onClick={() => navigate(`/candidates/${candidate.id}/edit`)}
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="w-4 h-4" />
                   Edit
                 </Button>
                 <Button 
                   size="sm" 
-                  className="gap-1.5 h-9 transition-all duration-150 active:scale-[0.98]" 
+                  className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:shadow-md active:scale-[0.97]" 
                   onClick={() => setAddToJobDialogOpen(true)}
                 >
-                  <Briefcase className="w-3.5 h-3.5" />
-                  Job
+                  <Briefcase className="w-4 h-4" />
+                  Add to Job
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1.5 h-9 transition-all duration-150 hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]" 
-                  onClick={handleDownloadCV}
-                  disabled={isDownloading}
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Download className="w-3.5 h-3.5" />
-                  )}
-                  CV
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm active:scale-[0.97]" 
+                      disabled={isDownloading || !candidate.cv_file_url}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      Download CV
+                      <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 p-1.5">
+                    <DropdownMenuItem 
+                      onClick={handleDownloadBrandedCV}
+                      className="gap-2.5 px-3 py-2.5 cursor-pointer rounded-md transition-colors"
+                    >
+                      <Stamp className="w-4 h-4 text-primary" />
+                      <span>Branded CV</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={handleDownloadOriginalCV}
+                      className="gap-2.5 px-3 py-2.5 cursor-pointer rounded-md transition-colors"
+                    >
+                      <FileDown className="w-4 h-4 text-muted-foreground" />
+                      <span>Original CV</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Bottom row - Communication actions */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-1.5 h-9 transition-all duration-150 hover:border-info/50 hover:bg-info/5 active:scale-[0.98]" 
+                  className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-info/50 hover:bg-info/5 hover:shadow-sm active:scale-[0.97]" 
                   onClick={() => setEmailDialogOpen(true)}
                 >
-                  <Mail className="w-3.5 h-3.5 text-info" />
+                  <Mail className="w-4 h-4 text-info" />
                   Send Email
                 </Button>
                 <TooltipProvider>
@@ -280,21 +353,21 @@ const CandidateDetailPage = () => {
                           target="_blank"
                           rel="noopener noreferrer"
                           className={cn(
-                            "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background text-sm font-medium transition-all duration-150",
-                            "hover:border-success/40 hover:bg-success/10 active:scale-[0.98]"
+                            "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-input bg-background text-sm font-medium transition-all duration-200 ease-out",
+                            "hover:border-success/50 hover:bg-success/5 hover:shadow-sm active:scale-[0.97]"
                           )}
                         >
-                          <MessageCircle className="w-3.5 h-3.5 text-success" />
+                          <MessageCircle className="w-4 h-4 text-success" />
                           WhatsApp
                         </a>
                       ) : (
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="gap-1.5 h-9 opacity-50 cursor-not-allowed"
+                          className="gap-2 h-10 px-4 rounded-lg opacity-50 cursor-not-allowed"
                           onClick={() => toast.error('WhatsApp number not added')}
                         >
-                          <MessageCircle className="w-3.5 h-3.5 text-success" />
+                          <MessageCircle className="w-4 h-4 text-success" />
                           WhatsApp
                         </Button>
                       )}
@@ -306,18 +379,16 @@ const CandidateDetailPage = () => {
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {candidate.linkedin_url ? (
+                {candidate.linkedin_url && (
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-1.5 h-9 transition-all duration-150 hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 active:scale-[0.98]"
+                    className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 hover:shadow-sm active:scale-[0.97]"
                     onClick={() => window.open(candidate.linkedin_url!, '_blank')}
                   >
-                    <Linkedin className="w-3.5 h-3.5 text-[#0077B5]" />
-                    View Profile
+                    <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                    LinkedIn
                   </Button>
-                ) : (
-                  <div className="h-9" /> 
                 )}
               </div>
             </div>
@@ -378,20 +449,40 @@ const CandidateDetailPage = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold">Resume</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1.5" 
-                  onClick={handleDownloadCV}
-                  disabled={isDownloading}
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Download
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1.5 transition-all duration-200 hover:shadow-sm" 
+                      disabled={isDownloading || !candidate.cv_file_url}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      Download
+                      <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem 
+                      onClick={handleDownloadBrandedCV}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <Stamp className="w-4 h-4 text-primary" />
+                      Download Branded CV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={handleDownloadOriginalCV}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <FileDown className="w-4 h-4 text-muted-foreground" />
+                      Download Original CV
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="prose prose-sm max-w-none text-muted-foreground">
                 {candidate.summary && (
