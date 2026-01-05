@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { sendBillingEmail } from "../_shared/smtp-sender.ts";
 import { getStripeCredentials } from "../_shared/stripe-credentials.ts";
 
 const corsHeaders = {
@@ -13,37 +13,6 @@ const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[VERIFY-PAYMENT] ${step}${detailsStr}`);
 };
-
-type ResendSendResult = { data: any; error: any };
-
-async function sendResendEmailWithRetry(
-  resend: Resend,
-  payload: Parameters<Resend["emails"]["send"]>[0],
-  maxAttempts = 5
-): Promise<ResendSendResult> {
-  let lastResult: ResendSendResult = { data: null, error: null };
-  let delayMs = 700;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = (await resend.emails.send(payload)) as ResendSendResult;
-    lastResult = result;
-
-    const err = result?.error;
-    if (!err) return result;
-
-    const statusCode = err?.statusCode;
-    const name = err?.name;
-    const isRateLimit = statusCode === 429 || name === "rate_limit_exceeded";
-
-    if (!isRateLimit || attempt === maxAttempts) return result;
-
-    logStep("Resend rate-limited, retrying", { attempt, delayMs, statusCode, name });
-    await new Promise((r) => setTimeout(r, delayMs));
-    delayMs = Math.min(delayMs * 2, 5000);
-  }
-
-  return lastResult;
-}
 
 // Generate professional invoice HTML for email
 function generateInvoiceEmailHTML(data: {
@@ -526,126 +495,110 @@ serve(async (req) => {
       // Generate and send invoice email
       if (order) {
         try {
-          const resendApiKey = Deno.env.get("RESEND_API_KEY");
-          if (resendApiKey) {
-            const resend = new Resend(resendApiKey);
-            
-            const userName = order.profiles?.full_name || 'Valued Customer';
-            const userEmail = order.profiles?.email;
-            const planName = order.subscription_plans?.name || 'Subscription';
-            const companyName = order.tenants?.name || 'Company';
-            
-            // Generate invoice number
-            const invoiceNumber = `INV-${order.id.slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
-            const issueDate = new Date().toLocaleDateString('en-GB', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
+          const userName = order.profiles?.full_name || 'Valued Customer';
+          const userEmail = order.profiles?.email;
+          const planName = order.subscription_plans?.name || 'Subscription';
+          const companyName = order.tenants?.name || 'Company';
+
+          // Generate invoice number
+          const invoiceNumber = `INV-${order.id.slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`;
+          const issueDate = new Date().toLocaleDateString('en-GB', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+
+          // Get next billing date if subscription
+          let nextBillingDate: string | undefined;
+          if (session.subscription) {
+            const subscriptionId = typeof session.subscription === 'string'
+              ? session.subscription
+              : (session.subscription as Stripe.Subscription)?.id;
+            if (subscriptionId) {
+              const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+              nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-GB', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+            }
+          }
+
+          const invoiceAttachmentHtml = generateInvoiceAttachmentHTML({
+            invoiceNumber,
+            userName,
+            userEmail: userEmail || '',
+            companyName,
+            planName,
+            amount: order.amount,
+            currency: order.currency || 'GBP',
+            issueDate,
+            companyLogo: order.tenants?.logo_url
+          });
+
+          const emailHtml = generateInvoiceEmailHTML({
+            invoiceNumber,
+            userName,
+            planName,
+            amount: order.amount,
+            currency: order.currency || 'GBP',
+            issueDate,
+            nextBillingDate,
+            invoiceHtml: invoiceAttachmentHtml,
+            companyLogo: order.tenants?.logo_url
+          });
+
+          if (userEmail) {
+            const encoder = new TextEncoder();
+            const invoiceBytes = encoder.encode(invoiceAttachmentHtml);
+
+            const result = await sendBillingEmail({
+              to: userEmail,
+              subject: `Your Invoice ${invoiceNumber} - ${planName} Plan`,
+              html: emailHtml,
+              attachments: [
+                {
+                  filename: `Invoice-${invoiceNumber}.html`,
+                  content: invoiceBytes,
+                  contentType: 'text/html; charset=UTF-8',
+                },
+              ],
             });
 
-            // Get next billing date if subscription
-            let nextBillingDate: string | undefined;
-            if (session.subscription) {
-              const subscriptionId = typeof session.subscription === 'string' 
-                ? session.subscription 
-                : (session.subscription as Stripe.Subscription)?.id;
-              if (subscriptionId) {
-                const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-                nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-GB', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                });
-              }
+            if (!result.success) {
+              throw new Error(result.error || 'SMTP invoice email failed');
             }
 
-            // Generate invoice attachment HTML
-            const invoiceAttachmentHtml = generateInvoiceAttachmentHTML({
-              invoiceNumber,
-              userName,
-              userEmail: userEmail || '',
-              companyName,
-              planName,
-              amount: order.amount,
-              currency: order.currency || 'GBP',
-              issueDate,
-              companyLogo: order.tenants?.logo_url
-            });
+            logStep("Invoice email sent", { email: userEmail, invoiceNumber, from: result.from });
 
-            // Generate email body
-            const emailHtml = generateInvoiceEmailHTML({
-              invoiceNumber,
-              userName,
-              planName,
-              amount: order.amount,
-              currency: order.currency || 'GBP',
-              issueDate,
-              nextBillingDate,
-              invoiceHtml: invoiceAttachmentHtml,
-              companyLogo: order.tenants?.logo_url
-            });
-
-            if (userEmail) {
-              // Send email with invoice attachment
-              // Encode HTML for attachment
-              const encoder = new TextEncoder();
-              const invoiceBytes = encoder.encode(invoiceAttachmentHtml);
-              const base64Invoice = btoa(String.fromCharCode(...invoiceBytes));
-
-              const emailResult = await sendResendEmailWithRetry(resend, {
-                from: 'HireMetrics <admin@hiremetrics.co.uk>',
-                to: [userEmail],
-                subject: `🧾 Your Invoice ${invoiceNumber} - ${planName} Plan`,
-                html: emailHtml,
-                attachments: [
-                  {
-                    filename: `Invoice-${invoiceNumber}.html`,
-                    content: base64Invoice,
-                  }
-                ]
+            // Store invoice in database
+            await supabase
+              .from('invoices')
+              .upsert({
+                tenant_id: order.tenant_id,
+                invoice_number: invoiceNumber,
+                amount: order.amount,
+                currency: order.currency || 'GBP',
+                status: 'paid',
+                paid_at: new Date().toISOString(),
+                sent_at: new Date().toISOString(),
+                notes: `Payment for ${planName} plan`,
+                line_items: [{
+                  description: `${planName} Plan - Monthly Subscription`,
+                  quantity: 1,
+                  rate: order.amount,
+                  amount: order.amount
+                }],
+                company_name: 'HireMetrics CRM',
+              }, {
+                onConflict: 'invoice_number'
               });
 
-              if (emailResult.error) {
-                throw new Error(emailResult.error?.message ?? 'Resend invoice email failed');
-              }
-
-              logStep("Invoice email sent", {
-                email: userEmail,
-                invoiceNumber,
-                emailId: emailResult.data?.id
-              });
-
-              // Store invoice in database
-              await supabase
-                .from('invoices')
-                .upsert({
-                  tenant_id: order.tenant_id,
-                  invoice_number: invoiceNumber,
-                  amount: order.amount,
-                  currency: order.currency || 'GBP',
-                  status: 'paid',
-                  paid_at: new Date().toISOString(),
-                  sent_at: new Date().toISOString(),
-                  notes: `Payment for ${planName} plan`,
-                  line_items: [{
-                    description: `${planName} Plan - Monthly Subscription`,
-                    quantity: 1,
-                    rate: order.amount,
-                    amount: order.amount
-                  }],
-                  company_name: 'HireMetrics CRM',
-                }, {
-                  onConflict: 'invoice_number'
-                });
-
-              logStep("Invoice stored in database", { invoiceNumber });
-            }
-          } else {
-            logStep("RESEND_API_KEY not configured, skipping invoice email");
+            logStep("Invoice stored in database", { invoiceNumber });
           }
         } catch (emailError) {
-          logStep("Error sending invoice email", { 
-            error: emailError instanceof Error ? emailError.message : String(emailError) 
+          logStep("Error sending invoice email", {
+            error: emailError instanceof Error ? emailError.message : String(emailError)
           });
           // Don't fail the whole request if email fails
         }

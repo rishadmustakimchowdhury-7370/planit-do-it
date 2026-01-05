@@ -83,9 +83,65 @@ interface EmailAccount {
   smtp_use_tls?: boolean;
 }
 
+
+// ============================================================================
+// EMAIL SAFETY + ENCODING (HARD ENFORCEMENT)
+// ============================================================================
+
+function base64EncodeUtf8(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  // Chunk to avoid call stack limits
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function ensureAnchorsOpenInNewTab(html: string): string {
+  // Add target+rel where missing.
+  return html.replace(/<a\b(?![^>]*\btarget=)/gi, '<a target="_blank" rel="noopener noreferrer"');
+}
+
+function assertEnterpriseEmailHtml(html: string): void {
+  // Prohibited encodings / artifacts
+  if (html.includes("=20")) {
+    throw new Error("[SMTP] Rejected email: detected '=20' artifact (quoted-printable leakage)");
+  }
+
+  // Prohibited tags
+  if (/<\s*script\b/i.test(html)) {
+    throw new Error("[SMTP] Rejected email: <script> tag is not allowed");
+  }
+
+  // Prohibit relative URLs in href
+  if (/href\s*=\s*["']\/(?!\/)/i.test(html)) {
+    throw new Error("[SMTP] Rejected email: relative URL detected in href; absolute URLs only");
+  }
+}
+
+function buildBase64HtmlMimeContent(html: string) {
+  // Enforce no SVG by stripping (templates sometimes include SVG fallbacks)
+  const withoutSvg = html.replace(/<\s*svg[\s\S]*?<\s*\/\s*svg\s*>/gi, "");
+  const withTargets = ensureAnchorsOpenInNewTab(withoutSvg);
+
+  assertEnterpriseEmailHtml(withTargets);
+
+  return [
+    {
+      mimeType: "text/html; charset=UTF-8",
+      content: base64EncodeUtf8(withTargets),
+      transferEncoding: "base64",
+    },
+  ];
+}
+
 // ============================================================================
 // SMTP CLIENT HELPERS
 // ============================================================================
+
 
 /**
  * Get Super Admin SMTP configuration from environment
@@ -149,7 +205,12 @@ async function sendViaSMTP(
       const client = createSMTPClient(config);
       const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
       
-      // Prepare email
+      // HARD ENFORCEMENT:
+      // - HTML only
+      // - Content-Transfer-Encoding: base64
+      // - No quoted-printable
+      const mimeContent = buildBase64HtmlMimeContent(payload.html);
+
       const emailOptions: Parameters<SMTPClient["send"]>[0] = {
         from: `${from.name} <${from.email}>`,
         to: recipients,
@@ -157,8 +218,7 @@ async function sendViaSMTP(
         bcc: payload.bcc,
         replyTo: payload.replyTo || from.email,
         subject: payload.subject,
-        content: "Please view this email in an HTML-compatible client.",
-        html: payload.html,
+        mimeContent,
       };
 
       // Add attachments if present

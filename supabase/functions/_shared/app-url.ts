@@ -1,86 +1,84 @@
 /**
  * Environment-Aware Base URL Utility
- * 
- * This module provides a centralized way to get the application base URL
- * that works correctly in both Lovable preview and production environments.
- * 
- * Configuration:
- * - Set APP_URL secret in Supabase to your production domain (e.g., https://hiremetrics.co.uk)
- * - For Lovable preview, it will use the fallback URL
- * 
- * Usage:
- * import { getAppBaseUrl, getDashboardUrl, getAdminUrl } from "../_shared/app-url.ts";
- * 
- * const baseUrl = getAppBaseUrl();
- * const dashboardLink = getDashboardUrl();
+ *
+ * Rules (enterprise-safe):
+ * - Never emit relative URLs for emails.
+ * - Never hardcode preview URLs.
+ * - Resolve base URL in this priority order:
+ *   1) APP_BASE_URL (recommended)
+ *   2) APP_URL (legacy)
+ *   3) Request host (Origin / X-Forwarded-Host / Host)
+ * - If none available, THROW (fail fast).
  */
 
-// Default fallback URL - used when APP_URL is not set
-const DEFAULT_APP_URL = "https://hiremetrics.co.uk";
+function normalizeBaseUrl(url: string): string {
+  const trimmed = url.trim();
+  return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+}
 
-/**
- * Get the base application URL from environment
- * Prioritizes APP_URL env var, falls back to production URL
- */
-export function getAppBaseUrl(): string {
-  const appUrl = Deno.env.get("APP_URL");
-  
-  // Log for debugging in production
-  if (!appUrl) {
-    console.log("[APP-URL] APP_URL not set, using default:", DEFAULT_APP_URL);
+function resolveBaseUrlFromRequest(req: Request): string {
+  const origin = req.headers.get("origin") || req.headers.get("referer");
+  if (origin) {
+    try {
+      return new URL(origin).origin;
+    } catch {
+      // fall through
+    }
   }
-  
-  return appUrl || DEFAULT_APP_URL;
+
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  if (host) {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
+  }
+
+  throw new Error("[APP-URL] Unable to resolve base URL from request headers");
 }
 
 /**
- * Get the dashboard URL
+ * Get the base application URL.
+ *
+ * IMPORTANT: When generating email links, pass the current Request so we can
+ * auto-detect the correct environment (Lovable preview vs production).
  */
-export function getDashboardUrl(): string {
-  return `${getAppBaseUrl()}/dashboard`;
+export function getAppBaseUrl(req?: Request): string {
+  const envUrl = Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL");
+  if (envUrl) return normalizeBaseUrl(envUrl);
+
+  if (req) return normalizeBaseUrl(resolveBaseUrlFromRequest(req));
+
+  throw new Error(
+    "[APP-URL] APP_BASE_URL/APP_URL not set and no Request provided; cannot build absolute URLs"
+  );
 }
 
-/**
- * Get the auth/login URL
- */
-export function getAuthUrl(): string {
-  return `${getAppBaseUrl()}/auth`;
+export function getDashboardUrl(req?: Request): string {
+  return `${getAppBaseUrl(req)}/dashboard`;
 }
 
-/**
- * Get the admin panel URL
- */
-export function getAdminUrl(path: string = ""): string {
-  return `${getAppBaseUrl()}/admin${path ? `/${path}` : ""}`;
+export function getAuthUrl(req?: Request): string {
+  return `${getAppBaseUrl(req)}/auth`;
 }
 
-/**
- * Get the team management URL
- */
-export function getTeamUrl(): string {
-  return `${getAppBaseUrl()}/team`;
+export function getAdminUrl(path: string = "", req?: Request): string {
+  return `${getAppBaseUrl(req)}/admin${path ? `/${path}` : ""}`;
 }
 
-/**
- * Get the invitation acceptance URL with token
- */
-export function getInviteAcceptUrl(token: string): string {
-  return `${getAppBaseUrl()}/accept-invitation?token=${token}`;
+export function getTeamUrl(req?: Request): string {
+  return `${getAppBaseUrl(req)}/team`;
 }
 
-/**
- * Get the billing page URL
- */
-export function getBillingUrl(): string {
-  return `${getAppBaseUrl()}/billing`;
+export function getInviteAcceptUrl(token: string, req?: Request): string {
+  return `${getAppBaseUrl(req)}/accept-invitation?token=${token}`;
 }
 
-/**
- * Build a full URL for a given path
- */
-export function buildAppUrl(path: string): string {
-  const base = getAppBaseUrl();
-  // Ensure path starts with /
+export function getBillingUrl(req?: Request): string {
+  return `${getAppBaseUrl(req)}/billing`;
+}
+
+export function buildAppUrl(path: string, req?: Request): string {
+  const base = getAppBaseUrl(req);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalizedPath}`;
 }
+

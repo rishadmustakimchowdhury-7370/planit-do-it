@@ -1,13 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  createResendClient,
-  sendEmailWithRetry,
-  logEmailEvent,
-  ADMIN_EMAIL,
-} from "../_shared/email-config.ts";
+  sendSystemEmail,
+  sendTeamEmail,
+  sendAuditEmail,
+  SUPER_ADMIN_EMAIL,
+} from "../_shared/smtp-sender.ts";
 import {
-  getAppBaseUrl,
   getDashboardUrl,
   getAdminUrl,
   getTeamUrl,
@@ -466,21 +465,19 @@ serve(async (req) => {
 
     logStep("Audit log created");
 
-    // 10) Send notification emails
-    const resend = createResendClient();
+    // 10) Send notification emails (SMTP-only)
     const roleName = invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1);
-    const activatedAt = new Date().toLocaleString("en-GB", { 
+    const activatedAt = new Date().toLocaleString("en-GB", {
       timeZone: "Europe/London",
       dateStyle: "full",
-      timeStyle: "short"
+      timeStyle: "short",
     });
 
     // Email 1: Welcome email to team member
     try {
       logStep("Sending welcome email to team member", { email: invitation.email });
-      const dashboardUrl = getDashboardUrl();
-      logStep("Using dashboard URL", { dashboardUrl });
-      
+      const dashboardUrl = getDashboardUrl(req);
+
       const welcomeHtml = generateWelcomeEmailHTML({
         memberName: full_name,
         roleName,
@@ -488,11 +485,10 @@ serve(async (req) => {
         dashboardUrl,
       });
 
-      await sendEmailWithRetry(resend, {
+      const r1 = await sendSystemEmail({
         to: invitation.email,
         subject: `Welcome to ${teamName} - Your Account is Ready`,
         html: welcomeHtml,
-        senderType: "notifications",
       });
 
       await supabaseAdmin.from("email_logs").insert({
@@ -500,63 +496,67 @@ serve(async (req) => {
         recipient_email: invitation.email,
         subject: `Welcome to ${teamName} - Your Account is Ready`,
         template_name: "team_member_welcome",
-        status: "sent",
+        status: r1.success ? "sent" : "failed",
+        error_message: r1.success ? null : r1.error,
         sent_by: userId,
         metadata: { event: "team_member_accepted", role: invitation.role },
       });
 
+      if (!r1.success) throw new Error(r1.error || "Welcome email failed");
       logStep("Welcome email sent to team member");
     } catch (emailError) {
-      logStep("Failed to send welcome email", { error: emailError });
+      logStep("Failed to send welcome email", { error: emailError instanceof Error ? emailError.message : String(emailError) });
     }
 
     // Email 2: Notification to owner
     if (ownerEmail) {
       try {
         logStep("Sending notification email to owner", { email: ownerEmail });
-        
-        // Add delay to avoid rate limiting
-        await new Promise(r => setTimeout(r, 500));
-        
+        await new Promise((r) => setTimeout(r, 300));
+
         const ownerHtml = generateOwnerNotificationHTML({
           memberName: full_name,
           memberEmail: invitation.email,
           roleName,
           teamName,
           activatedAt,
-          teamUrl: getTeamUrl(),
+          teamUrl: getTeamUrl(req),
         });
 
-        await sendEmailWithRetry(resend, {
-          to: ownerEmail,
-          subject: `Team Member Joined: ${full_name} (${roleName})`,
-          html: ownerHtml,
-          senderType: "notifications",
-        });
+        const r2 = await sendTeamEmail(
+          invitation.tenant_id,
+          ownerRole?.user_id,
+          ownerName || "HireMetrics",
+          {
+            to: ownerEmail,
+            subject: `Team Member Joined: ${full_name} (${roleName})`,
+            html: ownerHtml,
+          }
+        );
 
         await supabaseAdmin.from("email_logs").insert({
           tenant_id: invitation.tenant_id,
           recipient_email: ownerEmail,
           subject: `Team Member Joined: ${full_name} (${roleName})`,
           template_name: "owner_member_joined",
-          status: "sent",
+          status: r2.success ? "sent" : "failed",
+          error_message: r2.success ? null : r2.error,
           sent_by: userId,
           metadata: { event: "team_member_accepted", member_email: invitation.email },
         });
 
+        if (!r2.success) throw new Error(r2.error || "Owner notification failed");
         logStep("Owner notification email sent");
       } catch (emailError) {
-        logStep("Failed to send owner notification email", { error: emailError });
+        logStep("Failed to send owner notification email", { error: emailError instanceof Error ? emailError.message : String(emailError) });
       }
     }
 
     // Email 3: Notification to super admin
     try {
-      logStep("Sending notification email to super admin", { email: ADMIN_EMAIL });
-      
-      // Add delay to avoid rate limiting
-      await new Promise(r => setTimeout(r, 500));
-      
+      logStep("Sending notification email to super admin", { email: SUPER_ADMIN_EMAIL });
+      await new Promise((r) => setTimeout(r, 300));
+
       const adminHtml = generateAdminNotificationHTML({
         memberName: full_name,
         memberEmail: invitation.email,
@@ -564,33 +564,33 @@ serve(async (req) => {
         teamName,
         ownerName: ownerName || "Unknown",
         activatedAt,
-        adminUrl: getAdminUrl("users"),
+        adminUrl: getAdminUrl("users", req),
       });
 
-      await sendEmailWithRetry(resend, {
-        to: ADMIN_EMAIL,
-        subject: `New User Activated: ${full_name} (${teamName})`,
-        html: adminHtml,
-        senderType: "notifications",
-      });
+      const r3 = await sendAuditEmail(
+        `New User Activated: ${full_name} (${teamName})`,
+        adminHtml
+      );
 
       await supabaseAdmin.from("email_logs").insert({
         tenant_id: invitation.tenant_id,
-        recipient_email: ADMIN_EMAIL,
+        recipient_email: SUPER_ADMIN_EMAIL,
         subject: `New User Activated: ${full_name} (${teamName})`,
         template_name: "admin_member_activated",
-        status: "sent",
+        status: r3.success ? "sent" : "failed",
+        error_message: r3.success ? null : r3.error,
         sent_by: userId,
-        metadata: { 
-          event: "team_member_accepted", 
+        metadata: {
+          event: "team_member_accepted",
           member_email: invitation.email,
           team_name: teamName,
         },
       });
 
+      if (!r3.success) throw new Error(r3.error || "Super admin notification failed");
       logStep("Super admin notification email sent");
     } catch (emailError) {
-      logStep("Failed to send super admin notification email", { error: emailError });
+      logStep("Failed to send super admin notification email", { error: emailError instanceof Error ? emailError.message : String(emailError) });
     }
 
     logStep("Invitation acceptance completed successfully", { userId, email: invitation.email });
