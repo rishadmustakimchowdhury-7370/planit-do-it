@@ -257,6 +257,7 @@ export default function TeamMembersPage() {
           role: inviteRole,
           token,
           tenant_id: tenantId,
+          invited_by_id: user?.id,
           invited_by_name: profile?.full_name || 'Your team'
         }
       });
