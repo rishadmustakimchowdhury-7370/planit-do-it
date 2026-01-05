@@ -1,0 +1,1 @@
+UPDATE trusted_clients SET is_active = true WHERE is_active = false;
