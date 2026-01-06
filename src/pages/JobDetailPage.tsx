@@ -362,123 +362,36 @@ const JobDetailPage = () => {
   const handleDownloadJD = async () => {
     if (!job) return;
 
-    // If there's an uploaded JD file, use branded download
-    if (job.jd_file_url) {
-      await downloadBranded({
-        fileUrl: job.jd_file_url,
-        documentType: 'jd',
-        entityName: job.title
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-jd-pdf', {
+        body: { job_id: job.id },
       });
-      return;
-    }
 
-    // Otherwise, generate JD from description with branding
-    if (!job.description && !job.requirements) {
-      toast.error('No job description available');
-      return;
-    }
-
-    // Fetch organization branding
-    let orgLogoHtml = '';
-    if (tenantId) {
-      const { data: branding } = await supabase
-        .from('branding_settings')
-        .select('logo_url, company_name')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      
-      if (branding?.logo_url) {
-        orgLogoHtml = `<img src="${branding.logo_url}" alt="${branding.company_name || 'Organization'}" style="max-height:50px;max-width:150px;object-fit:contain;" />`;
-      } else if (branding?.company_name) {
-        orgLogoHtml = `<div style="font-size:18px;font-weight:600;color:#0B1C8C;">${branding.company_name}</div>`;
+      if (error) throw error;
+      if (!data?.success || !data?.pdf_base64) {
+        throw new Error(data?.error || 'Failed to generate JD PDF');
       }
+
+      const binaryString = atob(data.pdf_base64 as string);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (data.file_name as string) || `${job.title.replace(/\s+/g, '_')}_JD.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Job description PDF downloaded');
+    } catch (err: any) {
+      console.error('JD PDF download error:', err);
+      toast.error(err?.message || 'Failed to download JD PDF');
     }
-
-    const salaryText = formatSalary();
-    const skills = job.skills as string[] | null;
-    
-    // Create branded HTML JD - no company name, include location, title, salary, and details
-    const jdHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Job Description - ${job.title}</title>
-  <style>
-    @page { margin: 20mm; size: A4; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; }
-    .branded-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; margin-bottom: 25px; border-bottom: 2px solid #0B1C8C; }
-    .hiremetrics-logo { display: flex; align-items: center; gap: 8px; }
-    .hiremetrics-icon { width: 36px; height: 36px; background: #0B1C8C; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; line-height: 36px; text-align: center; }
-    .hiremetrics-text { font-size: 16px; font-weight: 600; color: #0B1C8C; }
-    .org-logo { text-align: right; }
-    h1 { color: #0B1C8C; margin-bottom: 20px; font-size: 24px; }
-    .meta { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 28px; padding: 16px; background: #f8fafc; border-radius: 8px; }
-    .meta-item { display: flex; align-items: center; gap: 6px; color: #374151; font-size: 14px; }
-    .meta-item strong { color: #0B1C8C; }
-    h2 { color: #0B1C8C; margin-top: 28px; margin-bottom: 14px; font-size: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-    .description { line-height: 1.7; color: #374151; }
-    .description p { margin-bottom: 12px; }
-    .skills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-    .skill-tag { background: #EEF2FF; color: #0B1C8C; padding: 4px 12px; border-radius: 16px; font-size: 13px; }
-    .branded-footer { margin-top: 40px; padding-top: 15px; border-top: 1px solid #e5e5e5; text-align: center; font-size: 9pt; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="branded-header">
-    <div class="hiremetrics-logo">
-      <div class="hiremetrics-icon">H</div>
-      <span class="hiremetrics-text">HireMetrics</span>
-    </div>
-    <div class="org-logo">${orgLogoHtml}</div>
-  </div>
-
-  <h1>${job.title}</h1>
-  
-  <div class="meta">
-    ${job.location ? `<div class="meta-item">📍 <strong>Location:</strong> ${job.location}</div>` : ''}
-    ${job.employment_type ? `<div class="meta-item">💼 <strong>Type:</strong> ${job.employment_type}</div>` : ''}
-    ${job.experience_level ? `<div class="meta-item">📊 <strong>Level:</strong> ${job.experience_level}</div>` : ''}
-    ${salaryText !== 'Not specified' ? `<div class="meta-item">💰 <strong>Salary:</strong> ${salaryText}</div>` : ''}
-    ${job.is_remote ? `<div class="meta-item">🏠 <strong>Remote:</strong> Yes</div>` : ''}
-    ${job.openings ? `<div class="meta-item">👥 <strong>Openings:</strong> ${job.openings}</div>` : ''}
-  </div>
-  
-  ${job.description ? `
-  <h2>Job Description</h2>
-  <div class="description">${job.description}</div>
-  ` : ''}
-  
-  ${job.requirements ? `
-  <h2>Requirements</h2>
-  <div class="description">${job.requirements}</div>
-  ` : ''}
-  
-  ${skills && skills.length > 0 ? `
-  <h2>Required Skills</h2>
-  <div class="skills">
-    ${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-  </div>
-  ` : ''}
-
-  <div class="branded-footer">
-    Generated via HireMetrics &bull; hiremetrics.co.uk
-  </div>
-</body>
-</html>`;
-
-    const blob = new Blob([jdHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${job.title.replace(/\s+/g, '_')}_JD.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Job description downloaded');
   };
 
   const formatSalary = () => {
