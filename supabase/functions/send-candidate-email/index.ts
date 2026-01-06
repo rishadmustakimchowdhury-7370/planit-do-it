@@ -131,13 +131,13 @@ function formatEmailBody(bodyText: string): string {
   return formattedHtml;
 }
 
-// Professional HTML email template with Organization logo top-right
-// and "Powered by HireMetrics CRM" footer
+// Professional HTML email template with ONLY Organization logo centered at top
+// and simple "Powered by HireMetrics CRM" footer
 const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
   recruiterName: string,
-  recruiterEmail: string,
+  recruiterRole: string,
   attachmentLinks?: Attachment[],
   orgBranding?: OrgBranding,
   includeSignature: boolean = true
@@ -152,38 +152,45 @@ const createEmailHtml = (
                               bodyLower.includes('kind regards') || 
                               bodyLower.includes('sincerely') ||
                               bodyLower.includes('thanks,') ||
-                              bodyLower.includes('thank you,');
+                              bodyLower.includes('thank you,') ||
+                              bodyLower.includes('warm regards');
   
   if (includeSignature && !hasSignatureInBody) {
     if (signature && signature.trim()) {
-      // User's custom signature - format each line properly
+      // User's custom signature - extract Name and Role only
       const signatureLines = signature.split('\n').filter(line => line.trim());
+      // Filter out email addresses, phone numbers, and keep only name/role
+      const filteredLines = signatureLines.filter(line => {
+        const trimmed = line.trim().toLowerCase();
+        // Skip lines with email addresses or phone patterns
+        return !trimmed.includes('@') && 
+               !trimmed.match(/^\+?[\d\s\-().]+$/) &&
+               !trimmed.match(/^tel:|^phone:|^mobile:/i);
+      });
+      
       signatureHtml = `
-        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-          ${signatureLines.map((line, index) => {
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+          ${filteredLines.map((line, index) => {
             const trimmedLine = line.trim();
-            if (index === 0) {
-              // First line (usually "Best regards," or greeting)
-              return `<p style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">${trimmedLine}</p>`;
-            } else if (index === 1) {
-              // Second line (usually name) - make it bold
-              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${trimmedLine}</p>`;
-            } else if (trimmedLine.includes('@')) {
-              // Email address - make it a link
-              return `<p style="margin: 0 0 4px 0;"><a href="mailto:${trimmedLine}" style="color: #00008B; font-size: 13px; text-decoration: none;">${trimmedLine}</a></p>`;
+            if (index === 0 && (trimmedLine.toLowerCase().includes('regards') || trimmedLine.toLowerCase().includes('sincerely') || trimmedLine.toLowerCase().includes('thanks'))) {
+              // Greeting line
+              return `<p style="margin: 0 0 12px 0; color: #374151; font-size: 15px; line-height: 1.6;">${trimmedLine}</p>`;
+            } else if (index <= 1 || (index === 0 && !trimmedLine.toLowerCase().includes('regards'))) {
+              // Name (bold)
+              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${trimmedLine}</p>`;
             } else {
-              // Other lines (title, phone, etc.)
-              return `<p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px;">${trimmedLine}</p>`;
+              // Role/title
+              return `<p style="margin: 0; color: #6b7280; font-size: 14px;">${trimmedLine}</p>`;
             }
           }).join('')}
         </div>`;
     } else {
-      // Default signature with recruiter info
+      // Default signature with name and role only - no email
       signatureHtml = `
-        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">Best regards,</p>
-          <p style="margin: 0 0 4px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${recruiterName}</p>
-          <p style="margin: 0;"><a href="mailto:${recruiterEmail}" style="color: #00008B; font-size: 13px; text-decoration: none;">${recruiterEmail}</a></p>
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0 0 12px 0; color: #374151; font-size: 15px; line-height: 1.6;">Best regards,</p>
+          <p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${recruiterName}</p>
+          ${recruiterRole ? `<p style="margin: 0; color: #6b7280; font-size: 14px;">${recruiterRole}</p>` : ''}
         </div>`;
     }
   }
@@ -191,63 +198,52 @@ const createEmailHtml = (
   let attachmentsHtml = '';
   if (attachmentLinks && attachmentLinks.length > 0) {
     attachmentsHtml = `
-      <div style="margin-top: 24px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+      <div style="margin-top: 28px; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
         <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #374151;">📎 Attachments</p>
         ${attachmentLinks.map(att => `
-          <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 4px 8px 4px 0; padding: 8px 14px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
+          <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 4px 8px 4px 0; padding: 10px 16px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
         `).join('')}
       </div>`;
   }
 
-  const displayCompanyName = orgBranding?.companyName || 'Your Recruitment Partner';
-  const orgLogo = orgBranding ? getOrgLogoHTML(orgBranding) : "";
+  // Centered organization logo header - ONLY org logo, no HireMetrics branding
+  let headerHtml = '';
+  if (orgBranding?.logoUrl) {
+    headerHtml = `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 32px; background: #ffffff;">
+        <tr>
+          <td align="center">
+            <img src="${orgBranding.logoUrl}" 
+                 alt="${orgBranding.companyName || 'Organization'}" 
+                 height="50" 
+                 style="display: block; border: 0; max-width: 200px; height: auto; max-height: 50px;" />
+          </td>
+        </tr>
+      </table>
+    `;
+  } else if (orgBranding?.companyName) {
+    // Text-based logo fallback
+    const color = orgBranding.primaryColor || "#1f2937";
+    headerHtml = `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 32px; background: #ffffff;">
+        <tr>
+          <td align="center">
+            <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 22px; color: ${color};">
+              ${orgBranding.companyName}
+            </span>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
 
-  // Professional header with organization logo on top-right
-  const headerHtml = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 20px 32px; border-bottom: 2px solid #00008B; background: #ffffff;">
-      <tr>
-        <td align="left" style="width: 50%; vertical-align: middle;">
-          <table cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td style="vertical-align: middle;">
-                <div style="background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius: 10px; padding: 10px; display: inline-block; width: 44px; height: 44px; text-align: center; line-height: 24px;">
-                  <span style="font-family: Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ffffff;">H</span>
-                </div>
-              </td>
-              <td style="vertical-align: middle; padding-left: 12px;">
-                <p style="margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 18px; color: #0F172A; line-height: 1.2;">HireMetrics</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-        <td align="right" style="width: 50%; vertical-align: middle;">
-          ${orgLogo || `<span style="font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 16px; font-weight: 600; color: #00008B;">${displayCompanyName}</span>`}
-        </td>
-      </tr>
-    </table>
-  `;
-
-  const currentYear = new Date().getFullYear();
-
-  // Professional footer with "Powered by HireMetrics CRM"
+  // Simple footer - just "Powered by HireMetrics CRM"
   const footerHtml = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 20px 32px; background-color: #f8fafc;">
       <tr>
         <td align="center">
-          <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b; font-family: 'Segoe UI', Arial, sans-serif;">
-            This email was sent on behalf of <strong style="color: #374151;">${displayCompanyName}</strong>
-          </p>
-          <table cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0;">
-            <tr>
-              <td style="padding: 8px 16px; background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius: 6px;">
-                <span style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #ffffff; font-weight: 500;">
-                  Powered by <strong>HireMetrics CRM</strong>
-                </span>
-              </td>
-            </tr>
-          </table>
-          <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8; font-family: Arial, sans-serif;">
-            © ${currentYear} HireMetrics. All rights reserved. | <a href="https://hiremetrics.co.uk" target="_blank" style="color: #00008B; text-decoration: none;">hiremetrics.co.uk</a>
+          <p style="margin: 0; font-size: 12px; color: #94a3b8; font-family: 'Segoe UI', Arial, sans-serif;">
+            Powered by <strong style="color: #64748b;">HireMetrics CRM</strong>
           </p>
         </td>
       </tr>
@@ -262,19 +258,20 @@ const createEmailHtml = (
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
   <title>Email</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td { font-family: Arial, sans-serif !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
     <tr>
-      <td style="padding: 32px 16px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; max-width: 600px;">
+      <td style="padding: 40px 16px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); overflow: hidden; max-width: 600px;">
+          ${headerHtml ? `<tr><td>${headerHtml}</td></tr>` : ''}
           <tr>
-            <td>
-              ${headerHtml}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 32px; color: #1f2937; font-size: 15px; line-height: 1.7;">
+            <td style="padding: 32px 36px; color: #1f2937; font-size: 15px; line-height: 1.7;">
               ${formattedBody}
               ${signatureHtml}
               ${attachmentsHtml}
@@ -453,7 +450,7 @@ serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("tenant_id, full_name, email_signature, email")
+      .select("tenant_id, full_name, email_signature, email, role")
       .eq("id", user.id)
       .single();
 
@@ -561,14 +558,15 @@ serve(async (req) => {
     const senderEmail = emailAccount?.from_email || profile.email || SUPER_ADMIN_EMAIL;
     const senderName = emailAccount?.display_name || recruiterName;
 
-    // Create email HTML with DUAL LOGOS (HireMetrics + Org)
-    // Pass the user's configured signature - the function will detect if signature is already in body
+    // Create email HTML with organization logo only at top
+    // Signature shows Name + Role only (no email visible to recipients)
     const userSignature = signature ?? profile.email_signature ?? null;
+    const recruiterRole = profile.role || "";
     const emailHtml = createEmailHtml(
       body_text,
       userSignature,
       senderName,
-      senderEmail,
+      recruiterRole,
       attachments,
       orgBranding,
       true // includeSignature - function will check if already present in body
