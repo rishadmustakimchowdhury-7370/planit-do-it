@@ -81,7 +81,7 @@ export function useBrandedDownload() {
       return;
     }
 
-    // Convert base64 to blob
+    // Convert base64 to blob and create object URL
     const binaryString = atob(response.original_pdf_base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -90,7 +90,15 @@ export function useBrandedDownload() {
     const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
     const pdfDataUrl = URL.createObjectURL(pdfBlob);
 
-    // Create branded HTML with embedded PDF
+    // Open new window first
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to view branded document');
+      URL.revokeObjectURL(pdfDataUrl);
+      return;
+    }
+
+    // Write the HTML content
     const brandedContent = `
 <!DOCTYPE html>
 <html>
@@ -147,7 +155,7 @@ export function useBrandedDownload() {
       width: 100%;
       min-height: 0;
     }
-    .pdf-container embed {
+    .pdf-container iframe {
       width: 100%;
       height: 100%;
       border: none;
@@ -161,29 +169,30 @@ export function useBrandedDownload() {
       <span class="hiremetrics-text">HireMetrics</span>
     </div>
     <div class="org-logo">
-      ${response.branding_applied?.has_org_logo 
-        ? `<img src="${response.branding_applied?.company_name || ''}" alt="Organization" />`
-        : response.branding_applied?.company_name 
-          ? `<span class="org-name">${response.branding_applied.company_name}</span>`
-          : ''
+      ${response.branding_applied?.company_name 
+        ? `<span class="org-name">${response.branding_applied.company_name}</span>`
+        : ''
       }
     </div>
   </div>
   
   <div class="pdf-container">
-    <embed src="${pdfDataUrl}" type="application/pdf" />
+    <iframe id="pdfFrame"></iframe>
   </div>
+  
+  <script>
+    document.getElementById('pdfFrame').src = '${pdfDataUrl}';
+  </script>
 </body>
 </html>`;
 
-    // Open in new window
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(brandedContent);
-      printWindow.document.close();
-    } else {
-      toast.error('Please allow popups to view branded document');
-    }
+    printWindow.document.write(brandedContent);
+    printWindow.document.close();
+    
+    // Clean up blob URL after a delay to allow loading
+    setTimeout(() => {
+      URL.revokeObjectURL(pdfDataUrl);
+    }, 60000);
   };
 
   const downloadAsHtml = (html: string, entityName: string, documentType: 'cv' | 'jd') => {
