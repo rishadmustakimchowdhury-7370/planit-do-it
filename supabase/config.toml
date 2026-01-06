@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.assign-package]
 verify_jwt = true
+
+[functions.generate-jd-pdf]
+verify_jwt = true

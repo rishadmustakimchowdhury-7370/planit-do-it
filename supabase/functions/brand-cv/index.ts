@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -140,6 +141,108 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function base64ToUint8(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function tryFetchLogoBytes(url: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const mime = res.headers.get('content-type') || '';
+    const ab = await res.arrayBuffer();
+    return { bytes: new Uint8Array(ab), mime };
+  } catch {
+    return null;
+  }
+}
+
+async function brandPdfWithHeader(params: {
+  pdfBytes: Uint8Array;
+  orgLogoUrl: string | null;
+  companyName: string | null;
+}): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(params.pdfBytes);
+  const pages = pdfDoc.getPages();
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Try to embed org logo (PNG/JPG). SVGs are not supported by pdf-lib.
+  let orgLogoImage: any = null;
+  if (params.orgLogoUrl && !params.orgLogoUrl.toLowerCase().endsWith('.svg')) {
+    const logo = await tryFetchLogoBytes(params.orgLogoUrl);
+    if (logo?.bytes?.length) {
+      if (logo.mime.includes('png') || params.orgLogoUrl.toLowerCase().endsWith('.png')) {
+        orgLogoImage = await pdfDoc.embedPng(logo.bytes);
+      } else if (logo.mime.includes('jpeg') || logo.mime.includes('jpg') || params.orgLogoUrl.toLowerCase().match(/\.(jpe?g)$/)) {
+        orgLogoImage = await pdfDoc.embedJpg(logo.bytes);
+      }
+    }
+  }
+
+  const brandBlue = rgb(0.043, 0.11, 0.55);
+  const borderGray = rgb(0.9, 0.9, 0.92);
+
+  for (const page of pages) {
+    const { width, height } = page.getSize();
+
+    const marginX = 40;
+    const top = height - 32;
+    const headerHeight = 42;
+
+    // Separator line
+    page.drawLine({
+      start: { x: marginX, y: top - headerHeight + 6 },
+      end: { x: width - marginX, y: top - headerHeight + 6 },
+      thickness: 1,
+      color: borderGray,
+    });
+
+    // Left: HireMetrics wordmark (simple, no external assets)
+    page.drawText('HireMetrics', {
+      x: marginX,
+      y: top - 18,
+      size: 14,
+      font: fontBold,
+      color: brandBlue,
+    });
+
+    // Right: Org logo or company name
+    if (orgLogoImage) {
+      const maxH = 22;
+      const maxW = 120;
+      const scale = Math.min(maxW / orgLogoImage.width, maxH / orgLogoImage.height, 1);
+      const w = orgLogoImage.width * scale;
+      const h = orgLogoImage.height * scale;
+      page.drawImage(orgLogoImage, {
+        x: width - marginX - w,
+        y: top - 28,
+        width: w,
+        height: h,
+      });
+    } else if (params.companyName) {
+      const text = params.companyName;
+      const size = 10;
+      const textWidth = font.widthOfTextAtSize(text, size);
+      page.drawText(text, {
+        x: Math.max(marginX, width - marginX - textWidth),
+        y: top - 22,
+        size,
+        font,
+        color: rgb(0.25, 0.3, 0.35),
+      });
+    }
+  }
+
+  return await pdfDoc.save();
+}
+
 // Extract text content from common document types
 async function extractDocumentContent(
   fileBuffer: ArrayBuffer, 
@@ -271,39 +374,19 @@ serve(async (req) => {
 
     console.log('Processing document:', { fileName, fileType, fileExtension, documentType: document_type });
 
-    // For PDF files, we'll create a branded HTML cover page + original PDF
-    // For other files, generate branded HTML
-    
+    // If the original is a PDF, generate a *real branded PDF* (org logo embedded into pages)
     if (fileExtension === 'pdf') {
-      // Convert PDF to base64 for embedding (chunked to avoid call stack limits)
-      const pdfBase64 = uint8ToBase64(new Uint8Array(fileBuffer));
-      
-      // Generate branded HTML wrapper that references the PDF
-      const brandedHtml = generateBrandedPdfHtml(
-        `<div style="text-align:center;padding:40px 20px;">
-          <p style="font-size:16px;color:#333;margin-bottom:20px;">
-            <strong>${document_type === 'cv' ? 'Curriculum Vitae' : 'Job Description'}</strong>
-          </p>
-          <p style="font-size:20px;font-weight:600;color:#0B1C8C;margin-bottom:30px;">
-            ${entity_name}
-          </p>
-          <p style="font-size:12px;color:#666;">
-            The original document is attached below.
-          </p>
-        </div>`,
-        brandingSettings?.logo_url || null,
-        brandingSettings?.company_name || null,
-        document_type as 'cv' | 'jd',
-        entity_name
-      );
+      const brandedPdfBytes = await brandPdfWithHeader({
+        pdfBytes: new Uint8Array(fileBuffer),
+        orgLogoUrl: brandingSettings?.logo_url || null,
+        companyName: brandingSettings?.company_name || null,
+      });
 
-      // Return both the branded HTML header and original PDF
       return new Response(
         JSON.stringify({
           success: true,
           message: 'Document branded successfully',
-          branded_html: brandedHtml,
-          original_pdf_base64: pdfBase64,
+          branded_pdf_base64: uint8ToBase64(brandedPdfBytes),
           original_file_name: fileName,
           file_type: 'pdf',
           branding_applied: {
@@ -311,8 +394,8 @@ serve(async (req) => {
             company_name: brandingSettings?.company_name || null,
             logo_url: brandingSettings?.logo_url || null,
             has_org_logo: !!brandingSettings?.logo_url,
-            has_hiremetrics_logo: true
-          }
+            has_hiremetrics_logo: true,
+          },
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
