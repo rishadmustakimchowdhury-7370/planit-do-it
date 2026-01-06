@@ -76,7 +76,21 @@ export function useBrandedDownload() {
     entityName: string,
     documentType: 'cv' | 'jd'
   ) => {
-    // Create a new window with branded header + embedded PDF
+    if (!response.original_pdf_base64) {
+      toast.error('No PDF data available');
+      return;
+    }
+
+    // Convert base64 to blob
+    const binaryString = atob(response.original_pdf_base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+    const pdfDataUrl = URL.createObjectURL(pdfBlob);
+
+    // Create branded HTML with embedded PDF
     const brandedContent = `
 <!DOCTYPE html>
 <html>
@@ -84,25 +98,17 @@ export function useBrandedDownload() {
   <meta charset="UTF-8">
   <title>${documentType === 'cv' ? 'CV' : 'Job Description'} - ${entityName}</title>
   <style>
-    @page { margin: 0; size: A4; }
-    @media print {
-      .no-print { display: none !important; }
-      .pdf-container { height: auto !important; }
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; }
     .branded-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 15px 30px;
+      padding: 12px 24px;
       border-bottom: 2px solid #0B1C8C;
       background: white;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
+      flex-shrink: 0;
     }
     .hiremetrics-logo {
       display: flex;
@@ -110,8 +116,8 @@ export function useBrandedDownload() {
       gap: 10px;
     }
     .hiremetrics-icon {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       background: #0B1C8C;
       border-radius: 6px;
       display: flex;
@@ -119,54 +125,32 @@ export function useBrandedDownload() {
       justify-content: center;
       color: white;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px;
     }
     .hiremetrics-text {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       color: #0B1C8C;
     }
     .org-logo img {
-      max-height: 40px;
-      max-width: 140px;
+      max-height: 36px;
+      max-width: 120px;
       object-fit: contain;
     }
     .org-name {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       color: #0B1C8C;
     }
     .pdf-container {
-      margin-top: 70px;
-      height: calc(100vh - 70px);
+      flex: 1;
+      width: 100%;
+      min-height: 0;
     }
-    .pdf-container iframe {
+    .pdf-container embed {
       width: 100%;
       height: 100%;
       border: none;
-    }
-    .download-bar {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 1000;
-    }
-    .download-btn {
-      background: #0B1C8C;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(11,28,140,0.3);
-    }
-    .download-btn:hover {
-      background: #091570;
     }
   </style>
 </head>
@@ -178,7 +162,7 @@ export function useBrandedDownload() {
     </div>
     <div class="org-logo">
       ${response.branding_applied?.has_org_logo 
-        ? `<img src="" alt="${response.branding_applied?.company_name || 'Organization'}" />`
+        ? `<img src="${response.branding_applied?.company_name || ''}" alt="Organization" />`
         : response.branding_applied?.company_name 
           ? `<span class="org-name">${response.branding_applied.company_name}</span>`
           : ''
@@ -187,22 +171,18 @@ export function useBrandedDownload() {
   </div>
   
   <div class="pdf-container">
-    <iframe src="data:application/pdf;base64,${response.original_pdf_base64}"></iframe>
-  </div>
-  
-  <div class="download-bar no-print">
-    <button class="download-btn" onclick="window.print()">
-      🖨️ Print / Save as PDF
-    </button>
+    <embed src="${pdfDataUrl}" type="application/pdf" />
   </div>
 </body>
 </html>`;
 
-    // Open in new window for printing
+    // Open in new window
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(brandedContent);
       printWindow.document.close();
+    } else {
+      toast.error('Please allow popups to view branded document');
     }
   };
 
