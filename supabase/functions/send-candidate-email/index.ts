@@ -98,8 +98,8 @@ function getOrgLogoHTML(branding: OrgBranding): string {
   `.trim();
 }
 
-// Professional HTML email template with DUAL LOGOS
-// HireMetrics logo (left) + Organization logo (right)
+// Professional HTML email template with Organization logo top-right
+// and "Powered by HireMetrics CRM" footer
 const createEmailHtml = (
   bodyText: string, 
   signature: string | null, 
@@ -139,19 +139,29 @@ const createEmailHtml = (
       </div>`;
   }
 
-  // Dual logo header: HireMetrics (left) + Org logo (right)
-  const hireMetricsLogo = getHireMetricsLogoInline();
-  const orgLogo = orgBranding ? getOrgLogoHTML(orgBranding) : "";
   const displayCompanyName = orgBranding?.companyName || 'Your Recruitment Partner';
+  const orgLogo = orgBranding ? getOrgLogoHTML(orgBranding) : "";
 
+  // Professional header with organization logo on top-right
   const headerHtml = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 24px 32px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 20px 32px; border-bottom: 2px solid #00008B; background: #ffffff;">
       <tr>
-        <td align="left" style="width: 50%;">
-          ${hireMetricsLogo}
+        <td align="left" style="width: 50%; vertical-align: middle;">
+          <table cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="vertical-align: middle;">
+                <div style="background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius: 10px; padding: 10px; display: inline-block; width: 44px; height: 44px; text-align: center; line-height: 24px;">
+                  <span style="font-family: Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ffffff;">H</span>
+                </div>
+              </td>
+              <td style="vertical-align: middle; padding-left: 12px;">
+                <p style="margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 18px; color: #0F172A; line-height: 1.2;">HireMetrics</p>
+              </td>
+            </tr>
+          </table>
         </td>
-        <td align="right" style="width: 50%;">
-          ${orgLogo}
+        <td align="right" style="width: 50%; vertical-align: middle;">
+          ${orgLogo || `<span style="font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 16px; font-weight: 600; color: #00008B;">${displayCompanyName}</span>`}
         </td>
       </tr>
     </table>
@@ -159,26 +169,25 @@ const createEmailHtml = (
 
   const currentYear = new Date().getFullYear();
 
-  // Footer with both logos
+  // Professional footer with "Powered by HireMetrics CRM"
   const footerHtml = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #e5e7eb;">
       <tr>
         <td align="center">
-          <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 16px;">
+          <p style="margin: 0 0 8px 0; font-size: 11px; color: #64748b; font-family: 'Segoe UI', Arial, sans-serif;">
+            This email was sent on behalf of <strong style="color: #374151;">${displayCompanyName}</strong>
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0;">
             <tr>
-              <td style="padding-right: 16px; border-right: 1px solid #e2e8f0;">
-                ${hireMetricsLogo}
-              </td>
-              <td style="padding-left: 16px;">
-                ${orgLogo || `<span style="font-family:Arial,sans-serif; font-size:14px; color:#64748b;">${displayCompanyName}</span>`}
+              <td style="padding: 8px 16px; background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius: 6px;">
+                <span style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #ffffff; font-weight: 500;">
+                  Powered by <strong>HireMetrics CRM</strong>
+                </span>
               </td>
             </tr>
           </table>
-          <p style="margin: 0 0 4px 0; font-size: 12px; color: #64748b;">
-            Sent via <strong>HireMetrics</strong> on behalf of <strong>${displayCompanyName}</strong>
-          </p>
-          <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-            © ${currentYear} HireMetrics. All rights reserved.
+          <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8; font-family: Arial, sans-serif;">
+            © ${currentYear} HireMetrics. All rights reserved. | <a href="https://hiremetrics.co.uk" target="_blank" style="color: #00008B; text-decoration: none;">hiremetrics.co.uk</a>
           </p>
         </td>
       </tr>
@@ -214,15 +223,6 @@ const createEmailHtml = (
           <tr>
             <td>
               ${footerHtml}
-            </td>
-          </tr>
-        </table>
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 16px auto 0; max-width: 600px;">
-          <tr>
-            <td style="text-align: center; padding: 0 16px;">
-              <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                This email was sent by ${recruiterName}. If you believe you received this email in error, please disregard it.
-              </p>
             </td>
           </tr>
         </table>
