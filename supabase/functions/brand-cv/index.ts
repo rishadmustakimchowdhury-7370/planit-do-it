@@ -22,7 +22,7 @@ const HIREMETRICS_LOGO_SVG = `
 </svg>
 `;
 
-// Generate branded PDF HTML wrapper
+// Generate branded PDF HTML wrapper with proper logo embedding
 function generateBrandedPdfHtml(
   contentHtml: string,
   orgLogoUrl: string | null,
@@ -30,9 +30,13 @@ function generateBrandedPdfHtml(
   documentType: 'cv' | 'jd',
   candidateOrJobName: string
 ): string {
-  const orgLogoHtml = orgLogoUrl 
-    ? `<img src="${orgLogoUrl}" alt="${companyName || 'Company'}" style="max-height:50px;max-width:150px;object-fit:contain;" />`
-    : (companyName ? `<div style="font-size:18px;font-weight:600;color:#0B1C8C;">${companyName}</div>` : '');
+  // For org logo, we need to use an img tag with full URL (no data URI needed for external URLs)
+  let orgLogoHtml = '';
+  if (orgLogoUrl) {
+    orgLogoHtml = `<img src="${orgLogoUrl}" alt="${companyName || 'Company'}" style="max-height:50px;max-width:150px;object-fit:contain;display:block;" crossorigin="anonymous" />`;
+  } else if (companyName) {
+    orgLogoHtml = `<div style="font-size:18px;font-weight:600;color:#0B1C8C;">${companyName}</div>`;
+  }
 
   return `
 <!DOCTYPE html>
@@ -60,31 +64,33 @@ function generateBrandedPdfHtml(
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 15px;
+      padding: 15px 0;
       margin-bottom: 20px;
-      border-bottom: 2px solid #0B1C8C;
+      border-bottom: 2px solid #00008B;
     }
     .hiremetrics-logo {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     .hiremetrics-icon {
-      width: 36px;
-      height: 36px;
-      background: #0B1C8C;
-      border-radius: 6px;
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%);
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
       font-weight: bold;
-      font-size: 20px;
+      font-size: 22px;
+      line-height: 40px;
+      text-align: center;
     }
     .hiremetrics-text {
-      font-size: 16px;
-      font-weight: 600;
-      color: #0B1C8C;
+      font-size: 18px;
+      font-weight: 700;
+      color: #0F172A;
     }
     .org-logo {
       text-align: right;
@@ -302,7 +308,8 @@ serve(async (req) => {
           file_type: 'pdf',
           branding_applied: {
             logo_position: 'header',
-            company_name: brandingSettings?.company_name,
+            company_name: brandingSettings?.company_name || null,
+            logo_url: brandingSettings?.logo_url || null,
             has_org_logo: !!brandingSettings?.logo_url,
             has_hiremetrics_logo: true
           }
@@ -338,7 +345,8 @@ serve(async (req) => {
         file_type: fileExtension,
         branding_applied: {
           logo_position: 'header',
-          company_name: brandingSettings?.company_name,
+          company_name: brandingSettings?.company_name || null,
+          logo_url: brandingSettings?.logo_url || null,
           has_org_logo: !!brandingSettings?.logo_url,
           has_hiremetrics_logo: true
         }
