@@ -36,6 +36,35 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines;
 }
 
+async function fetchLogoBytes(supabaseAdmin: any, logoUrl: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  const cleanUrl = logoUrl.split('?')[0];
+  const m = cleanUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+  if (m) {
+    const bucket = m[1];
+    const objectPath = decodeURIComponent(m[2]);
+    try {
+      const { data, error } = await supabaseAdmin.storage.from(bucket).download(objectPath);
+      if (!error && data) {
+        const mime = data.type || '';
+        const ab = await data.arrayBuffer();
+        return { bytes: new Uint8Array(ab), mime };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const r = await fetch(logoUrl);
+    if (!r.ok) return null;
+    const mime = r.headers.get('content-type') || '';
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    return { bytes, mime };
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -103,22 +132,23 @@ serve(async (req) => {
     const margin = 48;
     let y = height - margin;
 
-    // Header with centered org logo
+    // Header with centered org logo (no company-name fallback)
     let orgLogoImage: any = null;
-    if (branding?.logo_url && !branding.logo_url.toLowerCase().endsWith('.svg')) {
-      try {
-        const r = await fetch(branding.logo_url);
-        if (r.ok) {
-          const mime = r.headers.get('content-type') || '';
-          const bytes = new Uint8Array(await r.arrayBuffer());
-          if (mime.includes('png') || branding.logo_url.toLowerCase().endsWith('.png')) {
-            orgLogoImage = await pdfDoc.embedPng(bytes);
-          } else if (mime.includes('jpeg') || mime.includes('jpg') || branding.logo_url.toLowerCase().match(/\.(jpe?g)$/)) {
-            orgLogoImage = await pdfDoc.embedJpg(bytes);
-          }
+    if (branding?.logo_url) {
+      const logo = await fetchLogoBytes(supabaseAdmin, branding.logo_url);
+      const urlLower = branding.logo_url.toLowerCase();
+      const mimeLower = (logo?.mime || '').toLowerCase();
+
+      if (logo?.bytes?.length && !mimeLower.includes('svg') && !urlLower.endsWith('.svg')) {
+        if (mimeLower.includes('png') || urlLower.endsWith('.png')) {
+          orgLogoImage = await pdfDoc.embedPng(logo.bytes);
+        } else if (
+          mimeLower.includes('jpeg') ||
+          mimeLower.includes('jpg') ||
+          urlLower.match(/\.(jpe?g)$/)
+        ) {
+          orgLogoImage = await pdfDoc.embedJpg(logo.bytes);
         }
-      } catch {
-        // ignore
       }
     }
 
@@ -135,12 +165,6 @@ serve(async (req) => {
         height: h,
       });
       y -= h + 18;
-    } else if (branding?.company_name) {
-      const name = String(branding.company_name);
-      const size = 18;
-      const textWidth = fontBold.widthOfTextAtSize(name, size);
-      page.drawText(name, { x: (width - textWidth) / 2, y: y - size, size, font: fontBold, color: rgb(0.12, 0.16, 0.23) });
-      y -= size + 18;
     }
 
     // Title
