@@ -98,6 +98,39 @@ function getOrgLogoHTML(branding: OrgBranding): string {
   `.trim();
 }
 
+// Process HTML body to ensure proper paragraph spacing
+function formatEmailBody(bodyText: string): string {
+  const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
+  
+  if (!isHtml) {
+    // Plain text: convert to paragraphs with proper spacing
+    return bodyText
+      .split('\n\n') // Split by double newlines for paragraphs
+      .map(para => para.trim())
+      .filter(para => para.length > 0)
+      .map(para => {
+        // Handle single line breaks within paragraphs
+        const lines = para.split('\n').map(l => l.trim()).filter(l => l);
+        return `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">${lines.join('<br>')}</p>`;
+      })
+      .join('');
+  }
+  
+  // HTML content: Add proper paragraph styling
+  let formattedHtml = bodyText;
+  
+  // Style existing <p> tags with proper margins
+  formattedHtml = formattedHtml.replace(
+    /<p(?:\s[^>]*)?>/gi, 
+    '<p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">'
+  );
+  
+  // Convert <br><br> to paragraph breaks for better spacing
+  formattedHtml = formattedHtml.replace(/<br\s*\/?>\s*<br\s*\/?>/gi, '</p><p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">');
+  
+  return formattedHtml;
+}
+
 // Professional HTML email template with Organization logo top-right
 // and "Powered by HireMetrics CRM" footer
 const createEmailHtml = (
@@ -106,32 +139,59 @@ const createEmailHtml = (
   recruiterName: string,
   recruiterEmail: string,
   attachmentLinks?: Attachment[],
-  orgBranding?: OrgBranding
+  orgBranding?: OrgBranding,
+  includeSignature: boolean = true
 ): string => {
-  const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
-  
-  const formattedBody = isHtml 
-    ? bodyText 
-    : bodyText
-        .split('\n')
-        .map(line => line.trim() ? `<p style="margin: 0 0 12px 0; line-height: 1.6;">${line}</p>` : '<br/>')
-        .join('');
+  // Format the body with proper paragraph spacing
+  const formattedBody = formatEmailBody(bodyText);
 
-  const signatureHtml = signature 
-    ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-        ${signature.split('\n').map(line => 
-          line.trim() ? `<p style="margin: 0 0 4px 0; color: #374151; font-size: 14px;">${line}</p>` : ''
-        ).join('')}
-      </div>`
-    : `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-        <p style="margin: 0 0 4px 0; color: #374151; font-size: 14px; font-weight: 600;">${recruiterName}</p>
-        <p style="margin: 0; color: #6b7280; font-size: 13px;">${recruiterEmail}</p>
-      </div>`;
+  // Only add signature if includeSignature is true and signature wasn't already in the body
+  let signatureHtml = '';
+  const bodyLower = bodyText.toLowerCase();
+  const hasSignatureInBody = bodyLower.includes('best regards') || 
+                              bodyLower.includes('kind regards') || 
+                              bodyLower.includes('sincerely') ||
+                              bodyLower.includes('thanks,') ||
+                              bodyLower.includes('thank you,');
+  
+  if (includeSignature && !hasSignatureInBody) {
+    if (signature && signature.trim()) {
+      // User's custom signature - format each line properly
+      const signatureLines = signature.split('\n').filter(line => line.trim());
+      signatureHtml = `
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          ${signatureLines.map((line, index) => {
+            const trimmedLine = line.trim();
+            if (index === 0) {
+              // First line (usually "Best regards," or greeting)
+              return `<p style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">${trimmedLine}</p>`;
+            } else if (index === 1) {
+              // Second line (usually name) - make it bold
+              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${trimmedLine}</p>`;
+            } else if (trimmedLine.includes('@')) {
+              // Email address - make it a link
+              return `<p style="margin: 0 0 4px 0;"><a href="mailto:${trimmedLine}" style="color: #00008B; font-size: 13px; text-decoration: none;">${trimmedLine}</a></p>`;
+            } else {
+              // Other lines (title, phone, etc.)
+              return `<p style="margin: 0 0 4px 0; color: #6b7280; font-size: 13px;">${trimmedLine}</p>`;
+            }
+          }).join('')}
+        </div>`;
+    } else {
+      // Default signature with recruiter info
+      signatureHtml = `
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px;">Best regards,</p>
+          <p style="margin: 0 0 4px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${recruiterName}</p>
+          <p style="margin: 0;"><a href="mailto:${recruiterEmail}" style="color: #00008B; font-size: 13px; text-decoration: none;">${recruiterEmail}</a></p>
+        </div>`;
+    }
+  }
 
   let attachmentsHtml = '';
   if (attachmentLinks && attachmentLinks.length > 0) {
     attachmentsHtml = `
-      <div style="margin-top: 20px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+      <div style="margin-top: 24px; padding: 16px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
         <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #374151;">📎 Attachments</p>
         ${attachmentLinks.map(att => `
           <a href="${att.url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; margin: 4px 8px 4px 0; padding: 8px 14px; background-color: #ffffff; color: #374151; text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid #d1d5db;">${att.name}</a>
@@ -502,13 +562,16 @@ serve(async (req) => {
     const senderName = emailAccount?.display_name || recruiterName;
 
     // Create email HTML with DUAL LOGOS (HireMetrics + Org)
+    // Pass the user's configured signature - the function will detect if signature is already in body
+    const userSignature = signature ?? profile.email_signature ?? null;
     const emailHtml = createEmailHtml(
       body_text,
-      signature ?? profile.email_signature,
+      userSignature,
       senderName,
       senderEmail,
       attachments,
-      orgBranding
+      orgBranding,
+      true // includeSignature - function will check if already present in body
     );
 
     // Handle scheduled emails

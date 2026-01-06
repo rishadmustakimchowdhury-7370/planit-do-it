@@ -402,12 +402,9 @@ export function SendClientEmailModal({
     try {
       const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
       const fromEmail = selectedAccount?.from_email || profile?.email || '';
-      const fromName = selectedAccount?.display_name || profile?.full_name || '';
       
-      let finalBody = editor.getHTML();
-      if (includeSignature && signature) {
-        finalBody += `<br><br><div style="color: #666; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">${signature.replace(/\n/g, '<br>')}</div>`;
-      }
+      // Don't append signature here - the edge function will handle it
+      const finalBody = editor.getHTML();
 
       const scheduledAtValue = scheduleType === 'later' && scheduledAt ? scheduledAt : null;
 
@@ -432,6 +429,7 @@ export function SendClientEmailModal({
       if (insertError) throw insertError;
 
       // If not scheduled, send immediately
+      // Send signature separately - edge function will format it properly
       if (!scheduledAtValue) {
         const { error: sendError } = await supabase.functions.invoke('send-candidate-email', {
           body: {
@@ -443,7 +441,7 @@ export function SendClientEmailModal({
             body_text: finalBody,
             from_account_id: selectedAccountId || undefined,
             attachments: attachments.length > 0 ? attachments : undefined,
-            signature: includeSignature ? signature : null,
+            signature: includeSignature ? signature : undefined,
             use_system_fallback: true,
           },
         });
