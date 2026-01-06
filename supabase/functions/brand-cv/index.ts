@@ -150,19 +150,47 @@ function base64ToUint8(base64: string): Uint8Array {
   return bytes;
 }
 
-async function tryFetchLogoBytes(url: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
+async function fetchLogoBytes(
+  supabaseClient: any,
+  logoUrl: string
+): Promise<{ bytes: Uint8Array; mime: string; url: string } | null> {
+  const cleanUrl = logoUrl.split('?')[0];
+
+  // If this is a Supabase Storage URL, prefer server-side download (works for private buckets too)
+  // Examples:
+  //  - .../storage/v1/object/public/{bucket}/{path}
+  //  - .../storage/v1/object/sign/{bucket}/{path}?token=...
+  const m = cleanUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+  if (m) {
+    const bucket = m[1];
+    const objectPath = decodeURIComponent(m[2]);
+
+    try {
+      const { data, error } = await supabaseClient.storage.from(bucket).download(objectPath);
+      if (!error && data) {
+        const mime = data.type || '';
+        const ab = await data.arrayBuffer();
+        return { bytes: new Uint8Array(ab), mime, url: logoUrl };
+      }
+    } catch (e) {
+      console.warn('Storage logo download failed, falling back to fetch:', e);
+    }
+  }
+
+  // Fallback: regular fetch for public URLs
   try {
-    const res = await fetch(url);
+    const res = await fetch(logoUrl);
     if (!res.ok) return null;
     const mime = res.headers.get('content-type') || '';
     const ab = await res.arrayBuffer();
-    return { bytes: new Uint8Array(ab), mime };
+    return { bytes: new Uint8Array(ab), mime, url: logoUrl };
   } catch {
     return null;
   }
 }
 
 async function brandPdfWithHeader(params: {
+  supabaseClient: any;
   pdfBytes: Uint8Array;
   orgLogoUrl: string | null;
   companyName: string | null;
@@ -175,12 +203,19 @@ async function brandPdfWithHeader(params: {
 
   // Try to embed org logo (PNG/JPG). SVGs are not supported by pdf-lib.
   let orgLogoImage: any = null;
-  if (params.orgLogoUrl && !params.orgLogoUrl.toLowerCase().endsWith('.svg')) {
-    const logo = await tryFetchLogoBytes(params.orgLogoUrl);
-    if (logo?.bytes?.length) {
-      if (logo.mime.includes('png') || params.orgLogoUrl.toLowerCase().endsWith('.png')) {
+  if (params.orgLogoUrl) {
+    const logo = await fetchLogoBytes(params.supabaseClient, params.orgLogoUrl);
+    const urlLower = params.orgLogoUrl.toLowerCase();
+    const mimeLower = (logo?.mime || '').toLowerCase();
+
+    if (logo?.bytes?.length && !mimeLower.includes('svg') && !urlLower.endsWith('.svg')) {
+      if (mimeLower.includes('png') || urlLower.endsWith('.png')) {
         orgLogoImage = await pdfDoc.embedPng(logo.bytes);
-      } else if (logo.mime.includes('jpeg') || logo.mime.includes('jpg') || params.orgLogoUrl.toLowerCase().match(/\.(jpe?g)$/)) {
+      } else if (
+        mimeLower.includes('jpeg') ||
+        mimeLower.includes('jpg') ||
+        urlLower.match(/\.(jpe?g)$/)
+      ) {
         orgLogoImage = await pdfDoc.embedJpg(logo.bytes);
       }
     }
@@ -375,12 +410,13 @@ serve(async (req) => {
     console.log('Processing document:', { fileName, fileType, fileExtension, documentType: document_type });
 
     // If the original is a PDF, generate a *real branded PDF* (org logo embedded into pages)
-    if (fileExtension === 'pdf') {
-      const brandedPdfBytes = await brandPdfWithHeader({
-        pdfBytes: new Uint8Array(fileBuffer),
-        orgLogoUrl: brandingSettings?.logo_url || null,
-        companyName: brandingSettings?.company_name || null,
-      });
+     if (fileExtension === 'pdf') {
+       const brandedPdfBytes = await brandPdfWithHeader({
+         supabaseClient,
+         pdfBytes: new Uint8Array(fileBuffer),
+         orgLogoUrl: brandingSettings?.logo_url || null,
+         companyName: brandingSettings?.company_name || null,
+       });
 
       return new Response(
         JSON.stringify({
