@@ -124,6 +124,16 @@ function generateBrandedPdfHtml(
 </html>`;
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  // Avoid call stack limits on large files by chunking.
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 // Extract text content from common document types
 async function extractDocumentContent(
   fileBuffer: ArrayBuffer, 
@@ -259,8 +269,8 @@ serve(async (req) => {
     // For other files, generate branded HTML
     
     if (fileExtension === 'pdf') {
-      // Convert PDF to base64 for embedding
-      const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+      // Convert PDF to base64 for embedding (chunked to avoid call stack limits)
+      const pdfBase64 = uint8ToBase64(new Uint8Array(fileBuffer));
       
       // Generate branded HTML wrapper that references the PDF
       const brandedHtml = generateBrandedPdfHtml(
@@ -315,8 +325,8 @@ serve(async (req) => {
       entity_name
     );
 
-    // Convert original to base64 for download option
-    const originalBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+    // Convert original to base64 for download option (chunked to avoid call stack limits)
+    const originalBase64 = uint8ToBase64(new Uint8Array(fileBuffer));
 
     return new Response(
       JSON.stringify({

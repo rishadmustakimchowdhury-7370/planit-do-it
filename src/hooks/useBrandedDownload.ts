@@ -81,118 +81,28 @@ export function useBrandedDownload() {
       return;
     }
 
-    // Convert base64 to blob and create object URL
-    const binaryString = atob(response.original_pdf_base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
-    const pdfDataUrl = URL.createObjectURL(pdfBlob);
-
-    // Open new window first
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Please allow popups to view branded document');
-      URL.revokeObjectURL(pdfDataUrl);
-      return;
-    }
-
-    // Write the HTML content
-    const brandedContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${documentType === 'cv' ? 'CV' : 'Job Description'} - ${entityName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; }
-    .branded-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 24px;
-      border-bottom: 2px solid #0B1C8C;
-      background: white;
-      flex-shrink: 0;
-    }
-    .hiremetrics-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .hiremetrics-icon {
-      width: 32px;
-      height: 32px;
-      background: #0B1C8C;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    .hiremetrics-text {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0B1C8C;
-    }
-    .org-logo img {
-      max-height: 36px;
-      max-width: 120px;
-      object-fit: contain;
-    }
-    .org-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0B1C8C;
-    }
-    .pdf-container {
-      flex: 1;
-      width: 100%;
-      min-height: 0;
-    }
-    .pdf-container iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="branded-header">
-    <div class="hiremetrics-logo">
-      <div class="hiremetrics-icon">H</div>
-      <span class="hiremetrics-text">HireMetrics</span>
-    </div>
-    <div class="org-logo">
-      ${response.branding_applied?.company_name 
-        ? `<span class="org-name">${response.branding_applied.company_name}</span>`
-        : ''
+    // Convert base64 to Blob and download directly (saves to Downloads folder)
+    try {
+      const binaryString = atob(response.original_pdf_base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
-    </div>
-  </div>
-  
-  <div class="pdf-container">
-    <iframe id="pdfFrame"></iframe>
-  </div>
-  
-  <script>
-    document.getElementById('pdfFrame').src = '${pdfDataUrl}';
-  </script>
-</body>
-</html>`;
 
-    printWindow.document.write(brandedContent);
-    printWindow.document.close();
-    
-    // Clean up blob URL after a delay to allow loading
-    setTimeout(() => {
-      URL.revokeObjectURL(pdfDataUrl);
-    }, 60000);
+      const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(pdfBlob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${entityName.replace(/\s+/g, '_')}_${documentType.toUpperCase()}_Branded.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Branded PDF download failed:', e);
+      toast.error('Failed to download branded PDF');
+    }
   };
 
   const downloadAsHtml = (html: string, entityName: string, documentType: 'cv' | 'jd') => {
