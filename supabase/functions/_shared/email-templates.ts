@@ -261,32 +261,24 @@ export function buildOperationalEmailFooter(orgBranding: OrgBranding): string {
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9; padding:24px; margin-top:32px;">
       <tr>
         <td align="center">
-          <table cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
+          <p style="margin:0 0 12px 0; font-family:Arial,sans-serif; font-size:12px; color:#64748B;">
+            This email was sent on behalf of <strong style="color:#374151;">${orgName}</strong>
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;">
             <tr>
-              <td align="center" style="padding-bottom:16px;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="padding-right:16px; border-right:1px solid #e2e8f0;">
-                      ${getHireMetricsLogoInline()}
-                    </td>
-                    <td style="padding-left:16px;">
-                      ${getOrgLogoHTML(orgBranding)}
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="font-family:Arial,sans-serif; font-size:12px; color:#64748B; line-height:1.6;">
-                <p style="margin:0 0 4px 0;">
-                  Sent via <strong>HireMetrics</strong> on behalf of <strong>${orgName}</strong>
-                </p>
-                <p style="margin:0;">
-                  © ${year} HireMetrics. All rights reserved.
-                </p>
+              <td style="padding:8px 20px; background:linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius:6px;">
+                <span style="font-family:'Segoe UI',Arial,sans-serif; font-size:11px; color:#ffffff; font-weight:500;">
+                  Powered by <strong>HireMetrics CRM</strong>
+                </span>
               </td>
             </tr>
           </table>
+          <p style="margin:12px 0 0 0; font-family:Arial,sans-serif; font-size:10px; color:#94a3b8;">
+            © ${year} HireMetrics. All rights reserved. | 
+            <a href="${HIREMETRICS_BRAND.website}" target="_blank" rel="noopener noreferrer" style="color:#00008B; text-decoration:none;">
+              hiremetrics.co.uk
+            </a>
+          </p>
         </td>
       </tr>
     </table>
