@@ -253,10 +253,13 @@ export function SendClientEmailModal({
   };
 
   const fetchEmailAccounts = async () => {
+    if (!user?.id) return;
     try {
+      // Only fetch the current user's configured SMTP email accounts
       const { data, error } = await supabase
         .from('email_accounts')
         .select('id, display_name, from_email, provider, is_default, status')
+        .eq('user_id', user.id)
         .eq('status', 'connected')
         .order('is_default', { ascending: false });
 
@@ -266,6 +269,8 @@ export function SendClientEmailModal({
       const defaultAccount = data?.find(a => a.is_default);
       if (defaultAccount) {
         setSelectedAccountId(defaultAccount.id);
+      } else if (data && data.length > 0) {
+        setSelectedAccountId(data[0].id);
       }
     } catch (error) {
       console.error('Error fetching email accounts:', error);
