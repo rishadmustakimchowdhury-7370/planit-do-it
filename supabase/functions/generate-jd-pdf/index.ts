@@ -17,6 +17,7 @@ function uint8ToBase64(bytes: Uint8Array): string {
 }
 
 function wrapText(text: string, maxChars: number): string[] {
+  // Preserve existing newlines/bullets by only wrapping within a single line/paragraph.
   const words = text.replace(/\s+/g, " ").trim().split(" ");
   const lines: string[] = [];
   let current = "";
@@ -34,6 +35,36 @@ function wrapText(text: string, maxChars: number): string[] {
   }
   if (current) lines.push(current);
   return lines;
+}
+
+type TextBlock = { kind: "blank" } | { kind: "text"; prefix?: string; text: string };
+
+function parseTextBlocks(raw: string): TextBlock[] {
+  const lines = String(raw || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n");
+
+  const blocks: TextBlock[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      blocks.push({ kind: "blank" });
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^([-*•]|\d+\.)\s+(.*)$/);
+    if (bulletMatch) {
+      blocks.push({ kind: "text", prefix: bulletMatch[1], text: bulletMatch[2] });
+    } else {
+      blocks.push({ kind: "text", text: trimmed });
+    }
+  }
+
+  // trim leading/trailing blanks
+  while (blocks[0]?.kind === "blank") blocks.shift();
+  while (blocks[blocks.length - 1]?.kind === "blank") blocks.pop();
+  return blocks;
 }
 
 async function fetchLogoBytes(supabaseAdmin: any, logoUrl: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
@@ -132,40 +163,41 @@ serve(async (req) => {
     const margin = 48;
     let y = height - margin;
 
-    // Header with centered org logo (no company-name fallback)
+    // Header with org logo at TOP-RIGHT
     let orgLogoImage: any = null;
+    let headerH = 0;
+
     if (branding?.logo_url) {
       const logo = await fetchLogoBytes(supabaseAdmin, branding.logo_url);
       const urlLower = branding.logo_url.toLowerCase();
-      const mimeLower = (logo?.mime || '').toLowerCase();
+      const mimeLower = (logo?.mime || "").toLowerCase();
 
-      if (logo?.bytes?.length && !mimeLower.includes('svg') && !urlLower.endsWith('.svg')) {
-        if (mimeLower.includes('png') || urlLower.endsWith('.png')) {
+      if (logo?.bytes?.length) {
+        // Support PNG/JPG only (SVG cannot be embedded reliably in edge runtime)
+        if (mimeLower.includes("png") || urlLower.endsWith(".png")) {
           orgLogoImage = await pdfDoc.embedPng(logo.bytes);
-        } else if (
-          mimeLower.includes('jpeg') ||
-          mimeLower.includes('jpg') ||
-          urlLower.match(/\.(jpe?g)$/)
-        ) {
+        } else if (mimeLower.includes("jpeg") || mimeLower.includes("jpg") || urlLower.match(/\.(jpe?g)$/)) {
           orgLogoImage = await pdfDoc.embedJpg(logo.bytes);
         }
       }
     }
 
     if (orgLogoImage) {
-      const maxH = 42;
-      const maxW = 180;
+      const maxH = 44;
+      const maxW = 200;
       const scale = Math.min(maxW / orgLogoImage.width, maxH / orgLogoImage.height, 1);
       const w = orgLogoImage.width * scale;
       const h = orgLogoImage.height * scale;
+      headerH = h;
       page.drawImage(orgLogoImage, {
-        x: (width - w) / 2,
+        x: width - margin - w,
         y: y - h,
         width: w,
         height: h,
       });
-      y -= h + 18;
     }
+
+    y -= headerH ? headerH + 18 : 0;
 
     // Title
     const titleSize = 22;
@@ -200,6 +232,8 @@ serve(async (req) => {
 
     const drawSection = (title: string, content: string | null) => {
       if (!content || !String(content).trim()) return;
+
+      // Section title
       page.drawText(title, {
         x: margin,
         y: y - sectionTitleSize,
@@ -209,19 +243,45 @@ serve(async (req) => {
       });
       y -= sectionTitleSize + 10;
 
-      const lines = wrapText(String(content), 92);
-      const maxLines = Math.min(lines.length, 50);
-      for (let i = 0; i < maxLines; i++) {
-        page.drawText(lines[i], {
-          x: margin,
-          y: y - bodySize,
-          size: bodySize,
-          font,
-          color: rgb(0.1, 0.1, 0.12),
+      // Body: preserve line breaks + bullets
+      const blocks = parseTextBlocks(String(content));
+      for (const block of blocks) {
+        if (y < margin + 60) break; // keep single page for now
+
+        if (block.kind === "blank") {
+          y -= bodySize + 8;
+          continue;
+        }
+
+        const isBullet = Boolean(block.prefix);
+        const indent = isBullet ? 14 : 0;
+        const maxChars = isBullet ? 84 : 92;
+
+        const wrapped = wrapText(block.text, maxChars);
+        wrapped.forEach((line, idx) => {
+          if (y < margin + 60) return;
+
+          if (isBullet && idx === 0 && block.prefix) {
+            page.drawText(block.prefix, {
+              x: margin,
+              y: y - bodySize,
+              size: bodySize,
+              font,
+              color: rgb(0.1, 0.1, 0.12),
+            });
+          }
+
+          page.drawText(line, {
+            x: margin + indent,
+            y: y - bodySize,
+            size: bodySize,
+            font,
+            color: rgb(0.1, 0.1, 0.12),
+          });
+          y -= bodySize + 6;
         });
-        y -= bodySize + 6;
-        if (y < margin + 40) break; // keep minimal (single page)
       }
+
       y -= 14;
     };
 
