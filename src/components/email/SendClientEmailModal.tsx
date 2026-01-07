@@ -34,6 +34,7 @@ import {
   Loader2,
   Type,
   Mail,
+  Save,
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -175,9 +176,9 @@ export function SendClientEmailModal({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiTone, setAiTone] = useState('professional');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  
   // Loading states
   const [isSending, setIsSending] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -489,6 +490,47 @@ export function SendClientEmailModal({
     setShowAiPanel(false);
   };
 
+  const handleSaveAsTemplate = async () => {
+    const bodyHtml = editor?.getHTML() || '';
+    if (!subject.trim() || !bodyHtml || editor?.isEmpty) {
+      toast.error('Please enter both subject and message before saving as template');
+      return;
+    }
+
+    const templateName = window.prompt('Enter a name for this template:');
+    if (!templateName?.trim()) {
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      if (!user?.id || !tenantId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('user_email_templates')
+        .insert({
+          tenant_id: tenantId,
+          user_id: user.id,
+          name: templateName.trim(),
+          subject: subject,
+          body_text: bodyHtml,
+          is_active: true,
+        });
+
+      if (error) throw error;
+      
+      toast.success('Template saved successfully!');
+      fetchTemplates(); // Refresh templates list
+    } catch (error: any) {
+      console.error('Error saving template:', error);
+      toast.error(error.message || 'Failed to save template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
   const setLink = useCallback(() => {
     if (!editor) return;
     const previousUrl = editor.getAttributes('link').href;
@@ -722,6 +764,21 @@ export function SendClientEmailModal({
           >
             <Sparkles className="h-3.5 w-3.5" />
             AI Compose
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={handleSaveAsTemplate}
+            disabled={isSavingTemplate || !subject.trim() || editor?.isEmpty}
+          >
+            {isSavingTemplate ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Save Template
           </Button>
         </div>
 
