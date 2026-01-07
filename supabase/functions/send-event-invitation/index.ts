@@ -158,7 +158,7 @@ function generateEmailHTML(
   const firstName = participant.name.split(' ')[0];
 
   const logoHTML = companyLogoUrl 
-    ? `<img src="${companyLogoUrl}" alt="${displayCompanyName} Logo" style="max-height:50px;max-width:200px;object-fit:contain;" />`
+    ? `<img src="${companyLogoUrl}" alt="${displayCompanyName} Logo" style="max-height:50px;max-width:200px;object-fit:contain;display:block;margin:0 auto;border:0;" />`
     : `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:linear-gradient(135deg,#00008B 0%,#0052CC 100%);border-radius:10px;padding:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></svg></td><td style="padding-left:10px;font-family:Segoe UI,Arial,sans-serif;font-weight:700;font-size:22px;"><span style="color:#00008B;">Hire</span><span style="color:#64748b;font-weight:500;">Metrics</span></td></tr></table>`;
 
   const meetingLinkButton = event.location_type === 'online' && event.meeting_link
@@ -177,7 +177,8 @@ function generateEmailHTML(
     ? `<tr><td style="padding:0 40px 25px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border-radius:12px;border:1px solid #bfdbfe;"><tr><td style="padding:16px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="40" valign="top" style="font-size:24px;">📆</td><td style="padding-left:12px;"><p style="margin:0;color:#1e40af;font-size:14px;font-weight:600;">Add to your calendar</p><p style="margin:4px 0 0;color:#3b82f6;font-size:13px;">Open the attached .ics file to add this event to your calendar.</p></td></tr></table></td></tr></table></td></tr>`
     : '';
 
-  const showCompanyName = displayCompanyName !== organizerName;
+  const normalize = (s: string | null | undefined) => String(s || '').trim().toLowerCase();
+  const showCompanyName = normalize(displayCompanyName) !== normalize(organizerName);
   const signatureHTML = showCompanyName 
     ? `<p style="margin:15px 0 0;color:#1e293b;font-size:15px;line-height:1.6;">Best regards,<br/><strong style="color:#00008B;">${organizerName}</strong><br/><span style="color:#64748b;font-size:13px;">${displayCompanyName}</span></p>`
     : `<p style="margin:15px 0 0;color:#1e293b;font-size:15px;line-height:1.6;">Best regards,<br/><strong style="color:#00008B;">${organizerName}</strong></p>`;
@@ -272,6 +273,19 @@ serve(async (req: Request) => {
     let companyLogoUrl: string | null = null;
     let companyName: string | null = null;
 
+    const signLogoPath = async (path: string): Promise<string | null> => {
+      // Emails can be opened days later, so use a longer expiry.
+      const expiresIn = 60 * 60 * 24 * 30; // 30 days
+
+      // Try common buckets.
+      const buckets = ['documents', 'trusted-clients'];
+      for (const bucket of buckets) {
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+        if (data?.signedUrl) return data.signedUrl;
+      }
+      return null;
+    };
+
     if (tenantId) {
       const { data: tenant } = await supabase
         .from('tenants')
@@ -293,6 +307,12 @@ serve(async (req: Request) => {
       if (branding) {
         companyLogoUrl = branding.logo_url || companyLogoUrl;
         companyName = branding.company_name || companyName;
+      }
+
+      // If logo is stored as a bare storage path, turn it into a signed URL.
+      if (companyLogoUrl && !companyLogoUrl.startsWith('http') && !companyLogoUrl.includes('/storage/v1/object/')) {
+        const signed = await signLogoPath(companyLogoUrl);
+        if (signed) companyLogoUrl = signed;
       }
     }
 

@@ -23,7 +23,7 @@ const HIREMETRICS_LOGO_SVG = `
 </svg>
 `;
 
-// Generate branded PDF HTML wrapper with proper logo embedding
+// Generate branded PDF HTML wrapper (ORG ONLY - no HireMetrics wordmark)
 function generateBrandedPdfHtml(
   contentHtml: string,
   orgLogoUrl: string | null,
@@ -31,12 +31,11 @@ function generateBrandedPdfHtml(
   documentType: 'cv' | 'jd',
   candidateOrJobName: string
 ): string {
-  // For org logo, we need to use an img tag with full URL (no data URI needed for external URLs)
   let orgLogoHtml = '';
   if (orgLogoUrl) {
-    orgLogoHtml = `<img src="${orgLogoUrl}" alt="${companyName || 'Company'}" style="max-height:50px;max-width:150px;object-fit:contain;display:block;" crossorigin="anonymous" />`;
+    orgLogoHtml = `<img src="${orgLogoUrl}" alt="${companyName || 'Organization'}" style="max-height:50px;max-width:180px;object-fit:contain;display:block;" crossorigin="anonymous" />`;
   } else if (companyName) {
-    orgLogoHtml = `<div style="font-size:18px;font-weight:600;color:#0B1C8C;">${companyName}</div>`;
+    orgLogoHtml = `<div style="font-size:18px;font-weight:700;color:#0B1C8C;">${companyName}</div>`;
   }
 
   return `
@@ -46,87 +45,26 @@ function generateBrandedPdfHtml(
   <meta charset="UTF-8">
   <title>${documentType === 'cv' ? 'CV' : 'Job Description'} - ${candidateOrJobName}</title>
   <style>
-    @page {
-      margin: 20mm;
-      size: A4;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      font-size: 11pt;
-      line-height: 1.5;
-      color: #1a1a1a;
-    }
+    @page { margin: 20mm; size: A4; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1a1a1a; }
     .branded-header {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
-      padding: 15px 0;
-      margin-bottom: 20px;
+      padding: 10px 0;
+      margin-bottom: 18px;
       border-bottom: 2px solid #00008B;
     }
-    .hiremetrics-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .hiremetrics-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 22px;
-      line-height: 40px;
-      text-align: center;
-    }
-    .hiremetrics-text {
-      font-size: 18px;
-      font-weight: 700;
-      color: #0F172A;
-    }
-    .org-logo {
-      text-align: right;
-    }
-    .document-content {
-      min-height: 600px;
-    }
-    .branded-footer {
-      margin-top: 30px;
-      padding-top: 15px;
-      border-top: 1px solid #e5e5e5;
-      text-align: center;
-      font-size: 9pt;
-      color: #666;
-    }
+    .org-logo { text-align: right; }
+    .document-content { min-height: 600px; }
   </style>
 </head>
 <body>
   <div class="branded-header">
-    <div class="hiremetrics-logo">
-      <div class="hiremetrics-icon">H</div>
-      <span class="hiremetrics-text">HireMetrics</span>
-    </div>
-    <div class="org-logo">
-      ${orgLogoHtml}
-    </div>
+    <div class="org-logo">${orgLogoHtml}</div>
   </div>
-  
-  <div class="document-content">
-    ${contentHtml}
-  </div>
-  
-  <div class="branded-footer">
-    Generated via HireMetrics &bull; hiremetrics.co.uk
-  </div>
+  <div class="document-content">${contentHtml}</div>
 </body>
 </html>`;
 }
@@ -378,15 +316,20 @@ serve(async (req) => {
     if (tenant) {
       // Generate signed URL for logo if it's a storage path (not a full URL)
       let logoUrl = tenant.logo_url;
-      if (logoUrl && !logoUrl.startsWith('http')) {
-        const { data: signedData } = await supabaseClient.storage
-          .from('documents')
-          .createSignedUrl(logoUrl, 60 * 60); // 1 hour expiry
-        if (signedData?.signedUrl) {
-          logoUrl = signedData.signedUrl;
+      if (logoUrl && !logoUrl.startsWith('http') && !logoUrl.includes('/storage/v1/object/')) {
+        const expiresIn = 60 * 60 * 24 * 30; // 30 days
+        // Try common buckets (logo may not be stored in the same bucket as documents)
+        const buckets = ['documents', 'trusted-clients'];
+        for (const bucket of buckets) {
+          const { data: signedData } = await supabaseClient.storage
+            .from(bucket)
+            .createSignedUrl(logoUrl, expiresIn);
+          if (signedData?.signedUrl) {
+            logoUrl = signedData.signedUrl;
+            break;
+          }
         }
       }
-      
       brandingSettings = {
         logo_url: logoUrl || null,
         logo_position: 'header',
