@@ -752,29 +752,31 @@ export function SendCandidateEmailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-primary" />
-            Compose Email to {candidate.full_name}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <span className="truncate">Email to {candidate.full_name}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Write, generate with AI, or preview your email before sending.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'compose' | 'ai' | 'preview')} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="compose" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Compose
+            <TabsTrigger value="compose" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Compose</span>
+              <span className="sm:hidden">Edit</span>
             </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              AI Compose
+            <TabsTrigger value="ai" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">AI Compose</span>
+              <span className="sm:hidden">AI</span>
             </TabsTrigger>
-            <TabsTrigger value="preview" className="gap-2">
-              <Eye className="h-4 w-4" />
+            <TabsTrigger value="preview" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Preview
             </TabsTrigger>
           </TabsList>
@@ -840,36 +842,38 @@ export function SendCandidateEmailModal({
 
               {/* CC/BCC Fields */}
               {showCcBcc && (
-                <div className="grid grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-top-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 animate-in fade-in-0 slide-in-from-top-2">
                   <div className="space-y-2">
-                    <Label htmlFor="cc">CC</Label>
+                    <Label htmlFor="cc" className="text-sm">CC</Label>
                     <Input
                       id="cc"
                       type="email"
                       value={ccEmail}
                       onChange={(e) => setCcEmail(e.target.value)}
-                      placeholder="cc@email.com, cc2@email.com"
+                      placeholder="cc@email.com"
+                      className="text-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bcc">BCC</Label>
+                    <Label htmlFor="bcc" className="text-sm">BCC</Label>
                     <Input
                       id="bcc"
                       type="email"
                       value={bccEmail}
                       onChange={(e) => setBccEmail(e.target.value)}
                       placeholder="bcc@email.com"
+                      className="text-sm"
                     />
                   </div>
                 </div>
               )}
 
               {/* Job & Template Selectors */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label>Job (optional)</Label>
+                  <Label className="text-sm">Job (optional)</Label>
                   <Select value={selectedJobId || ''} onValueChange={setSelectedJobId}>
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm">
                       <SelectValue placeholder="Select job..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -882,9 +886,9 @@ export function SendCandidateEmailModal({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Template</Label>
+                  <Label className="text-sm">Template</Label>
                   <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm">
                       <SelectValue placeholder="Choose template..." />
                     </SelectTrigger>
                     <SelectContent>
