@@ -371,18 +371,44 @@ serve(async (req) => {
       throw new Error('File URL is required');
     }
 
-    // Get branding settings for the organization
-    const { data: branding, error: brandingError } = await supabaseClient
-      .from('branding_settings')
-      .select('logo_url, logo_position, company_name, primary_color')
-      .eq('tenant_id', profile.tenant_id)
-      .maybeSingle();
+    // Get branding settings from tenants table (organization settings)
+    const { data: tenant, error: tenantError } = await supabaseClient
+      .from('tenants')
+      .select('name, logo_url, primary_color')
+      .eq('id', profile.tenant_id)
+      .single();
 
-    if (brandingError) {
-      console.error('Error fetching branding:', brandingError);
+    if (tenantError) {
+      console.error('Error fetching tenant branding:', tenantError);
     }
 
-    const brandingSettings: BrandingSettings | null = branding;
+    // Map tenant data to branding settings structure
+    let brandingSettings: BrandingSettings | null = null;
+    if (tenant) {
+      // Generate signed URL for logo if it's a storage path (not a full URL)
+      let logoUrl = tenant.logo_url;
+      if (logoUrl && !logoUrl.startsWith('http')) {
+        const { data: signedData } = await supabaseClient.storage
+          .from('documents')
+          .createSignedUrl(logoUrl, 60 * 60); // 1 hour expiry
+        if (signedData?.signedUrl) {
+          logoUrl = signedData.signedUrl;
+        }
+      }
+      
+      brandingSettings = {
+        logo_url: logoUrl || null,
+        logo_position: 'header',
+        company_name: tenant.name || null,
+        primary_color: tenant.primary_color || null,
+      };
+      
+      console.log('Branding settings loaded:', {
+        company_name: brandingSettings.company_name,
+        has_logo: !!brandingSettings.logo_url,
+        logo_url_preview: brandingSettings.logo_url?.substring(0, 100),
+      });
+    }
 
     // Extract file path from URL
     let filePath = file_url;
