@@ -165,11 +165,37 @@ serve(async (req) => {
 
     if (jobError || !job) throw new Error("Job not found");
 
-    const { data: branding } = await supabaseAdmin
-      .from("branding_settings")
-      .select("logo_url, company_name")
-      .eq("tenant_id", profile.tenant_id)
-      .maybeSingle();
+    // Get branding from tenants table (organization settings)
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("name, logo_url")
+      .eq("id", profile.tenant_id)
+      .single();
+
+    // Generate signed URL for logo if it's a storage path
+    let branding: { logo_url: string | null; company_name: string | null } = {
+      logo_url: null,
+      company_name: tenant?.name || null,
+    };
+    
+    if (tenant?.logo_url) {
+      if (tenant.logo_url.startsWith('http')) {
+        branding.logo_url = tenant.logo_url;
+      } else {
+        // It's a storage path, generate signed URL
+        const { data: signedData } = await supabaseAdmin.storage
+          .from('documents')
+          .createSignedUrl(tenant.logo_url, 60 * 60); // 1 hour
+        if (signedData?.signedUrl) {
+          branding.logo_url = signedData.signedUrl;
+        }
+      }
+    }
+    
+    console.log('JD PDF branding:', {
+      company_name: branding.company_name,
+      has_logo: !!branding.logo_url,
+    });
 
     const salaryText = (() => {
       if (!job.salary_min && !job.salary_max) return "";

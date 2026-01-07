@@ -221,17 +221,17 @@ async function brandPdfWithHeader(params: {
     }
   }
 
-  const brandBlue = rgb(0.043, 0.11, 0.55);
   const borderGray = rgb(0.9, 0.9, 0.92);
+  const brandBlue = rgb(0.043, 0.11, 0.55);
 
   for (const page of pages) {
     const { width, height } = page.getSize();
 
     const marginX = 40;
     const top = height - 32;
-    const headerHeight = 42;
+    const headerHeight = 36;
 
-    // Separator line
+    // Separator line below header
     page.drawLine({
       start: { x: marginX, y: top - headerHeight + 6 },
       end: { x: width - marginX, y: top - headerHeight + 6 },
@@ -239,38 +239,29 @@ async function brandPdfWithHeader(params: {
       color: borderGray,
     });
 
-    // Left: HireMetrics wordmark (simple, no external assets)
-    page.drawText('HireMetrics', {
-      x: marginX,
-      y: top - 18,
-      size: 14,
-      font: fontBold,
-      color: brandBlue,
-    });
-
-    // Right: Org logo or company name
+    // Top-right: Org logo or company name (NO HireMetrics branding)
     if (orgLogoImage) {
-      const maxH = 22;
-      const maxW = 120;
+      const maxH = 28;
+      const maxW = 150;
       const scale = Math.min(maxW / orgLogoImage.width, maxH / orgLogoImage.height, 1);
       const w = orgLogoImage.width * scale;
       const h = orgLogoImage.height * scale;
       page.drawImage(orgLogoImage, {
         x: width - marginX - w,
-        y: top - 28,
+        y: top - h,
         width: w,
         height: h,
       });
     } else if (params.companyName) {
       const text = params.companyName;
-      const size = 10;
-      const textWidth = font.widthOfTextAtSize(text, size);
+      const size = 14;
+      const textWidth = fontBold.widthOfTextAtSize(text, size);
       page.drawText(text, {
-        x: Math.max(marginX, width - marginX - textWidth),
-        y: top - 22,
+        x: width - marginX - textWidth,
+        y: top - size,
         size,
-        font,
-        color: rgb(0.25, 0.3, 0.35),
+        font: fontBold,
+        color: brandBlue,
       });
     }
   }
