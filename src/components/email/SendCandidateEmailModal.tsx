@@ -272,26 +272,40 @@ export function SendCandidateEmailModal({
   };
 
   const fetchJobs = async () => {
+    if (!user?.id || !tenantId) {
+      console.log('fetchJobs: No user or tenant, skipping');
+      return;
+    }
+    
     try {
       // First check if user is a recruiter
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenantId)
         .single();
 
+      if (roleError) {
+        console.error('Error fetching user role:', roleError);
+      }
+
       const isRecruiter = roleData?.role === 'recruiter';
+      console.log('User role:', roleData?.role, 'isRecruiter:', isRecruiter);
 
       let jobsData: Job[] = [];
 
-      if (isRecruiter && user?.id) {
+      if (isRecruiter) {
         // Recruiters only see jobs assigned to them via job_assignees
         const { data: assignedJobs, error } = await supabase
           .from('job_assignees')
           .select('job_id, jobs:job_id(id, title, location, jd_file_url, clients(name), status)')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .eq('tenant_id', tenantId);
 
         if (error) throw error;
+        
+        console.log('Assigned jobs for recruiter:', assignedJobs?.length || 0);
         
         // Filter for open jobs and extract job data
         jobsData = (assignedJobs || [])
@@ -308,6 +322,7 @@ export function SendCandidateEmailModal({
         const { data, error } = await supabase
           .from('jobs')
           .select('id, title, location, jd_file_url, clients(name)')
+          .eq('tenant_id', tenantId)
           .eq('status', 'open')
           .order('title');
 
@@ -315,6 +330,7 @@ export function SendCandidateEmailModal({
         jobsData = data || [];
       }
 
+      console.log('Jobs loaded:', jobsData.length);
       setJobs(jobsData);
       
       if (preSelectedJobId) {
