@@ -454,21 +454,50 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!profile?.tenant_id) {
-      throw new Error("User has no tenant");
+    // Handle missing tenant gracefully - try to get tenant from user metadata or profiles
+    let tenantId = profile?.tenant_id;
+    
+    if (!tenantId) {
+      // Try to get tenant from user's other profiles or team memberships
+      const { data: anyProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
+        .not("tenant_id", "is", null)
+        .single();
+      
+      if (anyProfile?.tenant_id) {
+        tenantId = anyProfile.tenant_id;
+      }
     }
 
-    // Fetch organization branding for dual-logo header
-    const { data: branding } = await supabaseAdmin
-      .from("branding_settings")
-      .select("company_name, logo_url, primary_color")
-      .eq("tenant_id", profile.tenant_id)
+    if (!tenantId) {
+      console.error("User has no tenant:", user.id);
+      throw new Error("User account is not associated with an organization. Please contact support.");
+    }
+
+    // Fetch organization branding from tenants table (primary source)
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("name, logo_url, primary_color")
+      .eq("id", tenantId)
       .single();
 
+    // Generate signed URL for logo if it's a storage path
+    let logoUrl = tenant?.logo_url || null;
+    if (logoUrl && logoUrl.startsWith("trusted-clients/")) {
+      const { data: signedData } = await supabaseAdmin.storage
+        .from("trusted-clients")
+        .createSignedUrl(logoUrl.replace("trusted-clients/", ""), 60 * 60 * 24);
+      if (signedData?.signedUrl) {
+        logoUrl = signedData.signedUrl;
+      }
+    }
+
     const orgBranding: OrgBranding = {
-      logoUrl: branding?.logo_url || null,
-      companyName: branding?.company_name || null,
-      primaryColor: branding?.primary_color || null,
+      logoUrl: logoUrl,
+      companyName: tenant?.name || null,
+      primaryColor: tenant?.primary_color || null,
     };
 
     const body: SendEmailRequest = await req.json();
@@ -492,8 +521,8 @@ serve(async (req) => {
     } = body;
 
     const isClientEmail = !!client_id && !candidate_id;
-    const recruiterName = profile.full_name || "Recruiter";
-    const recruiterEmail = profile.email || SUPER_ADMIN_EMAIL;
+    const recruiterName = profile?.full_name || "Recruiter";
+    const recruiterEmail = profile?.email || SUPER_ADMIN_EMAIL;
 
     // Find user's email account
     let emailAccount: EmailAccount | null = null;
@@ -555,13 +584,13 @@ serve(async (req) => {
       }
     }
 
-    const senderEmail = emailAccount?.from_email || profile.email || SUPER_ADMIN_EMAIL;
+    const senderEmail = emailAccount?.from_email || profile?.email || SUPER_ADMIN_EMAIL;
     const senderName = emailAccount?.display_name || recruiterName;
 
     // Create email HTML with organization logo only at top
     // Signature shows Name + Role only (no email visible to recipients)
-    const userSignature = signature ?? profile.email_signature ?? null;
-    const recruiterRole = profile.role || "";
+    const userSignature = signature ?? profile?.email_signature ?? null;
+    const recruiterRole = profile?.role || "";
     const emailHtml = createEmailHtml(
       body_text,
       userSignature,
@@ -576,7 +605,7 @@ serve(async (req) => {
     if (scheduled_at && new Date(scheduled_at) > new Date()) {
       const tableName = isClientEmail ? "client_emails" : "candidate_emails";
       const emailData: Record<string, unknown> = {
-        tenant_id: profile.tenant_id,
+        tenant_id: tenantId,
         sent_by: user.id,
         from_email: senderEmail,
         from_account_id: emailAccount?.id || null,
@@ -667,7 +696,7 @@ serve(async (req) => {
     // Save email record
     const tableName = isClientEmail ? "client_emails" : "candidate_emails";
     const emailData: Record<string, unknown> = {
-      tenant_id: profile.tenant_id,
+      tenant_id: tenantId,
       sent_by: user.id,
       from_email: senderEmail,
       from_account_id: emailAccount?.id || null,
@@ -710,7 +739,7 @@ serve(async (req) => {
 
     // Log to email_logs for audit
     await supabaseAdmin.from("email_logs").insert({
-      tenant_id: profile.tenant_id,
+      tenant_id: tenantId,
       sent_by: user.id,
       recipient_email: to_email,
       subject,
