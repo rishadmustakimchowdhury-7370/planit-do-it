@@ -163,6 +163,45 @@ const mergePlaceholders = (
     .replace(/\{\{today_date\}\}/g, today);
 };
 
+// Candidate composer uses a plain-text textarea; normalize content so emails render with real paragraph breaks.
+// - If input is HTML (templates), convert to plain text with blank lines between paragraphs.
+// - If input is plain text (AI), ensure section/paragraph breaks are separated by blank lines.
+const normalizeEmailContentToPlainText = (input: string): string => {
+  let text = (input ?? '').trim();
+  if (!text) return '';
+
+  const isHtml = text.startsWith('<') && /<(p|div|br|ul|ol|li|h\d)\b/i.test(text);
+  if (isHtml) {
+    text = text
+      // paragraph-ish boundaries -> blank line
+      .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+      .replace(/<\s*\/p\s*>/gi, '\n\n')
+      .replace(/<\s*\/div\s*>/gi, '\n\n')
+      // strip remaining tags
+      .replace(/<[^>]+>/g, '')
+      // decode common entities
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  // Normalize newlines
+  text = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // Ensure greeting and sign-off have spacing
+  text = text
+    .replace(/^(Hello[^\n]*,)(\n)?/i, '$1\n\n')
+    .replace(/\n?(Kind regards,|Best regards,|Regards,|Sincerely,|Thanks,|Thank you,)(\n)?/gi, '\n\n$1\n\n');
+
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+};
+
 export function SendCandidateEmailModal({
   open,
   onOpenChange,
@@ -369,7 +408,9 @@ export function SendCandidateEmailModal({
     if (template) {
       const recruiterName = profile?.full_name || 'Recruiter';
       setSubject(mergePlaceholders(template.subject, candidate, selectedJob, recruiterName));
-      setBody(mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName));
+
+      const merged = mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName);
+      setBody(normalizeEmailContentToPlainText(merged));
     }
   };
 
@@ -524,9 +565,9 @@ export function SendCandidateEmailModal({
       if (error) throw error;
 
       if (data?.email_body) {
-        // AI now uses actual values, no need to merge placeholders
-        setBody(data.email_body);
-        
+        // Candidate composer is plain-text: normalize so paragraphs show and backend can format reliably
+        setBody(normalizeEmailContentToPlainText(data.email_body));
+
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
           interview_invite: `Interview Invitation - ${selectedJob.title}`,
