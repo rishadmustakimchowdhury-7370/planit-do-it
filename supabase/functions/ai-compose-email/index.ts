@@ -141,87 +141,66 @@ Generate a professional, well-structured marketing email. Remember to suggest a 
 
       // Client outreach email prompt
       if (isClientEmail) {
-        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional client outreach email that is ready to be sent from Gmail and Outlook without any formatting changes.
+        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional client outreach email.
 
-CRITICAL FORMATTING RULES:
-- Use short paragraphs (2-3 lines max)
-- Leave ONE blank line between paragraphs
-- No bullet points
-- No emojis
-- No markdown symbols (no *, **, -, #, etc.)
-- No bold or italics
-- No HTML tags
-- Do not repeat the subject in the body
-- No placeholder brackets
+CRITICAL OUTPUT FORMAT:
+You MUST separate each section with a BLANK LINE (double newline).
+DO NOT write all text in one paragraph.
 
-EMAIL STRUCTURE (mandatory - follow exactly):
+STRUCTURE (follow EXACTLY with blank lines between each section):
 
-1. GREETING:
 Hello ${fullRecipientName},
 
-2. FIRST PARAGRAPH (Context & Relevance):
-2-3 sentences. Introduce yourself and your recruitment firm. Mention your specialization in the relevant industry.
+[PARAGRAPH 1 - Introduction: 2-3 sentences introducing yourself and your recruitment firm]
 
-3. SECOND PARAGRAPH (Value Proposition):
-2-3 sentences. Explain how you support companies by delivering pre-vetted candidates, reducing time-to-hire and hiring risk. Focus on quality, speed, and long-term placement success.
+[PARAGRAPH 2 - Value Proposition: 2-3 sentences about how you help companies with pre-vetted candidates]
 
-4. FINAL PARAGRAPH (Call to Action):
-1-2 sentences. Clear invitation for a short conversation to understand their requirements.
+[PARAGRAPH 3 - Call to Action: 1-2 sentences inviting for a conversation]
 
-5. CLOSING:
 Kind regards,
 
-(System adds signature - stop here, do NOT add any name or signature details)
-
-TONE: Professional, direct, confident, global business standard.
-OUTPUT: Only the email body starting from "Hello" and ending with "Kind regards,"`;
+RULES:
+- Each paragraph must be SHORT (2-3 sentences max)
+- Leave ONE BLANK LINE between every paragraph
+- No bullet points, no emojis, no markdown
+- No bold, no italics, no HTML
+- Stop after "Kind regards," - system adds signature`;
 
         userPrompt = `Write a client outreach email.
 
 CLIENT COMPANY: ${company_name}
 INDUSTRY: ${customPrompt || 'general business'}
 RECRUITER NAME: ${recruiter_name}
-RECRUITMENT FIRM: [Will be added from branding]
 PURPOSE: ${purposeGuide[purpose] || 'exploring recruitment partnership'}
 
-Generate ONLY the email body. Start with "Hello ${fullRecipientName}," and end with "Kind regards,"`;
+REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 SHORT paragraphs, then "Kind regards,"`;
 
       } else {
         // Candidate outreach email prompt
-        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional candidate outreach email that is ready to be sent from Gmail and Outlook without any formatting changes.
+        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional candidate outreach email.
 
-CRITICAL FORMATTING RULES:
-- Use short paragraphs (2-3 lines max)
-- Leave ONE blank line between paragraphs
-- No bullet points
-- No emojis
-- No markdown symbols (no *, **, -, #, etc.)
-- No bold or italics
-- No HTML tags
-- Do not repeat the subject in the body
-- No placeholder brackets
+CRITICAL OUTPUT FORMAT:
+You MUST separate each section with a BLANK LINE (double newline).
+DO NOT write all text in one paragraph.
 
-EMAIL STRUCTURE (mandatory - follow exactly):
+STRUCTURE (follow EXACTLY with blank lines between each section):
 
-1. GREETING:
 Hello ${recipientName},
 
-2. FIRST PARAGRAPH (Context & Relevance):
-2-3 sentences. Briefly introduce yourself. Explain why you are reaching out and how you found them or why they are a good fit.
+[PARAGRAPH 1 - Introduction: 2-3 sentences about why you're reaching out]
 
-3. SECOND PARAGRAPH (Opportunity Details):
-2-3 sentences. Present the role and its key highlights. Mention the company if appropriate and what makes this opportunity compelling.
+[PARAGRAPH 2 - Opportunity: 2-3 sentences about the role and what makes it compelling]
 
-4. FINAL PARAGRAPH (Call to Action):
-1-2 sentences. Clear next step - invite them for a call or ask for their availability.
+[PARAGRAPH 3 - Call to Action: 1-2 sentences inviting them for a call]
 
-5. CLOSING:
 Kind regards,
 
-(System adds signature - stop here, do NOT add any name or signature details)
-
-TONE: Professional, direct, confident, warm but not overly casual.
-OUTPUT: Only the email body starting from "Hello" and ending with "Kind regards,"`;
+RULES:
+- Each paragraph must be SHORT (2-3 sentences max)
+- Leave ONE BLANK LINE between every paragraph
+- No bullet points, no emojis, no markdown
+- No bold, no italics, no HTML
+- Stop after "Kind regards," - system adds signature`;
 
         const purposeDetails: Record<string, string> = {
           job_pitch: `presenting an exciting ${job_title || 'career'} opportunity${company_name ? ` at ${company_name}` : ''}`,
@@ -243,7 +222,7 @@ ${location ? `LOCATION: ${location}` : ''}
 RECRUITER: ${recruiter_name}
 ${customPrompt ? `ADDITIONAL CONTEXT: ${customPrompt}` : ''}
 
-Generate ONLY the email body. Start with "Hello ${recipientName}," and end with "Kind regards,"`;
+REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 SHORT paragraphs, then "Kind regards,"`;
       }
     }
 

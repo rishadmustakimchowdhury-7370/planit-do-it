@@ -489,16 +489,47 @@ serve(async (req) => {
       .eq("id", tenantId)
       .single();
 
-    // Generate signed URL for logo if it's a storage path
+    // Generate signed URL for logo if it's a storage path (not already a full URL)
     let logoUrl = tenant?.logo_url || null;
-    if (logoUrl && logoUrl.startsWith("trusted-clients/")) {
-      const { data: signedData } = await supabaseAdmin.storage
-        .from("trusted-clients")
-        .createSignedUrl(logoUrl.replace("trusted-clients/", ""), 60 * 60 * 24);
-      if (signedData?.signedUrl) {
-        logoUrl = signedData.signedUrl;
+    console.log("[EMAIL] Raw logo_url from tenant:", logoUrl);
+    
+    if (logoUrl && !logoUrl.startsWith("http://") && !logoUrl.startsWith("https://")) {
+      // It's a storage path - try to create a signed URL
+      // The path format is typically: tenant_id/filename.ext
+      try {
+        // Try the 'tenant-logos' bucket first (common pattern)
+        let signedData = await supabaseAdmin.storage
+          .from("tenant-logos")
+          .createSignedUrl(logoUrl, 60 * 60 * 24); // 24 hours
+        
+        if (signedData?.data?.signedUrl) {
+          logoUrl = signedData.data.signedUrl;
+          console.log("[EMAIL] Created signed URL from tenant-logos bucket");
+        } else {
+          // Try trusted-clients bucket as fallback
+          signedData = await supabaseAdmin.storage
+            .from("trusted-clients")
+            .createSignedUrl(logoUrl, 60 * 60 * 24);
+          
+          if (signedData?.data?.signedUrl) {
+            logoUrl = signedData.data.signedUrl;
+            console.log("[EMAIL] Created signed URL from trusted-clients bucket");
+          } else {
+            // Final fallback: construct public URL
+            const supabaseUrl = Deno.env.get("SUPABASE_URL");
+            logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${tenant?.logo_url}`;
+            console.log("[EMAIL] Using public URL fallback:", logoUrl);
+          }
+        }
+      } catch (error) {
+        console.error("[EMAIL] Error creating signed URL:", error);
+        // Construct public URL as fallback
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${tenant?.logo_url}`;
       }
     }
+    
+    console.log("[EMAIL] Final logo URL:", logoUrl);
 
     const orgBranding: OrgBranding = {
       logoUrl: logoUrl,
