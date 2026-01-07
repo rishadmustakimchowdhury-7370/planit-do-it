@@ -77,7 +77,12 @@ serve(async (req) => {
       follow_up: 'following up on a previous conversation or application',
       offer: 'extending a job offer to the candidate',
       rejection: 'politely declining the candidate for the position',
-      custom: customPrompt || 'general outreach to the candidate',
+      custom: customPrompt || 'general outreach',
+    };
+
+    // Client email purposes
+    const clientPurposeGuide: Record<string, string> = {
+      custom: customPrompt || 'professional business communication with a client',
     };
 
     let systemPrompt: string;
@@ -89,81 +94,103 @@ serve(async (req) => {
       
       systemPrompt = `You are an expert marketing email copywriter for HireMetrics CRM, a modern recruitment software platform. Write compelling, professional marketing emails that drive engagement and conversions.
 
-STRUCTURE:
-1. Greeting: Start with a warm, professional greeting (e.g., "Hi there," or "Hello,")
-2. [blank line]
-3. Opening Hook: 1-2 sentences that capture attention and establish relevance
-4. [blank line]
-5. Main Content: 2-3 paragraphs explaining the value proposition, benefits, or announcement
-6. [blank line]
-7. Call to Action: Clear, compelling CTA with urgency if appropriate
-8. [blank line]
-9. Sign-off: "Best regards," followed by "The HireMetrics Team"
+PROFESSIONAL EMAIL STRUCTURE (follow exactly):
+
+**SECTION 1 - GREETING:**
+"Hi there," or "Hello,"
+
+**SECTION 2 - INTRODUCTION (Opening Hook):**
+1-2 sentences that capture attention and establish relevance. State the purpose of your email.
+
+**SECTION 3 - BODY (Main Message):**
+2-3 short paragraphs (each 2-3 sentences max):
+- Paragraph 1: Explain the main value or announcement
+- Paragraph 2: Highlight key benefits or details
+- Paragraph 3 (optional): Additional context or supporting information
+
+**SECTION 4 - CALL TO ACTION:**
+1-2 sentences with a clear, compelling call to action.
+
+**SECTION 5 - CLOSING:**
+"Best regards,"
+"The HireMetrics Team"
 
 CRITICAL RULES:
 - Tone: ${toneGuide[tone]}
 - Write for mass email delivery to ${recipientCount || 'multiple'} recipients
 - NO placeholder variables like {{name}} - keep greetings general
 - NO markdown, NO HTML tags in the output
-- Make it scannable with short paragraphs
-- Include a clear benefit-focused call to action
-- Keep it under 200 words for optimal engagement
-- Be genuine and avoid overly salesy language
+- Make each paragraph SHORT (2-3 sentences max)
+- Keep total length under 200 words
+- Use proper paragraph spacing (blank line between each section)
 - ALSO suggest a compelling subject line at the END in format: "SUBJECT: [your subject line here]"`;
 
       userPrompt = `Write a marketing email for: ${marketingPurpose}
 
 Additional context/instructions: ${customPrompt || 'None provided'}
 
-Generate a professional marketing email that will resonate with recruitment professionals and hiring managers. Remember to suggest a subject line at the end.`;
+Generate a professional, well-structured marketing email. Remember to suggest a subject line at the end.`;
     } else {
-      // Original recruitment email generation
-      const purposeGuide = recruitmentPurposeGuide;
+      // Recruitment or Client email generation
+      const isClientEmail = !candidate_first_name && company_name;
+      const recipientName = candidate_first_name || company_name?.split(' ')[0] || 'there';
+      const purposeGuide = isClientEmail ? clientPurposeGuide : recruitmentPurposeGuide;
 
-      systemPrompt = `You are an expert recruitment email writer. You MUST follow this EXACT structure for every email:
+      systemPrompt = `You are an expert professional email writer specializing in ${isClientEmail ? 'client business communications' : 'recruitment emails'}. You MUST follow this EXACT professional structure:
 
-STRUCTURE (follow exactly - use ACTUAL candidate name, job title, and location provided, NOT placeholders):
-1. Greeting: "Hi ${candidate_first_name}," (use the actual first name provided, on its own line)
-2. [blank line]
-3. Paragraph 1: Introduction and context (2-3 sentences explaining who you are and why you're reaching out about the ${job_title} role${location ? ` in ${location}` : ''})
-4. [blank line]
-5. Paragraph 2: Value proposition / main message (2-3 sentences about the opportunity or key information)
-6. [blank line]
-7. Paragraph 3: Call to action or closing (1-2 sentences with clear next steps)
-8. [blank line]
-9. Sign-off: "Best regards," (on its own line, NO signature block after - the system adds signature automatically)
+**PROFESSIONAL EMAIL FORMAT (follow exactly):**
+
+**SECTION 1 - GREETING:**
+"Hi ${recipientName},"
+
+**SECTION 2 - INTRODUCTION (2-3 sentences):**
+- Who you are (brief introduction)
+- Why you're reaching out
+- Context for the communication
+${job_title ? `- Reference the ${job_title} role${location ? ` in ${location}` : ''}` : ''}
+
+**SECTION 3 - BODY (2-3 sentences):**
+- Main message or value proposition
+- Key details or information
+- Relevant benefits or context
+
+**SECTION 4 - CLOSING/CALL TO ACTION (1-2 sentences):**
+- Clear next steps
+- Request for response or action
+- Express enthusiasm for connecting
+
+**SECTION 5 - SIGN-OFF:**
+"Best regards,"
+(The system will add the signature automatically - do NOT include any name after "Best regards,")
 
 CRITICAL FORMATTING RULES:
 - Tone: ${toneGuide[tone]}
-- ALWAYS use the actual candidate name "${candidate_first_name}" in the greeting, NOT a placeholder
-- ALWAYS mention the actual job title "${job_title}"${location ? ` and location "${location}"` : ''} in the email body
-- Company name to use: ${company_name || 'our client company'}
-- Recruiter signing off: ${recruiter_name}
-- Use exactly 3 distinct paragraphs with DOUBLE LINE BREAKS between them for clear visual separation
-- NO markdown, NO HTML, NO bullet points, NO numbered lists
-- NO placeholder text like {{variable}}, [insert here], or brackets - use actual values provided
-- NO subject line - only the email body
-- End with "Best regards," - do NOT add any name or signature after it
-- Each paragraph should be substantial (2-3 complete sentences)
-- IMPORTANT: Separate each paragraph with TWO newlines (blank line between them) for proper formatting`;
+- Use ACTUAL values provided, NOT placeholders or template variables
+- Separate each section with a BLANK LINE for visual clarity
+- Each paragraph should be 2-3 sentences (not walls of text)
+- NO markdown, NO HTML, NO bullet points
+- NO placeholder text like {{variable}}, [insert here], or brackets
+- NO subject line in the output - only the email body
+- End with "Best regards," and NOTHING after it (no name, no signature)
+- Total email should be 80-150 words for optimal readability`;
 
-      userPrompt = `Write a recruitment email for: ${purposeGuide[purpose] || 'general outreach'}
+      userPrompt = `Write a professional ${isClientEmail ? 'client' : 'recruitment'} email for: ${purposeGuide[purpose] || 'general outreach'}
 
-ACTUAL VALUES TO USE (NOT placeholders):
-- Candidate First Name: ${candidate_first_name}
-- Candidate Last Name: ${candidate_last_name || ''}
-- Job Position: ${job_title}
-- Location: ${location || 'flexible/remote'}
-- Company Name: ${company_name || 'our client company'}
-- Your Name (Recruiter): ${recruiter_name}
-${customPrompt ? `\nAdditional Instructions: ${customPrompt}` : ''}
+VALUES TO USE:
+- Recipient Name: ${recipientName}
+${candidate_last_name ? `- Last Name: ${candidate_last_name}` : ''}
+${job_title ? `- Job Position: ${job_title}` : ''}
+${location ? `- Location: ${location}` : ''}
+- Company/Organization: ${company_name || 'our organization'}
+- Sender Name: ${recruiter_name}
+${customPrompt ? `\nSpecific Instructions: ${customPrompt}` : ''}
 
 REQUIREMENTS:
-1. Start with "Hi ${candidate_first_name}," as the greeting
-2. Write 3 distinct paragraphs separated by blank lines
-3. Mention the ${job_title} role${location ? ` in ${location}` : ''} naturally in the content
-4. End with "Best regards," only - no name or signature after
-5. Use actual values above, NOT template variables or placeholders
+1. Start with "Hi ${recipientName},"
+2. Write in the EXACT structure: Greeting → Introduction → Body → Closing → "Best regards,"
+3. Each section should be separated by a blank line
+4. Keep each paragraph SHORT (2-3 sentences)
+5. End with "Best regards," only - nothing after
 
 Generate the email now:`;
     }
