@@ -507,9 +507,23 @@ export function GmailComposeModal({
   }, [editor]);
 
   const insertSignature = () => {
-    if (signature && editor) {
-      editor.commands.insertContent(`<br><br>${signature}`);
+    if (!editor) return;
+    if (!signature?.trim()) {
+      toast.error('No signature found. Add one in Settings first.');
+      return;
     }
+
+    const signatureHtml = signature.trim().startsWith('<')
+      ? signature.trim()
+      : signature
+          .trim()
+          .replace(/\r\n/g, '\n')
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .join('<br>');
+
+    editor.commands.insertContent(`<br><br>${signatureHtml}`);
   };
 
   const ToolbarButton = ({ onClick, active, disabled, children, tooltip }: any) => (

@@ -485,31 +485,60 @@ serve(async (req) => {
     const companyName = branding?.company_name || null;
     const primaryColor = branding?.primary_color || null;
 
-    // Resolve storage paths to an absolute URL suitable for email clients
+    // Resolve logo URL to something email clients can fetch (public https or signed url)
     let logoUrl = rawLogo;
     console.log("[EMAIL] Raw org logo:", logoUrl);
 
-    if (logoUrl && !logoUrl.startsWith("http://") && !logoUrl.startsWith("https://")) {
-      const trySigned = async (bucket: string) => {
-        const { data, error } = await supabaseAdmin.storage
-          .from(bucket)
-          .createSignedUrl(logoUrl as string, 60 * 60 * 24);
-        if (error) return null;
-        return data?.signedUrl ?? null;
-      };
+    const trySigned = async (bucket: string, path: string) => {
+      const { data, error } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUrl(path, 60 * 60 * 24);
+      if (error) return null;
+      return data?.signedUrl ?? null;
+    };
 
-      // IMPORTANT: Branding settings currently uploads to the "documents" bucket.
-      // So we try that first, then other legacy buckets.
-      logoUrl =
-        (await trySigned("documents")) ||
-        (await trySigned("tenant-logos")) ||
-        (await trySigned("trusted-clients")) ||
-        null;
+    const extractStoragePath = (url: string): { bucket: string; path: string } | null => {
+      try {
+        const u = new URL(url);
+        const marker = "/storage/v1/object/";
+        const idx = u.pathname.indexOf(marker);
+        if (idx === -1) return null;
 
-      // If bucket is public and signed URL didn't work, fall back to public URL
-      if (!logoUrl) {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        logoUrl = `${supabaseUrl}/storage/v1/object/public/documents/${rawLogo}`;
+        // pathname after marker: e.g. public/documents/tenant/logo.png OR sign/documents/...
+        const rest = u.pathname.slice(idx + marker.length).replace(/^\/+/, "");
+        const parts = rest.split('/');
+        if (parts.length < 3) return null;
+
+        // parts[0] = public|sign|authenticated
+        const bucket = parts[1];
+        const path = parts.slice(2).join('/');
+        if (!bucket || !path) return null;
+        return { bucket, path };
+      } catch {
+        return null;
+      }
+    };
+
+    if (logoUrl) {
+      // Case A: stored as plain storage path like "tenantId/logo.png"
+      if (!logoUrl.startsWith("http://") && !logoUrl.startsWith("https://")) {
+        logoUrl =
+          (await trySigned("documents", logoUrl)) ||
+          (await trySigned("tenant-logos", logoUrl)) ||
+          (await trySigned("trusted-clients", logoUrl)) ||
+          null;
+
+        if (!logoUrl) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL");
+          logoUrl = `${supabaseUrl}/storage/v1/object/public/documents/${rawLogo}`;
+        }
+      } else {
+        // Case B: stored as a full Supabase Storage URL (public or signed)
+        const extracted = extractStoragePath(logoUrl);
+        if (extracted) {
+          const signed = await trySigned(extracted.bucket, extracted.path);
+          if (signed) logoUrl = signed;
+        }
       }
     }
 
