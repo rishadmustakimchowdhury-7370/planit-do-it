@@ -39,8 +39,36 @@ function wrapText(text: string, maxChars: number): string[] {
 
 type TextBlock = { kind: "blank" } | { kind: "text"; prefix?: string; text: string };
 
+// Strip HTML tags from content
+function stripHtml(html: string): string {
+  return String(html || "")
+    // Replace <br>, <br/>, <br /> with newlines
+    .replace(/<br\s*\/?>/gi, "\n")
+    // Replace closing block tags with newlines
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+    // Replace <li> with bullet
+    .replace(/<li[^>]*>/gi, "• ")
+    // Remove all other HTML tags
+    .replace(/<[^>]+>/g, "")
+    // Decode common HTML entities
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    // Clean up extra whitespace
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .trim();
+}
+
 function parseTextBlocks(raw: string): TextBlock[] {
-  const lines = String(raw || "")
+  // First strip HTML tags
+  const cleanText = stripHtml(raw);
+  
+  const lines = cleanText
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n");
@@ -55,7 +83,7 @@ function parseTextBlocks(raw: string): TextBlock[] {
 
     const bulletMatch = trimmed.match(/^([-*•]|\d+\.)\s+(.*)$/);
     if (bulletMatch) {
-      blocks.push({ kind: "text", prefix: bulletMatch[1], text: bulletMatch[2] });
+      blocks.push({ kind: "text", prefix: "•", text: bulletMatch[2] });
     } else {
       blocks.push({ kind: "text", text: trimmed });
     }
@@ -195,6 +223,19 @@ serve(async (req) => {
         width: w,
         height: h,
       });
+    } else if (branding?.company_name) {
+      // Fallback: show organization name text in top-right
+      const orgNameSize = 16;
+      const orgName = String(branding.company_name);
+      const orgNameWidth = fontBold.widthOfTextAtSize(orgName, orgNameSize);
+      page.drawText(orgName, {
+        x: width - margin - orgNameWidth,
+        y: y - orgNameSize,
+        size: orgNameSize,
+        font: fontBold,
+        color: rgb(0, 0, 0.545), // dark navy #00008B
+      });
+      headerH = orgNameSize;
     }
 
     y -= headerH ? headerH + 18 : 0;
