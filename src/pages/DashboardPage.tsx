@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
+      <div className="space-y-4 sm:space-y-6 lg:space-y-8 px-1 sm:px-0">
         {/* Promo Banner */}
         <PromoBanner variant="dashboard" />
         {/* Welcome Section */}
@@ -156,21 +156,21 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-1"
         >
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
             Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {isOwner && "Here's an overview of your team's performance and recruitment pipeline."}
             {isManager && "Monitor your team's activity and recruitment metrics."}
             {isRecruiter && "Here's what's happening with your recruitment pipeline today."}
           </p>
         </motion.div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* Stats Grid - 2 columns on mobile, 3 on md, 6 on xl */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
           {isLoading ? (
             [...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-[120px] rounded-2xl" />
+              <Skeleton key={i} className="h-[100px] sm:h-[120px] rounded-xl sm:rounded-2xl" />
             ))
           ) : (
             statsCards.map((stat, i) => (
@@ -240,13 +240,13 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Recent Jobs */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="lg:col-span-2"
+            className="lg:col-span-2 order-1"
           >
             <RecentJobs />
           </motion.div>
@@ -256,6 +256,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
+            className="order-2"
           >
             <ActivityFeed />
           </motion.div>

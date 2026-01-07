@@ -601,10 +601,10 @@ export function GmailComposeModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className={cn(
-          "p-0 gap-0 flex flex-col",
+          "p-0 gap-0 flex flex-col overflow-hidden",
           isFullscreen 
-            ? "max-w-[100vw] h-[100vh] rounded-none" 
-            : "max-w-2xl max-h-[80vh]"
+            ? "max-w-[100vw] h-[100vh] w-full rounded-none" 
+            : "max-w-[95vw] sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh]"
         )}
       >
         {/* Header */}
@@ -701,11 +701,11 @@ export function GmailComposeModal({
           </div>
         </div>
 
-        {/* Quick Actions Row */}
-        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
+        {/* Quick Actions Row - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b bg-muted/30">
+          <div className="flex flex-wrap items-center gap-2">
             <Select onValueChange={setSelectedJobId} value={selectedJobId || ''}>
-              <SelectTrigger className="w-48 h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-48 h-8 text-xs">
                 <SelectValue placeholder="Select job..." />
               </SelectTrigger>
               <SelectContent>
@@ -718,7 +718,7 @@ export function GmailComposeModal({
             </Select>
 
             <Select onValueChange={handleTemplateSelect}>
-              <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-40 h-8 text-xs">
                 <SelectValue placeholder="Use template..." />
               </SelectTrigger>
               <SelectContent>
@@ -733,24 +733,26 @@ export function GmailComposeModal({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 text-xs"
+              className="h-8 gap-1.5 text-xs flex-shrink-0"
               onClick={() => setShowAiPanel(!showAiPanel)}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              AI Compose
+              <span className="hidden sm:inline">AI Compose</span>
+              <span className="sm:hidden">AI</span>
             </Button>
           </div>
 
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="h-8 gap-1.5 text-xs w-full sm:w-auto"
             onClick={handleSaveAsTemplate}
             disabled={!subject.trim() || !editor || editor.isEmpty}
             title="Save current email as a template"
           >
             <Save className="h-3.5 w-3.5" />
-            Save template
+            <span className="hidden sm:inline">Save template</span>
+            <span className="sm:hidden">Save</span>
           </Button>
         </div>
 
