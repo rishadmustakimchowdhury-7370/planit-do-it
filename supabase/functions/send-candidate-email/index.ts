@@ -473,17 +473,23 @@ serve(async (req) => {
       throw new Error("User account is not associated with an organization. Please contact support.");
     }
 
-    // Fetch organization branding from Organization Settings (branding_settings)
-    // NOTE: Per product requirement, operational emails must use ONLY the organization's logo.
-    const { data: branding } = await supabaseAdmin
-      .from("branding_settings")
-      .select("company_name, logo_url, primary_color")
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
+    // Fetch organization branding (logo is stored on tenants for most orgs; branding_settings may be empty)
+    const [{ data: branding }, { data: tenant }] = await Promise.all([
+      supabaseAdmin
+        .from("branding_settings")
+        .select("company_name, logo_url, primary_color")
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("tenants")
+        .select("name, logo_url, primary_color")
+        .eq("id", tenantId)
+        .single(),
+    ]);
 
-    const rawLogo = branding?.logo_url || null;
-    const companyName = branding?.company_name || null;
-    const primaryColor = branding?.primary_color || null;
+    const rawLogo = branding?.logo_url || tenant?.logo_url || null;
+    const companyName = branding?.company_name || tenant?.name || null;
+    const primaryColor = branding?.primary_color || tenant?.primary_color || null;
 
     // Resolve logo URL to something email clients can fetch (public https or signed url)
     let logoUrl = rawLogo;

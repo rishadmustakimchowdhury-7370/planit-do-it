@@ -695,41 +695,55 @@ export function GmailComposeModal({
         </div>
 
         {/* Quick Actions Row */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
-          <Select onValueChange={setSelectedJobId} value={selectedJobId || ''}>
-            <SelectTrigger className="w-48 h-8 text-xs">
-              <SelectValue placeholder="Select job..." />
-            </SelectTrigger>
-            <SelectContent>
-              {jobs.map((job) => (
-                <SelectItem key={job.id} value={job.id} className="text-xs">
-                  {job.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Select onValueChange={setSelectedJobId} value={selectedJobId || ''}>
+              <SelectTrigger className="w-48 h-8 text-xs">
+                <SelectValue placeholder="Select job..." />
+              </SelectTrigger>
+              <SelectContent>
+                {jobs.map((job) => (
+                  <SelectItem key={job.id} value={job.id} className="text-xs">
+                    {job.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select onValueChange={handleTemplateSelect}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Use template..." />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id} className="text-xs">
-                  {template.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select onValueChange={handleTemplateSelect}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Use template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id} className="text-xs">
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setShowAiPanel(!showAiPanel)}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Compose
+            </Button>
+          </div>
 
           <Button
             variant="outline"
             size="sm"
             className="h-8 gap-1.5 text-xs"
-            onClick={() => setShowAiPanel(!showAiPanel)}
+            onClick={handleSaveAsTemplate}
+            disabled={!subject.trim() || !editor || editor.isEmpty}
+            title="Save current email as a template"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            AI Compose
+            <Save className="h-3.5 w-3.5" />
+            Save template
           </Button>
         </div>
 
