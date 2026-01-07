@@ -293,10 +293,12 @@ export function GmailComposeModal({
   };
 
   const fetchJobs = async () => {
+    if (!tenantId) return;
     try {
       const { data, error } = await supabase
         .from('jobs')
         .select('id, title, location, clients(name)')
+        .eq('tenant_id', tenantId)
         .eq('status', 'open')
         .order('title');
 
