@@ -59,7 +59,9 @@ serve(async (req) => {
 
     logStep(customers.data.length > 0 ? "Customer found" : "Customer created", { customerId });
 
-    const origin = req.headers.get("origin") || "http://localhost:5173";
+    const origin = req.headers.get("origin");
+    if (!origin) throw new Error("Missing origin header - cannot determine return URL");
+    
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${origin}/billing`,
