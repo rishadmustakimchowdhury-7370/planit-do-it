@@ -273,17 +273,52 @@ export function SendCandidateEmailModal({
 
   const fetchJobs = async () => {
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('id, title, location, jd_file_url, clients(name)')
-        .eq('status', 'open')
-        .order('title');
+      // First check if user is a recruiter
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user?.id)
+        .single();
 
-      if (error) throw error;
-      setJobs(data || []);
+      const isRecruiter = roleData?.role === 'recruiter';
+
+      let jobsData: Job[] = [];
+
+      if (isRecruiter && user?.id) {
+        // Recruiters only see jobs assigned to them via job_assignees
+        const { data: assignedJobs, error } = await supabase
+          .from('job_assignees')
+          .select('job_id, jobs:job_id(id, title, location, jd_file_url, clients(name), status)')
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        
+        // Filter for open jobs and extract job data
+        jobsData = (assignedJobs || [])
+          .filter((a: any) => a.jobs?.status === 'open')
+          .map((a: any) => ({
+            id: a.jobs.id,
+            title: a.jobs.title,
+            location: a.jobs.location,
+            jd_file_url: a.jobs.jd_file_url,
+            clients: a.jobs.clients,
+          }));
+      } else {
+        // Owners/Managers see all tenant jobs
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('id, title, location, jd_file_url, clients(name)')
+          .eq('status', 'open')
+          .order('title');
+
+        if (error) throw error;
+        jobsData = data || [];
+      }
+
+      setJobs(jobsData);
       
       if (preSelectedJobId) {
-        const job = data?.find(j => j.id === preSelectedJobId);
+        const job = jobsData.find(j => j.id === preSelectedJobId);
         setSelectedJob(job || null);
       }
     } catch (error) {
