@@ -132,6 +132,33 @@ const mergePlaceholders = (
     .replace(/\{\{today_date\}\}/g, today);
 };
 
+const normalizeEmailContentToHtml = (input: string): string => {
+  const text = (input ?? '').trim();
+  if (!text) return '';
+
+  // If it's already HTML, keep it
+  if (text.startsWith('<') && /<(p|div|br|ul|ol|li|h\d)\b/i.test(text)) {
+    return text;
+  }
+
+  // Plain text: split paragraphs on blank lines
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  return paragraphs
+    .map(p => {
+      const lines = p
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean);
+      const html = lines.join('<br>');
+      return `<p>${html}</p>`;
+    })
+    .join('');
+};
+
 export function SendClientEmailModal({
   open,
   onOpenChange,
@@ -283,8 +310,9 @@ export function SendClientEmailModal({
     if (template && editor) {
       const recruiterName = profile?.full_name || 'Recruiter';
       setSubject(mergePlaceholders(template.subject, client, recruiterName));
+
       const mergedBody = mergePlaceholders(template.body_text, client, recruiterName);
-      editor.commands.setContent(mergedBody);
+      editor.commands.setContent(normalizeEmailContentToHtml(mergedBody));
     }
   };
 
@@ -351,7 +379,7 @@ export function SendClientEmailModal({
       toast.error('Please describe what you want the AI to write');
       return;
     }
-    
+
     setIsGeneratingAI(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-compose-email', {
@@ -373,7 +401,8 @@ export function SendClientEmailModal({
       if (error) throw error;
 
       if (data?.email_body && editor) {
-        editor.commands.setContent(data.email_body);
+        // Important: convert AI plain-text paragraphs into real HTML paragraphs
+        editor.commands.setContent(normalizeEmailContentToHtml(data.email_body));
         if (!subject) {
           setSubject(`Regarding ${client.name}`);
         }

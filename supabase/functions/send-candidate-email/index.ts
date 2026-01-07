@@ -207,36 +207,19 @@ const createEmailHtml = (
       </div>`;
   }
 
-  // Centered organization logo header - ONLY org logo, no HireMetrics branding
-  // Use text fallback if logo URL is invalid or missing
+  // Centered organization logo header - ONLY org logo (no text fallback)
   let headerHtml = '';
   const hasValidLogo = isValidLogoUrl(orgBranding?.logoUrl ?? null);
-  
+
   if (hasValidLogo && orgBranding?.logoUrl) {
     headerHtml = `
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 32px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e5e7eb;">
         <tr>
           <td align="center">
-            <img src="${orgBranding.logoUrl}" 
-                 alt="${orgBranding.companyName || 'Organization'}" 
-                 height="56" 
+            <img src="${orgBranding.logoUrl}"
+                 alt="${orgBranding.companyName || 'Organization'}"
+                 height="56"
                  style="display: block; border: 0; max-width: 220px; height: auto; max-height: 56px;" />
-          </td>
-        </tr>
-      </table>
-    `;
-  } else if (orgBranding?.companyName) {
-    // Elegant text-based logo fallback with styled background
-    const color = orgBranding.primaryColor || "#1e40af";
-    headerHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 32px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e5e7eb;">
-        <tr>
-          <td align="center">
-            <div style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, ${color} 0%, ${adjustColor(color, -20)} 100%); border-radius: 10px;">
-              <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 20px; color: #ffffff; letter-spacing: 0.5px;">
-                ${orgBranding.companyName}
-              </span>
-            </div>
           </td>
         </tr>
       </table>
@@ -482,59 +465,56 @@ serve(async (req) => {
       throw new Error("User account is not associated with an organization. Please contact support.");
     }
 
-    // Fetch organization branding from tenants table (primary source)
-    const { data: tenant } = await supabaseAdmin
-      .from("tenants")
-      .select("name, logo_url, primary_color")
-      .eq("id", tenantId)
-      .single();
+    // Fetch organization branding - prefer branding_settings ("Organization Settings"), fallback to tenants
+    const [{ data: branding }, { data: tenant }] = await Promise.all([
+      supabaseAdmin
+        .from("branding_settings")
+        .select("company_name, logo_url, primary_color")
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("tenants")
+        .select("name, logo_url, primary_color")
+        .eq("id", tenantId)
+        .single(),
+    ]);
 
-    // Generate signed URL for logo if it's a storage path (not already a full URL)
-    let logoUrl = tenant?.logo_url || null;
-    console.log("[EMAIL] Raw logo_url from tenant:", logoUrl);
-    
+    const rawLogo = branding?.logo_url || tenant?.logo_url || null;
+    const companyName = branding?.company_name || tenant?.name || null;
+    const primaryColor = branding?.primary_color || tenant?.primary_color || null;
+
+    // Resolve storage paths to an absolute URL suitable for email clients
+    let logoUrl = rawLogo;
+    console.log("[EMAIL] Raw org logo:", logoUrl);
+
     if (logoUrl && !logoUrl.startsWith("http://") && !logoUrl.startsWith("https://")) {
-      // It's a storage path - try to create a signed URL
-      // The path format is typically: tenant_id/filename.ext
-      try {
-        // Try the 'tenant-logos' bucket first (common pattern)
-        let signedData = await supabaseAdmin.storage
-          .from("tenant-logos")
-          .createSignedUrl(logoUrl, 60 * 60 * 24); // 24 hours
-        
-        if (signedData?.data?.signedUrl) {
-          logoUrl = signedData.data.signedUrl;
-          console.log("[EMAIL] Created signed URL from tenant-logos bucket");
-        } else {
-          // Try trusted-clients bucket as fallback
-          signedData = await supabaseAdmin.storage
-            .from("trusted-clients")
-            .createSignedUrl(logoUrl, 60 * 60 * 24);
-          
-          if (signedData?.data?.signedUrl) {
-            logoUrl = signedData.data.signedUrl;
-            console.log("[EMAIL] Created signed URL from trusted-clients bucket");
-          } else {
-            // Final fallback: construct public URL
-            const supabaseUrl = Deno.env.get("SUPABASE_URL");
-            logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${tenant?.logo_url}`;
-            console.log("[EMAIL] Using public URL fallback:", logoUrl);
-          }
-        }
-      } catch (error) {
-        console.error("[EMAIL] Error creating signed URL:", error);
-        // Construct public URL as fallback
+      // Try signed URLs (works for private buckets)
+      const trySigned = async (bucket: string) => {
+        const { data, error } = await supabaseAdmin.storage
+          .from(bucket)
+          .createSignedUrl(logoUrl as string, 60 * 60 * 24);
+        if (error) return null;
+        return data?.signedUrl ?? null;
+      };
+
+      logoUrl =
+        (await trySigned("tenant-logos")) ||
+        (await trySigned("trusted-clients")) ||
+        null;
+
+      // Fallback to public URLs (works if bucket is public)
+      if (!logoUrl) {
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${tenant?.logo_url}`;
+        logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${rawLogo}`;
       }
     }
-    
-    console.log("[EMAIL] Final logo URL:", logoUrl);
+
+    console.log("[EMAIL] Final org logo URL:", logoUrl);
 
     const orgBranding: OrgBranding = {
-      logoUrl: logoUrl,
-      companyName: tenant?.name || null,
-      primaryColor: tenant?.primary_color || null,
+      logoUrl,
+      companyName,
+      primaryColor,
     };
 
     const body: SendEmailRequest = await req.json();
