@@ -33,6 +33,7 @@ import {
   Paperclip,
   X,
   Upload,
+  Save,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -213,6 +214,7 @@ export function SendCandidateEmailModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Get user timezone on mount
   useEffect(() => {
@@ -493,6 +495,46 @@ export function SendCandidateEmailModal({
       toast.error(error.message || 'Failed to generate email');
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error('Please enter both subject and message before saving as template');
+      return;
+    }
+
+    const templateName = window.prompt('Enter a name for this template:');
+    if (!templateName?.trim()) {
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      if (!user?.id || !tenantId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('user_email_templates')
+        .insert({
+          tenant_id: tenantId,
+          user_id: user.id,
+          name: templateName.trim(),
+          subject: subject,
+          body_text: body,
+          is_active: true,
+        });
+
+      if (error) throw error;
+      
+      toast.success('Template saved successfully!');
+      fetchTemplates(); // Refresh templates list
+    } catch (error: any) {
+      console.error('Error saving template:', error);
+      toast.error(error.message || 'Failed to save template');
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -1145,10 +1187,25 @@ your@email.com"
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-4 border-t flex-shrink-0">
-          <Button variant="outline" onClick={handleMailtoFallback} className="gap-2">
-            <ExternalLink className="h-4 w-4" />
-            Open in Mail App
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleMailtoFallback} className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Open in Mail App
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSaveAsTemplate} 
+              disabled={isSavingTemplate || !subject.trim() || !body.trim()}
+              className="gap-2"
+            >
+              {isSavingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save as Template
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

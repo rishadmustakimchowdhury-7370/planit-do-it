@@ -136,63 +136,88 @@ Generate a professional, well-structured marketing email. Remember to suggest a 
       const recipientName = candidate_first_name || company_name?.split(' ')[0] || 'there';
       const purposeGuide = isClientEmail ? clientPurposeGuide : recruitmentPurposeGuide;
 
-      systemPrompt = `You are an expert professional email writer specializing in ${isClientEmail ? 'client business communications' : 'recruitment emails'}. You MUST follow this EXACT professional structure:
+      systemPrompt = `You are a professional email writer creating polished, Gmail-style business emails. Your emails should look like they came from a skilled recruiter or business professional.
 
-**PROFESSIONAL EMAIL FORMAT (follow exactly):**
+PROFESSIONAL EMAIL STRUCTURE (Gmail-style format):
 
-**SECTION 1 - GREETING:**
-"Hi ${recipientName},"
+═══════════════════════════════════════
+GREETING
+═══════════════════════════════════════
+Hi ${recipientName},
 
-**SECTION 2 - INTRODUCTION (2-3 sentences):**
-- Who you are (brief introduction)
-- Why you're reaching out
-- Context for the communication
-${job_title ? `- Reference the ${job_title} role${location ? ` in ${location}` : ''}` : ''}
+═══════════════════════════════════════
+OPENING PARAGRAPH (Introduction)
+═══════════════════════════════════════
+Write 2-3 sentences:
+• Briefly introduce yourself and your role
+• State the purpose of your email clearly
+• Create immediate relevance for the reader
 
-**SECTION 3 - BODY (2-3 sentences):**
-- Main message or value proposition
-- Key details or information
-- Relevant benefits or context
+═══════════════════════════════════════
+BODY PARAGRAPH (Main Message)
+═══════════════════════════════════════
+Write 2-4 sentences:
+• Present the key opportunity or information
+• Highlight the most compelling details
+• Keep it focused and scannable
 
-**SECTION 4 - CLOSING/CALL TO ACTION (1-2 sentences):**
-- Clear next steps
-- Request for response or action
-- Express enthusiasm for connecting
+═══════════════════════════════════════
+CALL TO ACTION (Closing)
+═══════════════════════════════════════
+Write 1-2 sentences:
+• Provide a clear next step
+• Make it easy to respond
+• Express genuine interest
 
-**SECTION 5 - SIGN-OFF:**
-"Best regards,"
-(The system will add the signature automatically - do NOT include any name after "Best regards,")
+═══════════════════════════════════════
+SIGN-OFF
+═══════════════════════════════════════
+Best regards,
+(System adds signature - do NOT add any name)
+
+═══════════════════════════════════════
 
 CRITICAL FORMATTING RULES:
-- Tone: ${toneGuide[tone]}
-- Use ACTUAL values provided, NOT placeholders or template variables
-- Separate each section with a BLANK LINE for visual clarity
-- Each paragraph should be 2-3 sentences (not walls of text)
-- NO markdown, NO HTML, NO bullet points
-- NO placeholder text like {{variable}}, [insert here], or brackets
-- NO subject line in the output - only the email body
-- End with "Best regards," and NOTHING after it (no name, no signature)
-- Total email should be 80-150 words for optimal readability`;
+✓ Tone: ${toneGuide[tone]}
+✓ Start with "Hi ${recipientName}," on its own line
+✓ Insert a BLANK LINE between each paragraph
+✓ Each paragraph: 2-4 sentences MAX
+✓ End ONLY with "Best regards," - nothing after
+✓ Total length: 80-150 words (concise but complete)
 
-      userPrompt = `Write a professional ${isClientEmail ? 'client' : 'recruitment'} email for: ${purposeGuide[purpose] || 'general outreach'}
+NEVER USE:
+✗ Markdown formatting (*, **, -, #)
+✗ HTML tags
+✗ Placeholder brackets like {{name}} or [insert here]
+✗ Bullet points or numbered lists
+✗ Wall of text without spacing
+✗ Multiple sign-off lines
+✗ Names after "Best regards,"`;
 
-VALUES TO USE:
-- Recipient Name: ${recipientName}
-${candidate_last_name ? `- Last Name: ${candidate_last_name}` : ''}
-${job_title ? `- Job Position: ${job_title}` : ''}
-${location ? `- Location: ${location}` : ''}
-- Company/Organization: ${company_name || 'our organization'}
-- Sender Name: ${recruiter_name}
-${customPrompt ? `\nSpecific Instructions: ${customPrompt}` : ''}
+      userPrompt = `Create a professional ${isClientEmail ? 'client communication' : 'recruitment'} email.
 
-REQUIREMENTS:
-1. Start with "Hi ${recipientName},"
-2. Write in the EXACT structure: Greeting → Introduction → Body → Closing → "Best regards,"
-3. Each section should be separated by a blank line
-4. Keep each paragraph SHORT (2-3 sentences)
-5. End with "Best regards," only - nothing after
+PURPOSE: ${purposeGuide[purpose] || 'general outreach'}
 
-Generate the email now:`;
+DETAILS TO INCLUDE:
+• Recipient: ${recipientName}${candidate_last_name ? ` ${candidate_last_name}` : ''}
+${job_title ? `• Position: ${job_title}` : ''}
+${location ? `• Location: ${location}` : ''}
+• Organization: ${company_name || 'our organization'}
+• Your Name: ${recruiter_name}
+${customPrompt ? `• Special Instructions: ${customPrompt}` : ''}
+
+FORMAT:
+1. "Hi ${recipientName}," (greeting line)
+2. [blank line]
+3. Introduction paragraph
+4. [blank line]
+5. Body paragraph
+6. [blank line]
+7. Call-to-action paragraph
+8. [blank line]
+9. "Best regards," (end here - no signature)
+
+Write the email now:`;
     }
 
     console.log("Calling Lovable AI for email composition...");
