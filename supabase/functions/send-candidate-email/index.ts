@@ -488,7 +488,6 @@ serve(async (req) => {
     console.log("[EMAIL] Raw org logo:", logoUrl);
 
     if (logoUrl && !logoUrl.startsWith("http://") && !logoUrl.startsWith("https://")) {
-      // Try signed URLs (works for private buckets)
       const trySigned = async (bucket: string) => {
         const { data, error } = await supabaseAdmin.storage
           .from(bucket)
@@ -497,15 +496,18 @@ serve(async (req) => {
         return data?.signedUrl ?? null;
       };
 
+      // IMPORTANT: Branding settings currently uploads to the "documents" bucket.
+      // So we try that first, then other legacy buckets.
       logoUrl =
+        (await trySigned("documents")) ||
         (await trySigned("tenant-logos")) ||
         (await trySigned("trusted-clients")) ||
         null;
 
-      // Fallback to public URLs (works if bucket is public)
+      // If bucket is public and signed URL didn't work, fall back to public URL
       if (!logoUrl) {
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
-        logoUrl = `${supabaseUrl}/storage/v1/object/public/tenant-logos/${rawLogo}`;
+        logoUrl = `${supabaseUrl}/storage/v1/object/public/documents/${rawLogo}`;
       }
     }
 
