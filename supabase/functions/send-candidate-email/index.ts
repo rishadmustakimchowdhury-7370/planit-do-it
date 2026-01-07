@@ -59,74 +59,75 @@ interface OrgBranding {
   primaryColor: string | null;
 }
 
-// Get organization logo HTML (right side)
-function getOrgLogoHTML(branding: OrgBranding): string {
-  if (!branding.logoUrl && !branding.companyName) {
-    return "";
+// Validate if a URL is valid and accessible
+function isValidLogoUrl(url: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.length === 0) return false;
+  // Must start with http:// or https://
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
+  // Basic URL format check
+  try {
+    new URL(trimmed);
+    return true;
+  } catch {
+    return false;
   }
-  
-  const color = branding.primaryColor || "#374151";
-  
-  if (branding.logoUrl) {
-    return `
-      <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;">
-        <tr>
-          <td style="vertical-align:middle;">
-            <img src="${branding.logoUrl}" 
-                 alt="${branding.companyName || 'Organization'}" 
-                 height="40" 
-                 style="display:block; border:0; max-width:150px; height:auto; max-height:40px;" />
-          </td>
-        </tr>
-      </table>
-    `.trim();
-  }
-  
-  // Text fallback if no logo
-  return `
-    <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;">
-      <tr>
-        <td style="vertical-align:middle;">
-          <div style="background:${color}; border-radius:8px; padding:8px 12px; display:inline-block;">
-            <span style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; font-weight:600; font-size:14px; color:#ffffff;">
-              ${branding.companyName || "Organization"}
-            </span>
-          </div>
-        </td>
-      </tr>
-    </table>
-  `.trim();
 }
 
-// Process HTML body to ensure proper paragraph spacing
+// Helper to darken a hex color for gradient
+function adjustColor(hex: string, amount: number): string {
+  // Remove # if present
+  const cleanHex = hex.replace('#', '');
+  // Parse RGB
+  const r = Math.max(0, Math.min(255, parseInt(cleanHex.substring(0, 2), 16) + amount));
+  const g = Math.max(0, Math.min(255, parseInt(cleanHex.substring(2, 4), 16) + amount));
+  const b = Math.max(0, Math.min(255, parseInt(cleanHex.substring(4, 6), 16) + amount));
+  // Return hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+// Process email body to ensure proper paragraph spacing
+// Converts plain text with \n\n breaks into properly styled HTML paragraphs
 function formatEmailBody(bodyText: string): string {
-  const isHtml = bodyText.trim().startsWith('<') && (bodyText.includes('<p') || bodyText.includes('<div') || bodyText.includes('<br'));
-  
-  if (!isHtml) {
-    // Plain text: convert to paragraphs with proper spacing
-    return bodyText
-      .split('\n\n') // Split by double newlines for paragraphs
-      .map(para => para.trim())
-      .filter(para => para.length > 0)
-      .map(para => {
-        // Handle single line breaks within paragraphs
-        const lines = para.split('\n').map(l => l.trim()).filter(l => l);
-        return `<p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">${lines.join('<br>')}</p>`;
-      })
-      .join('');
+  if (!bodyText || typeof bodyText !== 'string') {
+    return '';
   }
   
-  // HTML content: Add proper paragraph styling
-  let formattedHtml = bodyText;
+  const trimmedBody = bodyText.trim();
+  const isHtml = trimmedBody.startsWith('<') && (trimmedBody.includes('<p') || trimmedBody.includes('<div') || trimmedBody.includes('<br'));
   
-  // Style existing <p> tags with proper margins
+  if (!isHtml) {
+    // Plain text: Split by double newlines (paragraph breaks)
+    // This handles AI-generated text with proper \n\n separation
+    const paragraphs = trimmedBody
+      .split(/\n\s*\n/) // Split on one or more blank lines
+      .map(para => para.trim())
+      .filter(para => para.length > 0);
+    
+    // Convert each paragraph to styled HTML
+    return paragraphs.map(para => {
+      // Handle single line breaks within a paragraph (convert to <br>)
+      const lines = para.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const content = lines.join('<br>');
+      return `<p style="margin: 0 0 20px 0; line-height: 1.7; color: #1f2937; font-size: 15px;">${content}</p>`;
+    }).join('');
+  }
+  
+  // HTML content: Ensure proper paragraph styling
+  let formattedHtml = trimmedBody;
+  
+  // Style existing <p> tags with proper margins and spacing
   formattedHtml = formattedHtml.replace(
     /<p(?:\s[^>]*)?>/gi, 
-    '<p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">'
+    '<p style="margin: 0 0 20px 0; line-height: 1.7; color: #1f2937; font-size: 15px;">'
   );
   
   // Convert <br><br> to paragraph breaks for better spacing
-  formattedHtml = formattedHtml.replace(/<br\s*\/?>\s*<br\s*\/?>/gi, '</p><p style="margin: 0 0 16px 0; line-height: 1.7; color: #1f2937;">');
+  formattedHtml = formattedHtml.replace(
+    /<br\s*\/?>\s*<br\s*\/?>/gi, 
+    '</p><p style="margin: 0 0 20px 0; line-height: 1.7; color: #1f2937; font-size: 15px;">'
+  );
   
   return formattedHtml;
 }
@@ -207,30 +208,35 @@ const createEmailHtml = (
   }
 
   // Centered organization logo header - ONLY org logo, no HireMetrics branding
+  // Use text fallback if logo URL is invalid or missing
   let headerHtml = '';
-  if (orgBranding?.logoUrl) {
+  const hasValidLogo = isValidLogoUrl(orgBranding?.logoUrl ?? null);
+  
+  if (hasValidLogo && orgBranding?.logoUrl) {
     headerHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 32px; background: #ffffff;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 32px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e5e7eb;">
         <tr>
           <td align="center">
             <img src="${orgBranding.logoUrl}" 
                  alt="${orgBranding.companyName || 'Organization'}" 
-                 height="50" 
-                 style="display: block; border: 0; max-width: 200px; height: auto; max-height: 50px;" />
+                 height="56" 
+                 style="display: block; border: 0; max-width: 220px; height: auto; max-height: 56px;" />
           </td>
         </tr>
       </table>
     `;
   } else if (orgBranding?.companyName) {
-    // Text-based logo fallback
-    const color = orgBranding.primaryColor || "#1f2937";
+    // Elegant text-based logo fallback with styled background
+    const color = orgBranding.primaryColor || "#1e40af";
     headerHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 32px; background: #ffffff;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 32px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e5e7eb;">
         <tr>
           <td align="center">
-            <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 22px; color: ${color};">
-              ${orgBranding.companyName}
-            </span>
+            <div style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, ${color} 0%, ${adjustColor(color, -20)} 100%); border-radius: 10px;">
+              <span style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 20px; color: #ffffff; letter-spacing: 0.5px;">
+                ${orgBranding.companyName}
+              </span>
+            </div>
           </td>
         </tr>
       </table>
