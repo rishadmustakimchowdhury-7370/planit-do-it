@@ -353,13 +353,18 @@ export function GmailComposeModal({
 
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
+        // Use signed URL since documents bucket is private
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('documents')
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days validity
+
+        if (signedUrlError || !signedUrlData?.signedUrl) {
+          throw new Error('Failed to create signed URL');
+        }
 
         newAttachments.push({
           name: file.name,
-          url: urlData.publicUrl,
+          url: signedUrlData.signedUrl,
           size: file.size,
           type: file.type,
         });
