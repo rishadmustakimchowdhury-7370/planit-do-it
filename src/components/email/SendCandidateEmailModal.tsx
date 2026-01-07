@@ -447,14 +447,16 @@ export function SendCandidateEmailModal({
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: urlData } = supabase.storage
+        // Get signed URL (bucket is private)
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('documents')
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
+
+        if (signedUrlError) throw signedUrlError;
 
         newAttachments.push({
           name: file.name,
-          url: urlData.publicUrl,
+          url: signedUrlData.signedUrl,
           size: file.size,
           type: file.type,
         });
@@ -518,14 +520,16 @@ export function SendCandidateEmailModal({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      // Get signed URL (bucket is private)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('documents')
-        .getPublicUrl(attachmentPath);
+        .createSignedUrl(attachmentPath, 60 * 60 * 24 * 7); // 7 days
+
+      if (signedUrlError) throw signedUrlError;
 
       setAttachments(prev => [...prev, {
         name: fileName,
-        url: urlData.publicUrl,
+        url: signedUrlData.signedUrl,
         size: fileData.size,
         type: fileData.type || 'application/pdf',
       }]);
