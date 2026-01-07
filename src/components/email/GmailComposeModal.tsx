@@ -34,6 +34,7 @@ import {
   Loader2,
   Type,
   Upload,
+  Save,
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -120,13 +121,37 @@ const mergePlaceholders = (
     .replace(/\{\{today_date\}\}/g, today);
 };
 
+// Normalize template/AI content into clean HTML paragraphs so the email renders with real spacing.
+const normalizeEmailContentToHtml = (input: string): string => {
+  const raw = (input ?? '').trim();
+  if (!raw) return '';
+
+  const looksLikeHtml = raw.startsWith('<') && /<(p|div|br|ul|ol|li|h\d)\b/i.test(raw);
+  if (looksLikeHtml) {
+    // Ensure <p> tags exist and <br><br> becomes paragraph breaks
+    return raw
+      .replace(/<p(?:\s[^>]*)?>/gi, '<p>')
+      .replace(/<br\s*\/?>(\s*<br\s*\/?\s*>)+/gi, '</p><p>')
+      .trim();
+  }
+
+  // Plain text => paragraphs by blank lines
+  const paragraphs = raw
+    .replace(/\r\n/g, '\n')
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+};
+
 export function GmailComposeModal({
   open,
   onOpenChange,
   candidate,
   preSelectedJobId,
 }: GmailComposeModalProps) {
-  const { profile, tenantId } = useAuth();
+  const { profile, tenantId, user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
@@ -218,6 +243,40 @@ export function GmailComposeModal({
     }
   };
 
+  const handleSaveAsTemplate = async () => {
+    if (!tenantId) {
+      toast.error('No organization found');
+      return;
+    }
+    if (!subject.trim() || !editor || editor.isEmpty) {
+      toast.error('Please enter both subject and message before saving');
+      return;
+    }
+
+    const templateName = window.prompt('Enter a name for this template:');
+    if (!templateName?.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_email_templates')
+        .insert({
+          tenant_id: tenantId,
+          user_id: user?.id || profile?.id,
+          name: templateName.trim(),
+          subject,
+          body_text: editor.getHTML(),
+          is_active: true,
+        });
+
+      if (error) throw error;
+      toast.success('Template saved');
+      fetchTemplates();
+    } catch (e: any) {
+      console.error('Error saving template:', e);
+      toast.error(e?.message || 'Failed to save template');
+    }
+  };
+
   const fetchTemplates = async () => {
     try {
       const { data, error } = await supabase
@@ -259,7 +318,7 @@ export function GmailComposeModal({
       const recruiterName = profile?.full_name || 'Recruiter';
       setSubject(mergePlaceholders(template.subject, candidate, selectedJob, recruiterName));
       const mergedBody = mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName);
-      editor.commands.setContent(mergedBody);
+      editor.commands.setContent(normalizeEmailContentToHtml(mergedBody));
     }
   };
 
@@ -347,7 +406,7 @@ export function GmailComposeModal({
       if (error) throw error;
 
       if (data?.email_body && editor) {
-        editor.commands.setContent(data.email_body);
+        editor.commands.setContent(normalizeEmailContentToHtml(data.email_body));
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
           interview_invite: `Interview Invitation - ${selectedJob.title}`,
@@ -382,10 +441,7 @@ export function GmailComposeModal({
 
     setIsSending(true);
     try {
-      let finalBody = editor.getHTML();
-      if (signature) {
-        finalBody += `<br><br>${signature}`;
-      }
+      const bodyHtml = editor.getHTML();
 
       const { data, error } = await supabase.functions.invoke('send-candidate-email', {
         body: {
@@ -396,7 +452,8 @@ export function GmailComposeModal({
           cc_email: ccEmail || null,
           bcc_email: bccEmail || null,
           subject,
-          body_text: finalBody,
+          body_text: bodyHtml,
+          signature: signature || null,
           ai_generated: false,
           scheduled_at: scheduleType === 'later' ? scheduledAt : null,
           attachments: attachments.length > 0 ? attachments : undefined,
@@ -864,6 +921,11 @@ export function GmailComposeModal({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleSaveAsTemplate}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save as template
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={insertSignature}>
                   <Type className="h-4 w-4 mr-2" />
                   Insert signature

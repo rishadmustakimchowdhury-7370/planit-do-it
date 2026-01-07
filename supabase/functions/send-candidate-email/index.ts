@@ -146,50 +146,58 @@ const createEmailHtml = (
   // Format the body with proper paragraph spacing
   const formattedBody = formatEmailBody(bodyText);
 
-  // Only add signature if includeSignature is true and signature wasn't already in the body
+  // Only add signature if includeSignature is true.
+  // De-dupe logic: if the body already contains a sign-off phrase *and* the recruiter's name,
+  // don't append again. If the body only has "Kind regards," etc. but no name/title, we still
+  // append the signature block (without duplicating the sign-off line).
   let signatureHtml = '';
   const bodyLower = bodyText.toLowerCase();
-  const hasSignatureInBody = bodyLower.includes('best regards') || 
-                              bodyLower.includes('kind regards') || 
-                              bodyLower.includes('sincerely') ||
-                              bodyLower.includes('thanks,') ||
-                              bodyLower.includes('thank you,') ||
-                              bodyLower.includes('warm regards');
-  
-  if (includeSignature && !hasSignatureInBody) {
+  const recruiterNameLower = (recruiterName || '').toLowerCase();
+  const hasSignOffPhrase = bodyLower.includes('best regards') ||
+    bodyLower.includes('kind regards') ||
+    bodyLower.includes('sincerely') ||
+    bodyLower.includes('thanks,') ||
+    bodyLower.includes('thank you,') ||
+    bodyLower.includes('warm regards') ||
+    bodyLower.includes('regards,');
+
+  const hasRecruiterNameInBody = recruiterNameLower ? bodyLower.includes(recruiterNameLower) : false;
+  const hasFullSignatureInBody = hasSignOffPhrase && hasRecruiterNameInBody;
+
+  if (includeSignature && !hasFullSignatureInBody) {
     if (signature && signature.trim()) {
-      // User's custom signature - extract Name and Role only
+      // User's custom signature - extract Name + Role only
       const signatureLines = signature.split('\n').filter(line => line.trim());
-      // Filter out email addresses, phone numbers, and keep only name/role
-      const filteredLines = signatureLines.filter(line => {
-        const trimmed = line.trim().toLowerCase();
-        // Skip lines with email addresses or phone patterns
-        return !trimmed.includes('@') && 
-               !trimmed.match(/^\+?[\d\s\-().]+$/) &&
-               !trimmed.match(/^tel:|^phone:|^mobile:/i);
-      });
-      
+
+      // If body already contains a sign-off phrase, remove any sign-off line from the signature
+      // to avoid showing it twice.
+      const filteredLines = signatureLines
+        .map(l => l.trim())
+        .filter(Boolean)
+        .filter(line => {
+          const lower = line.toLowerCase();
+          if (hasSignOffPhrase && (lower.includes('regards') || lower.includes('sincerely') || lower.includes('thanks'))) {
+            return false;
+          }
+          // Skip lines with email addresses or phone patterns
+          return !lower.includes('@') &&
+            !lower.match(/^\+?[\d\s\-().]+$/) &&
+            !lower.match(/^tel:|^phone:|^mobile:/i);
+        });
+
       signatureHtml = `
         <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
           ${filteredLines.map((line, index) => {
-            const trimmedLine = line.trim();
-            if (index === 0 && (trimmedLine.toLowerCase().includes('regards') || trimmedLine.toLowerCase().includes('sincerely') || trimmedLine.toLowerCase().includes('thanks'))) {
-              // Greeting line
-              return `<p style="margin: 0 0 12px 0; color: #374151; font-size: 15px; line-height: 1.6;">${trimmedLine}</p>`;
-            } else if (index <= 1 || (index === 0 && !trimmedLine.toLowerCase().includes('regards'))) {
-              // Name (bold)
-              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${trimmedLine}</p>`;
-            } else {
-              // Role/title
-              return `<p style="margin: 0; color: #6b7280; font-size: 14px;">${trimmedLine}</p>`;
+            if (index === 0) {
+              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${line}</p>`;
             }
+            return `<p style="margin: 0; color: #6b7280; font-size: 14px;">${line}</p>`;
           }).join('')}
         </div>`;
     } else {
       // Default signature with name and role only - no email
       signatureHtml = `
         <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0 0 12px 0; color: #374151; font-size: 15px; line-height: 1.6;">Best regards,</p>
           <p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${recruiterName}</p>
           ${recruiterRole ? `<p style="margin: 0; color: #6b7280; font-size: 14px;">${recruiterRole}</p>` : ''}
         </div>`;
@@ -465,23 +473,17 @@ serve(async (req) => {
       throw new Error("User account is not associated with an organization. Please contact support.");
     }
 
-    // Fetch organization branding - prefer branding_settings ("Organization Settings"), fallback to tenants
-    const [{ data: branding }, { data: tenant }] = await Promise.all([
-      supabaseAdmin
-        .from("branding_settings")
-        .select("company_name, logo_url, primary_color")
-        .eq("tenant_id", tenantId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("tenants")
-        .select("name, logo_url, primary_color")
-        .eq("id", tenantId)
-        .single(),
-    ]);
+    // Fetch organization branding from Organization Settings (branding_settings)
+    // NOTE: Per product requirement, operational emails must use ONLY the organization's logo.
+    const { data: branding } = await supabaseAdmin
+      .from("branding_settings")
+      .select("company_name, logo_url, primary_color")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
 
-    const rawLogo = branding?.logo_url || tenant?.logo_url || null;
-    const companyName = branding?.company_name || tenant?.name || null;
-    const primaryColor = branding?.primary_color || tenant?.primary_color || null;
+    const rawLogo = branding?.logo_url || null;
+    const companyName = branding?.company_name || null;
+    const primaryColor = branding?.primary_color || null;
 
     // Resolve storage paths to an absolute URL suitable for email clients
     let logoUrl = rawLogo;
