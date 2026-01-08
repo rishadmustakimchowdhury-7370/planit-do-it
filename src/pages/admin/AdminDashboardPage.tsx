@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -23,6 +25,8 @@ import {
   Video,
   Settings,
   Loader2,
+  Archive,
+  RefreshCw,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -47,6 +51,7 @@ interface DashboardMetrics {
   expiringSubscriptions: number;
   pausedAccounts: number;
   trialAccounts: number;
+  deletedUsers: number;
 }
 
 interface RecentActivity {
@@ -55,6 +60,13 @@ interface RecentActivity {
   entity_type: string;
   entity_name: string | null;
   created_at: string;
+}
+
+interface ArchivedUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  deleted_at: string;
 }
 
 interface MonthlyRevenue {
@@ -66,49 +78,58 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [archivedUsers, setArchivedUsers] = useState<ArchivedUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mrrData, setMrrData] = useState<MonthlyRevenue[]>([]);
   const [signupsData, setSignupsData] = useState<{ date: string; signups: number }[]>([]);
   const [isSendingReminders, setIsSendingReminders] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // Fetch total users
+      // Fetch total active users (not deleted)
       const { count: totalUsers } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true });
-
-      // Fetch active tenants
-      const { count: activeTenants } = await supabase
-        .from('tenants')
         .select('*', { count: 'exact', head: true })
-        .eq('is_suspended', false);
+        .is('deleted_at', null);
 
-      // Fetch subscriptions by status
+      // Fetch deleted users count for archive
+      const { count: deletedUsers, data: deletedUsersData } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, deleted_at', { count: 'exact' })
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false })
+        .limit(50);
+
+      setArchivedUsers(deletedUsersData as ArchivedUser[] || []);
+
+      // Fetch all tenants with their subscription info
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('subscription_status, is_paused, is_suspended, subscription_ends_at, subscription_plan_id');
+        .select('id, subscription_status, is_paused, is_suspended, subscription_ends_at, subscription_plan_id');
 
+      // Calculate metrics from actual data
+      const activeTenants = tenantData?.filter(t => !t.is_suspended).length || 0;
+      
       const activeSubscriptions = tenantData?.filter(t => 
-        t.subscription_status === 'active' && !t.is_suspended
+        t.subscription_status === 'active' && !t.is_suspended && !t.is_paused
       ).length || 0;
 
-      const pausedAccounts = tenantData?.filter(t => t.is_paused).length || 0;
+      const pausedAccounts = tenantData?.filter(t => t.is_paused === true).length || 0;
       const trialAccounts = tenantData?.filter(t => t.subscription_status === 'trial').length || 0;
 
       // Expiring in next 30 days
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const now = new Date();
+      
       const expiringSubscriptions = tenantData?.filter(t => {
         if (!t.subscription_ends_at) return false;
         const endDate = new Date(t.subscription_ends_at);
-        return endDate <= thirtyDaysFromNow && endDate > new Date();
+        return endDate <= thirtyDaysFromNow && endDate > now;
       }).length || 0;
 
       // Fetch all invoices for revenue calculation
@@ -120,7 +141,6 @@ export default function AdminDashboardPage() {
       const totalRevenue = allInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
       
       // Calculate actual MRR from paid invoices in the last month
-      const now = new Date();
       const lastMonthStart = startOfMonth(subMonths(now, 1));
       const lastMonthEnd = endOfMonth(subMonths(now, 1));
       
@@ -150,13 +170,14 @@ export default function AdminDashboardPage() {
       }
       setMrrData(monthlyRevenueData);
 
-      // Fetch actual signups data from profiles (last 30 days)
+      // Fetch actual signups data from profiles (last 30 days, active users only)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
       const { data: recentProfiles } = await supabase
         .from('profiles')
         .select('created_at')
+        .is('deleted_at', null)
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       // Group signups by date
@@ -183,13 +204,14 @@ export default function AdminDashboardPage() {
 
       setMetrics({
         totalUsers: totalUsers || 0,
-        activeTenants: activeTenants || 0,
+        activeTenants,
         activeSubscriptions,
         mrr,
         totalRevenue,
         expiringSubscriptions,
         pausedAccounts,
         trialAccounts,
+        deletedUsers: deletedUsers || 0,
       });
 
       // Fetch recent activity
@@ -206,15 +228,46 @@ export default function AdminDashboardPage() {
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Real-time subscription for live updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchDashboardData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
+        fetchDashboardData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
+        fetchDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDashboardData]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchDashboardData();
+    toast.success('Dashboard refreshed');
   };
 
   const handleSendRenewalReminders = async () => {
     setIsSendingReminders(true);
     try {
-      // Call edge function to send renewal reminders
       const { data, error } = await supabase.functions.invoke('send-renewal-reminders');
       
       if (error) throw error;
@@ -251,6 +304,14 @@ export default function AdminDashboardPage() {
 
   return (
     <AdminLayout title="Admin Dashboard" description="Platform overview and quick actions">
+      {/* Refresh Button */}
+      <div className="flex justify-end mb-4">
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {statCards.map((stat, idx) => (
@@ -320,13 +381,13 @@ export default function AdminDashboardPage() {
                 <AreaChart data={mrrData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(value) => `$${value}`} />
+                  <YAxis className="text-xs" tickFormatter={(value) => `£${value}`} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))' 
                     }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value: number) => [`£${value.toLocaleString()}`, 'Revenue']}
                   />
                   <Area
                     type="monotone"
@@ -366,6 +427,65 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Archived Users Section */}
+      <Card className="mb-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Archive className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-lg">Archived Users</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {metrics?.deletedUsers || 0} deleted users available for marketing
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-archived"
+              checked={showArchived}
+              onCheckedChange={setShowArchived}
+            />
+            <Label htmlFor="show-archived">Show Archive</Label>
+          </div>
+        </CardHeader>
+        {showArchived && (
+          <CardContent>
+            {archivedUsers.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No archived users found</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {archivedUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{user.full_name || 'No name'}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        Deleted {format(new Date(user.deleted_at), 'MMM d, yyyy')}
+                      </Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(user.email);
+                          toast.success('Email copied for marketing');
+                        }}
+                      >
+                        <Mail className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       {/* Recent Activity */}
       <Card>
