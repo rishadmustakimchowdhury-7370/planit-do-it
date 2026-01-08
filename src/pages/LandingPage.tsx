@@ -675,7 +675,7 @@ export default function LandingPage() {
           >
             <CarouselContent className="-ml-4">
               {pricingPlans.map((plan, i) => (
-                <CarouselItem key={plan.id} className="pl-4 md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                <CarouselItem key={plan.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}

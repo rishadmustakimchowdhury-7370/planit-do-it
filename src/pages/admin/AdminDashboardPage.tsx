@@ -8,6 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +45,8 @@ import {
   Download,
   Building,
   ExternalLink,
+  CalendarIcon,
+  Filter,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -55,7 +60,8 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subMonths, subDays, subWeeks, startOfMonth, endOfMonth, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface DashboardMetrics {
   totalUsers: number;
@@ -98,6 +104,16 @@ interface MonthlyRevenue {
   revenue: number;
 }
 
+interface RevenueEntry {
+  amount: number;
+  date: Date;
+  type: 'order' | 'invoice';
+  status: string;
+  billing_cycle?: string;
+}
+
+type RevenueFilterPreset = 'today' | 'this_week' | '15_days' | '30_days' | '2_months' | '3_months' | '6_months' | '1_year' | 'custom';
+
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -114,6 +130,84 @@ export default function AdminDashboardPage() {
   const [selectedOrphaned, setSelectedOrphaned] = useState<Set<string>>(new Set());
   const [showDeleteOrphanedDialog, setShowDeleteOrphanedDialog] = useState(false);
   const [isDeletingOrphaned, setIsDeletingOrphaned] = useState(false);
+  
+  // Revenue analytics state
+  const [allRevenueData, setAllRevenueData] = useState<RevenueEntry[]>([]);
+  const [revenueFilter, setRevenueFilter] = useState<RevenueFilterPreset>('30_days');
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
+
+  const getFilterDateRange = useCallback((): { from: Date; to: Date } => {
+    const now = new Date();
+    const to = endOfDay(now);
+    
+    switch (revenueFilter) {
+      case 'today':
+        return { from: startOfDay(now), to };
+      case 'this_week':
+        return { from: startOfDay(subWeeks(now, 1)), to };
+      case '15_days':
+        return { from: startOfDay(subDays(now, 15)), to };
+      case '30_days':
+        return { from: startOfDay(subDays(now, 30)), to };
+      case '2_months':
+        return { from: startOfDay(subMonths(now, 2)), to };
+      case '3_months':
+        return { from: startOfDay(subMonths(now, 3)), to };
+      case '6_months':
+        return { from: startOfDay(subMonths(now, 6)), to };
+      case '1_year':
+        return { from: startOfDay(subMonths(now, 12)), to };
+      case 'custom':
+        return { 
+          from: customDateFrom ? startOfDay(customDateFrom) : startOfDay(subDays(now, 30)), 
+          to: customDateTo ? endOfDay(customDateTo) : to 
+        };
+      default:
+        return { from: startOfDay(subDays(now, 30)), to };
+    }
+  }, [revenueFilter, customDateFrom, customDateTo]);
+
+  const filteredRevenueData = useCallback(() => {
+    const { from, to } = getFilterDateRange();
+    return allRevenueData.filter(entry => 
+      isWithinInterval(entry.date, { start: from, end: to })
+    );
+  }, [allRevenueData, getFilterDateRange]);
+
+  const filteredRevenueSummary = useCallback(() => {
+    const data = filteredRevenueData();
+    const total = data.reduce((sum, entry) => sum + entry.amount, 0);
+    const orderCount = data.filter(e => e.type === 'order').length;
+    const invoiceCount = data.filter(e => e.type === 'invoice').length;
+    return { total, orderCount, invoiceCount, transactionCount: data.length };
+  }, [filteredRevenueData]);
+
+  const handleExportRevenue = () => {
+    const data = filteredRevenueData();
+    if (data.length === 0) {
+      toast.error('No revenue data to export');
+      return;
+    }
+    
+    const { from, to } = getFilterDateRange();
+    const csvRows = [
+      'Date,Amount,Type,Status,Billing Cycle',
+      ...data.map(entry => 
+        `${format(entry.date, 'yyyy-MM-dd')},${entry.amount},${entry.type},${entry.status},${entry.billing_cycle || 'N/A'}`
+      )
+    ];
+    
+    const csv = csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `revenue-report-${format(from, 'yyyy-MM-dd')}-to-${format(to, 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${data.length} transactions`);
+  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -256,6 +350,24 @@ export default function AdminDashboardPage() {
         });
       }
       setMrrData(monthlyRevenueData);
+
+      // Store all revenue entries for filtering
+      const revenueEntries: RevenueEntry[] = [
+        ...(allOrders || []).map(order => ({
+          amount: Number(order.amount),
+          date: order.approved_at ? new Date(order.approved_at) : new Date(order.created_at),
+          type: 'order' as const,
+          status: order.status,
+          billing_cycle: order.billing_cycle || undefined,
+        })),
+        ...(paidInvoices || []).map(inv => ({
+          amount: Number(inv.amount),
+          date: inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at),
+          type: 'invoice' as const,
+          status: inv.status,
+        })),
+      ].sort((a, b) => b.date.getTime() - a.date.getTime());
+      setAllRevenueData(revenueEntries);
 
       // Fetch actual signups data from profiles (last 30 days, active users only)
       const thirtyDaysAgo = new Date();
@@ -591,6 +703,133 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Revenue Analytics Section */}
+      <Card className="mb-8">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <DollarSign className="h-5 w-5 text-emerald-500" />
+            <div>
+              <CardTitle className="text-lg">Revenue Analytics</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Filter and export revenue data
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={revenueFilter} onValueChange={(v) => setRevenueFilter(v as RevenueFilterPreset)}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="this_week">This Week</SelectItem>
+                <SelectItem value="15_days">15 Days</SelectItem>
+                <SelectItem value="30_days">30 Days</SelectItem>
+                <SelectItem value="2_months">2 Months</SelectItem>
+                <SelectItem value="3_months">3 Months</SelectItem>
+                <SelectItem value="6_months">6 Months</SelectItem>
+                <SelectItem value="1_year">1 Year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {revenueFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn(!customDateFrom && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {customDateFrom ? format(customDateFrom, 'MMM d, yyyy') : 'From'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDateFrom}
+                      onSelect={setCustomDateFrom}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground">-</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn(!customDateTo && "text-muted-foreground")}>
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {customDateTo ? format(customDateTo, 'MMM d, yyyy') : 'To'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={customDateTo}
+                      onSelect={setCustomDateTo}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+            
+            <Button variant="outline" size="sm" onClick={handleExportRevenue}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">Total Revenue</p>
+              <p className="text-2xl font-bold text-emerald-600">£{filteredRevenueSummary().total.toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">Transactions</p>
+              <p className="text-2xl font-bold">{filteredRevenueSummary().transactionCount}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">Orders</p>
+              <p className="text-2xl font-bold text-blue-600">{filteredRevenueSummary().orderCount}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">Invoices</p>
+              <p className="text-2xl font-bold text-purple-600">{filteredRevenueSummary().invoiceCount}</p>
+            </div>
+          </div>
+          
+          {filteredRevenueData().length > 0 ? (
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {filteredRevenueData().slice(0, 20).map((entry, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Badge variant={entry.type === 'order' ? 'default' : 'secondary'}>
+                      {entry.type}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {format(entry.date, 'MMM d, yyyy h:mm a')}
+                    </span>
+                    {entry.billing_cycle && (
+                      <Badge variant="outline" className="text-xs">
+                        {entry.billing_cycle}
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="font-semibold text-emerald-600">£{entry.amount.toLocaleString()}</span>
+                </div>
+              ))}
+              {filteredRevenueData().length > 20 && (
+                <p className="text-sm text-center text-muted-foreground py-2">
+                  + {filteredRevenueData().length - 20} more transactions (export to see all)
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">No transactions found for this period</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Orphaned Workspaces Section */}
       <Card className="mb-8">
