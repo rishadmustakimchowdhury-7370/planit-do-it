@@ -78,53 +78,85 @@ Deno.serve(async (req) => {
     // Check if this is a manual reminder request
     const body = await req.json().catch(() => ({}));
     
-    if (body.manual && body.tenant_id) {
-      // Manual reminder to specific tenant
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', body.tenant_id)
-        .single();
+    if (body.manual) {
+      // Manual reminder - can use user_email OR tenant_id
+      let ownerEmail: string | undefined;
+      let ownerName: string | undefined;
+      let expiryDate: string | undefined;
+      let subscriptionStatus: string = 'active';
 
-      if (tenantError || !tenant) {
-        console.error('Error fetching tenant:', tenantError);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Tenant not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (body.tenant_id) {
+        // Fetch tenant
+        const { data: tenant, error: tenantError } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('id', body.tenant_id)
+          .single();
+
+        if (tenantError || !tenant) {
+          console.error('Error fetching tenant:', tenantError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Tenant not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch owner profile separately
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', tenant.owner_id)
+          .single();
+
+        if (!ownerProfile?.email) {
+          console.error('Error fetching owner profile');
+          return new Response(
+            JSON.stringify({ success: false, error: 'Owner email not found' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        ownerEmail = ownerProfile.email;
+        ownerName = ownerProfile.full_name || 'there';
+        subscriptionStatus = tenant.subscription_status || 'active';
+
+        const expiryTimestamp = tenant.subscription_expires_at || tenant.trial_expires_at;
+        if (expiryTimestamp) {
+          expiryDate = new Date(expiryTimestamp).toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+          });
+        }
+      } else if (body.user_email) {
+        // Use provided email directly
+        ownerEmail = body.user_email;
+        ownerName = body.user_name || 'there';
+        subscriptionStatus = body.subscription_status || 'active';
+
+        const expiryTimestamp = body.subscription_ends_at || body.trial_expires_at;
+        if (expiryTimestamp) {
+          expiryDate = new Date(expiryTimestamp).toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+          });
+        }
       }
 
-      // Fetch owner profile separately using owner_id
-      const { data: ownerProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', tenant.owner_id)
-        .single();
-
-      if (profileError || !ownerProfile?.email) {
-        console.error('Error fetching owner profile:', profileError);
+      if (!ownerEmail) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Owner email not found' }),
+          JSON.stringify({ success: false, error: 'Email not found' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const expiryDate = tenant.subscription_expires_at 
-        ? new Date(tenant.subscription_expires_at).toLocaleDateString('en-US', { 
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-          })
-        : undefined;
-
-      logEmailEvent("Sending manual renewal reminder", { to: ownerProfile.email, tenantId: body.tenant_id });
+      logEmailEvent("Sending manual renewal reminder", { to: ownerEmail });
 
       const result = await sendBillingEmail({
-        to: ownerProfile.email,
+        to: ownerEmail,
         subject: '📬 Subscription Reminder from HireMetrics',
         html: generateManualReminderHTML({
-          userName: ownerProfile.full_name || 'there',
-          customMessage: body.message,
+          userName: ownerName || 'there',
+          customMessage: body.custom_message || body.message,
           expiryDate,
-          subscriptionStatus: tenant.subscription_status,
+          subscriptionStatus,
           renewalLink,
         }),
       });
@@ -142,10 +174,10 @@ Deno.serve(async (req) => {
     const now = new Date();
     const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-    // Find tenants expiring within 14 days
+    // Find tenants expiring within 14 days (no FK joins - query separately)
     const { data: expiringTenants, error: fetchError } = await supabase
       .from('tenants')
-      .select('*, subscription_plans(name)')
+      .select('*')
       .in('subscription_status', ['trial', 'active'])
       .lte('subscription_expires_at', fourteenDaysFromNow.toISOString())
       .gt('subscription_expires_at', now.toISOString());

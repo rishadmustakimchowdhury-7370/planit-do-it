@@ -419,6 +419,13 @@ export default function AdminUsersPage() {
     try {
       setIsProcessing(true);
 
+      // Get package details
+      const { data: packageData } = await supabase
+        .from('subscription_plans')
+        .select('name')
+        .eq('id', selectedPackage)
+        .single();
+
       const { error } = await supabase
         .from('tenants')
         .update({ 
@@ -429,8 +436,21 @@ export default function AdminUsersPage() {
 
       if (error) throw error;
 
+      // Send package assignment notification email
+      try {
+        await supabase.functions.invoke('subscription-lifecycle', {
+          body: {
+            action: 'send_package_notification',
+            tenant_id: selectedUser.tenant_id,
+            package_name: packageData?.name || 'your new package',
+          },
+        });
+      } catch (emailError) {
+        console.warn('Failed to send package notification email:', emailError);
+      }
+
       await logAuditAction('assign_package', selectedUser.id, { package_id: selectedPackage });
-      toast.success('Package assigned successfully');
+      toast.success('Package assigned and notification sent');
       setShowPackageDialog(false);
       fetchUsers();
     } catch (error) {
@@ -444,17 +464,20 @@ export default function AdminUsersPage() {
   const handleSendPasswordReset = async (user: UserWithTenant) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth?reset=true`,
+      
+      // Use our edge function instead of Supabase auth directly
+      const { data, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: user.email }
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       await logAuditAction('send_password_reset', user.id);
       toast.success('Password reset email sent');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending password reset:', error);
-      toast.error('Failed to send password reset');
+      toast.error(error?.message || 'Failed to send password reset');
     } finally {
       setIsProcessing(false);
     }
@@ -640,12 +663,26 @@ export default function AdminUsersPage() {
       if (error) throw error;
 
       // Store the raw token temporarily so we can use it for login
-      // The temp login URL includes the raw token AND user_id for lookup
       const tempLoginUrl = `${window.location.origin}/auth?temp_token=${token}&user_id=${selectedUser.id}`;
       await navigator.clipboard.writeText(tempLoginUrl);
 
+      // Send temp login email to user
+      try {
+        await supabase.functions.invoke('subscription-lifecycle', {
+          body: {
+            action: 'send_temp_login_notification',
+            user_email: selectedUser.email,
+            user_name: selectedUser.full_name || selectedUser.email.split('@')[0],
+            temp_login_url: tempLoginUrl,
+            expires_in_minutes: tempLoginMinutes,
+          },
+        });
+      } catch (emailError) {
+        console.warn('Failed to send temp login notification email:', emailError);
+      }
+
       await logAuditAction('generate_temp_login', selectedUser.id, { expires_in: tempLoginMinutes });
-      toast.success('Temporary login link copied to clipboard');
+      toast.success('Temporary login link copied and email sent to user');
       setShowTempLoginDialog(false);
     } catch (error) {
       console.error('Error generating temp login:', error);
