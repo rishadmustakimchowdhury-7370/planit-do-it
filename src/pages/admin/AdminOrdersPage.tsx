@@ -14,7 +14,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, subDays, subMonths, subYears, startOfDay, endOfDay, startOfWeek } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { 
   Search, 
   CheckCircle, 
@@ -80,6 +83,10 @@ export default function AdminOrdersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [revenueFilter, setRevenueFilter] = useState('30days');
+  const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
+  const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
+  const [allCompletedOrders, setAllCompletedOrders] = useState<any[]>([]);
 
   useEffect(() => {
     fetchOrders();
@@ -114,29 +121,32 @@ export default function AdminOrdersPage() {
   const fetchMetrics = async () => {
     try {
       const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const todayStart = startOfDay(now);
+      const weekStart = startOfWeek(now);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
 
       const { data: allOrders } = await supabase
         .from('orders')
-        .select('amount, created_at, status')
-        .eq('status', 'completed');
+        .select('id, amount, created_at, status, currency, metadata, subscription_plans(name)')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
 
       if (allOrders) {
+        setAllCompletedOrders(allOrders);
+        
         const total = allOrders.reduce((sum, o) => sum + Number(o.amount), 0);
         const daily = allOrders
-          .filter(o => new Date(o.created_at) >= startOfDay)
+          .filter(o => new Date(o.created_at) >= todayStart)
           .reduce((sum, o) => sum + Number(o.amount), 0);
         const weekly = allOrders
-          .filter(o => new Date(o.created_at) >= startOfWeek)
+          .filter(o => new Date(o.created_at) >= weekStart)
           .reduce((sum, o) => sum + Number(o.amount), 0);
         const monthly = allOrders
-          .filter(o => new Date(o.created_at) >= startOfMonth)
+          .filter(o => new Date(o.created_at) >= monthStart)
           .reduce((sum, o) => sum + Number(o.amount), 0);
         const yearly = allOrders
-          .filter(o => new Date(o.created_at) >= startOfYear)
+          .filter(o => new Date(o.created_at) >= yearStart)
           .reduce((sum, o) => sum + Number(o.amount), 0);
 
         setMetrics({ total, daily, weekly, monthly, yearly });
@@ -146,14 +156,13 @@ export default function AdminOrdersPage() {
         for (let i = 6; i >= 0; i--) {
           const date = new Date();
           date.setDate(date.getDate() - i);
-          const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
+          const dayStart = startOfDay(date);
+          const dayEnd = endOfDay(date);
 
           const dayRevenue = allOrders
             .filter(o => {
               const orderDate = new Date(o.created_at);
-              return orderDate >= dayStart && orderDate < dayEnd;
+              return orderDate >= dayStart && orderDate <= dayEnd;
             })
             .reduce((sum, o) => sum + Number(o.amount), 0);
 
@@ -168,6 +177,96 @@ export default function AdminOrdersPage() {
       console.error('Failed to fetch metrics:', error);
     }
   };
+
+  const getFilteredRevenueData = () => {
+    if (!allCompletedOrders.length) return { orders: [], total: 0, count: 0 };
+    
+    const now = new Date();
+    let startDate: Date;
+    let endDate = endOfDay(now);
+    
+    switch (revenueFilter) {
+      case 'today':
+        startDate = startOfDay(now);
+        break;
+      case 'week':
+        startDate = startOfWeek(now);
+        break;
+      case '15days':
+        startDate = subDays(now, 15);
+        break;
+      case '30days':
+        startDate = subDays(now, 30);
+        break;
+      case '2months':
+        startDate = subMonths(now, 2);
+        break;
+      case '3months':
+        startDate = subMonths(now, 3);
+        break;
+      case '6months':
+        startDate = subMonths(now, 6);
+        break;
+      case '1year':
+        startDate = subYears(now, 1);
+        break;
+      case 'custom':
+        startDate = customDateFrom ? startOfDay(customDateFrom) : subDays(now, 30);
+        endDate = customDateTo ? endOfDay(customDateTo) : endOfDay(now);
+        break;
+      default:
+        startDate = subDays(now, 30);
+    }
+    
+    const filtered = allCompletedOrders.filter(o => {
+      const orderDate = new Date(o.created_at);
+      return orderDate >= startDate && orderDate <= endDate;
+    });
+    
+    return {
+      orders: filtered,
+      total: filtered.reduce((sum, o) => sum + Number(o.amount), 0),
+      count: filtered.length
+    };
+  };
+
+  const handleExportRevenue = () => {
+    const { orders: filteredData } = getFilteredRevenueData();
+    
+    if (filteredData.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const csvHeaders = ['Order ID', 'Customer', 'Plan', 'Amount', 'Currency', 'Date'];
+    const csvRows = filteredData.map(order => [
+      order.id,
+      order.metadata?.user_email || 'N/A',
+      order.subscription_plans?.name || order.metadata?.plan_name || 'N/A',
+      order.amount.toString(),
+      order.currency?.toUpperCase() || 'USD',
+      format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss')
+    ]);
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `revenue-report-${revenueFilter}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`Exported ${filteredData.length} transactions`);
+  };
+
+  const filteredRevenueData = getFilteredRevenueData();
 
   const handleApprove = async () => {
     if (!selectedOrder || !user) return;
@@ -604,7 +703,86 @@ export default function AdminOrdersPage() {
         </TabsContent>
 
         <TabsContent value="revenue" className="space-y-6">
-          {/* Revenue Metrics */}
+          {/* Filter Controls */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Revenue Analytics</span>
+                <Button onClick={handleExportRevenue} variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Filter Period</label>
+                  <Select value={revenueFilter} onValueChange={setRevenueFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="15days">Last 15 Days</SelectItem>
+                      <SelectItem value="30days">Last 30 Days</SelectItem>
+                      <SelectItem value="2months">Last 2 Months</SelectItem>
+                      <SelectItem value="3months">Last 3 Months</SelectItem>
+                      <SelectItem value="6months">Last 6 Months</SelectItem>
+                      <SelectItem value="1year">Last 1 Year</SelectItem>
+                      <SelectItem value="custom">Custom Date Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {revenueFilter === 'custom' && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">From Date</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customDateFrom ? format(customDateFrom, 'PP') : 'Pick a date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customDateFrom}
+                            onSelect={setCustomDateFrom}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">To Date</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-[180px] justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customDateTo ? format(customDateTo, 'PP') : 'Pick a date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customDateTo}
+                            onSelect={setCustomDateTo}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Filtered Revenue Summary */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-6">
@@ -613,8 +791,8 @@ export default function AdminOrdersPage() {
                     <DollarSign className="h-6 w-6 text-green-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Revenue</p>
-                    <p className="text-2xl font-bold">${metrics.total.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Filtered Revenue</p>
+                    <p className="text-2xl font-bold">${filteredRevenueData.total.toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>
@@ -623,11 +801,11 @@ export default function AdminOrdersPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-blue-500" />
+                    <ShoppingCart className="h-6 w-6 text-blue-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                    <p className="text-2xl font-bold">${metrics.monthly.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Transactions</p>
+                    <p className="text-2xl font-bold">{filteredRevenueData.count}</p>
                   </div>
                 </div>
               </CardContent>
@@ -636,11 +814,15 @@ export default function AdminOrdersPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                    <ShoppingCart className="h-6 w-6 text-purple-500" />
+                    <TrendingUp className="h-6 w-6 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Weekly Revenue</p>
-                    <p className="text-2xl font-bold">${metrics.weekly.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Avg. Transaction</p>
+                    <p className="text-2xl font-bold">
+                      ${filteredRevenueData.count > 0 
+                        ? (filteredRevenueData.total / filteredRevenueData.count).toFixed(2) 
+                        : '0.00'}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -652,8 +834,8 @@ export default function AdminOrdersPage() {
                     <Users className="h-6 w-6 text-amber-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Today's Revenue</p>
-                    <p className="text-2xl font-bold">${metrics.daily.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">All-Time Revenue</p>
+                    <p className="text-2xl font-bold">${metrics.total.toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>
@@ -684,6 +866,46 @@ export default function AdminOrdersPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Transactions Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Transactions</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {filteredRevenueData.orders.length === 0 ? (
+                <div className="text-center py-12">
+                  <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No transactions in selected period</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRevenueData.orders.slice(0, 20).map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono text-sm">{order.id.substring(0, 8)}...</TableCell>
+                        <TableCell className="text-sm">{order.metadata?.user_email || 'N/A'}</TableCell>
+                        <TableCell>{order.subscription_plans?.name || order.metadata?.plan_name || 'N/A'}</TableCell>
+                        <TableCell className="font-semibold">${Number(order.amount).toFixed(2)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
