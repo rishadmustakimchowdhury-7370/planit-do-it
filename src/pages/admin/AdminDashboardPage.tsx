@@ -196,24 +196,41 @@ export default function AdminDashboardPage() {
         return endDate <= thirtyDaysFromNow && endDate > now;
       }).length || 0;
 
-      // Fetch all invoices for revenue calculation
-      const { data: allInvoices } = await supabase
+      // Fetch completed orders for revenue calculation (primary payment source)
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('amount, status, billing_cycle, created_at, approved_at')
+        .eq('status', 'completed');
+
+      // Fetch paid invoices as secondary source
+      const { data: paidInvoices } = await supabase
         .from('invoices')
         .select('amount, status, created_at, paid_at')
         .eq('status', 'paid');
 
-      const totalRevenue = allInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
+      // Calculate Total Revenue from both orders and invoices
+      const ordersRevenue = allOrders?.reduce((sum, order) => sum + Number(order.amount), 0) || 0;
+      const invoicesRevenue = paidInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
+      const totalRevenue = ordersRevenue + invoicesRevenue;
       
-      // Calculate actual MRR from paid invoices in the last month
-      const lastMonthStart = startOfMonth(subMonths(now, 1));
-      const lastMonthEnd = endOfMonth(subMonths(now, 1));
+      // Calculate MRR from active monthly subscriptions (current month recurring revenue)
+      const currentMonthStart = startOfMonth(now);
+      const currentMonthEnd = endOfMonth(now);
       
-      const lastMonthInvoices = allInvoices?.filter(inv => {
-        const paidDate = inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at);
-        return paidDate >= lastMonthStart && paidDate <= lastMonthEnd;
+      // MRR = sum of all monthly recurring payments this month
+      const currentMonthOrders = allOrders?.filter(order => {
+        const paidDate = order.approved_at ? new Date(order.approved_at) : new Date(order.created_at);
+        return paidDate >= currentMonthStart && paidDate <= currentMonthEnd && order.billing_cycle === 'monthly';
       }) || [];
       
-      const mrr = lastMonthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+      const currentMonthInvoices = paidInvoices?.filter(inv => {
+        const paidDate = inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at);
+        return paidDate >= currentMonthStart && paidDate <= currentMonthEnd;
+      }) || [];
+      
+      const mrrFromOrders = currentMonthOrders.reduce((sum, order) => sum + Number(order.amount), 0);
+      const mrrFromInvoices = currentMonthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+      const mrr = mrrFromOrders + mrrFromInvoices;
 
       // Calculate monthly revenue for the chart (last 12 months)
       const monthlyRevenueData: MonthlyRevenue[] = [];
@@ -221,12 +238,18 @@ export default function AdminDashboardPage() {
         const monthStart = startOfMonth(subMonths(now, i));
         const monthEnd = endOfMonth(subMonths(now, i));
         
-        const monthInvoices = allInvoices?.filter(inv => {
+        const monthOrders = allOrders?.filter(order => {
+          const paidDate = order.approved_at ? new Date(order.approved_at) : new Date(order.created_at);
+          return paidDate >= monthStart && paidDate <= monthEnd;
+        }) || [];
+        
+        const monthInvoices = paidInvoices?.filter(inv => {
           const paidDate = inv.paid_at ? new Date(inv.paid_at) : new Date(inv.created_at);
           return paidDate >= monthStart && paidDate <= monthEnd;
         }) || [];
         
-        const monthRevenue = monthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+        const monthRevenue = monthOrders.reduce((sum, order) => sum + Number(order.amount), 0) + 
+                            monthInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
         monthlyRevenueData.push({
           month: format(monthStart, 'MMM'),
           revenue: monthRevenue,
@@ -315,6 +338,9 @@ export default function AdminDashboardPage() {
         fetchDashboardData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
+        fetchDashboardData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchDashboardData();
       })
       .subscribe();
