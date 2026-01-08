@@ -5,7 +5,7 @@ import {
   sendAuditEmail,
   SUPER_ADMIN_EMAIL,
 } from "../_shared/smtp-sender.ts";
-import { getAdminUrl } from "../_shared/app-url.ts";
+import { getAdminUrl, getDashboardUrl } from "../_shared/app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -216,7 +216,7 @@ serve(async (req) => {
     try {
       logStep("Sending welcome email to new user", { email });
 
-      const dashboardUrl = `${Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL") || new URL(req.headers.get("origin") || req.url).origin}/dashboard`;
+      const dashboardUrl = getDashboardUrl(req);
 
       const welcomeHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Welcome to HireMetrics</title></head>
