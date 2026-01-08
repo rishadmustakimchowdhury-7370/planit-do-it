@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo, BRAND } from '@/components/brand/Logo';
 import { useToast } from '@/hooks/use-toast';
@@ -649,7 +650,7 @@ export default function LandingPage() {
 
       {/* Pricing Section */}
       <section id="pricing" className="py-24 px-6">
-        <div className="container mx-auto max-w-5xl">
+        <div className="container mx-auto max-w-6xl">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -665,52 +666,65 @@ export default function LandingPage() {
             </p>
           </motion.div>
           
-          <div className={`grid gap-8 ${pricingPlans.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
-            {pricingPlans.map((plan, i) => (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-                viewport={{ once: true }}
-                className={`relative p-8 rounded-2xl border bg-card ${
-                  plan.is_popular ? 'border-primary shadow-xl scale-105' : 'border-border'
-                }`}
-              >
-                {plan.is_popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{plan.description || ''}</p>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold">£{plan.price_monthly}</span>
-                    <span className="text-muted-foreground">/month</span>
-                  </div>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, j) => (
-                    <li key={j} className="flex items-center gap-3 text-sm">
-                      <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/auth?mode=signup">
-                  <Button 
-                    variant={plan.is_popular ? 'default' : 'outline'} 
-                    className="w-full"
+          <Carousel
+            opts={{
+              align: "start",
+              loop: true,
+            }}
+            className="w-full"
+          >
+            <CarouselContent className="-ml-4">
+              {pricingPlans.map((plan, i) => (
+                <CarouselItem key={plan.id} className="pl-4 md:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: i * 0.1 }}
+                    viewport={{ once: true }}
+                    className={`relative p-8 rounded-2xl border bg-card h-full ${
+                      plan.is_popular ? 'border-primary shadow-xl' : 'border-border'
+                    }`}
                   >
-                    Get Started
-                  </Button>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+                    {plan.is_popular && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                        <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
+                          Most Popular
+                        </span>
+                      </div>
+                    )}
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">{plan.description || ''}</p>
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-4xl font-bold">£{plan.price_monthly}</span>
+                        <span className="text-muted-foreground">/month</span>
+                      </div>
+                    </div>
+                    <ul className="space-y-3 mb-8">
+                      {plan.features.map((feature, j) => (
+                        <li key={j} className="flex items-center gap-3 text-sm">
+                          <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <Link to="/auth?mode=signup">
+                      <Button 
+                        variant={plan.is_popular ? 'default' : 'outline'} 
+                        className="w-full"
+                      >
+                        Get Started
+                      </Button>
+                    </Link>
+                  </motion.div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <div className="flex justify-center gap-4 mt-8">
+              <CarouselPrevious className="static translate-y-0" />
+              <CarouselNext className="static translate-y-0" />
+            </div>
+          </Carousel>
         </div>
       </section>
 
