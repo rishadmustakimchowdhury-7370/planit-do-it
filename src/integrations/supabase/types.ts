@@ -2550,6 +2550,7 @@ export type Database = {
           tenant_id: string | null
           two_factor_enabled: boolean | null
           two_factor_phone: string | null
+          two_factor_secret: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2570,6 +2571,7 @@ export type Database = {
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
           two_factor_phone?: string | null
+          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2590,6 +2592,7 @@ export type Database = {
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
           two_factor_phone?: string | null
+          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Relationships: [

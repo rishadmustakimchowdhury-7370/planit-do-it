@@ -116,15 +116,17 @@ export default function SettingsPage() {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [logoSignedUrl, setLogoSignedUrl] = useState<string | null>(null);
   
-  // 2FA State
+  // 2FA State (Google Authenticator TOTP)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [twoFactorPhone, setTwoFactorPhone] = useState('');
   const [showSetup2FA, setShowSetup2FA] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const [isSending2FACode, setIsSending2FACode] = useState(false);
+  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
   const [isVerifying2FA, setIsVerifying2FA] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
   const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
+  const [qrCodeURL, setQrCodeURL] = useState('');
+  const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
+  const [disableVerificationCode, setDisableVerificationCode] = useState('');
   
   // Notification preferences state
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -181,9 +183,7 @@ export default function SettingsPage() {
       
       // Load 2FA status
       const twoFA = (profile as any).two_factor_enabled;
-      const twoFAPhone = (profile as any).two_factor_phone;
       setTwoFactorEnabled(!!twoFA);
-      setTwoFactorPhone(twoFAPhone || '');
     }
     
     if (tenantId) {
@@ -543,43 +543,31 @@ export default function SettingsPage() {
     }
   };
 
-  // 2FA Functions
-  const handleSend2FACode = async () => {
-    if (!twoFactorPhone.trim()) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
-    
-    // Validate phone format (basic validation)
-    const phoneRegex = /^\+?[1-9]\d{6,14}$/;
-    const cleanedPhone = twoFactorPhone.replace(/[\s\-\(\)]/g, '');
-    if (!phoneRegex.test(cleanedPhone)) {
-      toast.error('Please enter a valid phone number with country code (e.g., +1234567890)');
-      return;
-    }
-
-    setIsSending2FACode(true);
+  // 2FA Functions (Google Authenticator TOTP)
+  const handleSetup2FA = async () => {
+    setIsSettingUp2FA(true);
     try {
-      // Generate a 6-digit code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please log in again');
+        return;
+      }
+
+      const response = await supabase.functions.invoke('totp-2fa', {
+        body: { action: 'setup' },
+      });
+
+      if (response.error) throw new Error(response.error.message);
       
-      // Store the code temporarily (in a real app, this would be sent via SMS)
-      // For now, we'll store it in localStorage for demo purposes
-      // In production, you'd use Twilio or similar SMS service
-      localStorage.setItem('temp_2fa_code', code);
-      localStorage.setItem('temp_2fa_phone', cleanedPhone);
-      localStorage.setItem('temp_2fa_expires', (Date.now() + 5 * 60 * 1000).toString()); // 5 minutes
-      
-      // In production, send SMS here via edge function
-      console.log(`[DEV] 2FA Code: ${code} sent to ${cleanedPhone}`);
-      
-      setCodeSent(true);
-      toast.success(`Verification code sent to ${twoFactorPhone}. (Dev mode: check console)`);
+      const { secret, qrCodeURL: qrUrl } = response.data;
+      setTotpSecret(secret);
+      setQrCodeURL(qrUrl);
+      setShowSetup2FA(true);
     } catch (error: any) {
-      console.error('Error sending 2FA code:', error);
-      toast.error(error.message || 'Failed to send verification code');
+      console.error('Error setting up 2FA:', error);
+      toast.error(error.message || 'Failed to setup 2FA');
     } finally {
-      setIsSending2FACode(false);
+      setIsSettingUp2FA(false);
     }
   };
 
@@ -591,43 +579,22 @@ export default function SettingsPage() {
 
     setIsVerifying2FA(true);
     try {
-      const storedCode = localStorage.getItem('temp_2fa_code');
-      const storedPhone = localStorage.getItem('temp_2fa_phone');
-      const expires = parseInt(localStorage.getItem('temp_2fa_expires') || '0');
+      const response = await supabase.functions.invoke('totp-2fa', {
+        body: { 
+          action: 'enable',
+          secret: totpSecret,
+          code: verificationCode 
+        },
+      });
 
-      if (Date.now() > expires) {
-        toast.error('Verification code has expired. Please request a new one.');
-        setCodeSent(false);
-        setVerificationCode('');
-        return;
-      }
-
-      if (verificationCode !== storedCode) {
-        toast.error('Invalid verification code. Please try again.');
-        return;
-      }
-
-      // Save 2FA settings to profile
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          two_factor_enabled: true,
-          two_factor_phone: storedPhone,
-        } as any)
-        .eq('id', profile?.id);
-
-      if (error) throw error;
-
-      // Clear temp storage
-      localStorage.removeItem('temp_2fa_code');
-      localStorage.removeItem('temp_2fa_phone');
-      localStorage.removeItem('temp_2fa_expires');
+      if (response.error) throw new Error(response.error.message);
+      if (response.data.error) throw new Error(response.data.error);
 
       setTwoFactorEnabled(true);
-      setTwoFactorPhone(storedPhone || '');
       setShowSetup2FA(false);
-      setCodeSent(false);
       setVerificationCode('');
+      setTotpSecret('');
+      setQrCodeURL('');
       
       await refreshProfile();
       toast.success('Two-factor authentication enabled successfully!');
@@ -640,20 +607,26 @@ export default function SettingsPage() {
   };
 
   const handleDisable2FA = async () => {
+    if (!disableVerificationCode || disableVerificationCode.length !== 6) {
+      toast.error('Please enter your authenticator code');
+      return;
+    }
+
     setIsDisabling2FA(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          two_factor_enabled: false,
-          two_factor_phone: null,
-        } as any)
-        .eq('id', profile?.id);
+      const response = await supabase.functions.invoke('totp-2fa', {
+        body: { 
+          action: 'disable',
+          code: disableVerificationCode 
+        },
+      });
 
-      if (error) throw error;
+      if (response.error) throw new Error(response.error.message);
+      if (response.data.error) throw new Error(response.data.error);
 
       setTwoFactorEnabled(false);
-      setTwoFactorPhone('');
+      setShowDisable2FADialog(false);
+      setDisableVerificationCode('');
       await refreshProfile();
       toast.success('Two-factor authentication disabled');
     } catch (error: any) {
@@ -1403,11 +1376,11 @@ export default function SettingsPage() {
                           <Smartphone className="h-5 w-5 text-muted-foreground" />
                         )}
                         <div>
-                          <p className="font-medium">Two-Factor Authentication (SMS)</p>
+                          <p className="font-medium">Two-Factor Authentication</p>
                           <p className="text-sm text-muted-foreground">
                             {twoFactorEnabled 
-                              ? `Enabled for ${twoFactorPhone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`
-                              : 'Protect your account with phone verification'}
+                              ? 'Secured with Google Authenticator'
+                              : 'Add an extra layer of security using Google Authenticator'}
                           </p>
                         </div>
                       </div>
@@ -1423,9 +1396,14 @@ export default function SettingsPage() {
                         variant="default" 
                         size="sm" 
                         className="mt-3 gap-2"
-                        onClick={() => setShowSetup2FA(true)}
+                        onClick={handleSetup2FA}
+                        disabled={isSettingUp2FA}
                       >
-                        <Shield className="h-4 w-4" />
+                        {isSettingUp2FA ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Shield className="h-4 w-4" />
+                        )}
                         Enable 2FA
                       </Button>
                     ) : (
@@ -1433,14 +1411,9 @@ export default function SettingsPage() {
                         variant="outline" 
                         size="sm" 
                         className="mt-3 gap-2 text-destructive hover:text-destructive"
-                        onClick={handleDisable2FA}
-                        disabled={isDisabling2FA}
+                        onClick={() => setShowDisable2FADialog(true)}
                       >
-                        {isDisabling2FA ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <XCircle className="h-4 w-4" />
-                        )}
+                        <XCircle className="h-4 w-4" />
                         Disable 2FA
                       </Button>
                     )}
@@ -1553,13 +1526,13 @@ export default function SettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 2FA Setup Dialog */}
+      {/* 2FA Setup Dialog - Google Authenticator */}
       <Dialog open={showSetup2FA} onOpenChange={(open) => {
-        setShowSetup2FA(open);
         if (!open) {
-          setCodeSent(false);
+          setShowSetup2FA(false);
           setVerificationCode('');
-          setTwoFactorPhone('');
+          setTotpSecret('');
+          setQrCodeURL('');
         }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -1569,116 +1542,133 @@ export default function SettingsPage() {
               Enable Two-Factor Authentication
             </DialogTitle>
             <DialogDescription>
-              Add an extra layer of security to your account by enabling SMS verification.
+              Scan the QR code with Google Authenticator, Authy, or any TOTP app.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {!codeSent ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="twofa_phone">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="twofa_phone"
-                      type="tel"
-                      placeholder="+1234567890"
-                      value={twoFactorPhone}
-                      onChange={(e) => setTwoFactorPhone(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Enter your phone number with country code (e.g., +1 for US)
-                  </p>
+            {/* QR Code */}
+            <div className="flex flex-col items-center space-y-3">
+              {qrCodeURL ? (
+                <img 
+                  src={qrCodeURL} 
+                  alt="QR Code for 2FA" 
+                  className="w-48 h-48 rounded-lg border p-2 bg-white"
+                />
+              ) : (
+                <div className="w-48 h-48 rounded-lg border flex items-center justify-center bg-muted">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-                
-                <Button 
-                  onClick={handleSend2FACode} 
-                  disabled={isSending2FACode || !twoFactorPhone.trim()}
-                  className="w-full gap-2"
+              )}
+              <p className="text-xs text-muted-foreground text-center">
+                Can't scan? Enter this code manually:
+              </p>
+              <code className="text-xs bg-muted px-3 py-1.5 rounded font-mono break-all max-w-full">
+                {totpSecret}
+              </code>
+            </div>
+            
+            {/* Verification Code Input */}
+            <div className="space-y-2">
+              <Label htmlFor="verification_code">Enter the 6-digit code from your app</Label>
+              <div className="flex justify-center">
+                <InputOTP 
+                  maxLength={6} 
+                  value={verificationCode}
+                  onChange={(value) => setVerificationCode(value)}
                 >
-                  {isSending2FACode ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Smartphone className="h-4 w-4" />
-                  )}
-                  Send Verification Code
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="text-center space-y-2">
-                  <div className="p-3 rounded-full bg-success/10 w-fit mx-auto">
-                    <CheckCircle className="h-6 w-6 text-success" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    We've sent a 6-digit code to <strong>{twoFactorPhone}</strong>
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="verification_code">Verification Code</Label>
-                  <div className="flex justify-center">
-                    <InputOTP 
-                      maxLength={6} 
-                      value={verificationCode}
-                      onChange={(value) => setVerificationCode(value)}
-                    >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Enter the 6-digit code sent to your phone
-                  </p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setCodeSent(false);
-                      setVerificationCode('');
-                    }}
-                    className="flex-1"
-                  >
-                    Change Number
-                  </Button>
-                  <Button 
-                    onClick={handleVerify2FA}
-                    disabled={isVerifying2FA || verificationCode.length !== 6}
-                    className="flex-1 gap-2"
-                  >
-                    {isVerifying2FA ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="h-4 w-4" />
-                    )}
-                    Verify & Enable
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-center text-muted-foreground">
-                  Didn't receive the code?{' '}
-                  <button 
-                    type="button"
-                    onClick={handleSend2FACode}
-                    className="text-accent hover:underline"
-                    disabled={isSending2FACode}
-                  >
-                    Resend
-                  </button>
-                </p>
-              </>
-            )}
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleVerify2FA}
+              disabled={isVerifying2FA || verificationCode.length !== 6}
+              className="w-full gap-2"
+            >
+              {isVerifying2FA ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+              Verify & Enable 2FA
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable 2FA Dialog */}
+      <Dialog open={showDisable2FADialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowDisable2FADialog(false);
+          setDisableVerificationCode('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Disable Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription>
+              Enter your authenticator code to disable 2FA. This will make your account less secure.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="disable_verification_code">Authenticator Code</Label>
+              <div className="flex justify-center">
+                <InputOTP 
+                  maxLength={6} 
+                  value={disableVerificationCode}
+                  onChange={(value) => setDisableVerificationCode(value)}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setShowDisable2FADialog(false);
+                  setDisableVerificationCode('');
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleDisable2FA}
+                disabled={isDisabling2FA || disableVerificationCode.length !== 6}
+                className="flex-1 gap-2"
+              >
+                {isDisabling2FA ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                Disable 2FA
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
