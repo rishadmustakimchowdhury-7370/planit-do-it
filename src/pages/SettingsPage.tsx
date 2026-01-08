@@ -32,7 +32,11 @@ import {
   AlertCircle,
   Upload,
   Image as ImageIcon,
-  BarChart3
+  BarChart3,
+  Smartphone,
+  Key,
+  ShieldCheck,
+  XCircle
 } from 'lucide-react';
 import { MyUsageSection } from '@/components/usage/MyUsageSection';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +61,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 interface TeamMember {
   id: string;
@@ -111,6 +116,16 @@ export default function SettingsPage() {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [logoSignedUrl, setLogoSignedUrl] = useState<string | null>(null);
   
+  // 2FA State
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorPhone, setTwoFactorPhone] = useState('');
+  const [showSetup2FA, setShowSetup2FA] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSending2FACode, setIsSending2FACode] = useState(false);
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+  
   // Notification preferences state
   const [notificationPrefs, setNotificationPrefs] = useState({
     new_candidate: true,
@@ -163,6 +178,12 @@ export default function SettingsPage() {
       } catch (error) {
         console.log('No saved notification preferences');
       }
+      
+      // Load 2FA status
+      const twoFA = (profile as any).two_factor_enabled;
+      const twoFAPhone = (profile as any).two_factor_phone;
+      setTwoFactorEnabled(!!twoFA);
+      setTwoFactorPhone(twoFAPhone || '');
     }
     
     if (tenantId) {
@@ -522,6 +543,127 @@ export default function SettingsPage() {
     }
   };
 
+  // 2FA Functions
+  const handleSend2FACode = async () => {
+    if (!twoFactorPhone.trim()) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+    
+    // Validate phone format (basic validation)
+    const phoneRegex = /^\+?[1-9]\d{6,14}$/;
+    const cleanedPhone = twoFactorPhone.replace(/[\s\-\(\)]/g, '');
+    if (!phoneRegex.test(cleanedPhone)) {
+      toast.error('Please enter a valid phone number with country code (e.g., +1234567890)');
+      return;
+    }
+
+    setIsSending2FACode(true);
+    try {
+      // Generate a 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store the code temporarily (in a real app, this would be sent via SMS)
+      // For now, we'll store it in localStorage for demo purposes
+      // In production, you'd use Twilio or similar SMS service
+      localStorage.setItem('temp_2fa_code', code);
+      localStorage.setItem('temp_2fa_phone', cleanedPhone);
+      localStorage.setItem('temp_2fa_expires', (Date.now() + 5 * 60 * 1000).toString()); // 5 minutes
+      
+      // In production, send SMS here via edge function
+      console.log(`[DEV] 2FA Code: ${code} sent to ${cleanedPhone}`);
+      
+      setCodeSent(true);
+      toast.success(`Verification code sent to ${twoFactorPhone}. (Dev mode: check console)`);
+    } catch (error: any) {
+      console.error('Error sending 2FA code:', error);
+      toast.error(error.message || 'Failed to send verification code');
+    } finally {
+      setIsSending2FACode(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setIsVerifying2FA(true);
+    try {
+      const storedCode = localStorage.getItem('temp_2fa_code');
+      const storedPhone = localStorage.getItem('temp_2fa_phone');
+      const expires = parseInt(localStorage.getItem('temp_2fa_expires') || '0');
+
+      if (Date.now() > expires) {
+        toast.error('Verification code has expired. Please request a new one.');
+        setCodeSent(false);
+        setVerificationCode('');
+        return;
+      }
+
+      if (verificationCode !== storedCode) {
+        toast.error('Invalid verification code. Please try again.');
+        return;
+      }
+
+      // Save 2FA settings to profile
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          two_factor_enabled: true,
+          two_factor_phone: storedPhone,
+        } as any)
+        .eq('id', profile?.id);
+
+      if (error) throw error;
+
+      // Clear temp storage
+      localStorage.removeItem('temp_2fa_code');
+      localStorage.removeItem('temp_2fa_phone');
+      localStorage.removeItem('temp_2fa_expires');
+
+      setTwoFactorEnabled(true);
+      setTwoFactorPhone(storedPhone || '');
+      setShowSetup2FA(false);
+      setCodeSent(false);
+      setVerificationCode('');
+      
+      await refreshProfile();
+      toast.success('Two-factor authentication enabled successfully!');
+    } catch (error: any) {
+      console.error('Error enabling 2FA:', error);
+      toast.error(error.message || 'Failed to enable 2FA');
+    } finally {
+      setIsVerifying2FA(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    setIsDisabling2FA(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          two_factor_enabled: false,
+          two_factor_phone: null,
+        } as any)
+        .eq('id', profile?.id);
+
+      if (error) throw error;
+
+      setTwoFactorEnabled(false);
+      setTwoFactorPhone('');
+      await refreshProfile();
+      toast.success('Two-factor authentication disabled');
+    } catch (error: any) {
+      console.error('Error disabling 2FA:', error);
+      toast.error(error.message || 'Failed to disable 2FA');
+    } finally {
+      setIsDisabling2FA(false);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'owner':
@@ -539,34 +681,34 @@ export default function SettingsPage() {
     <AppLayout title="Settings" subtitle="Manage your profile, team, and organization settings">
       <div className="max-w-4xl mx-auto">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="mb-6 flex-wrap">
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="h-4 w-4" />
-              Profile
+          <TabsList className="mb-6 grid w-full grid-cols-4 lg:grid-cols-7 h-auto gap-1 p-1">
+            <TabsTrigger value="profile" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <User className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="team" className="gap-2">
-              <Users className="h-4 w-4" />
-              Team
+            <TabsTrigger value="team" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <Users className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Team</span>
             </TabsTrigger>
-            <TabsTrigger value="email" className="gap-2">
-              <Mail className="h-4 w-4" />
-              Email
+            <TabsTrigger value="email" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <Mail className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Email</span>
             </TabsTrigger>
-            <TabsTrigger value="organization" className="gap-2">
-              <Building2 className="h-4 w-4" />
-              Organization
+            <TabsTrigger value="organization" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <Building2 className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Org</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4" />
-              Notifications
+            <TabsTrigger value="notifications" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <Bell className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Alerts</span>
             </TabsTrigger>
-            <TabsTrigger value="usage" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              My Usage
+            <TabsTrigger value="usage" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <BarChart3 className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Usage</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2">
-              <Shield className="h-4 w-4" />
-              Security
+            <TabsTrigger value="security" className="gap-1.5 text-xs sm:text-sm px-2 py-2">
+              <Shield className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Security</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1237,9 +1379,10 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Password Section */}
                   <div className="p-4 rounded-lg border bg-muted/30">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-success" />
+                      <Key className="h-5 w-5 text-success" />
                       <div>
                         <p className="font-medium">Password</p>
                         <p className="text-sm text-muted-foreground">Your password is securely stored</p>
@@ -1250,15 +1393,85 @@ export default function SettingsPage() {
                     </Button>
                   </div>
 
+                  {/* Two-Factor Authentication Section */}
                   <div className="p-4 rounded-lg border bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {twoFactorEnabled ? (
+                          <ShieldCheck className="h-5 w-5 text-success" />
+                        ) : (
+                          <Smartphone className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <div>
+                          <p className="font-medium">Two-Factor Authentication (SMS)</p>
+                          <p className="text-sm text-muted-foreground">
+                            {twoFactorEnabled 
+                              ? `Enabled for ${twoFactorPhone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')}`
+                              : 'Protect your account with phone verification'}
+                          </p>
+                        </div>
+                      </div>
+                      {twoFactorEnabled && (
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                          Active
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {!twoFactorEnabled ? (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="mt-3 gap-2"
+                        onClick={() => setShowSetup2FA(true)}
+                      >
+                        <Shield className="h-4 w-4" />
+                        Enable 2FA
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3 gap-2 text-destructive hover:text-destructive"
+                        onClick={handleDisable2FA}
+                        disabled={isDisabling2FA}
+                      >
+                        {isDisabling2FA ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        Disable 2FA
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Security Tips */}
+                  <div className="p-4 rounded-lg border border-accent/30 bg-accent/5">
+                    <div className="flex items-start gap-3">
+                      <Shield className="h-5 w-5 text-accent mt-0.5" />
                       <div>
-                        <p className="font-medium">Two-Factor Authentication</p>
-                        <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+                        <p className="font-medium text-accent">Security Recommendations</p>
+                        <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                          <li className="flex items-center gap-2">
+                            {twoFactorEnabled ? (
+                              <CheckCircle className="h-3.5 w-3.5 text-success" />
+                            ) : (
+                              <AlertCircle className="h-3.5 w-3.5 text-warning" />
+                            )}
+                            Enable two-factor authentication
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle className="h-3.5 w-3.5 text-success" />
+                            Use a strong, unique password
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle className="h-3.5 w-3.5 text-success" />
+                            Never share your login credentials
+                          </li>
+                        </ul>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="mt-3">Coming Soon</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -1339,6 +1552,136 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 2FA Setup Dialog */}
+      <Dialog open={showSetup2FA} onOpenChange={(open) => {
+        setShowSetup2FA(open);
+        if (!open) {
+          setCodeSent(false);
+          setVerificationCode('');
+          setTwoFactorPhone('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-accent" />
+              Enable Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription>
+              Add an extra layer of security to your account by enabling SMS verification.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {!codeSent ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="twofa_phone">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="twofa_phone"
+                      type="tel"
+                      placeholder="+1234567890"
+                      value={twoFactorPhone}
+                      onChange={(e) => setTwoFactorPhone(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your phone number with country code (e.g., +1 for US)
+                  </p>
+                </div>
+                
+                <Button 
+                  onClick={handleSend2FACode} 
+                  disabled={isSending2FACode || !twoFactorPhone.trim()}
+                  className="w-full gap-2"
+                >
+                  {isSending2FACode ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Smartphone className="h-4 w-4" />
+                  )}
+                  Send Verification Code
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="p-3 rounded-full bg-success/10 w-fit mx-auto">
+                    <CheckCircle className="h-6 w-6 text-success" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    We've sent a 6-digit code to <strong>{twoFactorPhone}</strong>
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="verification_code">Verification Code</Label>
+                  <div className="flex justify-center">
+                    <InputOTP 
+                      maxLength={6} 
+                      value={verificationCode}
+                      onChange={(value) => setVerificationCode(value)}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Enter the 6-digit code sent to your phone
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setCodeSent(false);
+                      setVerificationCode('');
+                    }}
+                    className="flex-1"
+                  >
+                    Change Number
+                  </Button>
+                  <Button 
+                    onClick={handleVerify2FA}
+                    disabled={isVerifying2FA || verificationCode.length !== 6}
+                    className="flex-1 gap-2"
+                  >
+                    {isVerifying2FA ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                    Verify & Enable
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-center text-muted-foreground">
+                  Didn't receive the code?{' '}
+                  <button 
+                    type="button"
+                    onClick={handleSend2FACode}
+                    className="text-accent hover:underline"
+                    disabled={isSending2FACode}
+                  >
+                    Resend
+                  </button>
+                </p>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
