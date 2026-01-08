@@ -56,6 +56,8 @@ function resolveBaseUrlFromRequest(req: Request): string {
  * auto-detect the correct environment (Lovable preview vs production).
  */
 export function getAppBaseUrl(req?: Request): string {
+  const PRODUCTION_URL = "https://hiremetrics.co.uk";
+  
   // Priority 1: Check for APP_BASE_URL or APP_URL environment variable
   const envUrl = Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL");
   if (envUrl && !isClearlyInvalidEnvUrl(envUrl)) {
@@ -69,29 +71,31 @@ export function getAppBaseUrl(req?: Request): string {
     }
   }
 
-  // Priority 2: Try to resolve from request headers
+  // Priority 2: Try to resolve from request headers (for Lovable preview support)
   if (req) {
     try {
       const resolvedUrl = normalizeBaseUrl(resolveBaseUrlFromRequest(req));
-      console.log("[APP-URL] Resolved from request:", resolvedUrl);
-      return resolvedUrl;
+      // Only use request-based URL if it looks like a valid app URL
+      if (resolvedUrl.includes("lovable") || resolvedUrl.includes("hiremetrics")) {
+        console.log("[APP-URL] Resolved from request:", resolvedUrl);
+        return resolvedUrl;
+      }
     } catch (e) {
       console.log("[APP-URL] Could not resolve from request:", e);
     }
   }
 
-  // Priority 3: Fallback to production domain
-  const fallbackUrl = "https://hiremetrics.co.uk";
-  console.log("[APP-URL] Using fallback URL:", fallbackUrl);
-  return fallbackUrl;
-}
-
-export function getDashboardUrl(req?: Request): string {
-  return `${getAppBaseUrl(req)}/dashboard`;
+  // Priority 3: Always fallback to production domain
+  console.log("[APP-URL] Using production fallback:", PRODUCTION_URL);
+  return PRODUCTION_URL;
 }
 
 export function getAuthUrl(req?: Request): string {
   return `${getAppBaseUrl(req)}/auth`;
+}
+
+export function getDashboardUrl(req?: Request): string {
+  return `${getAppBaseUrl(req)}/dashboard`;
 }
 
 export function getAdminUrl(path: string = "", req?: Request): string {

@@ -156,8 +156,8 @@ serve(async (req) => {
       );
     }
 
-    // Generate environment-aware invite URL
-    const inviteUrl = getInviteAcceptUrl(token);
+    // Generate environment-aware invite URL (pass req for Lovable preview support)
+    const inviteUrl = getInviteAcceptUrl(token, req);
     console.log('[SEND-TEAM-INVITATION] Generated invite URL:', inviteUrl);
 
     const roleLabels: Record<string, string> = {
