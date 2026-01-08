@@ -699,6 +699,32 @@ export default function SettingsPage() {
 
       if (updateError) throw updateError;
 
+      // Send password change notification email
+      try {
+        await supabase.functions.invoke('send-email', {
+          body: {
+            to: user?.email,
+            subject: 'Password Changed Successfully - HireMetrics',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                  <h1 style="color: #1E3A8A; margin: 0;">HireMetrics</h1>
+                </div>
+                <h2 style="color: #1E3A8A;">Password Changed Successfully</h2>
+                <p>Hello ${profile?.full_name || 'there'},</p>
+                <p>Your password for your HireMetrics account has been successfully changed.</p>
+                <p><strong>When:</strong> ${new Date().toLocaleString()}</p>
+                <p>If you did not make this change, please contact our support team immediately or reset your password.</p>
+                <br/>
+                <p style="color: #666; font-size: 12px;">This is an automated security notification from HireMetrics.</p>
+              </div>
+            `,
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send password change notification:', emailError);
+      }
+
       toast.success('Password changed successfully');
       setShowChangePasswordDialog(false);
       setCurrentPassword('');

@@ -10,12 +10,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff, BarChart3, Target, TrendingUp, Users, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff, BarChart3, Target, TrendingUp, Users, CheckCircle, XCircle, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BRAND, getLogoHTML } from '@/components/brand/Logo';
 import { MathCaptcha } from '@/components/ui/math-captcha';
 import { isDisposableEmail, validatePasswordStrength } from '@/lib/email-validation';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -134,6 +142,13 @@ export default function AuthPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showNewConfirmPassword, setShowNewConfirmPassword] = useState(false);
   const [signupPasswordStrength, setSignupPasswordStrength] = useState<ReturnType<typeof validatePasswordStrength> | null>(null);
+  
+  // 2FA login verification state
+  const [show2FADialog, setShow2FADialog] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [pendingLoginData, setPendingLoginData] = useState<{ email: string; password: string } | null>(null);
+  
   const { signIn, signUp, signInWithGoogle, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -222,7 +237,31 @@ export default function AuthPage() {
 
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
-    const { error } = await signIn(data.email, data.password);
+    
+    try {
+      // First check if user has 2FA enabled
+      const { data: tfaData, error: tfaError } = await supabase.functions.invoke('totp-2fa', {
+        body: { action: 'check-2fa-status', email: data.email },
+      });
+
+      if (!tfaError && tfaData?.two_factor_enabled) {
+        // User has 2FA enabled, show verification dialog
+        setPendingLoginData({ email: data.email, password: data.password });
+        setShow2FADialog(true);
+        setIsLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error('Error checking 2FA status:', err);
+      // Continue with normal login if check fails
+    }
+
+    // Proceed with normal login
+    await completeLogin(data.email, data.password);
+  };
+
+  const completeLogin = async (email: string, password: string) => {
+    const { error } = await signIn(email, password);
     setIsLoading(false);
 
     if (error) {
@@ -239,6 +278,48 @@ export default function AuthPage() {
         description: 'You have successfully logged in.',
       });
       navigate('/dashboard');
+    }
+  };
+
+  const handle2FAVerification = async () => {
+    if (!pendingLoginData || twoFACode.length !== 6) return;
+
+    setIsVerifying2FA(true);
+    try {
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('totp-2fa', {
+        body: { 
+          action: 'verify-login', 
+          email: pendingLoginData.email,
+          code: twoFACode 
+        },
+      });
+
+      if (verifyError || !verifyData?.success) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid code',
+          description: 'The verification code is incorrect. Please try again.',
+        });
+        setTwoFACode('');
+        setIsVerifying2FA(false);
+        return;
+      }
+
+      // 2FA verified, proceed with actual login
+      setShow2FADialog(false);
+      setIsLoading(true);
+      await completeLogin(pendingLoginData.email, pendingLoginData.password);
+      setPendingLoginData(null);
+      setTwoFACode('');
+    } catch (err) {
+      console.error('2FA verification error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Verification failed',
+        description: 'Failed to verify code. Please try again.',
+      });
+    } finally {
+      setIsVerifying2FA(false);
     }
   };
 
@@ -923,6 +1004,66 @@ export default function AuthPage() {
           </p>
         </div>
       </div>
+
+      {/* 2FA Verification Dialog */}
+      <Dialog open={show2FADialog} onOpenChange={(open) => {
+        if (!open) {
+          setShow2FADialog(false);
+          setTwoFACode('');
+          setPendingLoginData(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Two-Factor Authentication
+            </DialogTitle>
+            <DialogDescription>
+              Enter the 6-digit code from your Google Authenticator app to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6 py-6">
+            <InputOTP
+              value={twoFACode}
+              onChange={(value) => setTwoFACode(value)}
+              maxLength={6}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+            <p className="text-sm text-muted-foreground text-center">
+              Open Google Authenticator on your device and enter the code shown for HireMetrics.
+            </p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShow2FADialog(false);
+                setTwoFACode('');
+                setPendingLoginData(null);
+              }}
+              disabled={isVerifying2FA}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handle2FAVerification}
+              disabled={twoFACode.length !== 6 || isVerifying2FA}
+            >
+              {isVerifying2FA && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Verify & Login
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -128,6 +128,70 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    const body = await req.json();
+    const { action, code, secret, email } = body;
+    console.log(`TOTP 2FA action: ${action}`);
+
+    // Actions that don't require authentication (pre-login checks)
+    if (action === "check-2fa-status") {
+      if (!email) {
+        return new Response(JSON.stringify({ error: "Email required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("two_factor_enabled")
+        .eq("email", email)
+        .single();
+
+      return new Response(JSON.stringify({ 
+        two_factor_enabled: profile?.two_factor_enabled || false 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "verify-login") {
+      if (!email || !code) {
+        return new Response(JSON.stringify({ error: "Email and code required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("two_factor_secret, two_factor_enabled")
+        .eq("email", email)
+        .single();
+
+      if (!profile?.two_factor_enabled || !profile?.two_factor_secret) {
+        return new Response(JSON.stringify({ error: "2FA not enabled for this user" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const isValid = await verifyTOTP(profile.two_factor_secret, code);
+      
+      if (!isValid) {
+        console.log("Invalid TOTP code for login");
+        return new Response(JSON.stringify({ success: false, error: "Invalid verification code" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log("Login TOTP verified successfully");
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // All other actions require authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -147,8 +211,6 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { action, code, secret } = body;
     console.log(`TOTP 2FA action: ${action} for user: ${user.id}`);
 
     if (action === "setup") {
