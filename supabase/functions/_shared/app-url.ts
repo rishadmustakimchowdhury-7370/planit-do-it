@@ -42,14 +42,29 @@ function resolveBaseUrlFromRequest(req: Request): string {
  * auto-detect the correct environment (Lovable preview vs production).
  */
 export function getAppBaseUrl(req?: Request): string {
+  // Priority 1: Check for APP_BASE_URL or APP_URL environment variable
   const envUrl = Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL");
-  if (envUrl) return normalizeBaseUrl(envUrl);
+  if (envUrl && envUrl.trim() !== "") {
+    const normalized = normalizeBaseUrl(envUrl);
+    console.log("[APP-URL] Using env URL:", normalized);
+    return normalized;
+  }
 
-  if (req) return normalizeBaseUrl(resolveBaseUrlFromRequest(req));
+  // Priority 2: Try to resolve from request headers
+  if (req) {
+    try {
+      const resolvedUrl = normalizeBaseUrl(resolveBaseUrlFromRequest(req));
+      console.log("[APP-URL] Resolved from request:", resolvedUrl);
+      return resolvedUrl;
+    } catch (e) {
+      console.log("[APP-URL] Could not resolve from request:", e);
+    }
+  }
 
-  throw new Error(
-    "[APP-URL] APP_BASE_URL/APP_URL not set and no Request provided; cannot build absolute URLs"
-  );
+  // Priority 3: Fallback to production domain
+  const fallbackUrl = "https://hiremetrics.co.uk";
+  console.log("[APP-URL] Using fallback URL:", fallbackUrl);
+  return fallbackUrl;
 }
 
 export function getDashboardUrl(req?: Request): string {
