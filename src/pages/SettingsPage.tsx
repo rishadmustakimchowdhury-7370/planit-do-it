@@ -36,7 +36,9 @@ import {
   Smartphone,
   Key,
   ShieldCheck,
-  XCircle
+  XCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { MyUsageSection } from '@/components/usage/MyUsageSection';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +64,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { validatePasswordStrength } from '@/lib/email-validation';
 
 interface TeamMember {
   id: string;
@@ -127,6 +130,17 @@ export default function SettingsPage() {
   const [qrCodeURL, setQrCodeURL] = useState('');
   const [showDisable2FADialog, setShowDisable2FADialog] = useState(false);
   const [disableVerificationCode, setDisableVerificationCode] = useState('');
+  
+  // Change Password State
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState<ReturnType<typeof validatePasswordStrength> | null>(null);
   
   // Notification preferences state
   const [notificationPrefs, setNotificationPrefs] = useState({
@@ -634,6 +648,68 @@ export default function SettingsPage() {
       toast.error(error.message || 'Failed to disable 2FA');
     } finally {
       setIsDisabling2FA(false);
+    }
+  };
+
+  // Handle password validation on change
+  const handleNewPasswordChange = (value: string) => {
+    setNewPassword(value);
+    if (value) {
+      setPasswordValidation(validatePasswordStrength(value));
+    } else {
+      setPasswordValidation(null);
+    }
+  };
+
+  // Change Password Handler
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Password is too weak');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // First verify the current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        toast.error('Current password is incorrect');
+        return;
+      }
+
+      // Update the password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) throw updateError;
+
+      toast.success('Password changed successfully');
+      setShowChangePasswordDialog(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordValidation(null);
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast.error(error.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -1361,7 +1437,12 @@ export default function SettingsPage() {
                         <p className="text-sm text-muted-foreground">Your password is securely stored</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" className="mt-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3"
+                      onClick={() => setShowChangePasswordDialog(true)}
+                    >
                       Change Password
                     </Button>
                   </div>
@@ -1670,6 +1751,196 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showChangePasswordDialog} onOpenChange={(open) => {
+        setShowChangePasswordDialog(open);
+        if (!open) {
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmNewPassword('');
+          setPasswordValidation(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter your current password and a new strong password.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Current Password */}
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Current Password</Label>
+              <div className="relative">
+                <Input
+                  id="current-password"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* New Password */}
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => handleNewPasswordChange(e.target.value)}
+                  placeholder="Enter new password"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              
+              {/* Password Strength Indicator */}
+              {passwordValidation && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all ${
+                          passwordValidation.strength === 'strong' 
+                            ? 'bg-success w-full' 
+                            : passwordValidation.strength === 'medium' 
+                              ? 'bg-warning w-2/3' 
+                              : 'bg-destructive w-1/3'
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      passwordValidation.strength === 'strong' 
+                        ? 'text-success' 
+                        : passwordValidation.strength === 'medium' 
+                          ? 'text-warning' 
+                          : 'text-destructive'
+                    }`}>
+                      {passwordValidation.strength.charAt(0).toUpperCase() + passwordValidation.strength.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-1 text-xs">
+                    <div className={`flex items-center gap-1 ${passwordValidation.checks.length ? 'text-success' : 'text-muted-foreground'}`}>
+                      {passwordValidation.checks.length ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      8+ characters
+                    </div>
+                    <div className={`flex items-center gap-1 ${passwordValidation.checks.uppercase ? 'text-success' : 'text-muted-foreground'}`}>
+                      {passwordValidation.checks.uppercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      Uppercase
+                    </div>
+                    <div className={`flex items-center gap-1 ${passwordValidation.checks.lowercase ? 'text-success' : 'text-muted-foreground'}`}>
+                      {passwordValidation.checks.lowercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      Lowercase
+                    </div>
+                    <div className={`flex items-center gap-1 ${passwordValidation.checks.number ? 'text-success' : 'text-muted-foreground'}`}>
+                      {passwordValidation.checks.number ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      Number
+                    </div>
+                    <div className={`flex items-center gap-1 ${passwordValidation.checks.special ? 'text-success' : 'text-muted-foreground'}`}>
+                      {passwordValidation.checks.special ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                      Special char
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Confirm New Password */}
+            <div className="space-y-2">
+              <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirm-new-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              {confirmNewPassword && newPassword !== confirmNewPassword && (
+                <p className="text-xs text-destructive">Passwords don't match</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowChangePasswordDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={
+                isChangingPassword || 
+                !currentPassword || 
+                !newPassword || 
+                !confirmNewPassword ||
+                newPassword !== confirmNewPassword ||
+                !passwordValidation?.valid
+              }
+            >
+              {isChangingPassword ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Key className="h-4 w-4 mr-2" />
+              )}
+              Change Password
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppLayout>
