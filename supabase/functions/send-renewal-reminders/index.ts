@@ -130,16 +130,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Automated renewal reminders
+    // Automated renewal reminders at specific intervals: 14, 7, 3 days, 24 hours
     const now = new Date();
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-    // Find tenants expiring within 7 days
+    // Find tenants expiring within 14 days
     const { data: expiringTenants, error: fetchError } = await supabase
       .from('tenants')
-      .select('*, profiles!tenants_owner_id_fkey(email, full_name)')
+      .select('*, profiles!tenants_owner_id_fkey(email, full_name), subscription_plans(name)')
       .in('subscription_status', ['trial', 'active'])
-      .lte('subscription_expires_at', sevenDaysFromNow.toISOString())
+      .lte('subscription_expires_at', fourteenDaysFromNow.toISOString())
       .gt('subscription_expires_at', now.toISOString());
 
     if (fetchError) {
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
       throw fetchError;
     }
 
-    console.log(`[SMTP] Found ${expiringTenants?.length || 0} tenants expiring within 7 days`);
+    console.log(`[SMTP] Found ${expiringTenants?.length || 0} tenants expiring within 14 days`);
 
     if (!expiringTenants || expiringTenants.length === 0) {
       return new Response(
@@ -159,12 +159,26 @@ Deno.serve(async (req) => {
     let sentCount = 0;
     let adminNotifications = 0;
 
+    // Reminder intervals in days - only send if they match these exact thresholds
+    const reminderIntervals = [14, 7, 3, 1]; // 14 days, 7 days, 3 days, 24 hours
+
     for (const tenant of expiringTenants) {
       const ownerProfile = tenant.profiles;
       if (!ownerProfile?.email) continue;
 
       const expiryDate = new Date(tenant.subscription_expires_at);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Check if we should send a reminder today (matches one of our intervals)
+      // We also accept daysUntilExpiry within ±0.5 day range to account for timing variations
+      const shouldSendReminder = reminderIntervals.some(interval => 
+        Math.abs(daysUntilExpiry - interval) <= 0.5
+      );
+
+      if (!shouldSendReminder) {
+        console.log(`[SMTP] Skipping tenant ${tenant.id} - ${daysUntilExpiry} days until expiry doesn't match reminder intervals`);
+        continue;
+      }
 
       const formattedExpiryDate = expiryDate.toLocaleDateString('en-US', {
         weekday: 'long',
@@ -173,41 +187,67 @@ Deno.serve(async (req) => {
         day: 'numeric'
       });
 
+      const planName = tenant.subscription_plans?.name || tenant.subscription_plan || 'Subscription';
+
       logEmailEvent("Sending renewal reminder", { 
         to: ownerProfile.email, 
         tenantId: tenant.id, 
-        daysUntilExpiry 
+        daysUntilExpiry,
+        interval: reminderIntervals.find(i => Math.abs(daysUntilExpiry - i) <= 0.5)
       });
+
+      // Determine urgency level for subject line
+      let subjectPrefix = '📅';
+      let subjectText = `Reminder: Your ${planName} expires in ${daysUntilExpiry} days`;
+      
+      if (daysUntilExpiry <= 1) {
+        subjectPrefix = '🚨';
+        subjectText = `URGENT: Your ${planName} expires tomorrow!`;
+      } else if (daysUntilExpiry <= 3) {
+        subjectPrefix = '⚠️';
+        subjectText = `Urgent: Your ${planName} expires in ${daysUntilExpiry} days`;
+      } else if (daysUntilExpiry <= 7) {
+        subjectPrefix = '⏰';
+        subjectText = `Reminder: Your ${planName} expires in ${daysUntilExpiry} days`;
+      }
 
       // Send reminder to customer
       const customerResult = await sendBillingEmail({
         to: ownerProfile.email,
-        subject: daysUntilExpiry <= 3 
-          ? `🚨 Urgent: Your ${tenant.subscription_plan || 'subscription'} expires in ${daysUntilExpiry} days`
-          : `⏰ Reminder: Your ${tenant.subscription_plan || 'subscription'} expires in ${daysUntilExpiry} days`,
+        subject: `${subjectPrefix} ${subjectText}`,
         html: generateRenewalReminderHTML({
           userName: ownerProfile.full_name || 'there',
           companyName: tenant.name || 'Your Company',
           daysUntilExpiry,
           expiryDate: formattedExpiryDate,
-          planName: tenant.subscription_plan || 'Subscription',
+          planName,
           renewalLink,
         }),
       });
 
       if (customerResult.success) {
         sentCount++;
+        
+        // Log to email_logs for tracking
+        await supabase.from('email_logs').insert({
+          tenant_id: tenant.id,
+          recipient_email: ownerProfile.email,
+          subject: `${subjectPrefix} ${subjectText}`,
+          template_name: 'renewal_reminder',
+          status: 'sent',
+          metadata: { daysUntilExpiry, interval: daysUntilExpiry }
+        });
       }
 
       // Send admin notification for urgent cases (3 days or less)
       if (daysUntilExpiry <= 3) {
         const adminResult = await sendAuditEmail(
-          `⚠️ Customer Subscription Expiring: ${tenant.name || ownerProfile.email}`,
+          `⚠️ Customer Subscription Expiring: ${tenant.name || ownerProfile.email} (${daysUntilExpiry} days)`,
           generateAdminExpiryNotificationHTML({
             tenantName: tenant.name || 'Unknown',
             userName: ownerProfile.full_name || 'Unknown',
             userEmail: ownerProfile.email,
-            planName: tenant.subscription_plan || 'Unknown',
+            planName,
             daysUntilExpiry,
             expiryDate: formattedExpiryDate,
           })
