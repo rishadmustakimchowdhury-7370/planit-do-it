@@ -7,6 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -27,6 +38,10 @@ import {
   Loader2,
   Archive,
   RefreshCw,
+  Trash2,
+  Download,
+  Building,
+  ExternalLink,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -52,6 +67,7 @@ interface DashboardMetrics {
   pausedAccounts: number;
   trialAccounts: number;
   deletedUsers: number;
+  orphanedTenants: number;
 }
 
 interface RecentActivity {
@@ -69,6 +85,14 @@ interface ArchivedUser {
   deleted_at: string;
 }
 
+interface OrphanedTenant {
+  id: string;
+  name: string;
+  subscription_status: string;
+  created_at: string;
+  email?: string | null;
+}
+
 interface MonthlyRevenue {
   month: string;
   revenue: number;
@@ -79,12 +103,17 @@ export default function AdminDashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [archivedUsers, setArchivedUsers] = useState<ArchivedUser[]>([]);
+  const [orphanedTenants, setOrphanedTenants] = useState<OrphanedTenant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mrrData, setMrrData] = useState<MonthlyRevenue[]>([]);
   const [signupsData, setSignupsData] = useState<{ date: string; signups: number }[]>([]);
   const [isSendingReminders, setIsSendingReminders] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showOrphaned, setShowOrphaned] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedOrphaned, setSelectedOrphaned] = useState<Set<string>>(new Set());
+  const [showDeleteOrphanedDialog, setShowDeleteOrphanedDialog] = useState(false);
+  const [isDeletingOrphaned, setIsDeletingOrphaned] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -109,17 +138,52 @@ export default function AdminDashboardPage() {
       // Fetch all tenants with their subscription info
       const { data: tenantData } = await supabase
         .from('tenants')
-        .select('id, subscription_status, is_paused, is_suspended, subscription_ends_at, subscription_plan_id');
+        .select('id, name, subscription_status, is_paused, is_suspended, subscription_ends_at, subscription_plan_id, created_at');
+
+      // Fetch all profiles to identify orphaned tenants
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .is('deleted_at', null);
+
+      const tenantIdsWithUsers = new Set(profilesData?.map(p => p.tenant_id) || []);
+      
+      // Identify orphaned tenants (tenants without users)
+      const orphanedTenantsList = tenantData?.filter(t => !tenantIdsWithUsers.has(t.id)) || [];
+      
+      // Fetch emails from email_accounts for orphaned tenants (for marketing)
+      const orphanedTenantIds = orphanedTenantsList.map(t => t.id);
+      const { data: emailAccounts } = await supabase
+        .from('email_accounts')
+        .select('tenant_id, from_email')
+        .in('tenant_id', orphanedTenantIds);
+
+      const emailMap = new Map<string, string>();
+      emailAccounts?.forEach(ea => {
+        if (!emailMap.has(ea.tenant_id)) {
+          emailMap.set(ea.tenant_id, ea.from_email);
+        }
+      });
+
+      const orphanedWithEmails: OrphanedTenant[] = orphanedTenantsList.map(t => ({
+        id: t.id,
+        name: t.name,
+        subscription_status: t.subscription_status,
+        created_at: t.created_at,
+        email: emailMap.get(t.id) || null,
+      }));
+
+      setOrphanedTenants(orphanedWithEmails);
 
       // Calculate metrics from actual data
-      const activeTenants = tenantData?.filter(t => !t.is_suspended).length || 0;
+      const activeTenants = tenantData?.filter(t => !t.is_suspended && tenantIdsWithUsers.has(t.id)).length || 0;
       
       const activeSubscriptions = tenantData?.filter(t => 
-        t.subscription_status === 'active' && !t.is_suspended && !t.is_paused
+        t.subscription_status === 'active' && !t.is_suspended && !t.is_paused && tenantIdsWithUsers.has(t.id)
       ).length || 0;
 
-      const pausedAccounts = tenantData?.filter(t => t.is_paused === true).length || 0;
-      const trialAccounts = tenantData?.filter(t => t.subscription_status === 'trial').length || 0;
+      const pausedAccounts = tenantData?.filter(t => t.is_paused === true && tenantIdsWithUsers.has(t.id)).length || 0;
+      const trialAccounts = tenantData?.filter(t => t.subscription_status === 'trial' && tenantIdsWithUsers.has(t.id)).length || 0;
 
       // Expiring in next 30 days
       const thirtyDaysFromNow = new Date();
@@ -127,7 +191,7 @@ export default function AdminDashboardPage() {
       const now = new Date();
       
       const expiringSubscriptions = tenantData?.filter(t => {
-        if (!t.subscription_ends_at) return false;
+        if (!t.subscription_ends_at || !tenantIdsWithUsers.has(t.id)) return false;
         const endDate = new Date(t.subscription_ends_at);
         return endDate <= thirtyDaysFromNow && endDate > now;
       }).length || 0;
@@ -212,6 +276,7 @@ export default function AdminDashboardPage() {
         pausedAccounts,
         trialAccounts,
         deletedUsers: deletedUsers || 0,
+        orphanedTenants: orphanedTenantsList.length,
       });
 
       // Fetch recent activity
@@ -279,6 +344,79 @@ export default function AdminDashboardPage() {
     } finally {
       setIsSendingReminders(false);
     }
+  };
+
+  const handleSelectOrphanedTenant = (id: string) => {
+    const newSelected = new Set(selectedOrphaned);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedOrphaned(newSelected);
+  };
+
+  const handleSelectAllOrphaned = () => {
+    if (selectedOrphaned.size === orphanedTenants.length) {
+      setSelectedOrphaned(new Set());
+    } else {
+      setSelectedOrphaned(new Set(orphanedTenants.map(t => t.id)));
+    }
+  };
+
+  const handleDeleteSelectedOrphaned = async () => {
+    if (selectedOrphaned.size === 0) return;
+    
+    setIsDeletingOrphaned(true);
+    try {
+      const idsToDelete = Array.from(selectedOrphaned);
+      
+      // Delete orphaned tenants
+      const { error } = await supabase
+        .from('tenants')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (error) throw error;
+
+      // Log audit action
+      await supabase.from('audit_log').insert({
+        action: 'delete_orphaned_tenants',
+        entity_type: 'tenant',
+        new_values: { deleted_count: idsToDelete.length, tenant_ids: idsToDelete } as any,
+      });
+
+      toast.success(`Deleted ${idsToDelete.length} orphaned workspaces`);
+      setSelectedOrphaned(new Set());
+      setShowDeleteOrphanedDialog(false);
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error('Error deleting orphaned tenants:', error);
+      toast.error(error.message || 'Failed to delete orphaned workspaces');
+    } finally {
+      setIsDeletingOrphaned(false);
+    }
+  };
+
+  const handleExportOrphanedEmails = () => {
+    const emailsWithNames = orphanedTenants
+      .filter(t => t.email)
+      .map(t => `${t.name},${t.email},${t.subscription_status},${format(new Date(t.created_at), 'yyyy-MM-dd')}`);
+    
+    if (emailsWithNames.length === 0) {
+      toast.error('No emails found in orphaned workspaces');
+      return;
+    }
+
+    const csv = 'Workspace Name,Email,Status,Created At\n' + emailsWithNames.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orphaned-workspaces-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${emailsWithNames.length} emails for marketing`);
   };
 
   const statCards = [
@@ -428,6 +566,112 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
+      {/* Orphaned Workspaces Section */}
+      <Card className="mb-8">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <Building className="h-5 w-5 text-orange-500" />
+            <div>
+              <CardTitle className="text-lg">Orphaned Workspaces</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {metrics?.orphanedTenants || 0} workspaces without users (available for cleanup/marketing)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {showOrphaned && orphanedTenants.length > 0 && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleExportOrphanedEmails}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Emails
+                </Button>
+                {selectedOrphaned.size > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setShowDeleteOrphanedDialog(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected ({selectedOrphaned.size})
+                  </Button>
+                )}
+              </>
+            )}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="show-orphaned"
+                checked={showOrphaned}
+                onCheckedChange={setShowOrphaned}
+              />
+              <Label htmlFor="show-orphaned">Show Details</Label>
+            </div>
+          </div>
+        </CardHeader>
+        {showOrphaned && (
+          <CardContent>
+            {orphanedTenants.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No orphaned workspaces found</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Checkbox 
+                    checked={selectedOrphaned.size === orphanedTenants.length && orphanedTenants.length > 0}
+                    onCheckedChange={handleSelectAllOrphaned}
+                  />
+                  <span className="text-sm font-medium">Select All</span>
+                </div>
+                {orphanedTenants.map((tenant) => (
+                  <div
+                    key={tenant.id}
+                    className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg hover:bg-muted/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox 
+                        checked={selectedOrphaned.has(tenant.id)}
+                        onCheckedChange={() => handleSelectOrphanedTenant(tenant.id)}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{tenant.name}</p>
+                        {tenant.email ? (
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(tenant.email!);
+                              toast.success('Email copied');
+                            }}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                          >
+                            <Mail className="h-3 w-3" />
+                            {tenant.email}
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No email found</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={tenant.subscription_status === 'active' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {tenant.subscription_status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(tenant.created_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Archived Users Section */}
       <Card className="mb-8">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -462,23 +706,21 @@ export default function AdminDashboardPage() {
                   >
                     <div>
                       <p className="text-sm font-medium">{user.full_name || 'No name'}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        Deleted {format(new Date(user.deleted_at), 'MMM d, yyyy')}
-                      </Badge>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(user.email);
                           toast.success('Email copied for marketing');
                         }}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
                       >
                         <Mail className="h-3 w-3" />
-                      </Button>
+                        {user.email}
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
                     </div>
+                    <Badge variant="secondary" className="text-xs">
+                      Deleted {format(new Date(user.deleted_at), 'MMM d, yyyy')}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -523,6 +765,39 @@ export default function AdminDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Orphaned Confirmation Dialog */}
+      <AlertDialog open={showDeleteOrphanedDialog} onOpenChange={setShowDeleteOrphanedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Orphaned Workspaces</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete {selectedOrphaned.size} orphaned workspace(s)? 
+              This will remove all associated data and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSelectedOrphaned}
+              disabled={isDeletingOrphaned}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingOrphaned ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete {selectedOrphaned.size} Workspace(s)
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
