@@ -80,21 +80,29 @@ Deno.serve(async (req) => {
     
     if (body.manual && body.tenant_id) {
       // Manual reminder to specific tenant
-      const { data: tenant } = await supabase
+      const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
-        .select('*, profiles!tenants_owner_id_fkey(email, full_name)')
+        .select('*')
         .eq('id', body.tenant_id)
         .single();
 
-      if (!tenant) {
+      if (tenantError || !tenant) {
+        console.error('Error fetching tenant:', tenantError);
         return new Response(
           JSON.stringify({ success: false, error: 'Tenant not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const ownerProfile = tenant.profiles;
-      if (!ownerProfile?.email) {
+      // Fetch owner profile separately using owner_id
+      const { data: ownerProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', tenant.owner_id)
+        .single();
+
+      if (profileError || !ownerProfile?.email) {
+        console.error('Error fetching owner profile:', profileError);
         return new Response(
           JSON.stringify({ success: false, error: 'Owner email not found' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -137,7 +145,7 @@ Deno.serve(async (req) => {
     // Find tenants expiring within 14 days
     const { data: expiringTenants, error: fetchError } = await supabase
       .from('tenants')
-      .select('*, profiles!tenants_owner_id_fkey(email, full_name), subscription_plans(name)')
+      .select('*, subscription_plans(name)')
       .in('subscription_status', ['trial', 'active'])
       .lte('subscription_expires_at', fourteenDaysFromNow.toISOString())
       .gt('subscription_expires_at', now.toISOString());
@@ -163,8 +171,17 @@ Deno.serve(async (req) => {
     const reminderIntervals = [14, 7, 3, 1]; // 14 days, 7 days, 3 days, 24 hours
 
     for (const tenant of expiringTenants) {
-      const ownerProfile = tenant.profiles;
-      if (!ownerProfile?.email) continue;
+      // Fetch owner profile separately using owner_id
+      const { data: ownerProfile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', tenant.owner_id)
+        .single();
+
+      if (!ownerProfile?.email) {
+        console.log(`[SMTP] Skipping tenant ${tenant.id} - no owner email found`);
+        continue;
+      }
 
       const expiryDate = new Date(tenant.subscription_expires_at);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
