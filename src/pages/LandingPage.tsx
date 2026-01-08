@@ -99,33 +99,17 @@ const heroFeatures = [
   { icon: Award, text: 'Team KPI Dashboard' },
 ];
 
-// Pricing Plans
-const plans = [
-  {
-    name: 'Starter',
-    price: '£29',
-    period: '/month',
-    description: 'For solo recruiters',
-    features: ['10 Active Jobs', '100 CV Uploads', '50 AI Matches', '1 User', 'Email Support'],
-    popular: false,
-  },
-  {
-    name: 'Professional',
-    price: '£79',
-    period: '/month',
-    description: 'For small agencies',
-    features: ['50 Active Jobs', '500 CV Uploads', '200 AI Matches', 'Up to 5 Users', 'Team Tracking', 'Priority Support'],
-    popular: true,
-  },
-  {
-    name: 'Agency',
-    price: '£149',
-    period: '/month',
-    description: 'For growing teams',
-    features: ['Unlimited Jobs', 'Unlimited CVs', '1000 AI Matches', 'Up to 25 Users', 'Full Analytics', 'API Access'],
-    popular: false,
-  },
-];
+// Pricing Plans interface
+interface PricingPlan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price_monthly: number;
+  features: string[];
+  is_popular?: boolean;
+  display_order: number;
+}
 
 interface TrustedClient {
   id: string;
@@ -333,6 +317,7 @@ export default function LandingPage() {
   const [watchDemoOpen, setWatchDemoOpen] = useState(false);
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
   const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
 
   useEffect(() => {
     const fetchDemoVideoUrl = async () => {
@@ -348,6 +333,44 @@ export default function LandingPage() {
       }
     };
     fetchDemoVideoUrl();
+  }, []);
+
+  // Fetch pricing plans dynamically
+  useEffect(() => {
+    const fetchPricingPlans = async () => {
+      const { data } = await supabase
+        .from('subscription_plans')
+        .select('id, name, slug, description, price_monthly, features, display_order')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (data) {
+        const plans: PricingPlan[] = data.map(plan => ({
+          id: plan.id,
+          name: plan.name,
+          slug: plan.slug,
+          description: plan.description,
+          price_monthly: Number(plan.price_monthly),
+          features: Array.isArray(plan.features) ? (plan.features as string[]) : [],
+          is_popular: plan.slug === 'pro', // Mark Pro as most popular
+          display_order: plan.display_order,
+        }));
+        setPricingPlans(plans);
+      }
+    };
+    fetchPricingPlans();
+
+    // Real-time subscription for plan updates
+    const channel = supabase
+      .channel('pricing-plans-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => {
+        fetchPricingPlans();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -691,19 +714,19 @@ export default function LandingPage() {
             </p>
           </motion.div>
           
-          <div className="grid md:grid-cols-3 gap-8">
-            {plans.map((plan, i) => (
+          <div className={`grid gap-8 ${pricingPlans.length === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
+            {pricingPlans.map((plan, i) => (
               <motion.div
-                key={i}
+                key={plan.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
                 viewport={{ once: true }}
                 className={`relative p-8 rounded-2xl border bg-card ${
-                  plan.popular ? 'border-primary shadow-xl scale-105' : 'border-border'
+                  plan.is_popular ? 'border-primary shadow-xl scale-105' : 'border-border'
                 }`}
               >
-                {plan.popular && (
+                {plan.is_popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                     <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
                       Most Popular
@@ -712,10 +735,10 @@ export default function LandingPage() {
                 )}
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{plan.description || ''}</p>
                   <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
+                    <span className="text-4xl font-bold">£{plan.price_monthly}</span>
+                    <span className="text-muted-foreground">/month</span>
                   </div>
                 </div>
                 <ul className="space-y-3 mb-8">
@@ -728,7 +751,7 @@ export default function LandingPage() {
                 </ul>
                 <Link to="/auth?mode=signup">
                   <Button 
-                    variant={plan.popular ? 'default' : 'outline'} 
+                    variant={plan.is_popular ? 'default' : 'outline'} 
                     className="w-full"
                   >
                     Get Started
