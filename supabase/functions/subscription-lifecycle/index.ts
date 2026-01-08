@@ -940,6 +940,101 @@ Deno.serve(async (req) => {
         );
       }
 
+      case 'send_package_notification': {
+        if (!tenant_id) {
+          throw new Error('tenant_id is required');
+        }
+
+        const packageName = body.package_name || 'your new package';
+
+        // Get tenant details
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('name, logo_url')
+          .eq('id', tenant_id)
+          .single();
+
+        // Get tenant users
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('tenant_id', tenant_id);
+
+        const billingUrl = getBillingUrl();
+        let emailsSent = 0;
+
+        if (resend && profiles && tenant) {
+          for (const profile of profiles) {
+            if (!profile.email) continue;
+            
+            const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Package Assigned</title></head><body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f1f5f9;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 40px 20px;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);"><tr><td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0; text-align: center;"><table cellpadding="0" cellspacing="0" style="margin: 0 auto;"><tr><td style="background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); border-radius: 10px; padding: 10px;"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></td><td style="padding-left: 12px; font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;"><span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span></td></tr></table></td></tr><tr><td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 35px 40px; text-align: center;"><h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700;">📦 New Package Assigned!</h1></td></tr><tr><td style="padding: 40px;"><p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">Hello ${profile.full_name || 'there'}! 👋</p><p style="margin: 0 0 25px; color: #475569; font-size: 16px; line-height: 1.7;">Great news! Your account <strong>${tenant.name}</strong> has been assigned the <strong>${packageName}</strong> package.</p><table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(145deg, #dcfce7 0%, #d1fae5 100%); border-radius: 16px; border: 2px solid #059669; margin-bottom: 30px;"><tr><td style="padding: 24px; text-align: center;"><p style="margin: 0 0 8px; color: #065f46; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Your Package</p><p style="margin: 0; color: #059669; font-size: 28px; font-weight: 700;">${packageName}</p></td></tr></table><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;"><tr><td align="center"><a href="${billingUrl}" style="display: inline-block; background: linear-gradient(135deg, #00008B 0%, #0000CD 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(0, 0, 139, 0.4);">View Your Subscription</a></td></tr></table><p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">If you have any questions, just reply to this email!</p></td></tr><tr><td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0; text-align: center;"><p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">Powered by <strong style="color: #00008B;">HireMetrics CRM</strong></p><p style="margin: 0; color: #94a3b8; font-size: 11px;">© ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.</p></td></tr></table></td></tr></table></body></html>`;
+
+            try {
+              await resend.emails.send({
+                from: 'HireMetrics <admin@hiremetrics.co.uk>',
+                to: [profile.email],
+                reply_to: 'admin@hiremetrics.co.uk',
+                subject: `📦 New Package Assigned: ${packageName}`,
+                html
+              });
+              emailsSent++;
+            } catch (emailError) {
+              console.error(`Failed to send package notification to ${profile.email}:`, emailError);
+            }
+          }
+        }
+
+        await supabase.from('audit_log').insert({
+          action: 'send_package_notification',
+          entity_type: 'tenant',
+          entity_id: tenant_id,
+          new_values: { package_name: packageName, emails_sent: emailsSent }
+        });
+
+        return new Response(
+          JSON.stringify({ success: true, emails_sent: emailsSent }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'send_temp_login_notification': {
+        const { user_email, user_name, temp_login_url, expires_in_minutes } = body;
+
+        if (!user_email || !temp_login_url) {
+          throw new Error('user_email and temp_login_url are required');
+        }
+
+        const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Temporary Login Link</title></head><body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f1f5f9;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f1f5f9; padding: 40px 20px;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);"><tr><td style="padding: 30px 40px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border-bottom: 1px solid #e2e8f0; text-align: center;"><table cellpadding="0" cellspacing="0" style="margin: 0 auto;"><tr><td style="background: linear-gradient(135deg, #00008B 0%, #0052CC 100%); border-radius: 10px; padding: 10px;"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></td><td style="padding-left: 12px; font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 22px;"><span style="color: #00008B;">HireMetrics</span><span style="color: #64748b; font-weight: 500;"> CRM</span></td></tr></table></td></tr><tr><td style="background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); padding: 35px 40px; text-align: center;"><h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700;">🔐 Temporary Login Link</h1></td></tr><tr><td style="padding: 40px;"><p style="margin: 0 0 20px; color: #1e293b; font-size: 18px; font-weight: 600;">Hello ${user_name || 'there'}! 👋</p><p style="margin: 0 0 25px; color: #475569; font-size: 16px; line-height: 1.7;">An administrator has generated a temporary login link for your HireMetrics CRM account.</p><table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 25px;"><tr><td style="padding: 20px;"><p style="margin: 0; color: #92400e; font-size: 14px;"><strong>⏰ Important:</strong> This link will expire in <strong>${expires_in_minutes || 30} minutes</strong> for security reasons.</p></td></tr></table><table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 30px;"><tr><td align="center"><a href="${temp_login_url}" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 18px; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);">Login Now</a></td></tr></table><p style="margin: 0 0 16px; color: #6b7280; font-size: 14px; line-height: 1.6;">Or copy and paste this link into your browser:</p><p style="margin: 0 0 24px; color: #7c3aed; font-size: 12px; word-break: break-all; background: #f3f4f6; padding: 12px; border-radius: 6px;">${temp_login_url}</p><p style="margin: 0; color: #64748b; font-size: 14px; text-align: center;">If you didn't request this link, please contact your administrator.</p></td></tr><tr><td style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px 40px; border-top: 1px solid #e2e8f0; text-align: center;"><p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">Powered by <strong style="color: #00008B;">HireMetrics CRM</strong></p><p style="margin: 0; color: #94a3b8; font-size: 11px;">© ${new Date().getFullYear()} HireMetrics CRM. All rights reserved.</p></td></tr></table></td></tr></table></body></html>`;
+
+        let emailSent = false;
+        if (resend) {
+          try {
+            await resend.emails.send({
+              from: 'HireMetrics <admin@hiremetrics.co.uk>',
+              to: [user_email],
+              reply_to: 'admin@hiremetrics.co.uk',
+              subject: '🔐 Your Temporary Login Link for HireMetrics CRM',
+              html
+            });
+            emailSent = true;
+          } catch (emailError) {
+            console.error(`Failed to send temp login email to ${user_email}:`, emailError);
+          }
+        }
+
+        await supabase.from('audit_log').insert({
+          action: 'send_temp_login_notification',
+          entity_type: 'user',
+          entity_id: null,
+          new_values: { email: user_email, expires_in_minutes, email_sent: emailSent }
+        });
+
+        return new Response(
+          JSON.stringify({ success: emailSent, email_sent: emailSent }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
