@@ -100,56 +100,87 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
   const teamUrl = getTeamUrl();
   const adminUsersUrl = getAdminUrl("users");
 
-  const baseStyles = `
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-      .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-      .header { text-align: center; margin-bottom: 30px; }
-      .logo { font-size: 24px; font-weight: 700; color: #0052CC; }
-      .content { background: #fff; border-radius: 8px; padding: 30px; border: 1px solid #e5e7eb; }
-      .title { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #111827; }
-      .text { color: #4b5563; margin-bottom: 16px; }
-      .highlight { background: #f3f4f6; padding: 16px; border-radius: 6px; margin: 16px 0; }
-      .highlight-item { margin: 8px 0; }
-      .label { font-weight: 600; color: #374151; }
-      .button { display: inline-block; background: #0052CC; color: #fff !important; text-decoration: none; padding: 12px 24px; border-radius: 6px; margin-top: 20px; font-weight: 500; }
-      .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #9ca3af; }
-      .footer a { color: #6b7280; }
-    </style>
+  // Build clickable button HTML with proper inline styles for email clients
+  const buildButton = (text: string, url: string): string => `
+    <table cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
+      <tr>
+        <td align="center" bgcolor="#00008B" style="border-radius: 8px;">
+          <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 14px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px; background-color: #00008B;">
+            ${text}
+          </a>
+        </td>
+      </tr>
+    </table>
   `;
 
-  const header = `
-    <div class="header">
-      <div class="logo">HireMetrics</div>
-    </div>
-  `;
-
-  const footer = `
-    <div class="footer">
-      <p>HireMetrics - Enterprise Recruitment Platform</p>
-      <p>This email was sent from HireMetrics CRM.</p>
-      <p><a href="${dashboardUrl}">Visit Dashboard</a></p>
-    </div>
-  `;
-
-  const wrapEmail = (content: string): string => `
+  const wrapEmail = (content: string, buttonText?: string, buttonUrl?: string): string => `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      ${baseStyles}
+      <title>HireMetrics Notification</title>
     </head>
-    <body>
-      <div class="container">
-        ${header}
-        <div class="content">
-          ${content}
-        </div>
-        ${footer}
-      </div>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8fafc;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <!-- Header -->
+              <tr>
+                <td align="center" style="padding: 28px; border-bottom: 1px solid #e5e7eb;">
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background: linear-gradient(135deg, #00008B 0%, #1E3A8A 100%); border-radius: 10px; padding: 10px; width: 44px; height: 44px; text-align: center; vertical-align: middle;">
+                        <span style="font-family: Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ffffff;">H</span>
+                      </td>
+                      <td style="padding-left: 12px; font-family: 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 20px; color: #0F172A;">
+                        HireMetrics
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td style="padding: 32px 40px;">
+                  ${content}
+                  ${buttonText && buttonUrl ? buildButton(buttonText, buttonUrl) : ''}
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 8px; color: #64748b; font-size: 13px;">HireMetrics - Enterprise Recruitment Platform</p>
+                  <p style="margin: 0; color: #94a3b8; font-size: 12px;">
+                    <a href="${dashboardUrl}" target="_blank" rel="noopener noreferrer" style="color: #00008B; text-decoration: none;">Visit Dashboard</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
+  `;
+
+  // Helper for highlight box with inline styles
+  const highlightBox = (items: Array<{ label: string; value: string }>): string => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; border-radius: 8px; margin: 20px 0;">
+      <tr>
+        <td style="padding: 20px;">
+          ${items.map(item => `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0;">
+              <tr>
+                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #374151; font-weight: 600; width: 140px; vertical-align: top;">${item.label}:</td>
+                <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #4b5563;">${item.value}</td>
+              </tr>
+            </table>
+          `).join('')}
+        </td>
+      </tr>
+    </table>
   `;
 
   switch (eventType) {
@@ -159,16 +190,15 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "New Team Member Added - HireMetrics",
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">New Team Member Added</h1>
-          <p class="text">A new team member has been added to a HireMetrics account.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Owner:</span> ${data.owner_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">New Member:</span> ${data.member_email || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Role:</span> ${data.member_role || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Date:</span> ${new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })}</div>
-          </div>
-          <a href="${adminUsersUrl}" class="button">View in Admin Panel</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">New Team Member Added</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A new team member has been added to a HireMetrics account.</p>
+          ${highlightBox([
+            { label: "Owner", value: String(data.owner_name || "N/A") },
+            { label: "New Member", value: String(data.member_email || "N/A") },
+            { label: "Role", value: String(data.member_role || "N/A") },
+            { label: "Date", value: new Date().toLocaleString("en-GB", { timeZone: "Europe/London" }) }
+          ])}
+        `, "View in Admin Panel", adminUsersUrl),
       };
 
     case "team_member_accepted":
@@ -176,14 +206,13 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "Team Member Joined - HireMetrics",
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Team Member Joined Successfully</h1>
-          <p class="text">A team member has accepted their invitation and joined your organisation.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Member:</span> ${data.member_name || data.member_email || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Role:</span> ${data.member_role || "N/A"}</div>
-          </div>
-          <a href="${teamUrl}" class="button">View Team</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Team Member Joined Successfully</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A team member has accepted their invitation and joined your organisation.</p>
+          ${highlightBox([
+            { label: "Member", value: String(data.member_name || data.member_email || "N/A") },
+            { label: "Role", value: String(data.member_role || "N/A") }
+          ])}
+        `, "View Team", teamUrl),
       };
 
     // ==================== JOB EVENTS ====================
@@ -192,15 +221,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `New Job Created: ${data.job_title || "Untitled"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">New Job Created</h1>
-          <p class="text">A new job has been created in your account.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Job Title:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Created By:</span> ${data.created_by_name || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">New Job Created</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A new job has been created in your account.</p>
+          ${highlightBox([
+            { label: "Job Title", value: String(data.job_title || "N/A") },
+            { label: "Client", value: String(data.client_name || "N/A") },
+            { label: "Created By", value: String(data.created_by_name || "N/A") }
+          ])}
+        `, "View Job", buildAppUrl(`/jobs/${data.job_id}`)),
       };
 
     case "job_assigned":
@@ -208,15 +236,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Job Assigned to You: ${data.job_title || "Untitled"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Job Assigned</h1>
-          <p class="text">You have been assigned to work on a job.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Job Title:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Assigned By:</span> ${data.assigned_by_name || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job Details</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Job Assigned</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">You have been assigned to work on a job.</p>
+          ${highlightBox([
+            { label: "Job Title", value: String(data.job_title || "N/A") },
+            { label: "Client", value: String(data.client_name || "N/A") },
+            { label: "Assigned By", value: String(data.assigned_by_name || "N/A") }
+          ])}
+        `, "View Job Details", buildAppUrl(`/jobs/${data.job_id}`)),
       };
 
     case "job_paused":
@@ -224,15 +251,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Job Paused: ${data.job_title || "Untitled"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Job Paused</h1>
-          <p class="text">A job has been placed on hold.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Job Title:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Reason:</span> ${data.reason || "Not specified"}</div>
-          </div>
-          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Job Paused</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A job has been placed on hold.</p>
+          ${highlightBox([
+            { label: "Job Title", value: String(data.job_title || "N/A") },
+            { label: "Client", value: String(data.client_name || "N/A") },
+            { label: "Reason", value: String(data.reason || "Not specified") }
+          ])}
+        `, "View Job", buildAppUrl(`/jobs/${data.job_id}`)),
       };
 
     case "job_closed":
@@ -241,15 +267,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Job Closed: ${data.job_title || "Untitled"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Job Successfully Closed</h1>
-          <p class="text">A job has been closed with a successful hire.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Job Title:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Hired Candidate:</span> ${data.candidate_name || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/jobs/${data.job_id}`)}" class="button">View Job</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Job Successfully Closed</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A job has been closed with a successful hire.</p>
+          ${highlightBox([
+            { label: "Job Title", value: String(data.job_title || "N/A") },
+            { label: "Client", value: String(data.client_name || "N/A") },
+            { label: "Hired Candidate", value: String(data.candidate_name || "N/A") }
+          ])}
+        `, "View Job", buildAppUrl(`/jobs/${data.job_id}`)),
       };
 
     // ==================== CANDIDATE EVENTS ====================
@@ -258,15 +283,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `CV Submitted: ${data.candidate_name || "Candidate"} for ${data.job_title || "Job"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">CV Submitted</h1>
-          <p class="text">A CV has been submitted for a job.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Candidate:</span> ${data.candidate_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Submitted By:</span> ${data.submitted_by_name || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">CV Submitted</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A CV has been submitted for a job.</p>
+          ${highlightBox([
+            { label: "Candidate", value: String(data.candidate_name || "N/A") },
+            { label: "Job", value: String(data.job_title || "N/A") },
+            { label: "Submitted By", value: String(data.submitted_by_name || "N/A") }
+          ])}
+        `, "View Candidate", buildAppUrl(`/candidates/${data.candidate_id}`)),
       };
 
     case "candidate_status_updated":
@@ -274,16 +298,15 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Candidate Status Updated: ${data.candidate_name || "Candidate"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Candidate Status Updated</h1>
-          <p class="text">A candidate's status has been updated.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Candidate:</span> ${data.candidate_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">New Status:</span> ${data.new_status || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Previous Status:</span> ${data.old_status || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Candidate Status Updated</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A candidate's status has been updated.</p>
+          ${highlightBox([
+            { label: "Candidate", value: String(data.candidate_name || "N/A") },
+            { label: "Job", value: String(data.job_title || "N/A") },
+            { label: "New Status", value: String(data.new_status || "N/A") },
+            { label: "Previous Status", value: String(data.old_status || "N/A") }
+          ])}
+        `, "View Candidate", buildAppUrl(`/candidates/${data.candidate_id}`)),
       };
 
     case "interview_scheduled":
@@ -291,15 +314,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Interview Scheduled: ${data.candidate_name || "Candidate"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Interview Scheduled</h1>
-          <p class="text">An interview has been scheduled.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Candidate:</span> ${data.candidate_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Date/Time:</span> ${data.interview_time || "TBC"}</div>
-          </div>
-          <a href="${buildAppUrl(`/events/${data.event_id}`)}" class="button">View Event</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Interview Scheduled</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">An interview has been scheduled.</p>
+          ${highlightBox([
+            { label: "Candidate", value: String(data.candidate_name || "N/A") },
+            { label: "Job", value: String(data.job_title || "N/A") },
+            { label: "Date/Time", value: String(data.interview_time || "TBC") }
+          ])}
+        `, "View Event", buildAppUrl(`/events/${data.event_id}`)),
       };
 
     case "candidate_rejected":
@@ -307,15 +329,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Candidate Rejected: ${data.candidate_name || "Candidate"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Candidate Rejected</h1>
-          <p class="text">A candidate has been rejected.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Candidate:</span> ${data.candidate_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Reason:</span> ${data.reason || "Not specified"}</div>
-          </div>
-          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Candidate Rejected</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">A candidate has been rejected.</p>
+          ${highlightBox([
+            { label: "Candidate", value: String(data.candidate_name || "N/A") },
+            { label: "Job", value: String(data.job_title || "N/A") },
+            { label: "Reason", value: String(data.reason || "Not specified") }
+          ])}
+        `, "View Candidate", buildAppUrl(`/candidates/${data.candidate_id}`)),
       };
 
     case "candidate_offered":
@@ -323,15 +344,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Offer Made: ${data.candidate_name || "Candidate"} - HireMetrics`,
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Offer Made to Candidate</h1>
-          <p class="text">An offer has been made to a candidate.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Candidate:</span> ${data.candidate_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Job:</span> ${data.job_title || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Client:</span> ${data.client_name || "N/A"}</div>
-          </div>
-          <a href="${buildAppUrl(`/candidates/${data.candidate_id}`)}" class="button">View Candidate</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Offer Made to Candidate</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">An offer has been made to a candidate.</p>
+          ${highlightBox([
+            { label: "Candidate", value: String(data.candidate_name || "N/A") },
+            { label: "Job", value: String(data.job_title || "N/A") },
+            { label: "Client", value: String(data.client_name || "N/A") }
+          ])}
+        `, "View Candidate", buildAppUrl(`/candidates/${data.candidate_id}`)),
       };
 
     // ==================== BILLING EVENTS ====================
@@ -340,15 +360,14 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: `Package ${data.change_type === "upgrade" ? "Upgraded" : "Changed"} - HireMetrics`,
         senderType: "billing",
         html: wrapEmail(`
-          <h1 class="title">Subscription Package Changed</h1>
-          <p class="text">Your subscription package has been ${data.change_type || "updated"}.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Previous Package:</span> ${data.old_package || "N/A"}</div>
-            <div class="highlight-item"><span class="label">New Package:</span> ${data.new_package || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Effective:</span> ${data.effective_date || "Immediately"}</div>
-          </div>
-          <a href="${billingUrl}" class="button">View Billing</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Subscription Package Changed</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">Your subscription package has been ${data.change_type || "updated"}.</p>
+          ${highlightBox([
+            { label: "Previous Package", value: String(data.old_package || "N/A") },
+            { label: "New Package", value: String(data.new_package || "N/A") },
+            { label: "Effective", value: String(data.effective_date || "Immediately") }
+          ])}
+        `, "View Billing", billingUrl),
       };
 
     case "payment_successful":
@@ -356,16 +375,15 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "Payment Successful - HireMetrics",
         senderType: "billing",
         html: wrapEmail(`
-          <h1 class="title">Payment Successful</h1>
-          <p class="text">Your payment has been processed successfully.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Amount:</span> ${data.currency || "GBP"} ${data.amount || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Invoice:</span> ${data.invoice_number || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Date:</span> ${new Date().toLocaleDateString("en-GB")}</div>
-          </div>
-          <p class="text">Your invoice is attached to this email.</p>
-          <a href="${billingUrl}" class="button">View Billing History</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Payment Successful</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">Your payment has been processed successfully.</p>
+          ${highlightBox([
+            { label: "Amount", value: `${data.currency || "GBP"} ${data.amount || "N/A"}` },
+            { label: "Invoice", value: String(data.invoice_number || "N/A") },
+            { label: "Date", value: new Date().toLocaleDateString("en-GB") }
+          ])}
+          <p style="margin: 16px 0; color: #4b5563; font-size: 14px;">Your invoice is attached to this email.</p>
+        `, "View Billing History", billingUrl),
       };
 
     case "payment_failed":
@@ -373,14 +391,13 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "Payment Failed - Action Required - HireMetrics",
         senderType: "billing",
         html: wrapEmail(`
-          <h1 class="title">Payment Failed</h1>
-          <p class="text">We were unable to process your payment. Please update your payment method to avoid service interruption.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Amount:</span> ${data.currency || "GBP"} ${data.amount || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Reason:</span> ${data.failure_reason || "Payment declined"}</div>
-          </div>
-          <a href="${billingUrl}" class="button">Update Payment Method</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Payment Failed</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">We were unable to process your payment. Please update your payment method to avoid service interruption.</p>
+          ${highlightBox([
+            { label: "Amount", value: `${data.currency || "GBP"} ${data.amount || "N/A"}` },
+            { label: "Reason", value: String(data.failure_reason || "Payment declined") }
+          ])}
+        `, "Update Payment Method", billingUrl),
       };
 
     case "subscription_expired":
@@ -388,14 +405,13 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "Subscription Expired - HireMetrics",
         senderType: "billing",
         html: wrapEmail(`
-          <h1 class="title">Subscription Expired</h1>
-          <p class="text">Your HireMetrics subscription has expired. Renew now to continue using the platform.</p>
-          <div class="highlight">
-            <div class="highlight-item"><span class="label">Package:</span> ${data.package_name || "N/A"}</div>
-            <div class="highlight-item"><span class="label">Expired:</span> ${data.expired_date || new Date().toLocaleDateString("en-GB")}</div>
-          </div>
-          <a href="${billingUrl}" class="button">Renew Subscription</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Subscription Expired</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">Your HireMetrics subscription has expired. Renew now to continue using the platform.</p>
+          ${highlightBox([
+            { label: "Package", value: String(data.package_name || "N/A") },
+            { label: "Expired", value: String(data.expired_date || new Date().toLocaleDateString("en-GB")) }
+          ])}
+        `, "Renew Subscription", billingUrl),
       };
 
     default:
@@ -403,10 +419,9 @@ function getEmailTemplate(eventType: NotificationEventType, data: Record<string,
         subject: "Notification - HireMetrics",
         senderType: "notifications",
         html: wrapEmail(`
-          <h1 class="title">Notification</h1>
-          <p class="text">You have a new notification from HireMetrics.</p>
-          <a href="${dashboardUrl}" class="button">View Dashboard</a>
-        `),
+          <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #111827;">Notification</h1>
+          <p style="margin: 0 0 16px; color: #4b5563; font-size: 16px;">You have a new notification from HireMetrics.</p>
+        `, "View Dashboard", dashboardUrl),
       };
   }
 }
