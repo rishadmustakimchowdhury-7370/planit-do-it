@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { PublicPromoBanner } from '@/components/promo/PublicPromoBanner';
+import { usePublicPricingPlans } from '@/hooks/usePublicPricingPlans';
 import { 
   ArrowRight, 
   Users, 
@@ -98,18 +99,6 @@ const heroFeatures = [
   { icon: Clock, text: 'Work Time Tracking' },
   { icon: Award, text: 'Team KPI Dashboard' },
 ];
-
-// Pricing Plans interface
-interface PricingPlan {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  price_monthly: number;
-  features: string[];
-  is_popular?: boolean;
-  display_order: number;
-}
 
 interface TrustedClient {
   id: string;
@@ -317,7 +306,7 @@ export default function LandingPage() {
   const [watchDemoOpen, setWatchDemoOpen] = useState(false);
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
   const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
-  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const { plans: pricingPlans } = usePublicPricingPlans();
 
   useEffect(() => {
     const fetchDemoVideoUrl = async () => {
@@ -333,44 +322,6 @@ export default function LandingPage() {
       }
     };
     fetchDemoVideoUrl();
-  }, []);
-
-  // Fetch pricing plans dynamically
-  useEffect(() => {
-    const fetchPricingPlans = async () => {
-      const { data } = await supabase
-        .from('subscription_plans')
-        .select('id, name, slug, description, price_monthly, features, display_order')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-      
-      if (data) {
-        const plans: PricingPlan[] = data.map(plan => ({
-          id: plan.id,
-          name: plan.name,
-          slug: plan.slug,
-          description: plan.description,
-          price_monthly: Number(plan.price_monthly),
-          features: Array.isArray(plan.features) ? (plan.features as string[]) : [],
-          is_popular: plan.slug === 'pro', // Mark Pro as most popular
-          display_order: plan.display_order,
-        }));
-        setPricingPlans(plans);
-      }
-    };
-    fetchPricingPlans();
-
-    // Real-time subscription for plan updates
-    const channel = supabase
-      .channel('pricing-plans-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, () => {
-        fetchPricingPlans();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   return (
