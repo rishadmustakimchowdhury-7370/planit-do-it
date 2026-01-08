@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const appBaseUrl = await getAppBaseUrl();
+    const appBaseUrl = getAppBaseUrl(req);
     const renewalLink = `${appBaseUrl}/billing`;
 
     // Check if this is a manual reminder request

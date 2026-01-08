@@ -16,6 +16,20 @@ function normalizeBaseUrl(url: string): string {
   return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
 
+function isClearlyInvalidEnvUrl(value: string): boolean {
+  const v = value.trim();
+  // Common misconfig: literal template placeholders like "${APP_BASE_URL}/path"
+  if (v.includes("${")) return true;
+  if (v === "" || v === "null" || v === "undefined") return true;
+  return false;
+}
+
+function coerceToOrigin(url: string): string {
+  const v = url.trim();
+  const candidate = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  return new URL(candidate).origin;
+}
+
 function resolveBaseUrlFromRequest(req: Request): string {
   const origin = req.headers.get("origin") || req.headers.get("referer");
   if (origin) {
@@ -44,10 +58,15 @@ function resolveBaseUrlFromRequest(req: Request): string {
 export function getAppBaseUrl(req?: Request): string {
   // Priority 1: Check for APP_BASE_URL or APP_URL environment variable
   const envUrl = Deno.env.get("APP_BASE_URL") || Deno.env.get("APP_URL");
-  if (envUrl && envUrl.trim() !== "") {
-    const normalized = normalizeBaseUrl(envUrl);
-    console.log("[APP-URL] Using env URL:", normalized);
-    return normalized;
+  if (envUrl && !isClearlyInvalidEnvUrl(envUrl)) {
+    try {
+      const origin = coerceToOrigin(envUrl);
+      const normalized = normalizeBaseUrl(origin);
+      console.log("[APP-URL] Using env URL:", normalized);
+      return normalized;
+    } catch (e) {
+      console.log("[APP-URL] Invalid env URL, ignoring:", envUrl, e);
+    }
   }
 
   // Priority 2: Try to resolve from request headers
