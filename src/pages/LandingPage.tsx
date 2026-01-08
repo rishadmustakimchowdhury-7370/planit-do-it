@@ -673,7 +673,7 @@ export default function LandingPage() {
             }}
             className="w-full"
           >
-            <CarouselContent className="-ml-4">
+            <CarouselContent className="-ml-4 pt-6">
               {pricingPlans.map((plan, i) => (
                 <CarouselItem key={plan.id} className="pl-4 md:basis-1/2 lg:basis-1/3">
                   <motion.div
@@ -681,13 +681,13 @@ export default function LandingPage() {
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: i * 0.1 }}
                     viewport={{ once: true }}
-                    className={`relative p-8 rounded-2xl border bg-card h-full ${
-                      plan.is_popular ? 'border-primary shadow-xl' : 'border-border'
+                    className={`relative p-8 rounded-2xl border bg-card h-full mt-4 ${
+                      plan.is_popular ? 'border-primary shadow-xl border-2' : 'border-border'
                     }`}
                   >
                     {plan.is_popular && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                        <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full">
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                        <span className="bg-primary text-primary-foreground text-xs font-medium px-4 py-1.5 rounded-full whitespace-nowrap shadow-lg">
                           Most Popular
                         </span>
                       </div>
