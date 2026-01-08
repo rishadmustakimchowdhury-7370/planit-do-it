@@ -2548,6 +2548,8 @@ export type Database = {
           notification_preferences: Json | null
           phone: string | null
           tenant_id: string | null
+          two_factor_enabled: boolean | null
+          two_factor_phone: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2566,6 +2568,8 @@ export type Database = {
           notification_preferences?: Json | null
           phone?: string | null
           tenant_id?: string | null
+          two_factor_enabled?: boolean | null
+          two_factor_phone?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2584,6 +2588,8 @@ export type Database = {
           notification_preferences?: Json | null
           phone?: string | null
           tenant_id?: string | null
+          two_factor_enabled?: boolean | null
+          two_factor_phone?: string | null
           updated_at?: string | null
         }
         Relationships: [
