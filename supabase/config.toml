@@ -125,3 +125,6 @@ verify_jwt = true
 
 [functions.generate-jd-pdf]
 verify_jwt = true
+
+[functions.totp-2fa]
+verify_jwt = false
