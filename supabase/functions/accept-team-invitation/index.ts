@@ -245,7 +245,7 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // 1) Validate and lock invitation (prevent race conditions)
+    // 1) Validate invitation (no locking - just check status is pending)
     logStep("Validating invitation token");
     const { data: invitation, error: invitationError } = await supabaseAdmin
       .from("team_invitations")
@@ -256,6 +256,25 @@ serve(async (req) => {
       .single();
 
     if (invitationError || !invitation) {
+      // Check if already accepted
+      const { data: existingInvite } = await supabaseAdmin
+        .from("team_invitations")
+        .select("status")
+        .eq("token", token)
+        .single();
+      
+      if (existingInvite?.status === "accepted") {
+        logStep("Invitation already accepted");
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            action: "already_accepted",
+            message: "This invitation has already been accepted. Please sign in."
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       logStep("Invalid or expired invitation", { error: invitationError });
       return new Response(
         JSON.stringify({ error: "This invitation link is invalid or has expired" }),
@@ -264,21 +283,6 @@ serve(async (req) => {
     }
 
     logStep("Invitation validated", { email: invitation.email, role: invitation.role });
-
-    // 2) Immediately mark token as processing to prevent reuse
-    const { error: lockError } = await supabaseAdmin
-      .from("team_invitations")
-      .update({ status: "processing" })
-      .eq("id", invitation.id)
-      .eq("status", "pending");
-
-    if (lockError) {
-      logStep("Token already being processed", { error: lockError });
-      return new Response(
-        JSON.stringify({ error: "This invitation is already being processed" }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     // 3) Get tenant info
     const { data: tenant } = await supabaseAdmin
@@ -352,11 +356,6 @@ serve(async (req) => {
         );
       }
 
-      // Rollback invitation status on error
-      await supabaseAdmin
-        .from("team_invitations")
-        .update({ status: "pending" })
-        .eq("id", invitation.id);
 
       logStep("Error creating user", { error: createError });
       return new Response(
@@ -367,11 +366,6 @@ serve(async (req) => {
 
     const userId = created.user?.id;
     if (!userId) {
-      await supabaseAdmin
-        .from("team_invitations")
-        .update({ status: "pending" })
-        .eq("id", invitation.id);
-
       return new Response(
         JSON.stringify({ error: "Failed to create account" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
