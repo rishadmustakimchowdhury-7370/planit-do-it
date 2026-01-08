@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff, BarChart3, Target, TrendingUp, Users } from 'lucide-react';
+import { Loader2, Mail, Lock, User, ArrowLeft, Eye, EyeOff, BarChart3, Target, TrendingUp, Users, CheckCircle, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BRAND, getLogoHTML } from '@/components/brand/Logo';
 import { MathCaptcha } from '@/components/ui/math-captcha';
+import { isDisposableEmail, validatePasswordStrength } from '@/lib/email-validation';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -23,8 +24,25 @@ const loginSchema = z.object({
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string()
+    .email('Please enter a valid email address')
+    .refine(email => !isDisposableEmail(email), {
+      message: 'Temporary/disposable email addresses are not allowed. Please use a permanent email.',
+    }),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .refine(password => /[A-Z]/.test(password), {
+      message: 'Password must contain at least one uppercase letter',
+    })
+    .refine(password => /[a-z]/.test(password), {
+      message: 'Password must contain at least one lowercase letter',
+    })
+    .refine(password => /[0-9]/.test(password), {
+      message: 'Password must contain at least one number',
+    })
+    .refine(password => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password), {
+      message: 'Password must contain at least one special character (!@#$%^&*)',
+    }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -36,7 +54,20 @@ const forgotPasswordSchema = z.object({
 });
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .refine(password => /[A-Z]/.test(password), {
+      message: 'Password must contain at least one uppercase letter',
+    })
+    .refine(password => /[a-z]/.test(password), {
+      message: 'Password must contain at least one lowercase letter',
+    })
+    .refine(password => /[0-9]/.test(password), {
+      message: 'Password must contain at least one number',
+    })
+    .refine(password => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password), {
+      message: 'Password must contain at least one special character (!@#$%^&*)',
+    }),
   confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -102,6 +133,7 @@ export default function AuthPage() {
   const [isSignupCaptchaVerified, setIsSignupCaptchaVerified] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showNewConfirmPassword, setShowNewConfirmPassword] = useState(false);
+  const [signupPasswordStrength, setSignupPasswordStrength] = useState<ReturnType<typeof validatePasswordStrength> | null>(null);
   const { signIn, signUp, signInWithGoogle, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -723,7 +755,12 @@ export default function AuthPage() {
                                 type={showSignupPassword ? 'text' : 'password'}
                                 placeholder="••••••••"
                                 className="pl-10 pr-10 h-12 bg-muted/50 border-border/50 focus:bg-background transition-colors"
-                                {...signupForm.register('password')}
+                                {...signupForm.register('password', {
+                                  onChange: (e) => {
+                                    const value = e.target.value;
+                                    setSignupPasswordStrength(value ? validatePasswordStrength(value) : null);
+                                  }
+                                })}
                               />
                               <Button
                                 type="button"
@@ -739,6 +776,58 @@ export default function AuthPage() {
                                 )}
                               </Button>
                             </div>
+                            
+                            {/* Password Strength Indicator */}
+                            {signupPasswordStrength && (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full transition-all ${
+                                        signupPasswordStrength.strength === 'strong' 
+                                          ? 'bg-success w-full' 
+                                          : signupPasswordStrength.strength === 'medium' 
+                                            ? 'bg-warning w-2/3' 
+                                            : 'bg-destructive w-1/3'
+                                      }`}
+                                    />
+                                  </div>
+                                  <span className={`text-xs font-medium ${
+                                    signupPasswordStrength.strength === 'strong' 
+                                      ? 'text-success' 
+                                      : signupPasswordStrength.strength === 'medium' 
+                                        ? 'text-warning' 
+                                        : 'text-destructive'
+                                  }`}>
+                                    {signupPasswordStrength.strength.charAt(0).toUpperCase() + signupPasswordStrength.strength.slice(1)}
+                                  </span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-1 text-xs">
+                                  <div className={`flex items-center gap-1 ${signupPasswordStrength.checks.length ? 'text-success' : 'text-muted-foreground'}`}>
+                                    {signupPasswordStrength.checks.length ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                    8+ characters
+                                  </div>
+                                  <div className={`flex items-center gap-1 ${signupPasswordStrength.checks.uppercase ? 'text-success' : 'text-muted-foreground'}`}>
+                                    {signupPasswordStrength.checks.uppercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                    Uppercase
+                                  </div>
+                                  <div className={`flex items-center gap-1 ${signupPasswordStrength.checks.lowercase ? 'text-success' : 'text-muted-foreground'}`}>
+                                    {signupPasswordStrength.checks.lowercase ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                    Lowercase
+                                  </div>
+                                  <div className={`flex items-center gap-1 ${signupPasswordStrength.checks.number ? 'text-success' : 'text-muted-foreground'}`}>
+                                    {signupPasswordStrength.checks.number ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                    Number
+                                  </div>
+                                  <div className={`flex items-center gap-1 ${signupPasswordStrength.checks.special ? 'text-success' : 'text-muted-foreground'}`}>
+                                    {signupPasswordStrength.checks.special ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                    Special char
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
                             {signupForm.formState.errors.password && (
                               <p className="text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
                             )}
