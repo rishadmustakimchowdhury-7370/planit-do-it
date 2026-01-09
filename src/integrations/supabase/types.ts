@@ -3961,6 +3961,14 @@ export type Database = {
       increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_owner_in_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_owner_or_manager_in_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       promote_to_super_admin: {
@@ -3973,6 +3981,10 @@ export type Database = {
       }
       soft_delete_user: {
         Args: { p_deleted_by: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_belongs_to_tenant: {
+        Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
     }
