@@ -18,11 +18,29 @@ serve(async (req) => {
   }
 
   try {
-    const { conversationId, visitorName, visitorEmail } = await req.json();
+    const { conversationId, visitorId, visitorName, visitorEmail, escalate } = await req.json();
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // If escalate flag is set, update conversation status (using service role)
+    if (escalate && conversationId) {
+      const { error: updateError } = await supabase
+        .from('chat_conversations')
+        .update({ 
+          status: 'escalated',
+          is_bot_handled: false,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', conversationId);
+      
+      if (updateError) {
+        console.error('Error escalating conversation:', updateError);
+      } else {
+        console.log('[ESCALATION] Conversation status updated to escalated');
+      }
+    }
 
     // Get all super admins
     const { data: superAdmins, error: adminError } = await supabase
