@@ -49,6 +49,18 @@ export default function AcceptInvitationPage() {
         .single();
 
       if (error || !data) {
+        // Check if already accepted
+        const { data: existingInvite } = await supabase
+          .from('team_invitations')
+          .select('status, email, role, tenants:tenant_id (name)')
+          .eq('token', token)
+          .single();
+
+        if (existingInvite?.status === 'accepted') {
+          setError('This invitation has already been accepted. Please sign in with your existing account.');
+          return;
+        }
+
         setError('This invitation link is invalid or has expired');
         return;
       }
@@ -87,7 +99,7 @@ export default function AcceptInvitationPage() {
 
     setIsSubmitting(true);
     try {
-      // Use an edge function so invited users don’t depend on Supabase confirmation emails / SMTP.
+      // Use an edge function so invited users don't depend on Supabase confirmation emails / SMTP.
       const { data, error } = await supabase.functions.invoke('accept-team-invitation', {
         body: {
           token,
@@ -104,7 +116,21 @@ export default function AcceptInvitationPage() {
         throw new Error(data?.error || 'Failed to create account');
       }
 
-      // Sign in immediately
+      // Handle different response actions
+      if (data.action === 'already_accepted') {
+        toast.info('This invitation has already been accepted. Please sign in with your existing account.');
+        navigate('/auth');
+        return;
+      }
+
+      if (data.action === 'existing_user') {
+        // User already has an account - they need to sign in with their existing password
+        toast.info('You already have an account. Please sign in with your existing password to access this team.');
+        navigate('/auth');
+        return;
+      }
+
+      // New user created - sign in immediately with the password they just set
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: invitation.email,
         password: formData.password,
