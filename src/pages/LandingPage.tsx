@@ -12,6 +12,7 @@ import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { PublicPromoBanner } from '@/components/promo/PublicPromoBanner';
 import { usePublicPricingPlans } from '@/hooks/usePublicPricingPlans';
+import { TestimonialsCarousel } from '@/components/testimonials/TestimonialsCarousel';
 import { 
   ArrowRight, 
   Users, 
@@ -645,6 +646,28 @@ export default function LandingPage() {
               </div>
             </motion.div>
           </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-24 px-6 bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">Testimonials</span>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mt-2 mb-4">
+              What Our Clients Say
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              See how recruitment agencies are transforming their hiring process with HireMetrics.
+            </p>
+          </motion.div>
+          
+          <TestimonialsCarousel />
         </div>
       </section>
 
