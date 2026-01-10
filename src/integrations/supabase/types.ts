@@ -3899,6 +3899,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_chat_message: {
+        Args: {
+          p_conversation_id: string
+          p_message: string
+          p_sender_type?: string
+          p_visitor_id: string
+        }
+        Returns: string
+      }
       add_credits: {
         Args: {
           p_action_type: string
@@ -3908,6 +3917,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      create_chat_conversation: {
+        Args: {
+          p_visitor_email?: string
+          p_visitor_id: string
+          p_visitor_name?: string
+        }
+        Returns: string
       }
       deduct_credits: {
         Args: {
@@ -3934,11 +3951,44 @@ export type Database = {
         Returns: undefined
       }
       generate_invoice_number: { Args: never; Returns: string }
+      get_chat_messages: {
+        Args: { p_conversation_id: string; p_visitor_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          message: string
+          sender_type: string
+        }[]
+      }
+      get_invitation_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: string
+          status: string
+          tenant_id: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
       get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
+      get_visitor_conversation: {
+        Args: { p_visitor_id: string }
+        Returns: {
+          id: string
+          is_bot_handled: boolean
+          started_at: string
+          status: string
+          visitor_email: string
+          visitor_id: string
+          visitor_name: string
+        }[]
+      }
       hard_delete_user: {
         Args: { p_deleted_by: string; p_user_id: string }
         Returns: boolean
@@ -3971,6 +4021,10 @@ export type Database = {
       }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      owns_chat_conversation: {
+        Args: { p_conversation_id: string; p_visitor_id: string }
+        Returns: boolean
+      }
       promote_to_super_admin: {
         Args: { user_email: string }
         Returns: undefined
