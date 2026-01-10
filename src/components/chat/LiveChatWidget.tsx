@@ -46,13 +46,16 @@ export function LiveChatWidget() {
     
     const validateConversation = async () => {
       if (savedConvId) {
-        const { data, error } = await supabase
-          .from('chat_conversations')
-          .select('id, status')
-          .eq('id', savedConvId)
-          .maybeSingle();
+        const visitorId = getVisitorId();
         
-        if (error || !data || data.status === 'resolved') {
+        // Use secure RPC to validate conversation
+        const { data, error } = await supabase.rpc('get_visitor_conversation', {
+          p_visitor_id: visitorId,
+        });
+        
+        const conv = data && data.length > 0 ? data[0] : null;
+        
+        if (error || !conv || conv.status === 'resolved') {
           // Clear invalid/resolved conversation
           localStorage.removeItem('chat_conversation_id');
           localStorage.removeItem('chat_visitor_name');
@@ -144,41 +147,42 @@ export function LiveChatWidget() {
     try {
       const visitorId = getVisitorId();
       
-      // Create new conversation
-      const { data: newConversation, error: createError } = await supabase
-        .from('chat_conversations')
-        .insert({
-          visitor_name: visitorInfo.name,
-          visitor_email: visitorInfo.email || null,
-          visitor_id: visitorId,
-          status: 'active',
-          is_bot_handled: true,
-          started_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      // Create new conversation using secure RPC function
+      const { data: conversationIdResult, error: createError } = await supabase
+        .rpc('create_chat_conversation', {
+          p_visitor_id: visitorId,
+          p_visitor_name: visitorInfo.name,
+          p_visitor_email: visitorInfo.email || null,
+        });
 
       if (createError) throw createError;
 
-      setConversationId(newConversation.id);
-      localStorage.setItem('chat_conversation_id', newConversation.id);
+      const newConvId = conversationIdResult as string;
+      setConversationId(newConvId);
+      localStorage.setItem('chat_conversation_id', newConvId);
       localStorage.setItem('chat_visitor_name', visitorInfo.name);
       if (visitorInfo.email) localStorage.setItem('chat_visitor_email', visitorInfo.email);
       
       setShowForm(false);
 
-      // Send welcome message from bot and add it immediately
+      // Send welcome message from bot using secure RPC function
       const welcomeMessage = `Hello ${visitorInfo.name}! 👋 I'm the HireMetrics AI assistant. How can I help you today?\n\nI can answer questions about:\n• Our pricing plans\n• Features & capabilities\n• Getting started\n\nOr type "agent" to connect with a live support agent.`;
       
-      const { data: welcomeMsg } = await supabase.from('chat_messages').insert({
-        conversation_id: newConversation.id,
-        message: welcomeMessage,
-        sender_type: 'bot',
-      }).select().single();
+      const { data: welcomeMsgId } = await supabase.rpc('add_chat_message', {
+        p_conversation_id: newConvId,
+        p_visitor_id: visitorId,
+        p_message: welcomeMessage,
+        p_sender_type: 'bot',
+      });
       
-      // Add message immediately
-      if (welcomeMsg) {
-        setMessages([welcomeMsg]);
+      // Add message immediately (create local message object)
+      if (welcomeMsgId) {
+        setMessages([{
+          id: welcomeMsgId as string,
+          message: welcomeMessage,
+          sender_type: 'bot',
+          created_at: new Date().toISOString(),
+        }]);
       }
       
     } catch (error) {
@@ -190,24 +194,36 @@ export function LiveChatWidget() {
 
   const fetchMessages = async (convId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('conversation_id', convId)
-        .order('created_at', { ascending: true });
+      const visitorId = getVisitorId();
+      
+      // Fetch messages using secure RPC function
+      const { data, error } = await supabase.rpc('get_chat_messages', {
+        p_conversation_id: convId,
+        p_visitor_id: visitorId,
+      });
 
       if (error) throw error;
-      setMessages(data || []);
       
-      // Check if already in agent mode
-      const { data: convData } = await supabase
-        .from('chat_conversations')
-        .select('assigned_to, is_bot_handled')
-        .eq('id', convId)
-        .single();
+      // Map RPC result to ChatMessage format
+      const mappedMessages: ChatMessage[] = (data || []).map((m: any) => ({
+        id: m.id,
+        message: m.message,
+        sender_type: m.sender_type,
+        created_at: m.created_at,
+      }));
+      
+      setMessages(mappedMessages);
+      
+      // Check if already in agent mode using secure RPC
+      const { data: convData } = await supabase.rpc('get_visitor_conversation', {
+        p_visitor_id: visitorId,
+      });
         
-      if (convData?.assigned_to || !convData?.is_bot_handled) {
-        setIsAgentMode(true);
+      if (convData && convData.length > 0) {
+        const conv = convData[0];
+        if (!conv.is_bot_handled) {
+          setIsAgentMode(true);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -218,40 +234,41 @@ export function LiveChatWidget() {
     if (!conversationId) return;
     
     setWaitingForAgent(true);
+    const visitorId = getVisitorId();
     
     try {
-      // Update conversation to escalated status
-      await supabase
-        .from('chat_conversations')
-        .update({ 
-          status: 'escalated',
-          is_bot_handled: false,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', conversationId);
-
-      // Send system message and add immediately
-      const { data: systemMsg } = await supabase.from('chat_messages').insert({
-        conversation_id: conversationId,
-        message: "You've requested to speak with a live agent. Please wait, someone will be with you shortly.",
-        sender_type: 'bot',
-      }).select().single();
-      
-      if (systemMsg) {
-        setMessages(prev => {
-          if (prev.find(m => m.id === systemMsg.id)) return prev;
-          return [...prev, systemMsg];
-        });
-      }
-
-      // Trigger notification edge function
+      // Use edge function to escalate (it has service role access)
       await supabase.functions.invoke('notify-chat-escalation', {
         body: { 
           conversationId,
+          visitorId,
           visitorName: visitorInfo.name,
-          visitorEmail: visitorInfo.email
+          visitorEmail: visitorInfo.email,
+          escalate: true
         }
-      }).catch(err => console.log('Notification function not available:', err));
+      });
+
+      // Add system message locally
+      const systemMessage = "You've requested to speak with a live agent. Please wait, someone will be with you shortly.";
+      const { data: msgId } = await supabase.rpc('add_chat_message', {
+        p_conversation_id: conversationId,
+        p_visitor_id: visitorId,
+        p_message: systemMessage,
+        p_sender_type: 'bot',
+      });
+      
+      if (msgId) {
+        setMessages(prev => {
+          const newMsg: ChatMessage = {
+            id: msgId as string,
+            message: systemMessage,
+            sender_type: 'bot',
+            created_at: new Date().toISOString(),
+          };
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      }
       
     } catch (error) {
       console.error('Failed to request agent:', error);
@@ -264,6 +281,7 @@ export function LiveChatWidget() {
 
     setSending(true);
     const messageText = newMessage.trim();
+    const visitorId = getVisitorId();
     setNewMessage('');
 
     // Create optimistic message for immediate display
@@ -282,16 +300,20 @@ export function LiveChatWidget() {
       const wantsAgent = /\b(agent|human|support|help me|speak to someone|real person|live chat)\b/i.test(messageText);
       
       if (wantsAgent && !isAgentMode) {
-        // Send user message first
-        const { data: sentMsg } = await supabase.from('chat_messages').insert({
-          conversation_id: conversationId,
-          message: messageText,
-          sender_type: 'visitor',
-        }).select().single();
+        // Send user message first using secure RPC
+        const { data: sentMsgId } = await supabase.rpc('add_chat_message', {
+          p_conversation_id: conversationId,
+          p_visitor_id: visitorId,
+          p_message: messageText,
+          p_sender_type: 'visitor',
+        });
         
         // Replace optimistic message with real one
-        if (sentMsg) {
-          setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? sentMsg : m));
+        if (sentMsgId) {
+          setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? {
+            ...optimisticMsg,
+            id: sentMsgId as string,
+          } : m));
         }
         
         await requestLiveAgent();
@@ -299,25 +321,23 @@ export function LiveChatWidget() {
         return;
       }
 
-      // Send user message
-      const { data: sentMsg, error: sendError } = await supabase.from('chat_messages').insert({
-        conversation_id: conversationId,
-        message: messageText,
-        sender_type: 'visitor',
-      }).select().single();
+      // Send user message using secure RPC
+      const { data: sentMsgId, error: sendError } = await supabase.rpc('add_chat_message', {
+        p_conversation_id: conversationId,
+        p_visitor_id: visitorId,
+        p_message: messageText,
+        p_sender_type: 'visitor',
+      });
 
       if (sendError) throw sendError;
       
       // Replace optimistic message with real one
-      if (sentMsg) {
-        setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? sentMsg : m));
+      if (sentMsgId) {
+        setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? {
+          ...optimisticMsg,
+          id: sentMsgId as string,
+        } : m));
       }
-
-      // Update conversation
-      await supabase
-        .from('chat_conversations')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversationId);
 
       // If in bot mode, get AI response
       if (!isAgentMode && !waitingForAgent) {
@@ -336,30 +356,47 @@ export function LiveChatWidget() {
           });
 
           if (!botError && botResponse) {
-            // Add bot response with optimistic update
-            const { data: botMsg } = await supabase.from('chat_messages').insert({
-              conversation_id: conversationId,
-              message: botResponse.response || "I'm here to help! Could you please rephrase your question?",
-              sender_type: 'bot',
-            }).select().single();
+            const botMessage = botResponse.response || "I'm here to help! Could you please rephrase your question?";
             
-            if (botMsg) {
+            // Add bot response using secure RPC
+            const { data: botMsgId } = await supabase.rpc('add_chat_message', {
+              p_conversation_id: conversationId,
+              p_visitor_id: visitorId,
+              p_message: botMessage,
+              p_sender_type: 'bot',
+            });
+            
+            if (botMsgId) {
+              const newBotMsg: ChatMessage = {
+                id: botMsgId as string,
+                message: botMessage,
+                sender_type: 'bot',
+                created_at: new Date().toISOString(),
+              };
               setMessages(prev => {
-                if (prev.find(m => m.id === botMsg.id)) return prev;
-                return [...prev, botMsg];
+                if (prev.find(m => m.id === newBotMsg.id)) return prev;
+                return [...prev, newBotMsg];
               });
             }
 
             // If AI suggests escalation
             if (botResponse.shouldEscalate) {
               setTimeout(async () => {
-                const { data: escalateMsg } = await supabase.from('chat_messages').insert({
-                  conversation_id: conversationId,
-                  message: "Would you like me to connect you with a live support agent? Just type 'agent' and I'll get someone for you.",
-                  sender_type: 'bot',
-                }).select().single();
+                const escalateMessage = "Would you like me to connect you with a live support agent? Just type 'agent' and I'll get someone for you.";
+                const { data: escalateMsgId } = await supabase.rpc('add_chat_message', {
+                  p_conversation_id: conversationId,
+                  p_visitor_id: visitorId,
+                  p_message: escalateMessage,
+                  p_sender_type: 'bot',
+                });
                 
-                if (escalateMsg) {
+                if (escalateMsgId) {
+                  const escalateMsg: ChatMessage = {
+                    id: escalateMsgId as string,
+                    message: escalateMessage,
+                    sender_type: 'bot',
+                    created_at: new Date().toISOString(),
+                  };
                   setMessages(prev => {
                     if (prev.find(m => m.id === escalateMsg.id)) return prev;
                     return [...prev, escalateMsg];
@@ -371,13 +408,21 @@ export function LiveChatWidget() {
         } catch (aiError) {
           console.error('AI response error:', aiError);
           // Fallback response
-          const { data: fallbackMsg } = await supabase.from('chat_messages').insert({
-            conversation_id: conversationId,
-            message: "Thanks for your message! I'm processing your request. Would you like to speak with a live agent? Just type 'agent'.",
-            sender_type: 'bot',
-          }).select().single();
+          const fallbackMessage = "Thanks for your message! I'm processing your request. Would you like to speak with a live agent? Just type 'agent'.";
+          const { data: fallbackMsgId } = await supabase.rpc('add_chat_message', {
+            p_conversation_id: conversationId,
+            p_visitor_id: visitorId,
+            p_message: fallbackMessage,
+            p_sender_type: 'bot',
+          });
           
-          if (fallbackMsg) {
+          if (fallbackMsgId) {
+            const fallbackMsg: ChatMessage = {
+              id: fallbackMsgId as string,
+              message: fallbackMessage,
+              sender_type: 'bot',
+              created_at: new Date().toISOString(),
+            };
             setMessages(prev => {
               if (prev.find(m => m.id === fallbackMsg.id)) return prev;
               return [...prev, fallbackMsg];
