@@ -168,7 +168,7 @@ export function LiveChatWidget() {
       setShowForm(false);
 
       // Send welcome message from bot and add it immediately
-      const welcomeMessage = `Hello ${visitorInfo.name}! 👋 I'm the Recruitify AI assistant. How can I help you today?\n\nI can answer questions about:\n• Our pricing plans\n• Features & capabilities\n• Getting started\n\nOr type "agent" to connect with a live support agent.`;
+      const welcomeMessage = `Hello ${visitorInfo.name}! 👋 I'm the HireMetrics AI assistant. How can I help you today?\n\nI can answer questions about:\n• Our pricing plans\n• Features & capabilities\n• Getting started\n\nOr type "agent" to connect with a live support agent.`;
       
       const { data: welcomeMsg } = await supabase.from('chat_messages').insert({
         conversation_id: newConversation.id,
@@ -451,7 +451,7 @@ export function LiveChatWidget() {
                     ) : (
                       <>
                         <Bot className="h-5 w-5" />
-                        Recruitify Assistant
+                        HireMetrics Assistant
                       </>
                     )}
                   </CardTitle>
@@ -490,7 +490,7 @@ export function LiveChatWidget() {
                       <div className="space-y-4">
                         <div className="text-center mb-6">
                           <Bot className="h-12 w-12 mx-auto mb-3 text-primary" />
-                          <h3 className="font-semibold text-lg">Welcome to Recruitify!</h3>
+                          <h3 className="font-semibold text-lg">Welcome to HireMetrics!</h3>
                           <p className="text-sm text-muted-foreground">Please enter your details to start chatting</p>
                         </div>
                         <div>
