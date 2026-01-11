@@ -129,17 +129,18 @@ export default function AdminBrandingPage() {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${type}-${Date.now()}.${fileExt}`;
-      const filePath = `branding/${fileName}`;
 
+      // Upload to public branding-assets bucket
       const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file);
+        .from('branding-assets')
+        .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
+      // Get public URL from the public bucket
       const { data: urlData } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
+        .from('branding-assets')
+        .getPublicUrl(fileName);
 
       if (type === 'logo') {
         setFormData({ ...formData, logo_url: urlData.publicUrl });
@@ -147,7 +148,7 @@ export default function AdminBrandingPage() {
         setFormData({ ...formData, favicon_url: urlData.publicUrl });
       }
 
-      toast.success(`${type === 'logo' ? 'Logo' : 'Favicon'} uploaded`);
+      toast.success(`${type === 'logo' ? 'Logo' : 'Favicon'} uploaded successfully!`);
     } catch (error: any) {
       toast.error('Failed to upload file: ' + error.message);
     } finally {

@@ -35,6 +35,33 @@ export interface SiteSettings {
   isLoading: boolean;
 }
 
+// Helper to get accessible URL (handles both public and private bucket URLs)
+async function getAccessibleUrl(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  
+  // If it's already a public URL from branding-assets bucket, use as-is
+  if (url.includes('/branding-assets/')) {
+    return url;
+  }
+  
+  // For private bucket URLs (documents), try to create a signed URL
+  if (url.includes('/documents/')) {
+    try {
+      const pathMatch = url.match(/\/documents\/(.+)$/);
+      if (pathMatch) {
+        const { data } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(pathMatch[1], 60 * 60 * 24 * 7); // 7 days
+        return data?.signedUrl || url;
+      }
+    } catch {
+      // Fall back to original URL
+    }
+  }
+  
+  return url;
+}
+
 export function useSiteBranding(): SiteSettings {
   const [branding, setBranding] = useState<SiteBranding | null>(null);
   const [seo, setSeo] = useState<SEOSettings | null>(null);
@@ -51,10 +78,16 @@ export function useSiteBranding(): SiteSettings {
           .maybeSingle();
 
         if (brandingData) {
+          // Get accessible URLs for logo and favicon
+          const [logoUrl, faviconUrl] = await Promise.all([
+            getAccessibleUrl(brandingData.logo_url),
+            getAccessibleUrl(brandingData.favicon_url),
+          ]);
+
           setBranding({
             site_title: brandingData.site_title,
-            logo_url: brandingData.logo_url,
-            favicon_url: brandingData.favicon_url,
+            logo_url: logoUrl,
+            favicon_url: faviconUrl,
             primary_color: brandingData.primary_color,
             secondary_color: brandingData.secondary_color,
             meta_description: brandingData.meta_description,
