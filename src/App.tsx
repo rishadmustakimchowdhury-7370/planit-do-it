@@ -5,8 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { DynamicHead } from "@/components/DynamicHead";
 import { Loader2 } from "lucide-react";
-
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -223,6 +223,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <DynamicHead />
           <AppRoutes />
           <Suspense fallback={null}>
             <LiveChatWidget />

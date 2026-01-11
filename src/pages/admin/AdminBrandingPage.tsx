@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Upload, Palette, Globe, Link2 } from 'lucide-react';
+import { Loader2, Upload, Palette, Globe, Link2, CheckCircle, ExternalLink, Eye } from 'lucide-react';
 
 interface SiteBranding {
   id: string;
@@ -111,7 +112,7 @@ export default function AdminBrandingPage() {
         if (error) throw error;
       }
 
-      toast.success('Branding saved successfully');
+      toast.success('Branding saved successfully! Changes will apply across the site.');
       fetchBranding();
     } catch (error: any) {
       toast.error('Failed to save branding: ' + error.message);
@@ -165,8 +166,64 @@ export default function AdminBrandingPage() {
   }
 
   return (
-    <AdminLayout title="Site Branding" description="Customize your site appearance">
+    <AdminLayout title="Site Branding" description="Customize your site appearance - changes apply dynamically across the live site">
       <div className="space-y-6 max-w-4xl">
+        {/* Current Live Branding Preview */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-primary" />
+                <CardTitle>Current Live Branding</CardTitle>
+              </div>
+              <Badge variant="secondary" className="gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Live
+              </Badge>
+            </div>
+            <CardDescription>This is how your branding currently appears on the website</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Site Title</Label>
+                <p className="font-medium">{branding?.site_title || 'HireMetrics'}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Current Logo</Label>
+                {branding?.logo_url ? (
+                  <img src={branding.logo_url} alt="Current Logo" className="h-10 w-auto object-contain rounded border bg-white p-1" />
+                ) : (
+                  <span className="text-sm text-muted-foreground">No logo set</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Current Favicon</Label>
+                {branding?.favicon_url ? (
+                  <img src={branding.favicon_url} alt="Current Favicon" className="h-8 w-8 object-contain rounded border bg-white p-1" />
+                ) : (
+                  <span className="text-sm text-muted-foreground">Default favicon</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Brand Colors</Label>
+                <div className="flex gap-2">
+                  <div 
+                    className="h-8 w-8 rounded border" 
+                    style={{ backgroundColor: branding?.primary_color || '#0ea5e9' }}
+                    title="Primary"
+                  />
+                  <div 
+                    className="h-8 w-8 rounded border" 
+                    style={{ backgroundColor: branding?.secondary_color || '#6366f1' }}
+                    title="Secondary"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* General Info */}
         <Card>
           <CardHeader>
@@ -182,8 +239,9 @@ export default function AdminBrandingPage() {
               <Input
                 value={formData.site_title}
                 onChange={(e) => setFormData({ ...formData, site_title: e.target.value })}
-                placeholder="Recruitsy"
+                placeholder="HireMetrics"
               />
+              <p className="text-xs text-muted-foreground mt-1">This will appear in the browser tab</p>
             </div>
             <div>
               <Label>Meta Description</Label>
@@ -204,53 +262,60 @@ export default function AdminBrandingPage() {
               <Upload className="h-5 w-5" />
               Logo & Favicon
             </CardTitle>
-            <CardDescription>Upload your brand assets</CardDescription>
+            <CardDescription>Upload your brand assets - changes apply immediately after saving</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
                 <Label>Logo</Label>
-                <div className="mt-2 flex items-center gap-4">
-                  {formData.logo_url && (
-                    <img src={formData.logo_url} alt="Logo" className="h-16 w-16 object-contain rounded border" />
-                  )}
-                  <div>
+                <div className="flex items-start gap-4">
+                  <div className="h-20 w-20 border rounded-lg bg-muted/50 flex items-center justify-center overflow-hidden">
+                    {formData.logo_url ? (
+                      <img src={formData.logo_url} alt="Logo preview" className="h-full w-full object-contain p-2" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground text-center">No logo</span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
                     <Input
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleFileUpload(e, 'logo')}
                       disabled={uploading}
                     />
+                    <Input
+                      value={formData.logo_url}
+                      onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                      placeholder="Or enter URL directly"
+                    />
                   </div>
                 </div>
-                <Input
-                  className="mt-2"
-                  value={formData.logo_url}
-                  onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                  placeholder="Or enter URL directly"
-                />
               </div>
-              <div>
+              <div className="space-y-3">
                 <Label>Favicon</Label>
-                <div className="mt-2 flex items-center gap-4">
-                  {formData.favicon_url && (
-                    <img src={formData.favicon_url} alt="Favicon" className="h-8 w-8 object-contain rounded border" />
-                  )}
-                  <div>
+                <div className="flex items-start gap-4">
+                  <div className="h-20 w-20 border rounded-lg bg-muted/50 flex items-center justify-center overflow-hidden">
+                    {formData.favicon_url ? (
+                      <img src={formData.favicon_url} alt="Favicon preview" className="h-12 w-12 object-contain" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground text-center">Default</span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
                     <Input
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleFileUpload(e, 'favicon')}
                       disabled={uploading}
                     />
+                    <Input
+                      value={formData.favicon_url}
+                      onChange={(e) => setFormData({ ...formData, favicon_url: e.target.value })}
+                      placeholder="Or enter URL directly"
+                    />
                   </div>
                 </div>
-                <Input
-                  className="mt-2"
-                  value={formData.favicon_url}
-                  onChange={(e) => setFormData({ ...formData, favicon_url: e.target.value })}
-                  placeholder="Or enter URL directly"
-                />
+                <p className="text-xs text-muted-foreground">Recommended: 32x32 or 64x64 pixels, PNG or ICO format</p>
               </div>
             </div>
           </CardContent>
