@@ -294,6 +294,17 @@ export default function EmailAccountsPage() {
         if (defaultErr) throw defaultErr;
       }
 
+      // Nullify foreign key references before deleting
+      await supabase
+        .from('candidate_emails')
+        .update({ from_account_id: null })
+        .eq('from_account_id', deleteTarget.id);
+
+      await supabase
+        .from('client_emails')
+        .update({ from_account_id: null })
+        .eq('from_account_id', deleteTarget.id);
+
       const { error } = await supabase
         .from('email_accounts')
         .delete()
@@ -301,9 +312,7 @@ export default function EmailAccountsPage() {
         .eq('user_id', user?.id);
 
       if (error) {
-        if (error.message?.includes('foreign key') || error.code === '23503') {
-          toast.error('This account is referenced by existing emails and cannot be deleted right now.');
-        } else if (error.message?.includes('row-level security') || error.code === '42501') {
+        if (error.message?.includes('row-level security') || error.code === '42501') {
           toast.error('Permission denied. You can only delete your own accounts.');
         } else {
           throw error;
