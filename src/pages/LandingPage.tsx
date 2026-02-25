@@ -256,6 +256,8 @@ function Footer() {
               <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link></li>
               <li><Link to="/return-policy" className="hover:text-foreground transition-colors">Return Policy</Link></li>
+              <li><Link to="/cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</Link></li>
+              <li><button onClick={() => { localStorage.removeItem('cookie_consent'); window.location.reload(); }} className="hover:text-foreground transition-colors text-left">Manage Cookie Preferences</button></li>
             </ul>
           </div>
 

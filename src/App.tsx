@@ -5,7 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { CookieConsentProvider } from "@/lib/cookie-consent";
 import { DynamicHead } from "@/components/DynamicHead";
+import { CookieConsentBanner } from "@/components/cookie/CookieConsentBanner";
 import { Loader2 } from "lucide-react";
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -51,6 +53,7 @@ const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
+const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 
 // Admin pages - lazy loaded
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
@@ -148,6 +151,7 @@ const AppRoutes = () => (
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/return-policy" element={<ReturnPolicyPage />} />
+      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
       
       {/* Protected routes */}
       <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />
@@ -219,17 +223,20 @@ const AppRoutes = () => (
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <DynamicHead />
-          <AppRoutes />
-          <Suspense fallback={null}>
-            <LiveChatWidget />
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
+      <CookieConsentProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <DynamicHead />
+            <AppRoutes />
+            <Suspense fallback={null}>
+              <LiveChatWidget />
+            </Suspense>
+            <CookieConsentBanner />
+          </BrowserRouter>
+        </TooltipProvider>
+      </CookieConsentProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
