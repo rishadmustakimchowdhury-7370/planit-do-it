@@ -83,6 +83,10 @@ export default function EmailAccountsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmailAccount | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [newDefaultId, setNewDefaultId] = useState<string>('');
   
   const [formData, setFormData] = useState({
     provider: 'smtp',
@@ -255,24 +259,67 @@ export default function EmailAccountsPage() {
     }
   };
 
-  const handleDeleteAccount = async (accountId: string) => {
-    if (!confirm('Are you sure you want to remove this email account? This cannot be undone.')) {
+  const initiateDelete = (account: EmailAccount) => {
+    // Only account — block deletion
+    if (accounts.length <= 1) {
+      toast.error('You must have at least one sending account configured.');
       return;
     }
+    setDeleteTarget(account);
+    setNewDefaultId('');
+    setShowDeleteDialog(true);
+  };
 
+  const handleDeleteAccount = async () => {
+    if (!deleteTarget) return;
+
+    setIsDeleting(deleteTarget.id);
     try {
+      // If deleting the default account, reassign default first
+      if (deleteTarget.is_default) {
+        if (!newDefaultId) {
+          toast.error('Please select a new default account before deleting.');
+          setIsDeleting(null);
+          return;
+        }
+        // Set new default
+        await supabase
+          .from('email_accounts')
+          .update({ is_default: false })
+          .eq('id', deleteTarget.id);
+        const { error: defaultErr } = await supabase
+          .from('email_accounts')
+          .update({ is_default: true })
+          .eq('id', newDefaultId);
+        if (defaultErr) throw defaultErr;
+      }
+
       const { error } = await supabase
         .from('email_accounts')
         .delete()
-        .eq('id', accountId);
+        .eq('id', deleteTarget.id)
+        .eq('user_id', user?.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('foreign key') || error.code === '23503') {
+          toast.error('This account is referenced by existing emails and cannot be deleted right now.');
+        } else if (error.message?.includes('row-level security') || error.code === '42501') {
+          toast.error('Permission denied. You can only delete your own accounts.');
+        } else {
+          throw error;
+        }
+        return;
+      }
 
-      toast.success('Account removed');
+      toast.success('Account removed successfully.');
+      setShowDeleteDialog(false);
+      setDeleteTarget(null);
       fetchAccounts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting account:', error);
-      toast.error('Failed to remove account');
+      toast.error(error.message || 'Failed to remove account');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -502,9 +549,14 @@ export default function EmailAccountsPage() {
                         variant="ghost"
                         size="icon"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteAccount(account.id)}
+                        onClick={() => initiateDelete(account)}
+                        disabled={isDeleting === account.id}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {isDeleting === account.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -787,6 +839,55 @@ export default function EmailAccountsPage() {
             >
               {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => { if (!open) { setShowDeleteDialog(false); setDeleteTarget(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Remove Email Account
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.is_default
+                ? 'This is your default sending account. Please select another account as default before deleting.'
+                : `Are you sure you want to remove "${deleteTarget?.display_name}" (${deleteTarget?.from_email})? This cannot be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteTarget?.is_default && (
+            <div className="space-y-2">
+              <Label>New default account</Label>
+              <Select value={newDefaultId} onValueChange={setNewDefaultId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select new default..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.filter(a => a.id !== deleteTarget.id).map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.display_name} ({a.from_email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDeleteDialog(false); setDeleteTarget(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={!!isDeleting || (deleteTarget?.is_default && !newDefaultId)}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Delete Account
             </Button>
           </DialogFooter>
         </DialogContent>
