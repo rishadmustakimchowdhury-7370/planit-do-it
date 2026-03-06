@@ -257,23 +257,50 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
         });
       }
     } else if (cvBase64 && mimeType) {
-      // Use vision capability for PDF/document files
-      console.log('Processing document with vision API, mimeType:', mimeType);
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Parse this CV/Resume document and extract all structured information. Return only valid JSON.'
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${cvBase64}`
+      console.log('Processing document, mimeType:', mimeType);
+      
+      const isImage = mimeType.startsWith('image/');
+      
+      if (isImage) {
+        // Use vision capability for image files
+        messages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Parse this CV/Resume document and extract all structured information. Return only valid JSON.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${cvBase64}`
+              }
             }
-          }
-        ]
-      });
+          ]
+        });
+      } else {
+        // For PDF/DOCX: use file input type supported by gpt-4o models
+        const fileExtension = mimeType === 'application/pdf' ? 'cv.pdf' 
+          : mimeType.includes('wordprocessingml') ? 'cv.docx' 
+          : 'cv.pdf';
+        
+        messages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Parse this CV/Resume document and extract all structured information. Return only valid JSON.'
+            },
+            {
+              type: 'file',
+              file: {
+                filename: fileExtension,
+                file_data: `data:${mimeType};base64,${cvBase64}`
+              }
+            }
+          ]
+        });
+      }
     } else if (cvText) {
       messages.push({
         role: 'user',
@@ -294,7 +321,7 @@ ${cvText}`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages,
         temperature: 0.1,
       }),
