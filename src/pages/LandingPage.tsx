@@ -163,7 +163,7 @@ export default function LandingPage() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section className="relative pt-32 pb-20 md:pt-40 md:pb-28 px-6 overflow-hidden">
+      <section className="relative pt-28 pb-14 md:pt-40 md:pb-28 px-5 sm:px-6 overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div
@@ -254,8 +254,48 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ PRODUCT DEMO VIDEO ============ */}
+      <section className="relative py-16 md:py-24 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+        <div className="absolute inset-0 -z-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
+        </div>
+        <div className="relative container mx-auto max-w-5xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+            <Eyebrow dark>2-minute product walkthrough</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              See HireMetrics in action
+            </h2>
+            <p className="text-white/70 mt-4 text-base md:text-lg leading-relaxed">
+              Watch how recruitment agencies manage candidates, automate outreach, validate
+              candidates with AI, and track recruiter productivity from one platform.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8 }}
+            className="relative group"
+          >
+            <div className="absolute -inset-4 md:-inset-6 bg-gradient-to-tr from-primary/40 via-accent/20 to-transparent rounded-[2rem] blur-3xl opacity-60 -z-10" />
+            <div className="relative rounded-2xl md:rounded-3xl p-1.5 md:p-2 bg-gradient-to-br from-white/15 via-white/5 to-white/[0.02] border border-white/15 shadow-[0_50px_140px_-30px_rgba(0,0,0,0.7)] backdrop-blur-sm">
+              <div className="relative rounded-xl md:rounded-2xl overflow-hidden aspect-video bg-black ring-1 ring-white/10">
+                <iframe
+                  src="https://www.youtube.com/embed/PLLruU2OIac?rel=0&modestbranding=1"
+                  title="HireMetrics product walkthrough"
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ============ OPERATIONAL VALUE CARDS ============ */}
-      <section className="py-20 md:py-24 px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-16 md:py-24 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>What you get</Eyebrow>
@@ -289,7 +329,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FEATURE ROWS (alternating screenshots) ============ */}
-      <section id="features" className="py-24 md:py-32 px-6">
+      <section id="features" className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-20 max-w-2xl mx-auto">
             <Eyebrow>Platform</Eyebrow>
@@ -298,7 +338,7 @@ export default function LandingPage() {
             </h2>
           </motion.div>
 
-          <div className="space-y-28">
+          <div className="space-y-20 md:space-y-28">
             {featureRows.map((r, i) => (
               <motion.div
                 key={r.title}
@@ -332,7 +372,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BRANDED CV SHOWCASE ============ */}
-      <section className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div {...fadeUp} className="space-y-5 order-2 lg:order-1">
@@ -383,7 +423,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ INTEGRATED OUTREACH ============ */}
-      <section className="py-24 md:py-32 px-6">
+      <section className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
@@ -434,7 +474,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PLATFORM SHOWCASE (single feature image) ============ */}
-      <section id="platform" className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
+      <section id="platform" className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Inside the platform</Eyebrow>
@@ -450,7 +490,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="relative max-w-5xl mx-auto"
+            className="relative max-w-4xl mx-auto"
           >
             <div className="absolute -inset-6 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-3xl opacity-60 -z-10" />
             <DashboardFrame src={reportsImg} alt="HireMetrics reports and analytics" />
@@ -459,7 +499,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PRICING ============ */}
-      <section id="pricing" className="py-24 md:py-32 px-6">
+      <section id="pricing" className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-16 max-w-2xl mx-auto">
             <Eyebrow>Pricing</Eyebrow>
@@ -534,7 +574,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PREMIUM DARK CTA ============ */}
-      <section className="relative py-24 md:py-32 px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-20 md:py-32 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/15 rounded-full blur-3xl" />
@@ -596,7 +636,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ SECURITY & TRUST STRIP ============ */}
-      <section className="py-14 px-6 bg-background border-t border-border/60">
+      <section className="py-12 md:py-14 px-5 sm:px-6 bg-background border-t border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -623,7 +663,7 @@ export default function LandingPage() {
 
       {/* ============ PREMIUM FOOTER ============ */}
       <footer className="bg-[#070b14] text-white/70 border-t border-white/10">
-        <div className="container mx-auto px-6 py-16">
+        <div className="container mx-auto px-5 sm:px-6 py-14 md:py-16">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
             {/* Brand */}
             <div className="md:col-span-4">
