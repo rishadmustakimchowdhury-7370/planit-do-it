@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
 import { SuggestedCandidates } from '@/components/jobs/SuggestedCandidates';
+import { RediscoveredTalentSection } from '@/components/matching/RediscoveredTalentSection';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
