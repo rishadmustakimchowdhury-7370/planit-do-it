@@ -309,18 +309,22 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.3) }}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className={cn(
-        'group relative bg-card rounded-xl border p-4 transition-all',
-        selected ? 'border-accent ring-1 ring-accent/30' : 'border-border hover:border-accent/40',
+        'group relative bg-card rounded-xl border p-4 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+        selected ? 'border-accent ring-1 ring-accent/30' : 'border-border hover:border-accent/40 hover:shadow-md',
         isTop && 'shadow-[0_0_0_1px_hsl(var(--accent)/0.15),0_8px_24px_-12px_hsl(var(--accent)/0.25)]',
       )}
     >
-      <div className="absolute top-3 left-3 z-10">
+      <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
         <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="Select candidate" />
       </div>
       <button
-        onClick={onDismiss}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        className="absolute top-2 right-2 w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10"
         aria-label="Dismiss"
       >
         <X className="w-3.5 h-3.5" />
@@ -382,7 +386,7 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2">
+      <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         <Button size="sm" variant="outline" className="flex-1 h-8 gap-1.5" onClick={onEmail} disabled={!c.email}>
           <Mail className="w-3.5 h-3.5" /> AI outreach
         </Button>
