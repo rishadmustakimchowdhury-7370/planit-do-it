@@ -734,7 +734,7 @@ export default function LandingPage() {
 
       {/* ============ PREMIUM FOOTER ============ */}
       <footer className="bg-[#070b14] text-white/70 border-t border-white/10">
-        <div className="container mx-auto px-5 sm:px-6 py-14 md:py-16">
+        <div className="container mx-auto px-5 sm:px-6 py-12 md:py-14">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
             {/* Brand */}
             <div className="md:col-span-4">
