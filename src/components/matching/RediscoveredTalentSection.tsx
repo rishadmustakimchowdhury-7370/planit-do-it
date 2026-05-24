@@ -380,3 +380,43 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
     </motion.div>
   );
 }
+
+const FACTOR_LABELS: Record<string, string> = {
+  role: 'Role',
+  skills: 'Skills',
+  seniority: 'Seniority',
+  experience: 'Experience',
+  industry: 'Industry',
+  location: 'Location',
+};
+
+function ScoreBreakdown({ sub }: { sub: NonNullable<RediscoveredMatch['sub_scores']> }) {
+  const factors = ['role', 'skills', 'seniority', 'experience', 'location'] as const;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/40">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Why this score</div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {factors.map((k) => {
+          const v = Math.round(((sub[k] as number | undefined) ?? 0) * 100);
+          const tone = v >= 70 ? 'bg-emerald-500' : v >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+          return (
+            <div key={k} className="flex flex-col gap-0.5">
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div className={cn('h-full', tone)} style={{ width: `${v}%` }} />
+              </div>
+              <div className="text-[9px] text-muted-foreground flex justify-between">
+                <span>{FACTOR_LABELS[k]}</span>
+                <span className="tabular-nums">{v}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {(sub.penalty ?? 0) > 0 && (
+        <div className="text-[10px] text-rose-600 mt-1.5">
+          −{Math.round((sub.penalty ?? 0) * 100)} penalty applied (role/skill/seniority mismatch)
+        </div>
+      )}
+    </div>
+  );
+}
