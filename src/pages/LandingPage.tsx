@@ -329,7 +329,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FEATURE ROWS (alternating screenshots) ============ */}
-      <section id="features" className="py-24 md:py-32 px-6">
+      <section id="features" className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-20 max-w-2xl mx-auto">
             <Eyebrow>Platform</Eyebrow>
@@ -372,7 +372,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BRANDED CV SHOWCASE ============ */}
-      <section className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div {...fadeUp} className="space-y-5 order-2 lg:order-1">
@@ -423,7 +423,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ INTEGRATED OUTREACH ============ */}
-      <section className="py-24 md:py-32 px-6">
+      <section className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
@@ -474,7 +474,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PLATFORM SHOWCASE (single feature image) ============ */}
-      <section id="platform" className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
+      <section id="platform" className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Inside the platform</Eyebrow>
@@ -499,7 +499,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PRICING ============ */}
-      <section id="pricing" className="py-24 md:py-32 px-6">
+      <section id="pricing" className="py-20 md:py-32 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-16 max-w-2xl mx-auto">
             <Eyebrow>Pricing</Eyebrow>
@@ -574,7 +574,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PREMIUM DARK CTA ============ */}
-      <section className="relative py-24 md:py-32 px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-20 md:py-32 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/15 rounded-full blur-3xl" />
@@ -636,7 +636,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ SECURITY & TRUST STRIP ============ */}
-      <section className="py-14 px-6 bg-background border-t border-border/60">
+      <section className="py-12 md:py-14 px-5 sm:px-6 bg-background border-t border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -663,7 +663,7 @@ export default function LandingPage() {
 
       {/* ============ PREMIUM FOOTER ============ */}
       <footer className="bg-[#070b14] text-white/70 border-t border-white/10">
-        <div className="container mx-auto px-6 py-16">
+        <div className="container mx-auto px-5 sm:px-6 py-14 md:py-16">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
             {/* Brand */}
             <div className="md:col-span-4">
