@@ -185,11 +185,11 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
                 </TabsContent>
 
                 <TabsContent value="feedback" className="mt-5">
-                  {share?.job_candidate_id && clientPortal?.clientOrgId && clientPortal?.tenantId ? (
+                  {share?.job_candidate_id && clientPortal?.client_org_id && clientPortal?.tenant_id ? (
                     <CandidateCollaborationPanel
                       jobCandidateId={share.job_candidate_id}
-                      clientOrgId={clientPortal.clientOrgId}
-                      tenantId={clientPortal.tenantId}
+                      clientOrgId={clientPortal.client_org_id}
+                      tenantId={clientPortal.tenant_id}
                       authorType="client"
                     />
                   ) : (
