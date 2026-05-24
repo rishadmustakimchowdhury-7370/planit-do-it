@@ -618,7 +618,14 @@ const JobDetailPage = () => {
           </div>
         </div>
 
-        <TabsContent value="pipeline" className="mt-0">
+        <TabsContent value="pipeline" className="mt-0 space-y-6">
+          {job && (
+            <RediscoveredTalentSection
+              jobId={job.id}
+              jobTitle={job.title}
+              onCandidateAdded={fetchJobDetails}
+            />
+          )}
           <AnimatePresence mode="wait">
             {candidates.length > 0 ? (
               <motion.div
