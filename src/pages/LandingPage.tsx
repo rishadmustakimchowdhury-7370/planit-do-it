@@ -109,6 +109,7 @@ export default function LandingPage() {
   const [watchDemoOpen, setWatchDemoOpen] = useState(false);
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
   const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
+  const [demoPlaying, setDemoPlaying] = useState(false);
   const { plans: pricingPlans } = usePublicPricingPlans();
 
   useEffect(() => {
@@ -211,7 +212,12 @@ export default function LandingPage() {
             className="relative mt-16 max-w-6xl mx-auto"
           >
             <div className="absolute -inset-8 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-[2rem] blur-3xl opacity-70 -z-10" />
-            <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
+            </motion.div>
 
             {/* Floating activity chips */}
             <motion.div
@@ -255,42 +261,107 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PRODUCT DEMO VIDEO ============ */}
-      <section className="relative py-16 md:py-24 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-20 md:py-28 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-accent/15 rounded-full blur-3xl" />
         </div>
-        <div className="relative container mx-auto max-w-5xl">
-          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
-            <Eyebrow dark>2-minute product walkthrough</Eyebrow>
-            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
-              See HireMetrics in action
-            </h2>
-            <p className="text-white/70 mt-4 text-base md:text-lg leading-relaxed">
-              Watch how recruitment agencies manage candidates, automate outreach, validate
-              candidates with AI, and track recruiter productivity from one platform.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8 }}
-            className="relative group"
-          >
-            <div className="absolute -inset-4 md:-inset-6 bg-gradient-to-tr from-primary/40 via-accent/20 to-transparent rounded-[2rem] blur-3xl opacity-60 -z-10" />
-            <div className="relative rounded-2xl md:rounded-3xl p-1.5 md:p-2 bg-gradient-to-br from-white/15 via-white/5 to-white/[0.02] border border-white/15 shadow-[0_50px_140px_-30px_rgba(0,0,0,0.7)] backdrop-blur-sm">
-              <div className="relative rounded-xl md:rounded-2xl overflow-hidden aspect-video bg-black ring-1 ring-white/10">
-                <iframe
-                  src="https://www.youtube.com/embed/PLLruU2OIac?rel=0&modestbranding=1"
-                  title="HireMetrics product walkthrough"
-                  className="absolute inset-0 w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+        <div className="relative container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* LEFT — Premium video frame */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.8 }}
+              className="relative group order-2 lg:order-1"
+            >
+              <div className="absolute -inset-4 md:-inset-6 bg-gradient-to-tr from-primary/40 via-accent/20 to-transparent rounded-[2rem] blur-3xl opacity-60 -z-10" />
+              <div className="relative rounded-2xl md:rounded-3xl p-1.5 md:p-2 bg-gradient-to-br from-white/15 via-white/5 to-white/[0.02] border border-white/15 shadow-[0_50px_140px_-30px_rgba(0,0,0,0.7)] backdrop-blur-sm">
+                <div className="relative rounded-xl md:rounded-2xl overflow-hidden aspect-video bg-black ring-1 ring-white/10">
+                  {demoPlaying ? (
+                    <iframe
+                      src="https://www.youtube-nocookie.com/embed/PLLruU2OIac?autoplay=1&rel=0&modestbranding=1&controls=1&showinfo=0&iv_load_policy=3"
+                      title="HireMetrics product walkthrough"
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDemoPlaying(true)}
+                      aria-label="Play product walkthrough"
+                      className="absolute inset-0 w-full h-full group/play"
+                    >
+                      <img
+                        src={dashboardImg}
+                        alt="HireMetrics product walkthrough preview"
+                        className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover/play:scale-[1.03]"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-tr from-[#070b14]/70 via-[#070b14]/30 to-transparent" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative">
+                          <div className="absolute inset-0 rounded-full bg-primary/40 blur-2xl scale-150 animate-pulse" />
+                          <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/95 backdrop-blur flex items-center justify-center shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6)] group-hover/play:scale-110 transition-transform duration-300">
+                            <Play className="h-8 w-8 md:h-10 md:w-10 text-[#070b14] fill-current ml-1" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-4 left-4 md:bottom-5 md:left-5 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur border border-white/15 text-[11px] font-medium text-white/90">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        2-minute product walkthrough
+                      </div>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+
+            {/* RIGHT — Content */}
+            <motion.div {...fadeUp} className="space-y-6 order-1 lg:order-2">
+              <Eyebrow dark>Product walkthrough</Eyebrow>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tight leading-[1.1]">
+                See How Modern Agencies Use HireMetrics
+              </h2>
+              <p className="text-white/70 text-base md:text-lg leading-relaxed">
+                Watch how recruiters manage candidates, automate outreach, validate talent with AI,
+                and track recruiter productivity from one unified platform.
+              </p>
+              <ul className="space-y-3 pt-1">
+                {[
+                  'AI candidate validation',
+                  'Integrated recruiter outreach',
+                  'Team productivity tracking',
+                  'Branded CV exports',
+                  'Centralized recruitment workflows',
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-3 text-sm md:text-[15px] text-white/85">
+                    <CheckCircle2 className="h-4.5 w-4.5 text-primary flex-shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-3 pt-3">
+                <Button
+                  size="lg"
+                  className="h-12 px-7 gap-2 bg-white text-[#070b14] hover:bg-white/90"
+                  onClick={() => setDemoPlaying(true)}
+                >
+                  <Play className="h-4 w-4 fill-current" /> Watch Demo
+                </Button>
+                <Link to="/auth?mode=signup">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 px-7 gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white w-full sm:w-auto"
+                  >
+                    Start Free Trial <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -663,7 +734,7 @@ export default function LandingPage() {
 
       {/* ============ PREMIUM FOOTER ============ */}
       <footer className="bg-[#070b14] text-white/70 border-t border-white/10">
-        <div className="container mx-auto px-5 sm:px-6 py-14 md:py-16">
+        <div className="container mx-auto px-5 sm:px-6 py-12 md:py-14">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
             {/* Brand */}
             <div className="md:col-span-4">
