@@ -1,10 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-export type ActivityType = 
+export type ActivityType =
   | 'cv_uploaded'
   | 'cv_submitted'
   | 'cv_deleted'
+  | 'cv_preview'
+  | 'cv_download'
+  | 'branded_cv_generated'
   | 'screening_completed'
   | 'interview_scheduled'
   | 'interview_completed'
@@ -18,7 +21,10 @@ export type ActivityType =
   | 'ai_cv_parse'
   | 'ai_email_compose'
   | 'ai_brand_cv'
-  | 'linkedin_message_sent';
+  | 'linkedin_message_sent'
+  | 'whatsapp_initiated'
+  | 'candidate_shared_with_client'
+  | 'note_added';
 
 interface LogActivityParams {
   action_type: ActivityType;

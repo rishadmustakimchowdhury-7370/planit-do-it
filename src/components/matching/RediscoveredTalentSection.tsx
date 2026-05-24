@@ -20,6 +20,7 @@ import {
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
 
 interface RediscoveredTalentSectionProps {
   jobId: string;
@@ -43,6 +44,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<RediscoveredMatch | null>(null);
+  const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
 
   const filtered = useMemo(() => {
     const m = Number(minScore) || 0;
@@ -238,6 +240,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                         onDismiss={() => dismiss(m.id)}
                         onAdd={() => handleAddToPipeline(m)}
                         onEmail={() => setEmailTarget(m)}
+                        onOpen={() => setPanelTarget(m)}
                         isAdding={addingId === m.id}
                       />
                     ))}
@@ -261,6 +264,16 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
           preSelectedJobId={jobId}
         />
       )}
+
+      <CandidateWorkflowPanel
+        open={!!panelTarget}
+        onOpenChange={(o) => !o && setPanelTarget(null)}
+        match={panelTarget}
+        jobId={jobId}
+        jobTitle={jobTitle}
+        onAddedToPipeline={() => { onCandidateAdded?.(); setPanelTarget(null); }}
+        onDismiss={() => panelTarget && dismiss(panelTarget.id)}
+      />
     </>
   );
 }
@@ -284,10 +297,11 @@ interface CardProps {
   onDismiss: () => void;
   onAdd: () => void;
   onEmail: () => void;
+  onOpen: () => void;
   isAdding: boolean;
 }
 
-function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, isAdding }: CardProps) {
+function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
   const isTop = index < 3 && match.match_score >= 80;
   return (
@@ -295,18 +309,22 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.3) }}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className={cn(
-        'group relative bg-card rounded-xl border p-4 transition-all',
-        selected ? 'border-accent ring-1 ring-accent/30' : 'border-border hover:border-accent/40',
+        'group relative bg-card rounded-xl border p-4 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+        selected ? 'border-accent ring-1 ring-accent/30' : 'border-border hover:border-accent/40 hover:shadow-md',
         isTop && 'shadow-[0_0_0_1px_hsl(var(--accent)/0.15),0_8px_24px_-12px_hsl(var(--accent)/0.25)]',
       )}
     >
-      <div className="absolute top-3 left-3 z-10">
+      <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
         <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="Select candidate" />
       </div>
       <button
-        onClick={onDismiss}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+        className="absolute top-2 right-2 w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10"
         aria-label="Dismiss"
       >
         <X className="w-3.5 h-3.5" />
@@ -368,7 +386,7 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2">
+      <div className="mt-4 pt-3 border-t border-border/60 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         <Button size="sm" variant="outline" className="flex-1 h-8 gap-1.5" onClick={onEmail} disabled={!c.email}>
           <Mail className="w-3.5 h-3.5" /> AI outreach
         </Button>
