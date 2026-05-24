@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CandidateCollaborationPanel } from '@/components/clients/CandidateCollaborationPanel';
+import { InterviewRequestsInbox } from '@/components/clients/InterviewRequestsInbox';
 import { Building2 } from 'lucide-react';
 
 interface Props {
@@ -82,6 +83,13 @@ export function InternalCollaborationTab({ candidateId }: Props) {
           authorType="internal"
         />
       )}
+
+      <div>
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+          Interview Requests
+        </div>
+        <InterviewRequestsInbox jobCandidateId={selected.job_candidate_id} />
+      </div>
     </div>
   );
 }
