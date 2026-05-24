@@ -257,12 +257,8 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
             id: emailTarget.candidate.id,
             full_name: emailTarget.candidate.full_name,
             email: emailTarget.candidate.email,
-          }}
-          context={{
-            jobTitle,
-            aiContext: emailTarget.ai_summary ?? undefined,
-            strengths: emailTarget.strengths,
-          }}
+          } as any}
+          preSelectedJobId={jobId}
         />
       )}
     </>
