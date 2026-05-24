@@ -331,6 +331,108 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ BRANDED CV SHOWCASE ============ */}
+      <section className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <motion.div {...fadeUp} className="space-y-5 order-2 lg:order-1">
+              <Eyebrow>Branded CV Export</Eyebrow>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tight leading-tight">
+                Client-ready branded CVs in seconds
+              </h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Export professional candidate profiles with your agency branding directly from your
+                recruitment workflow — no design tools, no manual formatting, no delays.
+              </p>
+              <ul className="space-y-2.5 pt-2">
+                {[
+                  'Your agency logo, colors, and contact details',
+                  'Standardised candidate profile layout',
+                  'One-click PDF export from any candidate',
+                  'Send directly to clients without leaving the platform',
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-2.5 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="relative order-1 lg:order-2"
+            >
+              <div className="absolute -inset-5 bg-gradient-to-tr from-primary/15 via-accent/10 to-transparent rounded-3xl blur-3xl opacity-70 -z-10" />
+              <DashboardFrame src={brandedCvImg} alt="Branded CV export workflow" />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.5 }}
+                className="hidden md:flex absolute -right-5 bottom-12 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                Exported as PDF
+              </motion.div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ INTEGRATED OUTREACH ============ */}
+      <section className="py-24 md:py-32 px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+              className="relative"
+            >
+              <div className="absolute -inset-5 bg-gradient-to-tr from-accent/15 via-primary/10 to-transparent rounded-3xl blur-3xl opacity-70 -z-10" />
+              <DashboardFrame src={emailComposeImg} alt="Integrated recruiter outreach" />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.5 }}
+                className="hidden md:flex absolute -left-5 top-16 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                AI draft generated
+              </motion.div>
+            </motion.div>
+            <motion.div {...fadeUp} className="space-y-5">
+              <Eyebrow>Recruiter Outreach</Eyebrow>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tight leading-tight">
+                Recruiter outreach built into your workflow
+              </h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Generate AI-powered recruiter emails and communicate with candidates and clients
+                directly from the platform. No tab-switching, no copy-pasting, no lost threads.
+              </p>
+              <ul className="space-y-2.5 pt-2">
+                {[
+                  'AI-drafted candidate and client outreach',
+                  'Centralized email threads per candidate',
+                  'Templates, scheduling, and tracking built in',
+                  'Faster follow-ups, fewer dropped conversations',
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-2.5 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ PLATFORM SHOWCASE (single feature image) ============ */}
       <section id="platform" className="py-24 md:py-32 px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
