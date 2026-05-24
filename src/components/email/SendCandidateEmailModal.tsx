@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Mail,
   Sparkles,
@@ -200,6 +201,20 @@ const normalizeEmailContentToPlainText = (input: string): string => {
     .replace(/\n?(Kind regards,|Best regards,|Regards,|Sincerely,|Thanks,|Thank you,)(\n)?/gi, '\n\n$1\n\n');
 
   return text.replace(/\n{3,}/g, '\n\n').trim();
+};
+
+// Convert plain text (with paragraph breaks) into simple HTML for the rich text editor
+const plainTextToHtml = (text: string): string => {
+  const t = (text ?? '').trim();
+  if (!t) return '';
+  // If already HTML, return as-is
+  if (t.startsWith('<') && /<(p|div|br|ul|ol|li|h\d)\b/i.test(t)) return t;
+  return t
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
 };
 
 export function SendCandidateEmailModal({
@@ -410,7 +425,7 @@ export function SendCandidateEmailModal({
       setSubject(mergePlaceholders(template.subject, candidate, selectedJob, recruiterName));
 
       const merged = mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName);
-      setBody(normalizeEmailContentToPlainText(merged));
+      setBody(plainTextToHtml(normalizeEmailContentToPlainText(merged)));
     }
   };
 
@@ -570,7 +585,7 @@ export function SendCandidateEmailModal({
 
       if (data?.email_body) {
         // Candidate composer is plain-text: normalize so paragraphs show and backend can format reliably
-        setBody(normalizeEmailContentToPlainText(data.email_body));
+        setBody(plainTextToHtml(normalizeEmailContentToPlainText(data.email_body)));
 
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
@@ -730,9 +745,12 @@ export function SendCandidateEmailModal({
   };
 
   const getPreviewContent = () => {
-    const sig = appendSignature && signatureText ? `\n\n${signatureText}` : '';
-    return body + sig;
+    const sigHtml = appendSignature && signatureText
+      ? `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;white-space:pre-wrap;color:#374151;font-size:14px;">${signatureText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+      : '';
+    return (body || '') + sigHtml;
   };
+
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
@@ -752,7 +770,7 @@ export function SendCandidateEmailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6">
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -910,12 +928,13 @@ export function SendCandidateEmailModal({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Email subject..."
+                  style={{ fontFamily: "'Poppins', sans-serif" }}
                 />
               </div>
 
-              {/* Body */}
+              {/* Body - Gmail-style rich text editor */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <Label htmlFor="body">Message</Label>
                   <div className="flex flex-wrap gap-1">
                     {placeholders.map((p) => (
@@ -923,18 +942,21 @@ export function SendCandidateEmailModal({
                         key={p}
                         variant="outline"
                         className="text-xs cursor-pointer hover:bg-muted"
-                        onClick={() => setBody(body + ' ' + p)}
+                        onClick={() => setBody((body || '') + ' ' + p)}
                       >
                         {p.replace(/\{\{|\}\}/g, '')}
                       </Badge>
                     ))}
                   </div>
                 </div>
-                <Textarea
-                  id="body"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Hi [Name],
+                <div
+                  style={{ fontFamily: "'Poppins', sans-serif" }}
+                  className="[&_.ProseMirror]:min-h-[260px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
+                >
+                  <RichTextEditor
+                    content={body}
+                    onChange={setBody}
+                    placeholder="Hi [Name],
 
 [Your introduction and context]
 
@@ -943,10 +965,10 @@ export function SendCandidateEmailModal({
 [Call to action or closing]
 
 Best regards,"
-                  rows={10}
-                  className="resize-none font-mono text-sm"
-                />
+                  />
+                </div>
               </div>
+
 
               {/* Attachments */}
               <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
@@ -1267,13 +1289,12 @@ your@email.com"
                 </div>
                 
                 {/* Email Body Preview */}
-                <div className="p-6 bg-background min-h-[300px]">
+                <div className="p-6 bg-background min-h-[300px]" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   {body || appendSignature ? (
-                    <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                      {getPreviewContent() || (
-                        <span className="text-muted-foreground italic">No message content yet...</span>
-                      )}
-                    </div>
+                    <div
+                      className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground"
+                      dangerouslySetInnerHTML={{ __html: getPreviewContent() || '<span class="text-muted-foreground italic">No message content yet...</span>' }}
+                    />
                   ) : (
                     <div className="text-muted-foreground italic text-center py-8">
                       Compose your email to see the preview here
