@@ -5,7 +5,7 @@ import { usePermissions, Permission } from '@/hooks/usePermissions';
 
 interface RoleGateProps {
   children: ReactNode;
-  allowedRoles: ('super_admin' | 'owner' | 'manager' | 'recruiter')[];
+  allowedRoles: ('super_admin' | 'owner' | 'manager' | 'recruiter' | 'client_user' | 'hiring_manager')[];
   requiredPermission?: Permission;
   fallback?: ReactNode;
   redirectTo?: string;

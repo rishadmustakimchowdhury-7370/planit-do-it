@@ -55,6 +55,14 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 
+// Client Portal pages
+const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
+const ClientJobsPage = lazy(() => import("./pages/client/ClientJobsPage"));
+const ClientJobDetailPage = lazy(() => import("./pages/client/ClientJobDetailPage"));
+const ClientCandidatesPage = lazy(() => import("./pages/client/ClientCandidatesPage"));
+const ClientInterviewsPage = lazy(() => import("./pages/client/ClientInterviewsPage"));
+const ClientNotificationsPage = lazy(() => import("./pages/client/ClientNotificationsPage"));
+
 // Admin pages - lazy loaded
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
@@ -100,7 +108,7 @@ const PageLoader = () => (
 
 // Protected route wrapper with role-based dashboard routing
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isRecruiter, isOwner, isManager } = useAuth();
+  const { user, isLoading, isClientUser } = useAuth();
 
   if (isLoading) {
     return <PageLoader />;
@@ -108,6 +116,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Client portal users cannot access internal recruiter routes
+  if (isClientUser) {
+    return <Navigate to="/client/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -214,6 +227,15 @@ const AppRoutes = () => (
       <Route path="/checkout/success" element={<ProtectedRoute><CheckoutSuccessPage /></ProtectedRoute>} />
       <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
       
+      {/* Client Portal routes (external client users only) */}
+      <Route path="/client" element={<Navigate to="/client/dashboard" replace />} />
+      <Route path="/client/dashboard" element={<ClientDashboardPage />} />
+      <Route path="/client/jobs" element={<ClientJobsPage />} />
+      <Route path="/client/jobs/:id" element={<ClientJobDetailPage />} />
+      <Route path="/client/candidates" element={<ClientCandidatesPage />} />
+      <Route path="/client/interviews" element={<ClientInterviewsPage />} />
+      <Route path="/client/notifications" element={<ClientNotificationsPage />} />
+
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
