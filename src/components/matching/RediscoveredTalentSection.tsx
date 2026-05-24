@@ -37,7 +37,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minScore, setMinScore] = useState<string>('60');
+  const [minScore, setMinScore] = useState<string>('0');
   const [search, setSearch] = useState('');
   const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -165,6 +165,8 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                     <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Min score" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="0">All scores</SelectItem>
+                      <SelectItem value="25">≥ 25%</SelectItem>
+                      <SelectItem value="40">≥ 40%</SelectItem>
                       <SelectItem value="60">≥ 60%</SelectItem>
                       <SelectItem value="75">≥ 75%</SelectItem>
                       <SelectItem value="85">≥ 85%</SelectItem>
