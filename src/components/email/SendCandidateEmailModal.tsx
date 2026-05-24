@@ -799,7 +799,7 @@ export function SendCandidateEmailModal({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4">
+          <div className="flex-1 mt-4 overflow-y-auto pr-1">
             <TabsContent value="compose" className="space-y-4 m-0 pr-4">
               {/* From Email - Sender Selection */}
               <div className="space-y-2">
@@ -951,7 +951,7 @@ export function SendCandidateEmailModal({
                 </div>
                 <div
                   style={{ fontFamily: "'Poppins', sans-serif" }}
-                  className="[&_.ProseMirror]:min-h-[260px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
+                  className="[&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
                 >
                   <RichTextEditor
                     content={body}
@@ -1303,7 +1303,7 @@ your@email.com"
                 </div>
               </div>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
 
         {/* Actions */}
