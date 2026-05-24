@@ -7,6 +7,7 @@ import { Briefcase, Users, CalendarClock, Sparkles, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { ClientActivityFeed } from '@/components/client/ClientActivityFeed';
 
 interface Stats { jobs: number; awaitingFeedback: number; upcomingInterviews: number; updates: number; }
 
