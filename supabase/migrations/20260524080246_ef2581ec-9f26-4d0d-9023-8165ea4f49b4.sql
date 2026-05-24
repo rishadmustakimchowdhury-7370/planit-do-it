@@ -1,0 +1,3 @@
+UPDATE public.subscription_plans SET price_monthly = 19, stripe_price_id_monthly = 'price_1TaWwZBCm829b1DrJclTTgys' WHERE slug = 'starter';
+UPDATE public.subscription_plans SET price_monthly = 39, stripe_price_id_monthly = 'price_1TaWxABCm829b1Dri0szLO2w' WHERE slug = 'pro';
+UPDATE public.subscription_plans SET price_monthly = 99, stripe_price_id_monthly = 'price_1TaWzTBCm829b1DroVbwavF0' WHERE slug = 'agency';
