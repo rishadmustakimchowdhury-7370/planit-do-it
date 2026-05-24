@@ -828,6 +828,162 @@ export type Database = {
           },
         ]
       }
+      client_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          client_org_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          role: string
+          status: string
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          client_org_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          tenant_id: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          client_org_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: string
+          status?: string
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invitations_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_organizations: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_organizations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_users: {
+        Row: {
+          client_org_id: string
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          is_active: boolean
+          last_login_at: string | null
+          role: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_org_id: string
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          last_login_at?: string | null
+          role?: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_org_id?: string
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          last_login_at?: string | null
+          role?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_users_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -4119,6 +4275,16 @@ export type Database = {
           candidate_id: string
         }[]
       }
+      client_can_see_candidate: {
+        Args: { _job_candidate_id: string; _user_id: string }
+        Returns: boolean
+      }
+      client_can_see_job: {
+        Args: { _job_id: string; _user_id: string }
+        Returns: boolean
+      }
+      client_org_for_user: { Args: { _user_id: string }; Returns: string }
+      client_tenant_for_user: { Args: { _user_id: string }; Returns: string }
       create_chat_conversation: {
         Args: {
           p_visitor_email?: string
@@ -4159,6 +4325,19 @@ export type Database = {
           id: string
           message: string
           sender_type: string
+        }[]
+      }
+      get_client_invitation_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          client_org_id: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: string
+          status: string
+          tenant_id: string
         }[]
       }
       get_invitation_by_token: {
@@ -4210,6 +4389,7 @@ export type Database = {
         Returns: boolean
       }
       increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
+      is_client_user: { Args: { _user_id: string }; Returns: boolean }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
       is_owner: { Args: { _user_id: string }; Returns: boolean }
       is_owner_in_tenant: {
@@ -4259,6 +4439,8 @@ export type Database = {
         | "viewer"
         | "manager"
         | "owner"
+        | "client_user"
+        | "hiring_manager"
       candidate_status:
         | "new"
         | "screening"
@@ -4434,6 +4616,8 @@ export const Constants = {
         "viewer",
         "manager",
         "owner",
+        "client_user",
+        "hiring_manager",
       ],
       candidate_status: [
         "new",
