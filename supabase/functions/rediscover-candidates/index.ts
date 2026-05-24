@@ -17,6 +17,10 @@ function getEnv(name: string) {
   return value;
 }
 
+function formatSkills(skills: unknown): string {
+  return Array.isArray(skills) ? skills.filter(Boolean).join(", ") : "";
+}
+
 async function embedJobIfMissing(supabase: any, jobId: string) {
   const { data: existing } = await supabase
     .from("job_embeddings").select("job_id").eq("job_id", jobId).maybeSingle();
@@ -87,7 +91,7 @@ async function aiScoreBatch(job: any, candidates: any[]): Promise<Record<string,
 Title: ${job.title}
 Location: ${job.location ?? ""}
 Experience Level: ${job.experience_level ?? ""}
-Required Skills: ${(job.skills ?? []).join(", ")}
+Required Skills: ${formatSkills(job.skills)}
 Description: ${(job.description ?? "").slice(0, 2000)}
 
 CANDIDATES (JSON):
