@@ -304,6 +304,12 @@ interface CardProps {
 function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
   const isTop = index < 3 && match.match_score >= 80;
+  const fullName = c?.full_name || 'Unknown candidate';
+  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
+  const confidence = match.confidence ?? 'low';
+  const strengths = Array.isArray(match.strengths) ? match.strengths : [];
+  const gaps = Array.isArray(match.gaps) ? match.gaps : [];
+  const insights = Array.isArray(match.insights) ? match.insights : [];
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -334,11 +340,11 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         <Avatar className="w-12 h-12">
           <AvatarImage src={c.avatar_url || undefined} />
           <AvatarFallback className="bg-accent/10 text-accent">
-            {c.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {initials}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-foreground truncate">{c.full_name}</div>
+          <div className="font-semibold text-foreground truncate">{fullName}</div>
           <div className="text-xs text-muted-foreground truncate">{c.current_title || 'No title'}</div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground">
             {c.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.location}</span>}
@@ -347,8 +353,8 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </div>
         <div className="flex flex-col items-center gap-1">
           <MatchScoreCircle score={match.match_score} size="sm" />
-          <Badge variant="outline" className={cn('text-[9px] uppercase px-1.5 py-0 h-4', CONFIDENCE_COLOR[match.confidence])}>
-            {match.confidence}
+          <Badge variant="outline" className={cn('text-[9px] uppercase px-1.5 py-0 h-4', CONFIDENCE_COLOR[confidence] ?? CONFIDENCE_COLOR.low)}>
+            {confidence}
           </Badge>
         </div>
       </div>
@@ -363,14 +369,14 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         <ScoreBreakdown sub={match.sub_scores} />
       )}
 
-      {(match.strengths.length > 0 || match.gaps.length > 0) && (
+      {(strengths.length > 0 || gaps.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1">
-          {match.strengths.slice(0, 3).map((s, i) => (
+          {strengths.slice(0, 3).map((s, i) => (
             <Badge key={`s-${i}`} variant="outline" className="text-[10px] gap-1 bg-emerald-500/5 text-emerald-700 border-emerald-500/20">
               <CheckCircle2 className="w-2.5 h-2.5" />{s}
             </Badge>
           ))}
-          {match.gaps.slice(0, 2).map((g, i) => (
+          {gaps.slice(0, 2).map((g, i) => (
             <Badge key={`g-${i}`} variant="outline" className="text-[10px] gap-1 bg-amber-500/5 text-amber-700 border-amber-500/20">
               <AlertCircle className="w-2.5 h-2.5" />{g}
             </Badge>
@@ -378,9 +384,9 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </div>
       )}
 
-      {match.insights.length > 0 && (
+      {insights.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {match.insights.map((ins, i) => (
+          {insights.map((ins, i) => (
             <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-accent/8 text-accent">{ins}</span>
           ))}
         </div>
