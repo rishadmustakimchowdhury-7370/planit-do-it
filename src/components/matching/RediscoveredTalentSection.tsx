@@ -20,6 +20,7 @@ import {
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
 
 interface RediscoveredTalentSectionProps {
   jobId: string;
@@ -43,6 +44,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<RediscoveredMatch | null>(null);
+  const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
 
   const filtered = useMemo(() => {
     const m = Number(minScore) || 0;
