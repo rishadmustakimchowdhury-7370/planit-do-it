@@ -1,149 +1,140 @@
-# AI Candidate Rediscovery System — 7-Phase Plan
+# AI Talent Match — Unified Matching Architecture
 
-A natural, intelligent layer inside the Jobs workflow that automatically surfaces previously uploaded candidates matching a new role — using OpenAI embeddings + GPT reasoning. Lives inside **Jobs → Candidate Pipeline → Rediscovered Talent** (no separate AI page).
-
----
-
-## Phase 1 — Database & Embeddings Foundation
-
-Create the storage layer for semantic search.
-
-- Enable `pgvector` extension.
-- New table `candidate_embeddings` (tenant-scoped, RLS):
-  - `candidate_id`, `tenant_id`, `embedding vector(1536)`, `source_text` (compacted CV + skills + title + summary), `model_version`, `updated_at`.
-  - HNSW index on `embedding`.
-- New table `job_embeddings` (tenant-scoped, RLS):
-  - `job_id`, `tenant_id`, `embedding vector(1536)`, `source_text`, `model_version`.
-- New table `rediscovered_matches` to cache scored matches per job (so we don't re-run AI on every visit):
-  - `job_id`, `candidate_id`, `tenant_id`, `match_score` (0–100), `ai_summary`, `strengths jsonb`, `gaps jsonb`, `confidence` (low/med/high), `insights jsonb` (badges like "previously shortlisted"), `created_at`.
-  - Unique `(job_id, candidate_id)`.
-- New table `rediscovery_runs` for audit/history:
-  - `job_id`, `tenant_id`, `triggered_by`, `candidates_scanned`, `matches_found`, `credits_used`, `status`, `error`, timestamps.
-- Strict RLS: `tenant_id = get_user_tenant_id(auth.uid())` on all four; super admin override.
-
-Uses model `text-embedding-3-small` (1536 dims) — cheap, fast, ideal for thousands of CVs.
+Goal: Replace the dual "Suggested Candidates" + "Rediscovered Talent" systems with **one** explainable, recruiter-trusted matching engine that produces a single consistent score per candidate-job pair.
 
 ---
 
-## Phase 2 — Embedding Pipeline (Edge Functions)
+## Phase 1 — Consolidation & Cleanup
 
-Two background-style functions that keep embeddings fresh:
+**Remove duplication** so one score = one truth.
 
-**`embed-candidate`** — called when a candidate is created/updated or CV is (re)parsed.
-- Builds `source_text` = `title + summary + skills + experience_years + location + key bullets from CV`.
-- Calls OpenAI `text-embedding-3-small`.
-- Upserts into `candidate_embeddings`.
-- Deducts AI credits via existing `deduct_user_ai_credits`.
+- Delete `SuggestedCandidates.tsx` and any callers on Job Detail / dashboards.
+- Rename `RediscoveredTalentSection` → `AITalentMatchSection`.
+- Drop legacy `ai-match` one-off scoring (page-level "Run AI Match") in favor of the unified pipeline. Keep the page as a thin viewer that reads from the same source of truth.
+- Single DB table for results: reuse `rediscovered_matches` → rename conceptually to `ai_talent_matches` (new table + migration; old data archived).
+- Single edge function: `ai-talent-match` (replaces `rediscover-candidates`).
 
-**`embed-job`** — called when a job is created/updated.
-- Builds `source_text` = `title + description + required skills + seniority + location + industry`.
-- Embeds and upserts into `job_embeddings`.
-
-Backfill: a one-shot admin RPC `backfill_candidate_embeddings(tenant_id)` that returns ids without embeddings, so a Super Admin / Owner can warm the index for existing candidates with a single click.
+**Outcome:** one engine, one table, one score everywhere.
 
 ---
 
-## Phase 3 — Rediscovery Engine
+## Phase 2 — Data Foundations
 
-**Edge function `rediscover-candidates`** — the core feature.
+Add the signals the new scoring needs.
 
-Input: `{ job_id }`. Validates auth.uid, tenant ownership of job, AI credits available.
+Schema additions (migration):
+- `jobs`: `role_family` (text), `seniority_level` (enum), `industry` (text), `required_skills` (text[]), `nice_to_have_skills` (text[]).
+- `candidates`: `role_family` (text), `seniority_level` (enum), `industries` (text[]), `normalized_skills` (text[]).
+- New `skill_aliases` table: canonical skill ↔ aliases ↔ related skills (e.g. Selenium ↔ WebDriver ↔ Playwright/Cypress as "test-automation" family).
+- New `role_families` table: title patterns → family (QA, Backend, Frontend, Data, DevOps, PM, etc.) + seniority regex.
+- New `ai_talent_matches` table: `job_id, candidate_id, final_score, confidence, sub_scores jsonb, reasoning jsonb, model_version, created_at` (unique on job+candidate).
+- New `match_feedback` table: recruiter actions (shortlisted/rejected/interviewed/placed) feeding the learning loop.
 
-Pipeline:
-1. Ensure job embedding exists (trigger `embed-job` if missing).
-2. Run pgvector top-K nearest neighbor on `candidate_embeddings` scoped to tenant (`limit 25`, cosine distance).
-3. For the top 10 candidates, hand short candidate + job summaries to GPT-4o-mini in **one** batched tool-calling request that returns structured JSON per candidate:
-   - `match_score` (0–100), `summary` (2 sentences), `strengths[]`, `gaps[]`, `confidence`, `insights[]` (uses existing data: "Previously submitted to {client}", "Last active {date}", "Shortlisted for {similar role}").
-4. Combine semantic similarity (60%) + GPT score (40%) into final `match_score`.
-5. Upsert into `rediscovered_matches`; insert `rediscovery_runs` row.
-6. Return matches.
-
-Caching rule: if a fresh run (`< 24h`) exists for the job and no candidate changes since, return cached rows.
-
-Triggers:
-- Auto on job create (fire-and-forget after insert).
-- Manual "Re-scan" button on the section.
+Backfill job:
+- Edge function `normalize-entities` runs once and on insert/update to populate role_family, seniority, normalized_skills from existing free-text.
 
 ---
 
-## Phase 4 — UI Integration (Job Detail Page)
+## Phase 3 — Hybrid Scoring Engine
 
-New section **"Rediscovered Talent"** inside `JobDetailPage`, sitting above the existing pipeline, collapsible.
+Implemented in `supabase/functions/ai-talent-match/scoring.ts`.
 
-- Header row: title + AI sparkle badge + scan count + "Re-scan" + last run timestamp.
-- Filter bar: match %, location, experience, notice period, recruiter owner, activity status.
-- Card grid (responsive 1/2/3 cols):
-  - Match % ring (colored: ≥85 green, 70–84 amber, <70 muted).
-  - Candidate name, title, location, notice period, last activity date, recruiter owner.
-  - 2-line AI summary.
-  - Chips: strengths (green) + gaps (amber).
-  - Insight badges (subtle pill style): "Previously shortlisted", "Recently active", "Likely open".
-  - Quick actions: Shortlist, Add to pipeline, AI outreach, Schedule interview, Notes, Assign recruiter.
-- Bulk selection bar (sticky) when ≥1 selected: Bulk add to pipeline, Bulk AI outreach.
-- Empty state: "Embeddings warming up — first scan in progress" with spinner.
-- Loading: skeleton cards.
-- No matches: "No strong matches yet. Upload more candidates or broaden the JD."
+Weighted final score (0–100):
 
-Subtle AI cues: small gradient "AI" pill, soft glow on top-3 cards, no over-the-top animations.
+```
+final =  0.40 * role_similarity
+       + 0.25 * skill_match
+       + 0.10 * industry_match
+       + 0.10 * seniority_match
+       + 0.10 * experience_match
+       + 0.05 * location_availability
+       - penalties
+```
 
----
+Each sub-score:
+- **Role similarity (40%)** — role_family exact = 1.0; adjacent family = 0.5; unrelated = 0.1. Augmented by title embedding cosine (OpenAI `text-embedding-3-small`).
+- **Skill match (25%)** — Jaccard over normalized required skills + alias expansion + embedding similarity for missing exact matches. Core (required) skills weighted 2× nice-to-haves.
+- **Industry (10%)** — overlap of `jobs.industry` with `candidates.industries`.
+- **Seniority (10%)** — distance on ordinal scale (junior=1…principal=5); same=1.0, ±1=0.6, ±2=0.2, junior→senior=0.
+- **Experience (10%)** — within required band=1.0, decreasing with delta.
+- **Location/availability (5%)** — same country/timezone/remote-compat.
 
-## Phase 5 — Outreach Integration
+**Negative weighting (penalties):**
+- Wrong role_family on a specialist role: −25.
+- Missing ≥50% of required skills: −15.
+- Seniority mismatch ≥2 levels: −15.
+- Zero industry overlap on industry-critical role: −5.
 
-Reuse existing email system (no parallel stack).
+**Confidence:**
+- HIGH: final ≥ 80 AND role_family match AND ≥70% required skills.
+- MEDIUM: final 65–79 OR one strong factor missing.
+- LOW: final < 65 → **hidden by default**.
 
-- "AI Outreach" on a card opens existing `SendCandidateEmailModal` pre-filled with an AI-generated message via the existing `ai-compose-email` edge function, passing the job context + match reasoning so the message references *why* they're a fit.
-- Bulk outreach → loops candidates, calls `ai-compose-email` per candidate (personalized), opens a review/send step before dispatching (no silent mass send).
-- All sends logged in `candidate_emails` exactly like normal, so analytics and pipeline status update for free.
-
----
-
-## Phase 6 — Pipeline & Workflow Hooks
-
-Tight integration with the existing recruitment workflow:
-
-- "Add to Pipeline" reuses `AddCandidateToJobDialog`, defaults stage to "Sourced".
-- "Schedule Interview" reuses the existing Events module with candidate + job pre-filled.
-- Every action logs to `recruiter_activities` (existing KPI source — counts toward sourcing/outreach KPIs).
-- Auto re-embed candidate on status change so future scans pick up updates.
-- Auto re-embed job on edit.
+**Threshold:** UI shows only ≥65 by default; "Show all" reveals lower for debugging.
 
 ---
 
-## Phase 7 — Smart Insights, Polish & Safeguards
+## Phase 4 — Explainable AI Layer
 
-- Insight generators (deterministic, no AI cost):
-  - "Previously submitted to similar client" — from `candidate_emails` + `jobs.client_id` history.
-  - "Recently active" — `updated_at` within 30 days.
-  - "Previously shortlisted for similar role" — joins past pipeline rows on title similarity.
-  - "Available now" — based on notice period field.
-- Permissions: only roles with `can_use_ai_match` see the section (existing permission).
-- Subscription guard: respects existing `useUsageLimits` (AI credits per plan).
-- Rate limiting on `rediscover-candidates` (1 run / job / 5 min).
-- Surface 429/402 from OpenAI as friendly toasts.
-- Performance: top-K = 25 candidates per scan to control cost; tunable via env.
-- QA pass: empty tenant, zero candidates, missing embeddings, expired credits, no permission.
+After deterministic scoring, send the top N (e.g. 25) candidates to `gpt-4o-mini` for a structured explanation only — never to alter the score.
+
+Prompt returns JSON: `{ strengths: string[], gaps: string[], summary: string }`.
+
+Stored in `ai_talent_matches.reasoning`. The score the recruiter sees is always the deterministic hybrid score → guarantees consistency across screens.
 
 ---
 
-## Technical Notes (skip if non-technical)
+## Phase 5 — Unified UI: "AI Talent Match"
 
-- Embeddings: OpenAI `text-embedding-3-small`, 1536 dims, cost ~$0.02 / 1M tokens.
-- Reasoning: `gpt-4o-mini` with tool-calling for structured output.
-- pgvector HNSW index: `vector_cosine_ops`, `m=16`, `ef_construction=64`.
-- All AI calls go through edge functions (`OPENAI_API_KEY` already in secrets — memory says project uses OpenAI directly, not Lovable AI Gateway).
-- RLS uses existing `get_user_tenant_id()` + `is_super_admin()` helpers (already audited).
-- New tables tenant-scoped — slot directly into the storage tenant-isolation fix from the previous turn.
+New `src/components/matching/AITalentMatchSection.tsx` used on Job Detail.
+
+Card shows:
+- Name, current title, location, years experience.
+- Big match circle + confidence badge (HIGH/MED).
+- Sub-score breakdown bars (role/skills/industry/seniority/exp).
+- Strengths (green ✓) and gaps (amber ⚠).
+- Actions: Shortlist · Move to pipeline stage · AI outreach · Schedule interview · Assign recruiter · Dismiss.
+
+Filters bar:
+- Min score slider (default 65), confidence (High/Med), location, must-have skills, experience range, owner, last-active.
+
+Empty state: "No strong matches yet — quality over quantity. Try widening required skills or re-scan."
+
+Sidebar/top-level nav: rename "AI Match" → "AI Talent Match", point to the same engine.
 
 ---
 
-## Deliverables
+## Phase 6 — Feedback Learning Loop
 
-1. Migration: pgvector + 4 new tables + RLS + HNSW index + backfill RPC.
-2. Edge functions: `embed-candidate`, `embed-job`, `rediscover-candidates`.
-3. UI: `RediscoveredTalent` section + `RediscoveredCandidateCard` + filter bar + bulk action bar, mounted in `JobDetailPage`.
-4. Hooks: `useRediscoveredCandidates(jobId)` (with realtime invalidation), `useRediscoveryScan(jobId)`.
-5. Triggers: auto-embed on candidate/job mutate, auto-scan on job create.
-6. Memory entry documenting the system so future sessions stay consistent.
+Every recruiter action writes to `match_feedback`:
+- shortlisted → +signal for that candidate's role_family/skills on similar jobs.
+- rejected with reason → −signal.
+- interviewed / placed → strongest +signal.
 
-Once you approve, I'll execute phases 1–7 in order: migration first (your approval needed for that), then edge functions, then UI.
+Nightly edge function `recompute-weights` adjusts per-tenant multipliers on sub-scores (bounded ±20%) so the engine learns each agency's taste without destabilizing the global formula.
+
+Stored in `tenant_scoring_weights`.
+
+---
+
+## Phase 7 — Rollout, QA & Trust
+
+1. Migration + backfill (normalize all existing jobs/candidates).
+2. Deploy `ai-talent-match` edge function; deprecate `rediscover-candidates` and `ai-match` (keep stubs that proxy to the new function for one release).
+3. Re-score all open jobs in background.
+4. Visual QA: same candidate must show identical score on Job Detail, AI Talent Match page, and dashboard.
+5. Add a "Why this score?" modal exposing sub-scores + penalties.
+6. Telemetry: log every score with `model_version` so we can A/B future tweaks.
+7. Update docs + in-app tooltip explaining the scoring model to recruiters.
+
+---
+
+## Technical summary (for reference)
+
+- **Embeddings:** `text-embedding-3-small` (1536 dims) via OpenAI — already wired. Used only for title + skill semantic similarity, not as the final score.
+- **LLM:** `gpt-4o-mini` for explanations only (deterministic temp 0.2, JSON mode).
+- **DB:** pgvector already enabled; add new tables + RLS scoped to `tenant_id` via `user_belongs_to_tenant`.
+- **RPCs:** `match_candidates_for_job` stays for the ANN prefilter (top 200), then hybrid scoring runs in the edge function on that shortlist.
+- **Consistency guarantee:** UI never recomputes — it only reads `ai_talent_matches`. One write path, one read path.
+
+After approval I'll proceed phase by phase, starting with Phase 1 + 2 (migration + cleanup) so nothing else breaks.
