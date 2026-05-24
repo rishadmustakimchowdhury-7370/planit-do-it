@@ -240,6 +240,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                         onDismiss={() => dismiss(m.id)}
                         onAdd={() => handleAddToPipeline(m)}
                         onEmail={() => setEmailTarget(m)}
+                        onOpen={() => setPanelTarget(m)}
                         isAdding={addingId === m.id}
                       />
                     ))}
@@ -263,6 +264,16 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
           preSelectedJobId={jobId}
         />
       )}
+
+      <CandidateWorkflowPanel
+        open={!!panelTarget}
+        onOpenChange={(o) => !o && setPanelTarget(null)}
+        match={panelTarget}
+        jobId={jobId}
+        jobTitle={jobTitle}
+        onAddedToPipeline={() => { onCandidateAdded?.(); setPanelTarget(null); }}
+        onDismiss={() => panelTarget && dismiss(panelTarget.id)}
+      />
     </>
   );
 }
@@ -286,10 +297,11 @@ interface CardProps {
   onDismiss: () => void;
   onAdd: () => void;
   onEmail: () => void;
+  onOpen: () => void;
   isAdding: boolean;
 }
 
-function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, isAdding }: CardProps) {
+function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
   const isTop = index < 3 && match.match_score >= 80;
   return (
