@@ -178,64 +178,79 @@ export default function LandingPage() {
         </div>
 
         <div className="container mx-auto max-w-7xl">
-          <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
-            {/* Left: copy */}
-            <motion.div {...fadeUp} className="text-center lg:text-left space-y-6">
-              <Eyebrow>AI Recruitment Operating System</Eyebrow>
-              <h1 className="text-4xl sm:text-5xl lg:text-[64px] font-bold tracking-tight leading-[1.05] text-foreground">
-                Close More Placements{' '}
-                <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  With AI
-                </span>
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-xl lg:max-w-none leading-relaxed">
-                The AI-powered recruitment operating system helping agencies streamline workflows,
-                manage candidates, and improve recruiter productivity.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start pt-2">
-                <Link to="/auth?mode=signup">
-                  <Button size="lg" className="h-12 px-7 gap-2 w-full sm:w-auto">
-                    Start Free Trial <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button size="lg" variant="outline" className="h-12 px-7 gap-2" onClick={() => setBookDemoOpen(true)}>
-                  <Play className="h-4 w-4" /> Book Demo
+          <motion.div {...fadeUp} className="text-center max-w-4xl mx-auto space-y-6">
+            <Eyebrow>AI Recruitment Operating System</Eyebrow>
+            <h1 className="text-4xl sm:text-5xl lg:text-[68px] font-bold tracking-tight leading-[1.05] text-foreground">
+              Close More Placements.<br />
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Not More Admin Work.
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              The AI-powered recruitment operating system helping agencies streamline hiring
+              workflows, validate candidates, automate outreach, and track recruiter productivity.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <Link to="/auth?mode=signup">
+                <Button size="lg" className="h-12 px-7 gap-2 w-full sm:w-auto">
+                  Start Free Trial <ArrowRight className="h-4 w-4" />
                 </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
-            </motion.div>
+              </Link>
+              <Button size="lg" variant="outline" className="h-12 px-7 gap-2" onClick={() => setBookDemoOpen(true)}>
+                <Play className="h-4 w-4" /> Book Demo
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
+          </motion.div>
 
-            {/* Right: dashboard showcase */}
+          {/* Dashboard showcase — full-width hero */}
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.25 }}
+            className="relative mt-16 max-w-6xl mx-auto"
+          >
+            <div className="absolute -inset-8 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-[2rem] blur-3xl opacity-70 -z-10" />
+            <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
+
+            {/* Floating activity chips */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
+              transition={{ delay: 0.7 }}
+              className="hidden md:flex absolute -left-6 top-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
             >
-              <div className="absolute -inset-6 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-3xl blur-3xl opacity-60 -z-10" />
-              <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
-
-              {/* Subtle floating chip — only 2 */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="hidden md:flex absolute -left-5 top-24 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border shadow-lg text-xs font-semibold"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                95% Match Score
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-                className="hidden md:flex absolute -right-5 bottom-16 items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border shadow-lg text-xs font-semibold"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                AI summary ready
-              </motion.div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              95% Match Score
             </motion.div>
-          </div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.85 }}
+              className="hidden md:flex absolute -right-6 top-32 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
+            >
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              Interview Scheduled
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0 }}
+              className="hidden lg:flex absolute -left-4 bottom-28 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              Candidate Rediscovered
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.15 }}
+              className="hidden md:flex absolute -right-4 bottom-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
+            >
+              <Mail className="h-3.5 w-3.5 text-emerald-600" />
+              Email Sent Successfully
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
