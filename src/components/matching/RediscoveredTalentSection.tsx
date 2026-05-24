@@ -341,6 +341,10 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </p>
       )}
 
+      {match.sub_scores && (
+        <ScoreBreakdown sub={match.sub_scores} />
+      )}
+
       {(match.strengths.length > 0 || match.gaps.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1">
           {match.strengths.slice(0, 3).map((s, i) => (
