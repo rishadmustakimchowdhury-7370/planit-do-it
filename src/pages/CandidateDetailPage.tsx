@@ -44,6 +44,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
+import { InternalCollaborationTab } from '@/components/clients/InternalCollaborationTab';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
 import { useBrandedDownload } from '@/hooks/useBrandedDownload';
@@ -418,6 +419,10 @@ const CandidateDetailPage = () => {
           <TabsTrigger value="activity" className="gap-2">
             <Calendar className="w-4 h-4" />
             Activity
+          </TabsTrigger>
+          <TabsTrigger value="client" className="gap-2">
+            <MessageCircle className="w-4 h-4" />
+            Client Collaboration
           </TabsTrigger>
         </TabsList>
 
