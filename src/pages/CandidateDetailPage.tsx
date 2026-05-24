@@ -561,6 +561,10 @@ const CandidateDetailPage = () => {
 
           </div>
         </TabsContent>
+
+        <TabsContent value="client" className="mt-6">
+          <InternalCollaborationTab candidateId={candidate.id} />
+        </TabsContent>
       </Tabs>
 
       {/* Email Modal */}
