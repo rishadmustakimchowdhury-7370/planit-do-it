@@ -65,7 +65,6 @@ export function CandidateWorkflowPanel({
   const { logActivity } = useRecruiterActivity();
   const { downloadBranded, isDownloading: isBranding } = useBrandedDownload();
 
-  const [emailOpen, setEmailOpen] = useState(false);
   const [aiEmailOpen, setAiEmailOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
