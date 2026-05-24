@@ -1772,6 +1772,7 @@ export type Database = {
           event_type: Database["public"]["Enums"]["event_type"]
           id: string
           internal_notes: string | null
+          interview_request_id: string | null
           job_id: string | null
           location_address: string | null
           location_type: string
@@ -1791,6 +1792,7 @@ export type Database = {
           event_type?: Database["public"]["Enums"]["event_type"]
           id?: string
           internal_notes?: string | null
+          interview_request_id?: string | null
           job_id?: string | null
           location_address?: string | null
           location_type?: string
@@ -1810,6 +1812,7 @@ export type Database = {
           event_type?: Database["public"]["Enums"]["event_type"]
           id?: string
           internal_notes?: string | null
+          interview_request_id?: string | null
           job_id?: string | null
           location_address?: string | null
           location_type?: string
@@ -1900,6 +1903,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interview_requests: {
+        Row: {
+          client_notes: string | null
+          client_org_id: string
+          created_at: string
+          duration_minutes: number
+          event_id: string | null
+          id: string
+          job_candidate_id: string
+          job_id: string
+          meeting_format: string
+          proposed_slots: Json
+          recruiter_notes: string | null
+          requested_by: string
+          responded_at: string | null
+          responded_by: string | null
+          selected_slot: Json | null
+          status: Database["public"]["Enums"]["interview_request_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_notes?: string | null
+          client_org_id: string
+          created_at?: string
+          duration_minutes?: number
+          event_id?: string | null
+          id?: string
+          job_candidate_id: string
+          job_id: string
+          meeting_format?: string
+          proposed_slots?: Json
+          recruiter_notes?: string | null
+          requested_by: string
+          responded_at?: string | null
+          responded_by?: string | null
+          selected_slot?: Json | null
+          status?: Database["public"]["Enums"]["interview_request_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_notes?: string | null
+          client_org_id?: string
+          created_at?: string
+          duration_minutes?: number
+          event_id?: string | null
+          id?: string
+          job_candidate_id?: string
+          job_id?: string
+          meeting_format?: string
+          proposed_slots?: Json
+          recruiter_notes?: string | null
+          requested_by?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          selected_slot?: Json | null
+          status?: Database["public"]["Enums"]["interview_request_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       invoices: {
         Row: {
@@ -4680,6 +4746,12 @@ export type Database = {
         | "internal_meeting"
         | "follow_up"
         | "custom"
+      interview_request_status:
+        | "pending"
+        | "accepted"
+        | "declined"
+        | "cancelled"
+        | "expired"
       invoice_status: "draft" | "sent" | "paid" | "overdue" | "canceled"
       job_status: "draft" | "open" | "paused" | "closed" | "filled"
       participant_role:
@@ -4859,6 +4931,13 @@ export const Constants = {
         "internal_meeting",
         "follow_up",
         "custom",
+      ],
+      interview_request_status: [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired",
       ],
       invoice_status: ["draft", "sent", "paid", "overdue", "canceled"],
       job_status: ["draft", "open", "paused", "closed", "filled"],
