@@ -510,7 +510,7 @@ export default function AddCandidatePage() {
         }
       }
 
-      const { error } = await supabase.from('candidates').insert({
+      const { data: newCand, error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         full_name: formData.fullName,
         email: formData.email,
@@ -525,9 +525,14 @@ export default function AddCandidatePage() {
         cv_file_url: cvFileUrl,
         status: 'new',
         created_by: user?.id,
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      if (newCand?.id) {
+        supabase.functions.invoke('embed-candidate', { body: { candidate_id: newCand.id } })
+          .catch((e) => console.warn('Embed candidate failed:', e));
+      }
 
       // Log activity for KPI tracking
       await logActivity({
