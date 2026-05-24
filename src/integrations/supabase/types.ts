@@ -243,6 +243,63 @@ export type Database = {
           },
         ]
       }
+      candidate_client_shares: {
+        Row: {
+          ai_insights_snapshot: Json | null
+          branded_cv_url: string | null
+          client_org_id: string
+          id: string
+          job_candidate_id: string
+          recruiter_summary: string | null
+          shared_at: string
+          shared_by: string
+          status: string
+          tenant_id: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          ai_insights_snapshot?: Json | null
+          branded_cv_url?: string | null
+          client_org_id: string
+          id?: string
+          job_candidate_id: string
+          recruiter_summary?: string | null
+          shared_at?: string
+          shared_by: string
+          status?: string
+          tenant_id: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          ai_insights_snapshot?: Json | null
+          branded_cv_url?: string | null
+          client_org_id?: string
+          id?: string
+          job_candidate_id?: string
+          recruiter_summary?: string | null
+          shared_at?: string
+          shared_by?: string
+          status?: string
+          tenant_id?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_client_shares_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_client_shares_job_candidate_id_fkey"
+            columns: ["job_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "job_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_emails: {
         Row: {
           ai_generated: boolean | null
@@ -1920,6 +1977,54 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_client_shares: {
+        Row: {
+          client_org_id: string
+          id: string
+          job_id: string
+          permissions: Json
+          shared_at: string
+          shared_by: string
+          tenant_id: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          client_org_id: string
+          id?: string
+          job_id: string
+          permissions?: Json
+          shared_at?: string
+          shared_by: string
+          tenant_id: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          client_org_id?: string
+          id?: string
+          job_id?: string
+          permissions?: Json
+          shared_at?: string
+          shared_by?: string
+          tenant_id?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_client_shares_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_client_shares_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
