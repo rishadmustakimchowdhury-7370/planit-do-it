@@ -1,140 +1,117 @@
-# AI Talent Match — Unified Matching Architecture
+# AI Talent Match — Interactive Recruiter Workflow Upgrade
 
-Goal: Replace the dual "Suggested Candidates" + "Rediscovered Talent" systems with **one** explainable, recruiter-trusted matching engine that produces a single consistent score per candidate-job pair.
-
----
-
-## Phase 1 — Consolidation & Cleanup
-
-**Remove duplication** so one score = one truth.
-
-- Delete `SuggestedCandidates.tsx` and any callers on Job Detail / dashboards.
-- Rename `RediscoveredTalentSection` → `AITalentMatchSection`.
-- Drop legacy `ai-match` one-off scoring (page-level "Run AI Match") in favor of the unified pipeline. Keep the page as a thin viewer that reads from the same source of truth.
-- Single DB table for results: reuse `rediscovered_matches` → rename conceptually to `ai_talent_matches` (new table + migration; old data archived).
-- Single edge function: `ai-talent-match` (replaces `rediscover-candidates`).
-
-**Outcome:** one engine, one table, one score everywhere.
+Transform static AI match cards into a full recruiter command center via a premium right-side slide-over panel, without leaving the matching screen.
 
 ---
 
-## Phase 2 — Data Foundations
+## Phase 1 — Clickable Card + Slide-Over Shell
 
-Add the signals the new scoring needs.
-
-Schema additions (migration):
-- `jobs`: `role_family` (text), `seniority_level` (enum), `industry` (text), `required_skills` (text[]), `nice_to_have_skills` (text[]).
-- `candidates`: `role_family` (text), `seniority_level` (enum), `industries` (text[]), `normalized_skills` (text[]).
-- New `skill_aliases` table: canonical skill ↔ aliases ↔ related skills (e.g. Selenium ↔ WebDriver ↔ Playwright/Cypress as "test-automation" family).
-- New `role_families` table: title patterns → family (QA, Backend, Frontend, Data, DevOps, PM, etc.) + seniority regex.
-- New `ai_talent_matches` table: `job_id, candidate_id, final_score, confidence, sub_scores jsonb, reasoning jsonb, model_version, created_at` (unique on job+candidate).
-- New `match_feedback` table: recruiter actions (shortlisted/rejected/interviewed/placed) feeding the learning loop.
-
-Backfill job:
-- Edge function `normalize-entities` runs once and on insert/update to populate role_family, seniority, normalized_skills from existing free-text.
-
----
-
-## Phase 3 — Hybrid Scoring Engine
-
-Implemented in `supabase/functions/ai-talent-match/scoring.ts`.
-
-Weighted final score (0–100):
-
-```
-final =  0.40 * role_similarity
-       + 0.25 * skill_match
-       + 0.10 * industry_match
-       + 0.10 * seniority_match
-       + 0.10 * experience_match
-       + 0.05 * location_availability
-       - penalties
-```
-
-Each sub-score:
-- **Role similarity (40%)** — role_family exact = 1.0; adjacent family = 0.5; unrelated = 0.1. Augmented by title embedding cosine (OpenAI `text-embedding-3-small`).
-- **Skill match (25%)** — Jaccard over normalized required skills + alias expansion + embedding similarity for missing exact matches. Core (required) skills weighted 2× nice-to-haves.
-- **Industry (10%)** — overlap of `jobs.industry` with `candidates.industries`.
-- **Seniority (10%)** — distance on ordinal scale (junior=1…principal=5); same=1.0, ±1=0.6, ±2=0.2, junior→senior=0.
-- **Experience (10%)** — within required band=1.0, decreasing with delta.
-- **Location/availability (5%)** — same country/timezone/remote-compat.
-
-**Negative weighting (penalties):**
-- Wrong role_family on a specialist role: −25.
-- Missing ≥50% of required skills: −15.
-- Seniority mismatch ≥2 levels: −15.
-- Zero industry overlap on industry-critical role: −5.
-
-**Confidence:**
-- HIGH: final ≥ 80 AND role_family match AND ≥70% required skills.
-- MEDIUM: final 65–79 OR one strong factor missing.
-- LOW: final < 65 → **hidden by default**.
-
-**Threshold:** UI shows only ≥65 by default; "Show all" reveals lower for debugging.
+- Make the entire `AITalentMatchSection` candidate card clickable (keyboard + mouse, full a11y).
+- Create `CandidateWorkflowPanel.tsx` using shadcn `Sheet` (side="right"), width ~640px desktop / full-screen mobile.
+- Panel sections (sticky header + scrollable body + sticky action footer):
+  1. Profile header
+  2. AI Match summary + "Why this match?"
+  3. CV management
+  4. Quick actions
+  5. Pipeline controls
+  6. Activity timeline
+  7. Notes
+- Smooth open/close animation (existing vaul/radix). Esc + overlay click to dismiss. Deep-link via `?candidate=<id>` query param so the panel survives refresh.
 
 ---
 
-## Phase 4 — Explainable AI Layer
+## Phase 2 — Profile Header + AI Match Transparency
 
-After deterministic scoring, send the top N (e.g. 25) candidates to `gpt-4o-mini` for a structured explanation only — never to alter the score.
-
-Prompt returns JSON: `{ strengths: string[], gaps: string[], summary: string }`.
-
-Stored in `ai_talent_matches.reasoning`. The score the recruiter sees is always the deterministic hybrid score → guarantees consistency across screens.
+- Header: avatar, name, current title, location, years exp, notice period, availability badge, recruiter owner, match circle + confidence badge.
+- "Why this match?" expandable using `Collapsible`. Render per-factor bars from `sub_scores` JSONB (role 40%, skills 25%, industry 10%, seniority 10%, exp 10%, location 5%) with ✅ strengths / ⚠ gaps lists from `reasoning`.
+- All semantic tokens — no hard-coded colors.
 
 ---
 
-## Phase 5 — Unified UI: "AI Talent Match"
+## Phase 3 — CV Management + Inline Preview
 
-New `src/components/matching/AITalentMatchSection.tsx` used on Job Detail.
-
-Card shows:
-- Name, current title, location, years experience.
-- Big match circle + confidence badge (HIGH/MED).
-- Sub-score breakdown bars (role/skills/industry/seniority/exp).
-- Strengths (green ✓) and gaps (amber ⚠).
-- Actions: Shortlist · Move to pipeline stage · AI outreach · Schedule interview · Assign recruiter · Dismiss.
-
-Filters bar:
-- Min score slider (default 65), confidence (High/Med), location, must-have skills, experience range, owner, last-active.
-
-Empty state: "No strong matches yet — quality over quantity. Try widening required skills or re-scan."
-
-Sidebar/top-level nav: rename "AI Match" → "AI Talent Match", point to the same engine.
+- Buttons: Preview Original, Download Original, Preview Branded, Download Branded.
+- Inline viewer: signed URL from `documents` bucket rendered in an `<iframe>` (PDFs) or `<img>` (image CVs); fallback "Open in new tab".
+- Branded CV uses existing `brand-cv` edge function + `useBrandedDownload` hook; cache generated URL in `candidates.branded_cv_url` to avoid re-generating.
+- Log `cv_preview` and `cv_download` via `useRecruiterActivity`.
 
 ---
 
-## Phase 6 — Feedback Learning Loop
+## Phase 4 — Quick Actions (Comms + Workflow)
 
-Every recruiter action writes to `match_feedback`:
-- shortlisted → +signal for that candidate's role_family/skills on similar jobs.
-- rejected with reason → −signal.
-- interviewed / placed → strongest +signal.
+Action grid:
+- **AI Outreach Email** → existing `ai-compose-email` → `SendCandidateEmailModal`.
+- **Send Email** → `SendEmailDialog` (already in `CandidateCard`).
+- **WhatsApp** → `getWhatsAppUrl(phone, prefilledMsg)` opening `wa.me`. Prefilled template:
+  `Hi {firstName}, we reviewed your profile for our {jobTitle} role at {agencyName} and would like to discuss this opportunity. — {recruiterName}`
+  Log `whatsapp_initiated` activity with `{candidate_id, job_id, message_preview}`.
+- **Schedule Interview** → reuse `CreateEventDialog` prefilled with candidate + job.
+- **Assign Recruiter** → reuse `AssignJobDialog` pattern, scoped per-candidate-per-job.
+- **Add Notes** → inline textarea → `candidate_notes` table.
+- **Share with Client** → see Phase 6.
 
-Nightly edge function `recompute-weights` adjusts per-tenant multipliers on sub-scores (bounded ±20%) so the engine learns each agency's taste without destabilizing the global formula.
-
-Stored in `tenant_scoring_weights`.
-
----
-
-## Phase 7 — Rollout, QA & Trust
-
-1. Migration + backfill (normalize all existing jobs/candidates).
-2. Deploy `ai-talent-match` edge function; deprecate `rediscover-candidates` and `ai-match` (keep stubs that proxy to the new function for one release).
-3. Re-score all open jobs in background.
-4. Visual QA: same candidate must show identical score on Job Detail, AI Talent Match page, and dashboard.
-5. Add a "Why this score?" modal exposing sub-scores + penalties.
-6. Telemetry: log every score with `model_version` so we can A/B future tweaks.
-7. Update docs + in-app tooltip explaining the scoring model to recruiters.
+Agency-admin toggles (new `tenant_settings` flags): `clients_can_contact_candidates`, `whatsapp_recruiter_only`, `show_candidate_contact_to_clients`. UI in `SettingsPage` → Workflow tab. Gate WhatsApp & contact reveal based on role + flags.
 
 ---
 
-## Technical summary (for reference)
+## Phase 5 — Pipeline Actions (Inline)
 
-- **Embeddings:** `text-embedding-3-small` (1536 dims) via OpenAI — already wired. Used only for title + skill semantic similarity, not as the final score.
-- **LLM:** `gpt-4o-mini` for explanations only (deterministic temp 0.2, JSON mode).
-- **DB:** pgvector already enabled; add new tables + RLS scoped to `tenant_id` via `user_belongs_to_tenant`.
-- **RPCs:** `match_candidates_for_job` stays for the ANN prefilter (top 200), then hybrid scoring runs in the edge function on that shortlist.
-- **Consistency guarantee:** UI never recomputes — it only reads `ai_talent_matches`. One write path, one read path.
+- Inline stage selector reusing `CandidateStatusSelect`: New → Screening → Shortlisted → Interview → Offer → Placed / Rejected.
+- "Add to Pipeline" if candidate isn't yet attached to this job (creates `job_candidates` row).
+- Each transition logged to activity timeline + `recruiter_activities`.
+- Optimistic UI; rollback on RLS failure.
 
-After approval I'll proceed phase by phase, starting with Phase 1 + 2 (migration + cleanup) so nothing else breaks.
+---
+
+## Phase 6 — Client Sharing Workflow
+
+- "Share with Client" dialog:
+  - Pick client(s) from the job's linked client.
+  - Choose visible fields (toggle: contact details, salary, notes).
+  - Generate branded PDF via `brand-cv`.
+  - Email via `send-candidate-email` with branded attachment.
+- Persist in new `candidate_client_shares` table for audit + client access logs.
+
+---
+
+## Phase 7 — Activity Timeline + Backend Audit
+
+- New `ActivityTimeline` component reading from `recruiter_activities` filtered by `candidate_id` (+ optional `job_id`), grouped by day, icon per `action_type`.
+- New activity types added to `useRecruiterActivity`: `cv_preview`, `cv_download`, `branded_cv_generated`, `whatsapp_initiated`, `candidate_shared_with_client`, `note_added`.
+- Migration:
+  - `candidate_client_shares` (tenant_id, candidate_id, job_id, client_id, shared_by, visible_fields jsonb, branded_pdf_url, created_at) + RLS.
+  - `tenant_settings` columns: `clients_can_contact_candidates bool default false`, `whatsapp_recruiter_only bool default true`, `show_candidate_contact_to_clients bool default false`.
+  - `candidates.branded_cv_url text`, `candidates.notice_period text`, `candidates.availability_status text` (only if missing).
+- RLS: tenant isolation + role gates (owner/manager full, recruiter limited to assigned, clients read-only on shared rows).
+
+---
+
+## Files (created / edited)
+
+**Created**
+- `src/components/matching/CandidateWorkflowPanel.tsx`
+- `src/components/matching/MatchExplanation.tsx`
+- `src/components/matching/CVViewer.tsx`
+- `src/components/matching/QuickActionsGrid.tsx`
+- `src/components/matching/ActivityTimeline.tsx`
+- `src/components/matching/ShareWithClientDialog.tsx`
+- `supabase/migrations/<timestamp>_workflow_panel.sql`
+
+**Edited**
+- `src/components/matching/RediscoveredTalentSection.tsx` (card click → open panel)
+- `src/hooks/useRecruiterActivity.ts` (new ActivityType union members)
+- `src/pages/SettingsPage.tsx` (workflow flags)
+- `src/lib/whatsapp.ts` (extend with templated message builder if needed)
+
+---
+
+## Technical notes
+
+- Slide-over uses shadcn `Sheet` to stay consistent with existing dialogs.
+- Inline PDF preview via signed URL (`supabase.storage.from('documents').createSignedUrl(path, 600)`) + `<iframe sandbox>`.
+- WhatsApp uses existing `wa.me` deep-link util (no API/token).
+- All scoring stays read-only from `rediscovered_matches.sub_scores` — no scoring logic changes.
+- Mobile: `Sheet` becomes bottom drawer via `useIsMobile` → swap to `Drawer` from vaul.
+- No new external dependencies.
+
+Confirm and I'll start with Phase 1 (clickable card + slide-over shell) and Phase 7 migration so subsequent phases can write to the new tables.
