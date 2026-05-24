@@ -46,20 +46,20 @@ function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?:
 /* Premium browser frame */
 function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border/60 bg-card shadow-[0_30px_80px_-20px_rgba(15,23,42,0.25)] overflow-hidden ring-1 ring-black/[0.02] ${className}`}>
-      <div className="h-9 bg-muted/40 border-b border-border/60 flex items-center gap-2 px-4">
+    <div className={`group rounded-2xl border border-border/70 bg-card shadow-[0_40px_100px_-25px_rgba(15,23,42,0.35)] hover:shadow-[0_50px_120px_-25px_rgba(59,130,246,0.35)] transition-shadow duration-500 overflow-hidden ring-1 ring-black/[0.04] ${className}`}>
+      <div className="h-9 bg-gradient-to-b from-muted/60 to-muted/30 border-b border-border/60 flex items-center gap-2 px-4">
         <div className="flex gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
-          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
-          <span className="w-2.5 h-2.5 rounded-full bg-green-400/70" />
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/80" />
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400/80" />
         </div>
         <div className="flex-1 flex justify-center">
-          <div className="px-3 py-0.5 bg-background rounded-md text-[10px] text-muted-foreground font-mono">
+          <div className="px-3 py-0.5 bg-background rounded-md text-[10px] text-muted-foreground font-mono border border-border/40">
             app.hiremetrics.io
           </div>
         </div>
       </div>
-      <img src={src} alt={alt} className="w-full block" loading="lazy" />
+      <img src={src} alt={alt} className="w-full block transition-transform duration-700 group-hover:scale-[1.01]" loading="lazy" />
     </div>
   );
 }
