@@ -4573,6 +4573,20 @@ export type Database = {
         Returns: boolean
       }
       client_org_for_user: { Args: { _user_id: string }; Returns: string }
+      client_portal_notify: {
+        Args: {
+          _entity_id: string
+          _entity_type: string
+          _link: string
+          _message: string
+          _metadata?: Json
+          _tenant_id: string
+          _title: string
+          _type: string
+          _user_ids: string[]
+        }
+        Returns: undefined
+      }
       client_tenant_for_user: { Args: { _user_id: string }; Returns: string }
       create_chat_conversation: {
         Args: {
