@@ -425,7 +425,7 @@ export function SendCandidateEmailModal({
       setSubject(mergePlaceholders(template.subject, candidate, selectedJob, recruiterName));
 
       const merged = mergePlaceholders(template.body_text, candidate, selectedJob, recruiterName);
-      setBody(normalizeEmailContentToPlainText(merged));
+      setBody(plainTextToHtml(normalizeEmailContentToPlainText(merged)));
     }
   };
 
