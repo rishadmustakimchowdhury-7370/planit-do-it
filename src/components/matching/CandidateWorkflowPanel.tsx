@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
-import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -65,7 +65,6 @@ export function CandidateWorkflowPanel({
   const { logActivity } = useRecruiterActivity();
   const { downloadBranded, isDownloading: isBranding } = useBrandedDownload();
 
-  const [emailOpen, setEmailOpen] = useState(false);
   const [aiEmailOpen, setAiEmailOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -436,7 +435,7 @@ export function CandidateWorkflowPanel({
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <ActionBtn icon={Sparkles} label="AI outreach" onClick={() => setAiEmailOpen(true)} disabled={!c.email} />
-                    <ActionBtn icon={Mail} label="Send email" onClick={() => setEmailOpen(true)} disabled={!c.email} />
+                    <ActionBtn icon={Mail} label="Send email" onClick={() => setAiEmailOpen(true)} disabled={!c.email} />
                     <ActionBtn
                       icon={MessageCircle} label="WhatsApp"
                       onClick={handleWhatsApp} disabled={!waNumber}
@@ -576,26 +575,16 @@ export function CandidateWorkflowPanel({
 
       {/* Email dialogs */}
       {c.email && (
-        <>
-          <SendEmailDialog
-            open={emailOpen}
-            onOpenChange={setEmailOpen}
-            recipientEmail={c.email}
-            recipientName={fullName}
-            context="candidate"
-            contextData={{ candidateName: fullName }}
-          />
-          <SendCandidateEmailModal
-            open={aiEmailOpen}
-            onOpenChange={setAiEmailOpen}
-            candidate={{
-              id: c.id,
-              full_name: fullName,
-              email: c.email,
-            } as any}
-            preSelectedJobId={jobId}
-          />
-        </>
+        <SendCandidateEmailModal
+          open={aiEmailOpen}
+          onOpenChange={setAiEmailOpen}
+          candidate={{
+            id: c.id,
+            full_name: fullName,
+            email: c.email,
+          } as any}
+          preSelectedJobId={jobId}
+        />
       )}
     </>
   );
