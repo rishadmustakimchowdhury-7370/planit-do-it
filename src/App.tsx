@@ -55,6 +55,14 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 
+// Client Portal pages
+const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
+const ClientJobsPage = lazy(() => import("./pages/client/ClientJobsPage"));
+const ClientJobDetailPage = lazy(() => import("./pages/client/ClientJobDetailPage"));
+const ClientCandidatesPage = lazy(() => import("./pages/client/ClientCandidatesPage"));
+const ClientInterviewsPage = lazy(() => import("./pages/client/ClientInterviewsPage"));
+const ClientNotificationsPage = lazy(() => import("./pages/client/ClientNotificationsPage"));
+
 // Admin pages - lazy loaded
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
