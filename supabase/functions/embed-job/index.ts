@@ -10,10 +10,10 @@ const corsHeaders = {
 function buildJobText(j: any): string {
   const parts: string[] = [];
   if (j.title) parts.push(`Title: ${j.title}`);
-  if (j.seniority) parts.push(`Seniority: ${j.seniority}`);
+  if (j.experience_level) parts.push(`Experience Level: ${j.experience_level}`);
   if (j.employment_type) parts.push(`Employment: ${j.employment_type}`);
   if (j.location) parts.push(`Location: ${j.location}`);
-  if (j.industry) parts.push(`Industry: ${j.industry}`);
+  if (j.is_remote) parts.push(`Remote: yes`);
   if (Array.isArray(j.skills) && j.skills.length) parts.push(`Required Skills: ${j.skills.join(", ")}`);
   if (j.description) parts.push(`Description:\n${j.description}`);
   if (j.requirements) parts.push(`Requirements:\n${j.requirements}`);
@@ -41,7 +41,7 @@ serve(async (req) => {
 
     const { data: job, error } = await supabase
       .from("jobs")
-      .select("id, tenant_id, title, description, requirements, location, industry, seniority, employment_type, skills")
+      .select("id, tenant_id, title, description, requirements, location, experience_level, employment_type, is_remote, skills")
       .eq("id", job_id)
       .maybeSingle();
 
