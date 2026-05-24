@@ -62,6 +62,7 @@ const ClientJobDetailPage = lazy(() => import("./pages/client/ClientJobDetailPag
 const ClientCandidatesPage = lazy(() => import("./pages/client/ClientCandidatesPage"));
 const ClientInterviewsPage = lazy(() => import("./pages/client/ClientInterviewsPage"));
 const ClientNotificationsPage = lazy(() => import("./pages/client/ClientNotificationsPage"));
+const PublicCandidateSharePage = lazy(() => import("./pages/PublicCandidateSharePage"));
 
 // Admin pages - lazy loaded
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
@@ -168,6 +169,7 @@ const AppRoutes = () => (
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/return-policy" element={<ReturnPolicyPage />} />
       <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/share/candidate/:token" element={<PublicCandidateSharePage />} />
       
       {/* Protected routes */}
       <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />

@@ -14,7 +14,7 @@ const items = [
   { to: '/client/notifications', label: 'Notifications', icon: Bell },
 ];
 
-export function ClientSidebar() {
+export function ClientSidebar({ brand }: { brand?: { name: string | null; logo_url: string | null; primary_color: string | null } | null } = {}) {
   const { pathname } = useLocation();
   const { user, profile, clientPortal, signOut } = useAuth();
   const [unread, setUnread] = useState(0);
@@ -42,11 +42,15 @@ export function ClientSidebar() {
            style={{ fontFamily: "'Poppins', sans-serif" }}>
       <div className="px-6 py-6 border-b border-border">
         <div className="flex items-center gap-2 mb-1">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Building2 className="h-4.5 w-4.5 text-primary-foreground" />
-          </div>
+          {brand?.logo_url ? (
+            <img src={brand.logo_url} alt={brand.name || 'Logo'} className="h-9 w-9 rounded-lg object-cover" />
+          ) : (
+            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Building2 className="h-4.5 w-4.5 text-primary-foreground" />
+            </div>
+          )}
           <div>
-            <div className="text-sm font-semibold tracking-tight">Client Portal</div>
+            <div className="text-sm font-semibold tracking-tight">{brand?.name || 'Client Portal'}</div>
             <div className="text-[11px] text-muted-foreground">HireMetrics</div>
           </div>
         </div>
