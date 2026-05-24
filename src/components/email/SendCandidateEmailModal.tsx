@@ -585,7 +585,7 @@ export function SendCandidateEmailModal({
 
       if (data?.email_body) {
         // Candidate composer is plain-text: normalize so paragraphs show and backend can format reliably
-        setBody(normalizeEmailContentToPlainText(data.email_body));
+        setBody(plainTextToHtml(normalizeEmailContentToPlainText(data.email_body)));
 
         const subjectMap: Record<string, string> = {
           job_pitch: `Exciting ${selectedJob.title} Opportunity`,
