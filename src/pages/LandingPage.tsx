@@ -338,7 +338,7 @@ export default function LandingPage() {
             </h2>
           </motion.div>
 
-          <div className="space-y-28">
+          <div className="space-y-20 md:space-y-28">
             {featureRows.map((r, i) => (
               <motion.div
                 key={r.title}
