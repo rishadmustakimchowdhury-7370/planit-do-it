@@ -158,7 +158,7 @@ export const BRAND = {
   shortName: 'Hiremetrics',
   tagline: 'Measure What Matters. Hire Smarter.',
   category: 'Recruitment Analytics',
-  email: 'info@hiremetrics.io',
-  supportEmail: 'support@hiremetrics.io',
-  website: 'https://hiremetrics.io',
+  email: 'info@hiremetrics.co.uk',
+  supportEmail: 'support@hiremetrics.co.uk',
+  website: 'https://hiremetrics.co.uk',
 } as const;

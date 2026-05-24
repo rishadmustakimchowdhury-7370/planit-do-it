@@ -48,7 +48,7 @@ const DEFAULT_SEO: SEOSettings = {
   robots_txt: `User-agent: *
 Allow: /
 
-Sitemap: https://hiremetrics.io/sitemap.xml`,
+Sitemap: https://hiremetrics.co.uk/sitemap.xml`,
   canonical_url: '',
   og_title: '',
   og_description: '',
@@ -420,7 +420,7 @@ export default function AdminSEOPage() {
                 <div className="space-y-2">
                   <Label>Canonical URL</Label>
                   <Input
-                    placeholder="https://hiremetrics.io"
+                    placeholder="https://hiremetrics.co.uk"
                     value={settings.canonical_url}
                     onChange={(e) => setSettings(prev => ({ ...prev, canonical_url: e.target.value }))}
                   />
@@ -440,7 +440,7 @@ export default function AdminSEOPage() {
               <div className="space-y-2">
                 <Label>OG Image URL</Label>
                 <Input
-                  placeholder="https://hiremetrics.io/og-image.png"
+                  placeholder="https://hiremetrics.co.uk/og-image.png"
                   value={settings.og_image}
                   onChange={(e) => setSettings(prev => ({ ...prev, og_image: e.target.value }))}
                 />
@@ -559,7 +559,7 @@ ${settings.canonical_url ? `<link rel="canonical" href="${settings.canonical_url
                   placeholder={`User-agent: *
 Allow: /
 
-Sitemap: https://hiremetrics.io/sitemap.xml`}
+Sitemap: https://hiremetrics.co.uk/sitemap.xml`}
                 />
                 <p className="text-xs text-muted-foreground">
                   This will be served at /robots.txt
