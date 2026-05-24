@@ -63,15 +63,24 @@ export function ShareJobWithClientDialog({ open, onOpenChange, jobId, jobTitle }
       if (!targetOrgId) { toast.error('Select a client organisation'); setBusy(false); return; }
 
       // 2) Create job share
+      const userRes = await supabase.auth.getUser();
+      const userId = userRes.data.user?.id;
+      if (!userId) throw new Error('Not signed in');
+      const { data: prof } = await supabase.from('profiles').select('tenant_id').eq('id', userId).single();
+      if (!prof?.tenant_id) throw new Error('Missing tenant');
+
       const { error: shareErr } = await supabase.from('job_client_shares').upsert({
         job_id: jobId,
         client_org_id: targetOrgId,
-        can_view_pipeline: perms.pipeline,
-        can_request_interview: perms.interview,
-        can_leave_feedback: perms.feedback,
-        can_message: perms.message,
-        shared_by: (await supabase.auth.getUser()).data.user?.id,
-      }, { onConflict: 'job_id,client_org_id' });
+        tenant_id: prof.tenant_id,
+        shared_by: userId,
+        permissions: {
+          can_view_pipeline: perms.pipeline,
+          can_request_interview: perms.interview,
+          can_leave_feedback: perms.feedback,
+          can_message: perms.message,
+        },
+      } as any, { onConflict: 'job_id,client_org_id' });
       if (shareErr) throw shareErr;
 
       toast.success(email ? 'Job shared and invitation sent' : 'Job shared with client');

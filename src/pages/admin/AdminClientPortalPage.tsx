@@ -58,7 +58,7 @@ export default function AdminClientPortalPage() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Client Portal" description="Manage external client organisations and portal users.">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
