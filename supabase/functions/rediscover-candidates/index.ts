@@ -34,13 +34,26 @@ async function embedJobIfMissing(supabase: any, jobId: string) {
 }
 
 async function embedMissingCandidates(supabase: any, tenantId: string, limit = 30) {
-  // Find candidates in tenant without embeddings
-  const { data: missing } = await supabase
+  const { data: candidates, error: candidatesError } = await supabase
     .from("candidates")
-    .select("id, candidate_embeddings(candidate_id)")
+    .select("id")
     .eq("tenant_id", tenantId)
-    .is("candidate_embeddings.candidate_id", null)
-    .limit(limit);
+    .order("updated_at", { ascending: false })
+    .limit(limit * 2);
+
+  if (candidatesError) throw candidatesError;
+  if (!candidates?.length) return 0;
+
+  const candidateIds = candidates.map((row: any) => row.id);
+  const { data: existing, error: existingError } = await supabase
+    .from("candidate_embeddings")
+    .select("candidate_id")
+    .in("candidate_id", candidateIds);
+
+  if (existingError) throw existingError;
+
+  const embeddedIds = new Set((existing ?? []).map((row: any) => row.candidate_id));
+  const missing = candidates.filter((row: any) => !embeddedIds.has(row.id)).slice(0, limit);
 
   if (!missing?.length) return 0;
   let embedded = 0;
