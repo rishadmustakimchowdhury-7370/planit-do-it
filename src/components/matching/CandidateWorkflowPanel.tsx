@@ -74,6 +74,7 @@ export function CandidateWorkflowPanel({
   const [whyOpen, setWhyOpen] = useState(true);
   const [recruiterName, setRecruiterName] = useState<string>('');
   const [cvFileUrl, setCvFileUrl] = useState<string | null>(null);
+  const [linkedinUrl, setLinkedinUrl] = useState<string | null>(null);
   const [activities, setActivities] = useState<any[]>([]);
   const [actLoading, setActLoading] = useState(false);
 
@@ -90,7 +91,10 @@ export function CandidateWorkflowPanel({
         .select('cv_file_url, linkedin_url, phone, email')
         .eq('id', candidateId)
         .maybeSingle();
-      if (!cancelled && data) setCvFileUrl(data.cv_file_url ?? null);
+      if (!cancelled && data) {
+        setCvFileUrl(data.cv_file_url ?? null);
+        setLinkedinUrl(data.linkedin_url ?? null);
+      }
     })();
     return () => { cancelled = true; };
   }, [candidateId, open]);
@@ -233,22 +237,18 @@ export function CandidateWorkflowPanel({
   };
 
   const handleSaveNote = async () => {
-    if (!note.trim() || !tenantId || !candidateId) return;
+    if (!note.trim() || !candidateId) return;
     setSavingNote(true);
     try {
-      const { error } = await supabase.from('candidate_notes').insert({
+      const res = await logActivity({
+        action_type: 'note_added',
         candidate_id: candidateId,
-        tenant_id: tenantId,
-        created_by: user?.id,
-        content: note.trim(),
-      } as any);
-      if (error) throw error;
-      logActivity({
-        action_type: 'note_added' as any, candidate_id: candidateId, job_id: jobId,
-        metadata: { preview: note.slice(0, 120) },
+        job_id: jobId,
+        metadata: { note: note.trim() },
       });
+      if (!res) throw new Error('Failed to save note');
       setNote('');
-      toast.success('Note added');
+      toast.success('Note added to timeline');
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to save note');
     } finally {
@@ -300,8 +300,8 @@ export function CandidateWorkflowPanel({
                   >
                     Full profile <ExternalLink className="w-3 h-3" />
                   </Link>
-                  {c.linkedin_url && (
-                    <a href={c.linkedin_url} target="_blank" rel="noreferrer"
+                  {linkedinUrl && (
+                    <a href={linkedinUrl} target="_blank" rel="noreferrer"
                       className="text-xs text-[#0077B5] hover:underline inline-flex items-center gap-1">
                       <Linkedin className="w-3 h-3" /> LinkedIn
                     </a>
