@@ -281,10 +281,10 @@ export default function LandingPage() {
                 <div className="relative rounded-xl md:rounded-2xl overflow-hidden aspect-video bg-black ring-1 ring-white/10">
                   {demoPlaying ? (
                     <iframe
-                      src="https://www.youtube-nocookie.com/embed/PLLruU2OIac?autoplay=1&rel=0&modestbranding=1&controls=1&showinfo=0&iv_load_policy=3"
+                      src="https://www.youtube.com/embed/PLLruU2OIac?autoplay=1&rel=0&modestbranding=1"
                       title="HireMetrics product walkthrough"
                       className="absolute inset-0 w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
                     />
                   ) : (
@@ -292,15 +292,16 @@ export default function LandingPage() {
                       type="button"
                       onClick={() => setDemoPlaying(true)}
                       aria-label="Play product walkthrough"
-                      className="absolute inset-0 w-full h-full group/play"
+                      className="absolute inset-0 w-full h-full group/play z-10 cursor-pointer"
                     >
                       <img
-                        src={dashboardImg}
+                        src="https://img.youtube.com/vi/PLLruU2OIac/maxresdefault.jpg"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = dashboardImg; }}
                         alt="HireMetrics product walkthrough preview"
-                        className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover/play:scale-[1.03]"
+                        className="absolute inset-0 w-full h-full object-cover opacity-95 transition-transform duration-700 group-hover/play:scale-[1.03] pointer-events-none"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-tr from-[#070b14]/70 via-[#070b14]/30 to-transparent" />
-                      <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-[#070b14]/70 via-[#070b14]/30 to-transparent pointer-events-none" />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="relative">
                           <div className="absolute inset-0 rounded-full bg-primary/40 blur-2xl scale-150 animate-pulse" />
                           <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/95 backdrop-blur flex items-center justify-center shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6)] group-hover/play:scale-110 transition-transform duration-300">
@@ -308,7 +309,7 @@ export default function LandingPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="absolute bottom-4 left-4 md:bottom-5 md:left-5 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur border border-white/15 text-[11px] font-medium text-white/90">
+                      <div className="absolute bottom-4 left-4 md:bottom-5 md:left-5 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur border border-white/15 text-[11px] font-medium text-white/90 pointer-events-none">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                         2-minute product walkthrough
                       </div>
