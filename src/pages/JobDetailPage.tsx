@@ -7,8 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
-import { SuggestedCandidates } from '@/components/jobs/SuggestedCandidates';
-import { RediscoveredTalentSection } from '@/components/matching/RediscoveredTalentSection';
+import { RediscoveredTalentSection as AITalentMatchSection } from '@/components/matching/RediscoveredTalentSection';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
@@ -620,7 +619,7 @@ const JobDetailPage = () => {
 
         <TabsContent value="pipeline" className="mt-0 space-y-6">
           {job && (
-            <RediscoveredTalentSection
+            <AITalentMatchSection
               jobId={job.id}
               jobTitle={job.title}
               onCandidateAdded={fetchJobDetails}
@@ -895,18 +894,7 @@ const JobDetailPage = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Suggested Candidates Section */}
-      {job && (
-        <div className="mt-8">
-          <SuggestedCandidates
-            jobId={job.id}
-            jobTitle={job.title}
-            jobDescription={job.description}
-            jobSkills={Array.isArray((job as any).skills) ? (job as any).skills : []}
-            onCandidateAdded={fetchJobDetails}
-          />
-        </div>
-      )}
+      {/* Suggested Candidates removed — unified into AI Talent Match (single source of truth) */}
 
       {/* Add Candidate from Database Dialog */}
       {job && (
