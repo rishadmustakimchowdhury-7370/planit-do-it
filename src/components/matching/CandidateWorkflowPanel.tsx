@@ -398,13 +398,13 @@ export function CandidateWorkflowPanel({
                 )}
 
                 {/* Strengths / Gaps */}
-                {(match.strengths.length > 0 || match.gaps.length > 0) && (
+                {(strengths.length > 0 || gaps.length > 0) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {match.strengths.length > 0 && (
+                    {strengths.length > 0 && (
                       <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-3">
                         <div className="text-xs font-medium text-emerald-700 mb-2 uppercase tracking-wide">Strengths</div>
                         <ul className="space-y-1.5">
-                          {match.strengths.map((s, i) => (
+                          {strengths.map((s, i) => (
                             <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
                               <CheckCircle2 className="w-3 h-3 mt-0.5 text-emerald-600 flex-shrink-0" />
                               <span>{s}</span>
@@ -413,11 +413,11 @@ export function CandidateWorkflowPanel({
                         </ul>
                       </div>
                     )}
-                    {match.gaps.length > 0 && (
+                    {gaps.length > 0 && (
                       <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-3">
                         <div className="text-xs font-medium text-amber-700 mb-2 uppercase tracking-wide">Gaps</div>
                         <ul className="space-y-1.5">
-                          {match.gaps.map((g, i) => (
+                          {gaps.map((g, i) => (
                             <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
                               <AlertCircle className="w-3 h-3 mt-0.5 text-amber-600 flex-shrink-0" />
                               <span>{g}</span>
