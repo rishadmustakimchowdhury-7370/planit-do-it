@@ -203,6 +203,20 @@ const normalizeEmailContentToPlainText = (input: string): string => {
   return text.replace(/\n{3,}/g, '\n\n').trim();
 };
 
+// Convert plain text (with paragraph breaks) into simple HTML for the rich text editor
+const plainTextToHtml = (text: string): string => {
+  const t = (text ?? '').trim();
+  if (!t) return '';
+  // If already HTML, return as-is
+  if (t.startsWith('<') && /<(p|div|br|ul|ol|li|h\d)\b/i.test(t)) return t;
+  return t
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+};
+
 export function SendCandidateEmailModal({
   open,
   onOpenChange,
