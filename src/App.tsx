@@ -227,6 +227,15 @@ const AppRoutes = () => (
       <Route path="/checkout/success" element={<ProtectedRoute><CheckoutSuccessPage /></ProtectedRoute>} />
       <Route path="/checkout/cancel" element={<CheckoutCancelPage />} />
       
+      {/* Client Portal routes (external client users only) */}
+      <Route path="/client" element={<Navigate to="/client/dashboard" replace />} />
+      <Route path="/client/dashboard" element={<ClientDashboardPage />} />
+      <Route path="/client/jobs" element={<ClientJobsPage />} />
+      <Route path="/client/jobs/:id" element={<ClientJobDetailPage />} />
+      <Route path="/client/candidates" element={<ClientCandidatesPage />} />
+      <Route path="/client/interviews" element={<ClientInterviewsPage />} />
+      <Route path="/client/notifications" element={<ClientNotificationsPage />} />
+
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
