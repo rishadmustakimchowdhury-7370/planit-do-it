@@ -281,7 +281,7 @@ export function CandidateWorkflowPanel({
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-semibold text-foreground truncate">{c.full_name}</h2>
+                <h2 className="text-xl font-semibold text-foreground truncate">{fullName}</h2>
                 <p className="text-sm text-accent truncate">{c.current_title || 'No title'}</p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                   {c.location && (
