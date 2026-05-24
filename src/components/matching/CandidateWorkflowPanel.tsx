@@ -140,6 +140,9 @@ export function CandidateWorkflowPanel({
   const waNumber = formatWhatsAppNumber(c.phone);
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
+  const confidence = match.confidence === 'high' || match.confidence === 'medium' || match.confidence === 'low'
+    ? match.confidence
+    : 'low';
 
   const handlePreviewOriginal = async () => {
     if (!cvFileUrl) {
@@ -312,9 +315,9 @@ export function CandidateWorkflowPanel({
                 <MatchScoreCircle score={match.match_score} size="md" />
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[match.confidence] ?? CONFIDENCE_COLOR.low)}
+                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[confidence])}
                 >
-                  {match.confidence ?? 'low'}
+                  {confidence}
                 </Badge>
               </div>
             </div>
