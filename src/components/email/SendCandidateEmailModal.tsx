@@ -925,12 +925,13 @@ export function SendCandidateEmailModal({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Email subject..."
+                  style={{ fontFamily: "'Poppins', sans-serif" }}
                 />
               </div>
 
-              {/* Body */}
+              {/* Body - Gmail-style rich text editor */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <Label htmlFor="body">Message</Label>
                   <div className="flex flex-wrap gap-1">
                     {placeholders.map((p) => (
@@ -938,18 +939,21 @@ export function SendCandidateEmailModal({
                         key={p}
                         variant="outline"
                         className="text-xs cursor-pointer hover:bg-muted"
-                        onClick={() => setBody(body + ' ' + p)}
+                        onClick={() => setBody((body || '') + ' ' + p)}
                       >
                         {p.replace(/\{\{|\}\}/g, '')}
                       </Badge>
                     ))}
                   </div>
                 </div>
-                <Textarea
-                  id="body"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Hi [Name],
+                <div
+                  style={{ fontFamily: "'Poppins', sans-serif" }}
+                  className="[&_.ProseMirror]:min-h-[260px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
+                >
+                  <RichTextEditor
+                    content={body}
+                    onChange={setBody}
+                    placeholder="Hi [Name],
 
 [Your introduction and context]
 
@@ -958,10 +962,10 @@ export function SendCandidateEmailModal({
 [Call to action or closing]
 
 Best regards,"
-                  rows={10}
-                  className="resize-none font-mono text-sm"
-                />
+                  />
+                </div>
               </div>
+
 
               {/* Attachments */}
               <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
