@@ -7,6 +7,7 @@ import { Briefcase, Users, CalendarClock, Sparkles, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { ClientActivityFeed } from '@/components/client/ClientActivityFeed';
 
 interface Stats { jobs: number; awaitingFeedback: number; upcomingInterviews: number; updates: number; }
 
@@ -100,16 +101,19 @@ export default function ClientDashboardPage() {
           </Card>
         </div>
 
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-lg font-semibold tracking-tight">Upcoming interviews</h2>
+        <div className="space-y-6">
+          <ClientActivityFeed limit={6} />
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-lg font-semibold tracking-tight">Upcoming interviews</h2>
+            </div>
+            <Card>
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                No interviews scheduled.
+              </CardContent>
+            </Card>
           </div>
-          <Card>
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              No interviews scheduled.
-            </CardContent>
-          </Card>
         </div>
       </div>
     </ClientLayout>
