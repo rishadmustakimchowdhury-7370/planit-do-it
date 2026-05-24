@@ -143,7 +143,7 @@ export default function AddJobPage() {
         .map(s => s.trim())
         .filter(Boolean);
 
-      const { error } = await supabase.from('jobs').insert({
+      const { data: newJob, error } = await supabase.from('jobs').insert({
         tenant_id: tenantId,
         title: formData.title,
         description: formData.description || null,
@@ -159,12 +159,19 @@ export default function AddJobPage() {
         client_id: formData.clientId || null,
         skills: skillsArray.length > 0 ? skillsArray : null,
         status: 'draft',
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
-      toast.success('Job created successfully');
-      navigate('/jobs');
+      // Fire-and-forget: embed job + trigger AI rediscovery scan
+      if (newJob?.id) {
+        supabase.functions.invoke('embed-job', { body: { job_id: newJob.id } })
+          .then(() => supabase.functions.invoke('rediscover-candidates', { body: { job_id: newJob.id, force: true } }))
+          .catch((e) => console.warn('Background rediscovery failed:', e));
+      }
+
+      toast.success('Job created — AI is scanning your database for matches.');
+      navigate(newJob?.id ? `/jobs/${newJob.id}` : '/jobs');
     } catch (error: any) {
       console.error('Error creating job:', error);
       toast.error(error.message || 'Failed to create job');

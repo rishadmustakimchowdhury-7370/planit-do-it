@@ -363,6 +363,41 @@ export type Database = {
           },
         ]
       }
+      candidate_embeddings: {
+        Row: {
+          candidate_id: string
+          embedding: string
+          model_version: string
+          source_text: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          embedding: string
+          model_version?: string
+          source_text: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          embedding?: string
+          model_version?: string
+          source_text?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_embeddings_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           avatar_url: string | null
@@ -1733,6 +1768,41 @@ export type Database = {
           },
         ]
       }
+      job_embeddings: {
+        Row: {
+          embedding: string
+          job_id: string
+          model_version: string
+          source_text: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          embedding: string
+          job_id: string
+          model_version?: string
+          source_text: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          embedding?: string
+          job_id?: string
+          model_version?: string
+          source_text?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_embeddings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           assigned_to: string | null
@@ -2834,6 +2904,125 @@ export type Database = {
           },
         ]
       }
+      rediscovered_matches: {
+        Row: {
+          ai_score: number | null
+          ai_summary: string | null
+          candidate_id: string
+          confidence: string
+          created_at: string
+          dismissed: boolean
+          gaps: Json
+          id: string
+          insights: Json
+          job_id: string
+          match_score: number
+          semantic_score: number | null
+          strengths: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_score?: number | null
+          ai_summary?: string | null
+          candidate_id: string
+          confidence?: string
+          created_at?: string
+          dismissed?: boolean
+          gaps?: Json
+          id?: string
+          insights?: Json
+          job_id: string
+          match_score?: number
+          semantic_score?: number | null
+          strengths?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ai_score?: number | null
+          ai_summary?: string | null
+          candidate_id?: string
+          confidence?: string
+          created_at?: string
+          dismissed?: boolean
+          gaps?: Json
+          id?: string
+          insights?: Json
+          job_id?: string
+          match_score?: number
+          semantic_score?: number | null
+          strengths?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rediscovered_matches_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rediscovered_matches_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rediscovery_runs: {
+        Row: {
+          candidates_scanned: number
+          completed_at: string | null
+          credits_used: number
+          error: string | null
+          id: string
+          job_id: string
+          matches_found: number
+          started_at: string
+          status: string
+          tenant_id: string
+          triggered_by: string | null
+        }
+        Insert: {
+          candidates_scanned?: number
+          completed_at?: string | null
+          credits_used?: number
+          error?: string | null
+          id?: string
+          job_id: string
+          matches_found?: number
+          started_at?: string
+          status?: string
+          tenant_id: string
+          triggered_by?: string | null
+        }
+        Update: {
+          candidates_scanned?: number
+          completed_at?: string | null
+          credits_used?: number
+          error?: string | null
+          id?: string
+          job_id?: string
+          matches_found?: number
+          started_at?: string
+          status?: string
+          tenant_id?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rediscovery_runs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduled_actions: {
         Row: {
           action_type: string
@@ -3918,6 +4107,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      candidates_missing_embeddings: {
+        Args: { p_limit?: number }
+        Returns: {
+          candidate_id: string
+        }[]
+      }
       create_chat_conversation: {
         Args: {
           p_visitor_email?: string
@@ -4021,6 +4216,13 @@ export type Database = {
       }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_candidates_for_job: {
+        Args: { p_job_id: string; p_match_count?: number }
+        Returns: {
+          candidate_id: string
+          similarity: number
+        }[]
+      }
       owns_chat_conversation: {
         Args: { p_conversation_id: string; p_visitor_id: string }
         Returns: boolean

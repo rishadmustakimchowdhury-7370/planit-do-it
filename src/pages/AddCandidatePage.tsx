@@ -383,7 +383,7 @@ export default function AddCandidatePage() {
         // Insert new candidate
         const skillsArray = Array.isArray(data.skills) ? data.skills : [];
         
-        const { error: insertError } = await supabase.from('candidates').insert({
+        const { data: insertedCand, error: insertError } = await supabase.from('candidates').insert({
           tenant_id: tenantId,
           full_name: data.full_name,
           email: data.email,
@@ -398,9 +398,15 @@ export default function AddCandidatePage() {
           cv_file_url: cvFileUrl,
           status: 'new',
           created_by: user?.id,
-        });
+        }).select('id').single();
 
         if (insertError) throw insertError;
+
+        // Fire-and-forget: build embedding for AI rediscovery
+        if (insertedCand?.id) {
+          supabase.functions.invoke('embed-candidate', { body: { candidate_id: insertedCand.id } })
+            .catch((e) => console.warn('Embed candidate failed:', e));
+        }
 
         // Log activity for KPI tracking
         await logActivity({
@@ -504,7 +510,7 @@ export default function AddCandidatePage() {
         }
       }
 
-      const { error } = await supabase.from('candidates').insert({
+      const { data: newCand, error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         full_name: formData.fullName,
         email: formData.email,
@@ -519,9 +525,14 @@ export default function AddCandidatePage() {
         cv_file_url: cvFileUrl,
         status: 'new',
         created_by: user?.id,
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      if (newCand?.id) {
+        supabase.functions.invoke('embed-candidate', { body: { candidate_id: newCand.id } })
+          .catch((e) => console.warn('Embed candidate failed:', e));
+      }
 
       // Log activity for KPI tracking
       await logActivity({

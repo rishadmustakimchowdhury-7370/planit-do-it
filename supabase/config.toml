@@ -128,3 +128,12 @@ verify_jwt = true
 
 [functions.totp-2fa]
 verify_jwt = false
+
+[functions.embed-candidate]
+verify_jwt = false
+
+[functions.embed-job]
+verify_jwt = false
+
+[functions.rediscover-candidates]
+verify_jwt = true
