@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { MapPin, Briefcase, CheckCircle2, XCircle, CalendarPlus, Download, FileText, Sparkles, MessageSquarePlus, Loader2 } from 'lucide-react';
 import { CandidateCollaborationPanel } from '@/components/clients/CandidateCollaborationPanel';
+import { RequestInterviewDialog } from '@/components/clients/RequestInterviewDialog';
 
 interface Props {
   shareId: string | null;
@@ -24,6 +25,7 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
   const [loading, setLoading] = useState(false);
   const [feedbackNote, setFeedbackNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [interviewOpen, setInterviewOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !shareId) { setShare(null); return; }
@@ -104,7 +106,7 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
                 <Button size="sm" variant="outline" onClick={() => submitDecision('reject')} disabled={submitting}>
                   <XCircle className="h-3.5 w-3.5" /> Reject
                 </Button>
-                <Button size="sm" variant="outline" disabled>
+                <Button size="sm" variant="outline" onClick={() => setInterviewOpen(true)}>
                   <CalendarPlus className="h-3.5 w-3.5" /> Request Interview
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => submitDecision('request_more')} disabled={submitting}>
@@ -201,6 +203,15 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
           </>
         )}
       </SheetContent>
+      {share?.job_candidate_id && share?.job_candidates?.job_id && (
+        <RequestInterviewDialog
+          open={interviewOpen}
+          onOpenChange={setInterviewOpen}
+          jobCandidateId={share.job_candidate_id}
+          jobId={share.job_candidates.job_id}
+          candidateName={candidate?.full_name}
+        />
+      )}
     </Sheet>
   );
 }
