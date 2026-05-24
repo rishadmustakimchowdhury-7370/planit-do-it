@@ -11,6 +11,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
+function getEnv(name: string) {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`${name} not configured`);
+  return value;
+}
+
 async function embedJobIfMissing(supabase: any, jobId: string) {
   const { data: existing } = await supabase
     .from("job_embeddings").select("job_id").eq("job_id", jobId).maybeSingle();
@@ -67,7 +73,7 @@ async function aiScoreBatch(job: any, candidates: any[]): Promise<Record<string,
   const userPrompt = `JOB:
 Title: ${job.title}
 Location: ${job.location ?? ""}
-Industry: ${job.industry ?? ""}
+Experience Level: ${job.experience_level ?? ""}
 Required Skills: ${(job.skills ?? []).join(", ")}
 Description: ${(job.description ?? "").slice(0, 2000)}
 
@@ -146,10 +152,6 @@ function buildInsights(c: any, recentEmails: any[]): string[] {
   if (updatedAt && Date.now() - updatedAt.getTime() < 30 * 86400 * 1000) {
     insights.push("Recently active");
   }
-  const np = (c.notice_period ?? "").toLowerCase();
-  if (np && (np.includes("immediate") || np.includes("available") || np.includes("0"))) {
-    insights.push("Available now");
-  }
   const submitted = recentEmails.some((e: any) => e.candidate_id === c.id);
   if (submitted) insights.push("Previously contacted");
   return insights;
@@ -184,7 +186,10 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    const supabase = createClient(SUPABASE_URL, getEnv("SUPABASE_SERVICE_ROLE_KEY"));
+    const rpcClient = createClient(SUPABASE_URL, getEnv("SUPABASE_ANON_KEY"), {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Verify job belongs to user's tenant
     const { data: profile } = await supabase
@@ -192,7 +197,7 @@ serve(async (req) => {
     const callerTenant = profile?.tenant_id;
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, tenant_id, title, description, requirements, location, industry, skills")
+      .select("id, tenant_id, title, description, requirements, location, experience_level, skills")
       .eq("id", job_id)
       .maybeSingle();
 
@@ -237,7 +242,7 @@ serve(async (req) => {
       const embedded = await embedMissingCandidates(supabase, job.tenant_id, 25);
 
       // 3. Top-K similarity
-      const { data: matches, error: matchErr } = await supabase
+      const { data: matches, error: matchErr } = await rpcClient
         .rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 25 });
       if (matchErr) throw matchErr;
 
@@ -265,7 +270,7 @@ serve(async (req) => {
       const aiPoolIds = eligibleIds.slice(0, 10);
       const { data: candidates } = await supabase
         .from("candidates")
-        .select("id, full_name, current_title, location, experience_years, skills, summary, notice_period, updated_at")
+        .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
         .in("id", aiPoolIds);
 
       // 6. AI scoring (batched)
