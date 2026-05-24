@@ -575,26 +575,16 @@ export function CandidateWorkflowPanel({
 
       {/* Email dialogs */}
       {c.email && (
-        <>
-          <SendEmailDialog
-            open={emailOpen}
-            onOpenChange={setEmailOpen}
-            recipientEmail={c.email}
-            recipientName={fullName}
-            context="candidate"
-            contextData={{ candidateName: fullName }}
-          />
-          <SendCandidateEmailModal
-            open={aiEmailOpen}
-            onOpenChange={setAiEmailOpen}
-            candidate={{
-              id: c.id,
-              full_name: fullName,
-              email: c.email,
-            } as any}
-            preSelectedJobId={jobId}
-          />
-        </>
+        <SendCandidateEmailModal
+          open={aiEmailOpen}
+          onOpenChange={setAiEmailOpen}
+          candidate={{
+            id: c.id,
+            full_name: fullName,
+            email: c.email,
+          } as any}
+          preSelectedJobId={jobId}
+        />
       )}
     </>
   );
