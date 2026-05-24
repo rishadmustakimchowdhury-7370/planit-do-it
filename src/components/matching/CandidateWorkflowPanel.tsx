@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
-import { SendEmailDialog } from '@/components/communication/SendEmailDialog';
+
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
