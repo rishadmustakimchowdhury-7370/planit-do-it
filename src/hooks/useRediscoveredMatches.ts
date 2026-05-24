@@ -28,7 +28,6 @@ export interface RediscoveredMatch {
     location: string | null;
     experience_years: number | null;
     updated_at: string | null;
-    owner_id: string | null;
   };
 }
 
@@ -55,7 +54,7 @@ export function useRediscoveredMatches(jobId: string | undefined) {
           *,
           candidate:candidates!rediscovered_matches_candidate_id_fkey (
             id, full_name, email, phone, avatar_url, current_title, location,
-            experience_years, updated_at, owner_id
+            experience_years, updated_at
           )
         `)
         .eq('job_id', jobId!)
