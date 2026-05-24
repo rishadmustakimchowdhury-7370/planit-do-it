@@ -41,6 +41,7 @@ const adminNavItems = [
   { title: 'Pages', url: '/admin/pages', icon: FileText },
   { title: 'Testimonials', url: '/admin/testimonials', icon: MessageSquare },
   { title: 'Trusted Clients', url: '/admin/trusted-clients', icon: Building2 },
+  { title: 'Client Portal', url: '/admin/client-portal', icon: Users },
   { title: 'Branding', url: '/admin/branding', icon: Palette },
   { title: 'SEO Settings', url: '/admin/seo', icon: Search },
   { title: 'Email Templates', url: '/admin/emails', icon: Mail },

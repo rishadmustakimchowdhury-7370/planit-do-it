@@ -84,6 +84,8 @@ const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminSEOPage = lazy(() => import("./pages/admin/AdminSEOPage"));
 const AdminTrustedClientsPage = lazy(() => import("./pages/admin/AdminTrustedClientsPage"));
 const AdminPromoCodesPage = lazy(() => import("./pages/admin/AdminPromoCodesPage"));
+const AdminClientPortalPage = lazy(() => import("./pages/admin/AdminClientPortalPage"));
+const AcceptClientInvitationPage = lazy(() => import("./pages/AcceptClientInvitationPage"));
 
 // Lazy load chat widget
 const LiveChatWidget = lazy(() => import("./components/chat/LiveChatWidget").then(m => ({ default: m.LiveChatWidget })));
@@ -158,6 +160,7 @@ const AppRoutes = () => (
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/accept-client-invitation" element={<AcceptClientInvitationPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/features" element={<FeaturesPage />} />
@@ -221,6 +224,7 @@ const AppRoutes = () => (
       <Route path="/admin/billing-settings" element={<ProtectedRoute><AdminBillingSettingsPage /></ProtectedRoute>} />
       <Route path="/admin/stripe-connect" element={<ProtectedRoute><AdminStripeConnectPage /></ProtectedRoute>} />
       <Route path="/admin/trusted-clients" element={<ProtectedRoute><AdminTrustedClientsPage /></ProtectedRoute>} />
+      <Route path="/admin/client-portal" element={<ProtectedRoute><AdminClientPortalPage /></ProtectedRoute>} />
       
       {/* Checkout routes */}
       <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />

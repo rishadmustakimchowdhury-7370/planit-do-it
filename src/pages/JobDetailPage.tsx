@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDialog';
 import { RediscoveredTalentSection as AITalentMatchSection } from '@/components/matching/RediscoveredTalentSection';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
+import { ShareJobWithClientDialog } from '@/components/clients/ShareJobWithClientDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { 
@@ -20,6 +21,7 @@ import {
   Sparkles, 
   Edit, 
   UserPlus,
+  Share2,
   Building2,
   FileText,
   Loader2,
@@ -153,6 +155,7 @@ const JobDetailPage = () => {
   const [isRunningMatch, setIsRunningMatch] = useState(false);
   const [showAddCandidateDialog, setShowAddCandidateDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [deleteCandidate, setDeleteCandidate] = useState<JobCandidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -533,6 +536,17 @@ const JobDetailPage = () => {
                 >
                   <Edit className="w-4 h-4" />
                   Edit
+                </Button>
+              )}
+              {(userRole === 'owner' || userRole === 'manager' || userRole === 'recruiter') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-10"
+                  onClick={() => setShowShareDialog(true)}
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share with Client
                 </Button>
               )}
               <Button 
@@ -917,6 +931,16 @@ const JobDetailPage = () => {
           jobTitle={job.title}
           currentAssigneeIds={job.assigned_to ? [job.assigned_to] : []}
           onAssignmentComplete={fetchJobDetails}
+        />
+      )}
+
+      {/* Share with Client Dialog */}
+      {job && (
+        <ShareJobWithClientDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          jobId={job.id}
+          jobTitle={job.title}
         />
       )}
 
