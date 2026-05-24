@@ -306,7 +306,9 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
   const isTop = index < 3 && match.match_score >= 80;
   const fullName = c?.full_name || 'Unknown candidate';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
-  const confidence = match.confidence ?? 'low';
+  const confidence = match.confidence === 'high' || match.confidence === 'medium' || match.confidence === 'low'
+    ? match.confidence
+    : 'low';
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
   const insights = Array.isArray(match.insights) ? match.insights : [];
