@@ -11,6 +11,16 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
+function getEnv(name: string) {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`${name} not configured`);
+  return value;
+}
+
+function formatSkills(skills: unknown): string {
+  return Array.isArray(skills) ? skills.filter(Boolean).join(", ") : "";
+}
+
 async function embedJobIfMissing(supabase: any, jobId: string) {
   const { data: existing } = await supabase
     .from("job_embeddings").select("job_id").eq("job_id", jobId).maybeSingle();
@@ -28,13 +38,26 @@ async function embedJobIfMissing(supabase: any, jobId: string) {
 }
 
 async function embedMissingCandidates(supabase: any, tenantId: string, limit = 30) {
-  // Find candidates in tenant without embeddings
-  const { data: missing } = await supabase
+  const { data: candidates, error: candidatesError } = await supabase
     .from("candidates")
-    .select("id, candidate_embeddings(candidate_id)")
+    .select("id")
     .eq("tenant_id", tenantId)
-    .is("candidate_embeddings.candidate_id", null)
-    .limit(limit);
+    .order("updated_at", { ascending: false })
+    .limit(limit * 2);
+
+  if (candidatesError) throw candidatesError;
+  if (!candidates?.length) return 0;
+
+  const candidateIds = candidates.map((row: any) => row.id);
+  const { data: existing, error: existingError } = await supabase
+    .from("candidate_embeddings")
+    .select("candidate_id")
+    .in("candidate_id", candidateIds);
+
+  if (existingError) throw existingError;
+
+  const embeddedIds = new Set((existing ?? []).map((row: any) => row.candidate_id));
+  const missing = candidates.filter((row: any) => !embeddedIds.has(row.id)).slice(0, limit);
 
   if (!missing?.length) return 0;
   let embedded = 0;
@@ -67,8 +90,8 @@ async function aiScoreBatch(job: any, candidates: any[]): Promise<Record<string,
   const userPrompt = `JOB:
 Title: ${job.title}
 Location: ${job.location ?? ""}
-Industry: ${job.industry ?? ""}
-Required Skills: ${(job.skills ?? []).join(", ")}
+Experience Level: ${job.experience_level ?? ""}
+Required Skills: ${formatSkills(job.skills)}
 Description: ${(job.description ?? "").slice(0, 2000)}
 
 CANDIDATES (JSON):
@@ -146,10 +169,6 @@ function buildInsights(c: any, recentEmails: any[]): string[] {
   if (updatedAt && Date.now() - updatedAt.getTime() < 30 * 86400 * 1000) {
     insights.push("Recently active");
   }
-  const np = (c.notice_period ?? "").toLowerCase();
-  if (np && (np.includes("immediate") || np.includes("available") || np.includes("0"))) {
-    insights.push("Available now");
-  }
   const submitted = recentEmails.some((e: any) => e.candidate_id === c.id);
   if (submitted) insights.push("Previously contacted");
   return insights;
@@ -184,7 +203,10 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    const supabase = createClient(SUPABASE_URL, getEnv("SUPABASE_SERVICE_ROLE_KEY"));
+    const rpcClient = createClient(SUPABASE_URL, getEnv("SUPABASE_ANON_KEY"), {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Verify job belongs to user's tenant
     const { data: profile } = await supabase
@@ -192,7 +214,7 @@ serve(async (req) => {
     const callerTenant = profile?.tenant_id;
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, tenant_id, title, description, requirements, location, industry, skills")
+      .select("id, tenant_id, title, description, requirements, location, experience_level, skills")
       .eq("id", job_id)
       .maybeSingle();
 
@@ -237,7 +259,7 @@ serve(async (req) => {
       const embedded = await embedMissingCandidates(supabase, job.tenant_id, 25);
 
       // 3. Top-K similarity
-      const { data: matches, error: matchErr } = await supabase
+      const { data: matches, error: matchErr } = await rpcClient
         .rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 25 });
       if (matchErr) throw matchErr;
 
@@ -265,7 +287,7 @@ serve(async (req) => {
       const aiPoolIds = eligibleIds.slice(0, 10);
       const { data: candidates } = await supabase
         .from("candidates")
-        .select("id, full_name, current_title, location, experience_years, skills, summary, notice_period, updated_at")
+        .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
         .in("id", aiPoolIds);
 
       // 6. AI scoring (batched)

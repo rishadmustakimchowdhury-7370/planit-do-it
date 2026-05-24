@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
-  Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin, Clock,
+  Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin,
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
@@ -324,7 +324,6 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
           <div className="text-xs text-muted-foreground truncate">{c.current_title || 'No title'}</div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground">
             {c.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.location}</span>}
-            {c.notice_period && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{c.notice_period}</span>}
             {c.experience_years != null && <span>{c.experience_years}y exp</span>}
           </div>
         </div>

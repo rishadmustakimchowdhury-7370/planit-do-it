@@ -14,7 +14,6 @@ function buildCandidateText(c: any): string {
   if (c.current_company) parts.push(`Company: ${c.current_company}`);
   if (c.location) parts.push(`Location: ${c.location}`);
   if (c.experience_years != null) parts.push(`Years of Experience: ${c.experience_years}`);
-  if (c.notice_period) parts.push(`Notice Period: ${c.notice_period}`);
   if (c.summary) parts.push(`Summary: ${c.summary}`);
   const skills = Array.isArray(c.skills) ? c.skills : [];
   if (skills.length) parts.push(`Skills: ${skills.join(", ")}`);
@@ -60,7 +59,7 @@ serve(async (req) => {
 
     const { data: candidate, error } = await supabase
       .from("candidates")
-      .select("id, tenant_id, full_name, current_title, current_company, location, experience_years, notice_period, summary, skills, work_history, education, cv_parsed_data")
+      .select("id, tenant_id, full_name, current_title, current_company, location, experience_years, summary, skills, work_history, education, cv_parsed_data")
       .eq("id", candidate_id)
       .maybeSingle();
 
