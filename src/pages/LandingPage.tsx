@@ -595,6 +595,32 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ SECURITY & TRUST STRIP ============ */}
+      <section className="py-14 px-6 bg-background border-t border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <div className="text-center mb-8">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Enterprise-grade security & trust
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: KeyRound, label: 'Two-Factor Authentication' },
+              { icon: ServerCog, label: 'Secure Cloud Infrastructure' },
+              { icon: Shield, label: 'Role-Based Permissions' },
+              { icon: Lock, label: 'Protected Candidate Data' },
+            ].map((t) => (
+              <div key={t.label} className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border bg-card">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center flex-shrink-0">
+                  <t.icon className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium">{t.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ============ PREMIUM FOOTER ============ */}
       <footer className="bg-[#070b14] text-white/70 border-t border-white/10">
         <div className="container mx-auto px-6 py-16">
