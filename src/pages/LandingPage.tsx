@@ -109,6 +109,7 @@ export default function LandingPage() {
   const [watchDemoOpen, setWatchDemoOpen] = useState(false);
   const [bookDemoOpen, setBookDemoOpen] = useState(false);
   const [demoVideoUrl, setDemoVideoUrl] = useState<string | null>(null);
+  const [demoPlaying, setDemoPlaying] = useState(false);
   const { plans: pricingPlans } = usePublicPricingPlans();
 
   useEffect(() => {
