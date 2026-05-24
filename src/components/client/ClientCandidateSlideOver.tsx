@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { MapPin, Briefcase, CheckCircle2, XCircle, CalendarPlus, Download, FileText, Sparkles, MessageSquarePlus, Loader2 } from 'lucide-react';
+import { CandidateCollaborationPanel } from '@/components/clients/CandidateCollaborationPanel';
 
 interface Props {
   shareId: string | null;
@@ -183,21 +184,17 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
                   )}
                 </TabsContent>
 
-                <TabsContent value="feedback" className="mt-5 space-y-3">
-                  <Textarea
-                    placeholder="Add a hiring note for your recruiter..."
-                    value={feedbackNote}
-                    onChange={(e) => setFeedbackNote(e.target.value)}
-                    rows={5}
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" disabled={submitting || !feedbackNote.trim()}>
-                      {submitting && <Loader2 className="h-3 w-3 animate-spin" />} Send to recruiter
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Threaded discussions go live in the next release.
-                  </p>
+                <TabsContent value="feedback" className="mt-5">
+                  {share?.job_candidate_id && clientPortal?.client_org_id && clientPortal?.tenant_id ? (
+                    <CandidateCollaborationPanel
+                      jobCandidateId={share.job_candidate_id}
+                      clientOrgId={clientPortal.client_org_id}
+                      tenantId={clientPortal.tenant_id}
+                      authorType="client"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Loading collaboration context…</p>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
