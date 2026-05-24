@@ -38,7 +38,7 @@ export default function ClientCandidatesPage() {
 
       const openParam = params.get('open');
       if (openParam) {
-        const match = (data || []).find((s: any) => s.job_candidate_id === openParam);
+        const match = ((data || []) as any[]).find((s: any) => s.job_candidate_id === openParam);
         if (match) setOpenShareId(match.id);
       }
     })();
