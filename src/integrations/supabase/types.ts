@@ -250,6 +250,10 @@ export type Database = {
           client_org_id: string
           id: string
           job_candidate_id: string
+          public_share_expires_at: string | null
+          public_share_last_viewed_at: string | null
+          public_share_token: string | null
+          public_share_view_count: number
           recruiter_summary: string | null
           shared_at: string
           shared_by: string
@@ -263,6 +267,10 @@ export type Database = {
           client_org_id: string
           id?: string
           job_candidate_id: string
+          public_share_expires_at?: string | null
+          public_share_last_viewed_at?: string | null
+          public_share_token?: string | null
+          public_share_view_count?: number
           recruiter_summary?: string | null
           shared_at?: string
           shared_by: string
@@ -276,6 +284,10 @@ export type Database = {
           client_org_id?: string
           id?: string
           job_candidate_id?: string
+          public_share_expires_at?: string | null
+          public_share_last_viewed_at?: string | null
+          public_share_token?: string | null
+          public_share_view_count?: number
           recruiter_summary?: string | null
           shared_at?: string
           shared_by?: string
@@ -4655,6 +4667,7 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
