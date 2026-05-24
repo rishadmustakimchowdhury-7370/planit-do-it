@@ -18,6 +18,18 @@ export interface RediscoveredMatch {
   dismissed: boolean;
   created_at: string;
   updated_at: string;
+  sub_scores: {
+    role?: number;
+    skills?: number;
+    industry?: number;
+    seniority?: number;
+    experience?: number;
+    location?: number;
+    penalty?: number;
+    job_family?: string | null;
+    candidate_family?: string | null;
+  } | null;
+  model_version: string | null;
   candidate: {
     id: string;
     full_name: string;

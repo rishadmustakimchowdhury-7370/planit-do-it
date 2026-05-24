@@ -37,7 +37,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minScore, setMinScore] = useState<string>('0');
+  const [minScore, setMinScore] = useState<string>('65');
   const [search, setSearch] = useState('');
   const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -112,7 +112,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-foreground">Rediscovered Talent</h3>
+                <h3 className="font-semibold text-foreground">AI Talent Match</h3>
                 <Badge variant="outline" className="text-[10px] uppercase tracking-wide gap-1 border-accent/30 text-accent">
                   AI
                 </Badge>
@@ -121,7 +121,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Past candidates from your database matched to this role — {lastRunText}
+                Single ranked list of candidates from your database — deterministic hybrid scoring, AI-explained. {lastRunText}
               </p>
             </div>
           </div>
@@ -164,12 +164,10 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                   <Select value={minScore} onValueChange={setMinScore}>
                     <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Min score" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">All scores</SelectItem>
-                      <SelectItem value="25">≥ 25%</SelectItem>
-                      <SelectItem value="40">≥ 40%</SelectItem>
-                      <SelectItem value="60">≥ 60%</SelectItem>
+                      <SelectItem value="65">≥ 65% (default)</SelectItem>
                       <SelectItem value="75">≥ 75%</SelectItem>
                       <SelectItem value="85">≥ 85%</SelectItem>
+                      <SelectItem value="0">Show all</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
@@ -343,6 +341,10 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </p>
       )}
 
+      {match.sub_scores && (
+        <ScoreBreakdown sub={match.sub_scores} />
+      )}
+
       {(match.strengths.length > 0 || match.gaps.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1">
           {match.strengths.slice(0, 3).map((s, i) => (
@@ -376,5 +378,45 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </Button>
       </div>
     </motion.div>
+  );
+}
+
+const FACTOR_LABELS: Record<string, string> = {
+  role: 'Role',
+  skills: 'Skills',
+  seniority: 'Seniority',
+  experience: 'Experience',
+  industry: 'Industry',
+  location: 'Location',
+};
+
+function ScoreBreakdown({ sub }: { sub: NonNullable<RediscoveredMatch['sub_scores']> }) {
+  const factors = ['role', 'skills', 'seniority', 'experience', 'location'] as const;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/40">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Why this score</div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {factors.map((k) => {
+          const v = Math.round(((sub[k] as number | undefined) ?? 0) * 100);
+          const tone = v >= 70 ? 'bg-emerald-500' : v >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+          return (
+            <div key={k} className="flex flex-col gap-0.5">
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div className={cn('h-full', tone)} style={{ width: `${v}%` }} />
+              </div>
+              <div className="text-[9px] text-muted-foreground flex justify-between">
+                <span>{FACTOR_LABELS[k]}</span>
+                <span className="tabular-nums">{v}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {(sub.penalty ?? 0) > 0 && (
+        <div className="text-[10px] text-rose-600 mt-1.5">
+          −{Math.round((sub.penalty ?? 0) * 100)} penalty applied (role/skill/seniority mismatch)
+        </div>
+      )}
+    </div>
   );
 }

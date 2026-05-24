@@ -2917,8 +2917,10 @@ export type Database = {
           insights: Json
           job_id: string
           match_score: number
+          model_version: string
           semantic_score: number | null
           strengths: Json
+          sub_scores: Json
           tenant_id: string
           updated_at: string
         }
@@ -2934,8 +2936,10 @@ export type Database = {
           insights?: Json
           job_id: string
           match_score?: number
+          model_version?: string
           semantic_score?: number | null
           strengths?: Json
+          sub_scores?: Json
           tenant_id: string
           updated_at?: string
         }
@@ -2951,8 +2955,10 @@ export type Database = {
           insights?: Json
           job_id?: string
           match_score?: number
+          model_version?: string
           semantic_score?: number | null
           strengths?: Json
+          sub_scores?: Json
           tenant_id?: string
           updated_at?: string
         }
