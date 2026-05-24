@@ -1303,7 +1303,7 @@ your@email.com"
                 </div>
               </div>
             </TabsContent>
-          </ScrollArea>
+          </div>
         </Tabs>
 
         {/* Actions */}
