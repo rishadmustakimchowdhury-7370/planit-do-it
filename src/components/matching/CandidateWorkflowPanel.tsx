@@ -133,8 +133,11 @@ export function CandidateWorkflowPanel({
 
   if (!match || !c) return null;
 
-  const initials = c.full_name.split(' ').map(n => n[0]).join('').slice(0, 2);
+  const fullName = c.full_name || 'Unknown candidate';
+  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
   const waNumber = formatWhatsAppNumber(c.phone);
+  const strengths = Array.isArray(match.strengths) ? match.strengths : [];
+  const gaps = Array.isArray(match.gaps) ? match.gaps : [];
 
   const handlePreviewOriginal = async () => {
     if (!cvFileUrl) {
