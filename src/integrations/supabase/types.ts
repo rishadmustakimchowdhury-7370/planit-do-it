@@ -300,6 +300,67 @@ export type Database = {
           },
         ]
       }
+      candidate_discussions: {
+        Row: {
+          author_type: string
+          author_user_id: string
+          body: string
+          client_org_id: string
+          created_at: string
+          id: string
+          job_candidate_id: string
+          parent_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_type: string
+          author_user_id: string
+          body: string
+          client_org_id: string
+          created_at?: string
+          id?: string
+          job_candidate_id: string
+          parent_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_type?: string
+          author_user_id?: string
+          body?: string
+          client_org_id?: string
+          created_at?: string
+          id?: string
+          job_candidate_id?: string
+          parent_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_discussions_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_discussions_job_candidate_id_fkey"
+            columns: ["job_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "job_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_discussions_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_discussions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_emails: {
         Row: {
           ai_generated: boolean | null
@@ -451,6 +512,63 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: true
             referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_feedback: {
+        Row: {
+          author_type: string
+          author_user_id: string
+          client_org_id: string
+          comment: string | null
+          created_at: string
+          decision: string | null
+          id: string
+          job_candidate_id: string
+          rating: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_type: string
+          author_user_id: string
+          client_org_id: string
+          comment?: string | null
+          created_at?: string
+          decision?: string | null
+          id?: string
+          job_candidate_id: string
+          rating?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_type?: string
+          author_user_id?: string
+          client_org_id?: string
+          comment?: string | null
+          created_at?: string
+          decision?: string | null
+          id?: string
+          job_candidate_id?: string
+          rating?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_feedback_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_feedback_job_candidate_id_fkey"
+            columns: ["job_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "job_candidates"
             referencedColumns: ["id"]
           },
         ]
