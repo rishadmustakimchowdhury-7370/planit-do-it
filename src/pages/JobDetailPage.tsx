@@ -934,6 +934,16 @@ const JobDetailPage = () => {
         />
       )}
 
+      {/* Share with Client Dialog */}
+      {job && (
+        <ShareJobWithClientDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          jobId={job.id}
+          jobTitle={job.title}
+        />
+      )}
+
       {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
         <AlertDialogContent>
