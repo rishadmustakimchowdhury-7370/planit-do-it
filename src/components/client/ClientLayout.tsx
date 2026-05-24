@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { ClientSidebar } from './ClientSidebar';
 import { Loader2 } from 'lucide-react';
+import { useClientOrgBranding, hexToHslVar } from '@/hooks/useClientOrgBranding';
 
 interface ClientLayoutProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children, title, subtitle }: ClientLayoutProps) {
   const { user, isLoading, isClientUser, isOwner, isManager, isRecruiter, isSuperAdmin } = useAuth();
+  const brand = useClientOrgBranding();
 
   if (isLoading) {
     return (
@@ -32,9 +34,16 @@ export function ClientLayout({ children, title, subtitle }: ClientLayoutProps) {
     return <Navigate to="/auth" replace />;
   }
 
+  const primaryHsl = hexToHslVar(brand?.primary_color);
+  // White-label: override --primary CSS var so all primary-themed UI follows the client's brand
+  const styleOverride: React.CSSProperties = {
+    fontFamily: "'Poppins', sans-serif",
+    ...(primaryHsl ? ({ ['--primary' as any]: primaryHsl, ['--ring' as any]: primaryHsl }) : {}),
+  };
+
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "'Poppins', sans-serif" }}>
-      <ClientSidebar />
+    <div className="min-h-screen bg-background" style={styleOverride}>
+      <ClientSidebar brand={brand} />
       <div className="lg:pl-64">
         {title && (
           <header className="border-b border-border bg-card/30 backdrop-blur-sm px-6 lg:px-10 py-6">
