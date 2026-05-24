@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,8 @@ const FACTOR_LABELS: Record<string, string> = {
 const FACTOR_WEIGHTS: Record<string, number> = {
   role: 40, skills: 25, industry: 10, seniority: 10, experience: 10, location: 5,
 };
+
+const FACTOR_KEYS = ['role', 'skills', 'industry', 'seniority', 'experience', 'location'] as const;
 
 export function CandidateWorkflowPanel({
   open, onOpenChange, match, jobId, jobTitle, onAddedToPipeline, onDismiss,
@@ -138,6 +140,9 @@ export function CandidateWorkflowPanel({
   const waNumber = formatWhatsAppNumber(c.phone);
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
+  const confidence = match.confidence === 'high' || match.confidence === 'medium' || match.confidence === 'low'
+    ? match.confidence
+    : 'low';
 
   const handlePreviewOriginal = async () => {
     if (!cvFileUrl) {
@@ -181,7 +186,7 @@ export function CandidateWorkflowPanel({
 
   const handleDownloadBranded = async () => {
     if (!cvFileUrl) return toast.error('No CV uploaded');
-    await downloadBranded({ fileUrl: cvFileUrl, documentType: 'cv', entityName: c.full_name });
+    await downloadBranded({ fileUrl: cvFileUrl, documentType: 'cv', entityName: fullName });
     logActivity({
       action_type: 'cv_download', candidate_id: candidateId, job_id: jobId,
       metadata: { variant: 'branded' },
@@ -193,7 +198,7 @@ export function CandidateWorkflowPanel({
       toast.error('No WhatsApp number on file');
       return;
     }
-    const firstName = c.full_name.split(' ')[0];
+    const firstName = fullName.split(' ')[0];
     const signature = recruiterName ? `\n\n— ${recruiterName}` : '';
     const message = `Hi ${firstName}, we reviewed your profile for our ${jobTitle} role and would like to discuss this opportunity with you.${signature}`;
     const url = getWhatsAppUrl(c.phone, message);
@@ -219,18 +224,18 @@ export function CandidateWorkflowPanel({
         .eq('candidate_id', candidateId)
         .maybeSingle();
       if (existing) {
-        toast.info(`${c.full_name} is already in the pipeline`);
+        toast.info(`${fullName} is already in the pipeline`);
         return;
       }
       const { error } = await supabase.from('job_candidates').insert({
         job_id: jobId, candidate_id: candidateId, tenant_id: tenantId,
         stage: 'applied', match_score: match.match_score,
         match_explanation: match.ai_summary,
-        match_strengths: match.strengths, match_gaps: match.gaps,
+        match_strengths: strengths, match_gaps: gaps,
         match_confidence: match.ai_score,
       });
       if (error) throw error;
-      toast.success(`${c.full_name} added to pipeline`);
+      toast.success(`${fullName} added to pipeline`);
       onAddedToPipeline?.();
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to add to pipeline');
@@ -258,11 +263,6 @@ export function CandidateWorkflowPanel({
       setSavingNote(false);
     }
   };
-
-  const factors = useMemo(
-    () => ['role', 'skills', 'industry', 'seniority', 'experience', 'location'] as const,
-    [],
-  );
 
   return (
     <>
@@ -315,9 +315,9 @@ export function CandidateWorkflowPanel({
                 <MatchScoreCircle score={match.match_score} size="md" />
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[match.confidence] ?? CONFIDENCE_COLOR.low)}
+                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[confidence])}
                 >
-                  {match.confidence ?? 'low'}
+                  {confidence}
                 </Badge>
               </div>
             </div>
@@ -369,7 +369,7 @@ export function CandidateWorkflowPanel({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-3">
                       <div className="space-y-2.5">
-                        {factors.map((k) => {
+                        {FACTOR_KEYS.map((k) => {
                           const v = Math.round(((match.sub_scores?.[k] as number | undefined) ?? 0) * 100);
                           const tone = v >= 70 ? 'bg-emerald-500' : v >= 40 ? 'bg-amber-500' : 'bg-rose-500';
                           return (
@@ -581,16 +581,16 @@ export function CandidateWorkflowPanel({
             open={emailOpen}
             onOpenChange={setEmailOpen}
             recipientEmail={c.email}
-            recipientName={c.full_name}
+            recipientName={fullName}
             context="candidate"
-            contextData={{ candidateName: c.full_name }}
+            contextData={{ candidateName: fullName }}
           />
           <SendCandidateEmailModal
             open={aiEmailOpen}
             onOpenChange={setAiEmailOpen}
             candidate={{
               id: c.id,
-              full_name: c.full_name,
+              full_name: fullName,
               email: c.email,
             } as any}
             preSelectedJobId={jobId}
