@@ -490,7 +490,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="relative max-w-5xl mx-auto"
+            className="relative max-w-4xl mx-auto"
           >
             <div className="absolute -inset-6 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-3xl opacity-60 -z-10" />
             <DashboardFrame src={reportsImg} alt="HireMetrics reports and analytics" />
