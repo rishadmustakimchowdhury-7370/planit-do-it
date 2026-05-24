@@ -55,7 +55,7 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
         </div>
         <div className="flex-1 flex justify-center">
           <div className="px-3 py-0.5 bg-background rounded-md text-[10px] text-muted-foreground font-mono border border-border/40">
-            app.hiremetrics.io
+            app.hiremetrics.co.uk
           </div>
         </div>
       </div>
