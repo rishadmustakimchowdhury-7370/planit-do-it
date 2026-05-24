@@ -1289,13 +1289,12 @@ your@email.com"
                 </div>
                 
                 {/* Email Body Preview */}
-                <div className="p-6 bg-background min-h-[300px]">
+                <div className="p-6 bg-background min-h-[300px]" style={{ fontFamily: "'Poppins', sans-serif" }}>
                   {body || appendSignature ? (
-                    <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                      {getPreviewContent() || (
-                        <span className="text-muted-foreground italic">No message content yet...</span>
-                      )}
-                    </div>
+                    <div
+                      className="prose prose-sm max-w-none text-sm leading-relaxed text-foreground"
+                      dangerouslySetInnerHTML={{ __html: getPreviewContent() || '<span class="text-muted-foreground italic">No message content yet...</span>' }}
+                    />
                   ) : (
                     <div className="text-muted-foreground italic text-center py-8">
                       Compose your email to see the preview here
