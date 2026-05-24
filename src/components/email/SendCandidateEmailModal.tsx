@@ -799,7 +799,7 @@ export function SendCandidateEmailModal({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4">
+          <div className="flex-1 mt-4 overflow-y-auto pr-1">
             <TabsContent value="compose" className="space-y-4 m-0 pr-4">
               {/* From Email - Sender Selection */}
               <div className="space-y-2">
