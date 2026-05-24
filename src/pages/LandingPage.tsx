@@ -212,7 +212,12 @@ export default function LandingPage() {
             className="relative mt-16 max-w-6xl mx-auto"
           >
             <div className="absolute -inset-8 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-[2rem] blur-3xl opacity-70 -z-10" />
-            <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
+            </motion.div>
 
             {/* Floating activity chips */}
             <motion.div
