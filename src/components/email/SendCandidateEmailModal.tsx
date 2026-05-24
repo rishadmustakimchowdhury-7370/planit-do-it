@@ -745,9 +745,12 @@ export function SendCandidateEmailModal({
   };
 
   const getPreviewContent = () => {
-    const sig = appendSignature && signatureText ? `\n\n${signatureText}` : '';
-    return body + sig;
+    const sigHtml = appendSignature && signatureText
+      ? `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;white-space:pre-wrap;color:#374151;font-size:14px;">${signatureText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+      : '';
+    return (body || '') + sigHtml;
   };
+
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
