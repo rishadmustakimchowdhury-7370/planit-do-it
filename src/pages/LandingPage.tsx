@@ -19,6 +19,9 @@ import aiMatchImg from '@/assets/crm/ai-match.jpg';
 import candidatesImg from '@/assets/crm/candidates.jpg';
 import teamPerfImg from '@/assets/crm/team-performance.jpg';
 import reportsImg from '@/assets/crm/reports.jpg';
+import emailComposeImg from '@/assets/crm/email-compose.jpg';
+import brandedCvImg from '@/assets/crm/branded-cv.jpg';
+import { Shield, Lock, KeyRound, ServerCog } from 'lucide-react';
 
 /* ---------------- Reusable bits ---------------- */
 
