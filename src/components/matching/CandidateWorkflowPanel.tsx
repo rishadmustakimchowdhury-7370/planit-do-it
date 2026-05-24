@@ -315,9 +315,9 @@ export function CandidateWorkflowPanel({
                 <MatchScoreCircle score={match.match_score} size="md" />
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[match.confidence])}
+                  className={cn('text-[10px] uppercase tracking-wide', CONFIDENCE_COLOR[match.confidence] ?? CONFIDENCE_COLOR.low)}
                 >
-                  {match.confidence}
+                  {match.confidence ?? 'low'}
                 </Badge>
               </div>
             </div>
