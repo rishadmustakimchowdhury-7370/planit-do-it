@@ -108,7 +108,7 @@ const PageLoader = () => (
 
 // Protected route wrapper with role-based dashboard routing
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isRecruiter, isOwner, isManager } = useAuth();
+  const { user, isLoading, isClientUser } = useAuth();
 
   if (isLoading) {
     return <PageLoader />;
@@ -116,6 +116,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Client portal users cannot access internal recruiter routes
+  if (isClientUser) {
+    return <Navigate to="/client/dashboard" replace />;
   }
 
   return <>{children}</>;
