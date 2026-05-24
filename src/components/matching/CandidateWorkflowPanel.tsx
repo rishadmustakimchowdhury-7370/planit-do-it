@@ -435,7 +435,7 @@ export function CandidateWorkflowPanel({
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <ActionBtn icon={Sparkles} label="AI outreach" onClick={() => setAiEmailOpen(true)} disabled={!c.email} />
-                    <ActionBtn icon={Mail} label="Send email" onClick={() => setEmailOpen(true)} disabled={!c.email} />
+                    <ActionBtn icon={Mail} label="Send email" onClick={() => setAiEmailOpen(true)} disabled={!c.email} />
                     <ActionBtn
                       icon={MessageCircle} label="WhatsApp"
                       onClick={handleWhatsApp} disabled={!waNumber}
