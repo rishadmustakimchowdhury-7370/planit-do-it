@@ -951,7 +951,7 @@ export function SendCandidateEmailModal({
                 </div>
                 <div
                   style={{ fontFamily: "'Poppins', sans-serif" }}
-                  className="[&_.ProseMirror]:min-h-[260px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
+                  className="[&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:text-foreground [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-relaxed [&_.ProseMirror_p]:my-2 [&_.ProseMirror]:font-[Poppins,sans-serif]"
                 >
                   <RichTextEditor
                     content={body}
