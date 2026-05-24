@@ -104,11 +104,11 @@ export function useRediscoveredMatches(jobId: string | undefined) {
     return () => { supabase.removeChannel(channel); };
   }, [jobId, queryClient]);
 
-  const scanMutation = useMutation({
-    mutationFn: async (force = false) => {
+  const scanMutation = useMutation<any, Error, boolean | void>({
+    mutationFn: async (force) => {
       if (!jobId) throw new Error('No job');
       const { data, error } = await supabase.functions.invoke('rediscover-candidates', {
-        body: { job_id: jobId, force },
+        body: { job_id: jobId, force: !!force },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
