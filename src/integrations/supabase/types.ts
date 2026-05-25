@@ -58,6 +58,57 @@ export type Database = {
           },
         ]
       }
+      ai_candidate_validations: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          fit_score: number | null
+          generated_by: string | null
+          id: string
+          job_id: string
+          model: string | null
+          recommendation: string | null
+          risks: Json
+          strengths: Json
+          summary: string | null
+          tenant_id: string
+          updated_at: string
+          weaknesses: Json
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          fit_score?: number | null
+          generated_by?: string | null
+          id?: string
+          job_id: string
+          model?: string | null
+          recommendation?: string | null
+          risks?: Json
+          strengths?: Json
+          summary?: string | null
+          tenant_id: string
+          updated_at?: string
+          weaknesses?: Json
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          fit_score?: number | null
+          generated_by?: string | null
+          id?: string
+          job_id?: string
+          model?: string | null
+          recommendation?: string | null
+          risks?: Json
+          strengths?: Json
+          summary?: string | null
+          tenant_id?: string
+          updated_at?: string
+          weaknesses?: Json
+        }
+        Relationships: []
+      }
       ai_usage: {
         Row: {
           action_type: string
@@ -581,6 +632,77 @@ export type Database = {
             columns: ["job_candidate_id"]
             isOneToOne: false
             referencedRelation: "job_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_submissions: {
+        Row: {
+          ai_validation_id: string | null
+          branded_cv_url: string | null
+          candidate_id: string
+          client_org_id: string
+          created_at: string
+          id: string
+          job_candidate_id: string | null
+          job_id: string
+          last_activity_at: string
+          original_cv_url: string | null
+          pack_pdf_url: string | null
+          status: Database["public"]["Enums"]["submission_status"]
+          submission_message: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          tenant_id: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          ai_validation_id?: string | null
+          branded_cv_url?: string | null
+          candidate_id: string
+          client_org_id: string
+          created_at?: string
+          id?: string
+          job_candidate_id?: string | null
+          job_id: string
+          last_activity_at?: string
+          original_cv_url?: string | null
+          pack_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["submission_status"]
+          submission_message?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tenant_id: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          ai_validation_id?: string | null
+          branded_cv_url?: string | null
+          candidate_id?: string
+          client_org_id?: string
+          created_at?: string
+          id?: string
+          job_candidate_id?: string | null
+          job_id?: string
+          last_activity_at?: string
+          original_cv_url?: string | null
+          pack_pdf_url?: string | null
+          status?: Database["public"]["Enums"]["submission_status"]
+          submission_message?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          tenant_id?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_submissions_ai_validation_id_fkey"
+            columns: ["ai_validation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_candidate_validations"
             referencedColumns: ["id"]
           },
         ]
@@ -1170,6 +1292,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_user_permissions: {
+        Row: {
+          approve_reject: boolean
+          client_org_id: string
+          client_user_id: string
+          created_at: string
+          id: string
+          leave_feedback: boolean
+          request_interviews: boolean
+          send_messages: boolean
+          tenant_id: string
+          updated_at: string
+          view_internal_notes: boolean
+          view_pipeline: boolean
+        }
+        Insert: {
+          approve_reject?: boolean
+          client_org_id: string
+          client_user_id: string
+          created_at?: string
+          id?: string
+          leave_feedback?: boolean
+          request_interviews?: boolean
+          send_messages?: boolean
+          tenant_id: string
+          updated_at?: string
+          view_internal_notes?: boolean
+          view_pipeline?: boolean
+        }
+        Update: {
+          approve_reject?: boolean
+          client_org_id?: string
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          leave_feedback?: boolean
+          request_interviews?: boolean
+          send_messages?: boolean
+          tenant_id?: string
+          updated_at?: string
+          view_internal_notes?: boolean
+          view_pipeline?: boolean
+        }
+        Relationships: []
       }
       clients: {
         Row: {
@@ -3620,6 +3787,97 @@ export type Database = {
         }
         Relationships: []
       }
+      submission_activity: {
+        Row: {
+          actor_type: string
+          actor_user_id: string | null
+          client_org_id: string
+          created_at: string
+          event_type: string
+          id: string
+          message: string | null
+          metadata: Json
+          submission_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_type: string
+          actor_user_id?: string | null
+          client_org_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          message?: string | null
+          metadata?: Json
+          submission_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_type?: string
+          actor_user_id?: string | null
+          client_org_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          metadata?: Json
+          submission_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_activity_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submission_recipients: {
+        Row: {
+          client_org_id: string
+          client_user_id: string
+          created_at: string
+          decision: string | null
+          decision_at: string | null
+          id: string
+          submission_id: string
+          tenant_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          client_org_id: string
+          client_user_id: string
+          created_at?: string
+          decision?: string | null
+          decision_at?: string | null
+          id?: string
+          submission_id: string
+          tenant_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          client_org_id?: string
+          client_user_id?: string
+          created_at?: string
+          decision?: string | null
+          decision_at?: string | null
+          id?: string
+          submission_id?: string
+          tenant_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_recipients_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -4796,6 +5054,20 @@ export type Database = {
         | "hired"
         | "rejected"
       rsvp_status: "pending" | "accepted" | "declined" | "tentative"
+      submission_status:
+        | "draft"
+        | "ai_validated"
+        | "prepared"
+        | "submitted"
+        | "viewed"
+        | "screening"
+        | "interview_requested"
+        | "interview_confirmed"
+        | "final_review"
+        | "offer"
+        | "hired"
+        | "rejected"
+        | "withdrawn"
       subscription_status:
         | "trial"
         | "active"
@@ -4985,6 +5257,21 @@ export const Constants = {
         "rejected",
       ],
       rsvp_status: ["pending", "accepted", "declined", "tentative"],
+      submission_status: [
+        "draft",
+        "ai_validated",
+        "prepared",
+        "submitted",
+        "viewed",
+        "screening",
+        "interview_requested",
+        "interview_confirmed",
+        "final_review",
+        "offer",
+        "hired",
+        "rejected",
+        "withdrawn",
+      ],
       subscription_status: [
         "trial",
         "active",

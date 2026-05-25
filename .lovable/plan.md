@@ -1,190 +1,131 @@
-# Client Collaboration Portal — Implementation Plan
+# Client Submission & Collaboration Workflow — Unified Build Plan
 
-A lightweight **collaboration layer** on top of HireMetrics. Not a second CRM. Clients get a calm, premium workspace scoped to *only* what's shared with them. Internal users keep their existing dashboards and gain collaboration superpowers.
+Phases 1–7 already shipped the foundation (auth, sharing, portal shell, discussions, interviews, notifications, branded sharing). This new plan **unifies them into one premium workflow** under a single "Client Submission" experience, and adds the missing pieces (Submission Pack, AI Validation, Status Pipeline, multi-contact orchestration, branded PDF, activity timeline, permission matrix).
 
----
-
-## Guiding Principles
-
-- **Layer, don't fork** — reuse existing `jobs`, `candidates`, `job_candidates`, `events`, `email_*`, `notifications` tables. Add only what collaboration needs.
-- **Zero-trust RLS** — every new table enforces tenant + share-scope at the database level. Clients can never see unrelated rows even with a forged request.
-- **Contextual, not chat** — every conversation hangs off a candidate / job / interview. No free-form rooms.
-- **One timeline of truth** — every action (share, view, feedback, interview, email, WhatsApp) writes to a unified `collaboration_activities` log.
-- **Premium minimal UI** — slide-over panels, soft cards, Poppins, generous spacing. No clutter in the client sidebar (5 items max).
+No code will be written until you approve.
 
 ---
 
-## Phase 1 — Roles, Invitations & Tenant Isolation (Foundation)
+## Phase 1 — Data Model: Submissions as First-Class Objects
 
-**Goal:** introduce external roles without disturbing internal RBAC.
+Today we have scattered tables (`candidate_client_shares`, `job_client_shares`, `interview_requests`, `candidate_discussions`, `candidate_feedback`). Phase 1 unifies them under one **`candidate_submissions`** entity — the spine of the whole workflow.
 
-- Extend `app_role` enum: add `client_user`, `hiring_manager`.
-- New tables:
-  - `client_organizations` (tenant_id, client_id → existing `clients.id`, name, branding)
-  - `client_portal_users` (user_id, tenant_id, client_org_id, role, invited_by, status)
-  - `client_invitations` (token-based, mirrors `team_invitations` pattern, 7-day TTL)
-- Auth routing:
-  - On login, if user has *only* `client_user` / `hiring_manager` role → redirect to `/client` route tree.
-  - Internal users blocked from `/client/*`; client users blocked from everything else.
-- Edge function: `invite-client-user` (sends branded invitation email via existing SMTP infra).
-- RLS helpers (SECURITY DEFINER):
-  - `is_client_user(uid)`, `client_org_for_user(uid)`, `client_can_see_job(uid, job_id)`, `client_can_see_candidate(uid, candidate_id)`.
+New tables / columns:
+- `candidate_submissions` — id, tenant_id, job_id, candidate_id, job_candidate_id, client_org_id, status (enum below), submission_message, ai_validation_id, branded_cv_url, original_cv_url, pack_pdf_url, submitted_by, submitted_at, viewed_at, last_activity_at.
+- `submission_status` enum: `draft → ai_validated → prepared → submitted → viewed → screening → interview_requested → interview_confirmed → final_review → offer → hired → rejected → withdrawn`.
+- `submission_recipients` — links a submission to specific `client_portal_users` (multi-contact targeting + per-recipient view tracking).
+- `submission_activity` — unified timeline events (created, viewed, feedback_added, interview_requested, status_changed, email_sent, note_added, document_downloaded).
+- `ai_candidate_validations` — fit_score, strengths[], weaknesses[], risks[], recommendation (`strongly_recommended | needs_review | not_recommended`), summary, generated_at, model.
+- `client_user_permissions` — per-client-user feature flags (view_pipeline, request_interviews, leave_feedback, send_messages, approve_reject, view_internal_notes).
 
----
+Migration also backfills existing `candidate_client_shares` rows into `candidate_submissions` so nothing is lost.
 
-## Phase 2 — Sharing Model (What Clients Can See)
-
-**Goal:** explicit, auditable sharing. Nothing is visible by default.
-
-- New tables:
-  - `job_client_shares` (job_id, client_org_id, shared_by, shared_at, permissions jsonb)
-  - `candidate_client_shares` (job_candidate_id, client_org_id, shared_by, status: shared/withdrawn, branded_cv_url, recruiter_summary, ai_insights_snapshot jsonb)
-- Internal UI:
-  - On `JobDetailPage` → "Share with client" action (selects client org, sets permissions).
-  - On `CandidateWorkflowPanel` → "Share with client" button (snapshots AI match, recruiter summary, generates/links branded CV).
-- RLS: client RLS on `jobs` / `candidates` / `job_candidates` reads through these share tables only.
+RLS: strict tenant isolation for agency side; clients can only see submissions where `client_org_id = client_org_for_user(auth.uid())` AND a row exists in `submission_recipients` for them.
 
 ---
 
-## Phase 3 — Client Workspace Shell + Dashboard + Jobs + Candidate Slide-Over
+## Phase 2 — AI Validation Engine
 
-**Goal:** the visible portal.
+Edge function `validate-candidate-fit`:
+- Input: `job_id`, `candidate_id`.
+- Pulls JD + candidate profile/CV, calls OpenAI `gpt-4o-mini` (per memory: no AI Gateway).
+- Returns structured JSON → persisted in `ai_candidate_validations`.
+- Deducts AI credits via existing `deduct_user_ai_credits`.
+- Re-run supported (versioned).
 
-- Route tree under `/client`:
-  - `ClientLayout` (own sidebar: Dashboard · Jobs · Candidates · Interviews · Notifications)
-  - `ClientDashboardPage` — premium stat cards (active jobs, awaiting feedback, interview requests, recent updates) + upcoming interviews + activity stream
-  - `ClientJobsPage` + `ClientJobDetailPage` — only shared jobs, pipeline summary, recruiter avatar
-  - `ClientCandidatesPage` — aggregate view across all shared candidates, filter by job/status
-  - `ClientCandidateSlideOver` — right-side panel (not page reload) with:
-    - Header: name / title / location / AI match circle
-    - Tabs: Overview · Branded CV · AI Insights · Feedback · Discussion · Interviews
-    - Actions: Approve · Reject · Request Interview · Request More Candidates
-- Design system: reuse existing tokens; add `--client-surface`, `--client-accent` for subtle differentiation. Poppins everywhere. Slide-overs via existing `Sheet`.
+UI: "Run AI Validation" button inside the new Client Submission tab. Result card shows fit score ring, color-coded recommendation badge, strengths/weaknesses/risks columns, recruiter-editable summary.
+
+Gate: a submission cannot move past `ai_validated` without a validation record (configurable per tenant).
 
 ---
 
-## Phase 4 — Feedback + Contextual Discussions
+## Phase 3 — Submission Pack Builder + Branded PDF
 
-**Goal:** structured hiring conversations bound to an entity.
+New edge function `generate-submission-pack`:
+- Generates a premium branded PDF combining: agency logo + colors (from existing branding), candidate header, AI validation report, recruiter assessment, strengths/considerations, recommendation, contact info masked per client permissions.
+- Uploads to `submission-packs` storage bucket (private, signed URLs only).
+- Stores URL on `candidate_submissions.pack_pdf_url`.
 
-- New tables:
-  - `candidate_feedback` (job_candidate_id, author_user_id, decision: approve/reject/request_more, notes, created_at)
-  - `collaboration_threads` (subject_type: candidate|job|interview, subject_id, tenant_id, client_org_id)
-  - `collaboration_messages` (thread_id, author_user_id, author_role, body, mentions uuid[], attachments jsonb)
-- UI:
-  - Inline threaded comments inside slide-over "Discussion" tab.
-  - `@mention` picker (recruiter / manager / owner / client_user).
-  - Internal users see same thread inside `CandidateWorkflowPanel` → new "Client Discussion" tab.
-- Realtime: Supabase `postgres_changes` subscription on messages for the open thread.
+UI: `SubmissionPackBuilder.tsx` wizard inside the Job → Client Submission tab:
+1. Select candidate (from pipeline) → 2. Run/review AI validation → 3. Attach branded CV + original CV (reuse existing `useBrandedDownload`) → 4. Write submission message → 5. Pick client org + specific recipients with role chips → 6. Preview pack → 7. Send.
+
+Sending = insert `candidate_submissions` row, fan out `submission_recipients`, trigger notifications + email (reuse `send-email` function with new `submission_received` template).
 
 ---
 
-## Phase 5 — Interview Workflow
+## Phase 4 — Job Page Restructure (Unified Tabs)
 
-**Goal:** end the back-and-forth.
+Refactor `src/pages/JobDetailPage.tsx` to the requested tab structure:
+- **Pipeline** (existing Kanban)
+- **AI Match** (existing)
+- **Client Submission** ← NEW central hub
+- **Job Description** (existing)
 
-- Extend existing `events` (interviews) table with:
-  - `requested_by_client_user_id`, `client_proposed_slots jsonb`, `client_timezone`, `suggested_interviewers uuid[]`, `confirmation_status`.
-- Client flow:
-  - "Request Interview" → modal: propose 1–3 slots, timezone, notes, suggested interviewers.
-  - Status badges on candidate slide-over Interviews tab.
-- Recruiter flow:
-  - Notification + inbox card on existing `EventsPage` showing "Pending client requests".
-  - Confirm → reuses existing `send-event-invitation` edge function (ICS + branded email).
-- All state changes log to `collaboration_activities`.
+The Client Submission tab contains:
+- Top: submission status pipeline (horizontal stepper showing counts per stage for this job).
+- Left: list of submissions for this job (filter by client org, status, recipient).
+- Right: selected submission detail with sub-tabs **Overview · Documents · Feedback · Interviews · Activity · Discussion**.
 
----
-
-## Phase 6 — Notifications, Emails, WhatsApp, Activity Timeline
-
-**Goal:** keep everyone in the loop, log everything.
-
-- Unified `collaboration_activities` table:
-  - actor_user_id, actor_role, action (enum), subject_type, subject_id, tenant_id, client_org_id, metadata jsonb, created_at
-  - Written via SECURITY DEFINER `log_collab_activity(...)` helper from every relevant edge function & RPC.
-- Notifications:
-  - Reuse existing `notifications` table + `NotificationBell`; add new notification types: `candidate_shared`, `feedback_added`, `interview_requested`, `interview_confirmed`, `thread_mention`, `candidate_decision`.
-  - Client-side `NotificationBell` variant inside `ClientLayout`.
-- Email automation (new edge functions, each branded via existing template engine):
-  - `notify-candidate-shared`, `notify-feedback-added`, `notify-interview-requested`, `notify-interview-confirmed`, `notify-thread-reply`, `notify-candidate-decision`.
-- Email reply ingestion: optional client SMTP connect reuses existing `smtp_accounts` infra (scoped to `client_portal_users`).
-- WhatsApp:
-  - New `whatsapp_activities` table (initiator_user_id, candidate_id, job_id, type: candidate_msg / interview_coord, message_preview, opened_at).
-  - Admin toggle on tenant: `client_whatsapp_mode` enum (`disabled` / `recruiter_only` / `client_allowed` / `approval_required`).
-  - Existing `SendWhatsAppDialog` reused; new approval queue page for admins when mode = approval_required.
-- Activity Timeline UI:
-  - Inside client candidate/job slide-over: vertical timeline grouped by day.
-  - Inside recruiter `CandidateWorkflowPanel`: full timeline including client actions.
+Removes the current scattered "Share with Client" dialog as a primary entry — replaces with the wizard. Keeps the dialog accessible for quick legacy sharing but routes results through the same `candidate_submissions` table.
 
 ---
 
-## Phase 7 — Security Hardening, Audit, Mobile Polish, QA
+## Phase 5 — Multi-Contact Client Orgs + Permission Matrix
 
-**Goal:** enterprise-grade finish.
+Inside `AdminClientPortalPage` and a new agency-side **Client Detail → Contacts** tab:
+- Invite multiple contacts per client org with role presets: `Hiring Manager`, `HR Manager`, `Interview Panel`, `Decision Maker`.
+- Each preset seeds default `client_user_permissions`; owner/manager can fine-tune toggles (matching the image: View pipeline / Request interviews / Leave feedback / Send messages — plus Approve/Reject and View internal notes).
+- Resend invite, deactivate, reactivate, transfer ownership.
+- New `ShareJobWithClientDialog` matches the uploaded mockup (Existing client / New client toggle, org name, contact email, role select, permissions checkboxes, Cancel / Share).
 
-- Full RLS audit on every new table — write SQL tests covering: client_user from tenant A cannot see tenant B; client_user cannot see un-shared candidate in their own tenant; internal recruiter cannot see other tenants' threads.
-- Add `audit_log` rows for sensitive actions (share, withdraw, role change, WhatsApp init).
-- Rate-limit invitation + interview request edge functions.
-- Mobile pass on `ClientLayout`, slide-overs, feedback forms, interview request modal (test at 375px).
-- Empty-states + skeletons for every list/dashboard surface.
-- Update `mem://` with new feature memory: `features/client-collaboration-portal`.
-
----
-
-## Technical Notes (for the developer)
-
-```text
-NEW DB OBJECTS
-  enums:        app_role += client_user, hiring_manager
-                collab_action (candidate_shared, feedback_added, interview_requested, ...)
-                whatsapp_mode (disabled|recruiter_only|client_allowed|approval_required)
-  tables:       client_organizations, client_portal_users, client_invitations,
-                job_client_shares, candidate_client_shares,
-                candidate_feedback,
-                collaboration_threads, collaboration_messages,
-                collaboration_activities,
-                whatsapp_activities
-  rpc helpers:  is_client_user, client_org_for_user,
-                client_can_see_job, client_can_see_candidate,
-                log_collab_activity, share_candidate_with_client
-
-NEW EDGE FUNCTIONS
-  invite-client-user
-  notify-candidate-shared
-  notify-feedback-added
-  notify-interview-requested
-  notify-interview-confirmed
-  notify-thread-reply
-  notify-candidate-decision
-  client-whatsapp-approve  (only if approval mode enabled)
-
-NEW ROUTES
-  /client                       ClientLayout
-    /client/dashboard
-    /client/jobs                /client/jobs/:id
-    /client/candidates          (slide-over driven)
-    /client/interviews
-    /client/notifications
-  /accept-client-invitation/:token
-  internal-only: /admin/client-portal (per-tenant settings: WhatsApp mode, branding)
-
-REUSED INFRA
-  - existing SMTP send-email edge function + branded templates
-  - existing notifications table + NotificationBell
-  - existing events table for interviews
-  - existing brand-cv + branded CV storage
-  - existing rich-text-editor + Poppins setup
-```
+Client portal respects permissions at the UI level AND via RLS predicates wrapping `client_user_permissions`.
 
 ---
 
-## Out of Scope (intentionally)
+## Phase 6 — Client Portal Unification (Submission-Centric)
 
-- Slack-style free chat rooms
-- Public job board for clients
-- Client-to-client visibility across orgs
-- Billing changes (clients are seats under existing tenant plans — addressed later if needed)
+Restructure the client portal sidebar to match spec:
+- Dashboard · Open Jobs · Submitted Candidates · Interviews · Discussions · Notifications.
+
+`Submitted Candidates` becomes the headline page: card grid of submissions with status chip, AI recommendation badge, recruiter avatar, last activity timestamp. Clicking opens a full-screen submission viewer:
+- Header: candidate name, role applied for, status pipeline indicator.
+- Tabs: **Overview · AI Report · Branded CV · Original CV · Feedback · Interviews · Discussion**.
+- Inline actions (permission-gated): Approve, Reject, Request Interview, Leave Feedback, Message Recruiter, Download Pack.
+
+All actions write to `submission_activity` so the timeline stays the single source of truth.
+
+Mobile: every page uses responsive flex/grid; slide-overs collapse to full-screen sheets under `md:`.
 
 ---
 
-**Estimated scope:** large but incremental. Each phase ships independently and is usable on its own. Phase 1–3 delivers a visible MVP; Phases 4–7 turn it into the differentiator.
+## Phase 7 — Activity Timeline, Notifications & Communication Hub
+
+- **Unified Activity Timeline** component (used on both agency and client side) reading `submission_activity` in real time via Supabase channels. Icons + relative timestamps + actor avatars.
+- **Notification triggers** (DB): extend existing `notify_*` triggers to also emit on submission status change, recipient view, document download, approve/reject, feedback submitted. Routed to recipients per `client_user_permissions` and recruiter assignment.
+- **Email templates**: `submission_received`, `submission_viewed`, `feedback_received`, `interview_requested`, `interview_confirmed`, `candidate_approved`, `candidate_rejected` — branded via existing email branding system.
+- **Comms hub** on the submission detail: tabs for Email history (existing `email_messages`) and WhatsApp (existing `whatsapp` lib), all scoped to the submission. Agency admins toggle which channels clients may use via tenant-level setting `client_allowed_channels`.
+- Final pass: audit logs entry for every cross-tenant action, signed-URL enforcement on all CV/pack downloads, RLS regression check.
+
+---
+
+## Technical Notes
+
+- Stack: existing React 18 + Vite + Tailwind + shadcn + Supabase. No new deps except `pdf-lib` (already used via `generate-jd-pdf` pattern) for the submission pack.
+- Reuses: `useBrandedDownload`, `useClientOrgBranding`, `dispatch-notification`, `send-email`, `getAppBaseUrl`, existing notifications table.
+- No manual KPI entry — every workflow action logs to `recruiter_activities` so KPIs auto-derive (per core memory).
+- All currency/billing untouched.
+- ~5 migrations, ~3 new edge functions, ~25 new/edited React files.
+
+---
+
+## Suggested Build Order
+
+1. Phase 1 migration (foundation) — must land first.
+2. Phase 2 (AI validation) — unblocks the pack.
+3. Phase 3 (pack + PDF) — unblocks the wizard.
+4. Phase 4 (job page tabs) — surfaces it.
+5. Phase 5 (multi-contact + permissions) — productionizes sharing.
+6. Phase 6 (client portal unification) — closes the loop for clients.
+7. Phase 7 (timeline + notifications + comms) — polish + enterprise feel.
+
+Reply **"approved, start phase 1"** (or name a phase) and I'll begin. Anything to tweak before I do?
