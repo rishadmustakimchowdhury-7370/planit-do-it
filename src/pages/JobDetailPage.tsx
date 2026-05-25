@@ -865,6 +865,20 @@ const JobDetailPage = () => {
           </AnimatePresence>
         </TabsContent>
 
+        <TabsContent value="submissions" className="mt-0">
+          {job && tenantId && (
+            <JobSubmissionsTab
+              tenantId={tenantId}
+              jobId={job.id}
+              jobTitle={job.title}
+              candidates={candidates.map((c: any) => ({
+                candidate_id: c.candidate_id ?? c.candidate?.id ?? c.id,
+                full_name: c.candidate?.full_name ?? c.full_name ?? 'Candidate',
+              }))}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="description" className="mt-0">
           <motion.div 
             initial={{ opacity: 0 }}
