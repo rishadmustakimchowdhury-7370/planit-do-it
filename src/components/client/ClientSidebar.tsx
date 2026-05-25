@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Briefcase, Users, CalendarClock, Bell, LogOut, Building2 } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Users, CalendarClock, Bell, LogOut, Building2, Inbox } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 const items = [
   { to: '/client/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/client/jobs', label: 'Jobs', icon: Briefcase },
+  { to: '/client/submissions', label: 'Submissions', icon: Inbox },
   { to: '/client/candidates', label: 'Candidates', icon: Users },
   { to: '/client/interviews', label: 'Interviews', icon: CalendarClock },
   { to: '/client/notifications', label: 'Notifications', icon: Bell },

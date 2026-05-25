@@ -10,6 +10,7 @@ import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDial
 import { RediscoveredTalentSection as AITalentMatchSection } from '@/components/matching/RediscoveredTalentSection';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { ShareJobWithClientDialog } from '@/components/clients/ShareJobWithClientDialog';
+import { JobSubmissionsTab } from '@/components/clients/JobSubmissionsTab';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { 
@@ -593,6 +594,10 @@ const JobDetailPage = () => {
               <Users className="w-4 h-4" />
               Pipeline ({candidates.length})
             </TabsTrigger>
+            <TabsTrigger value="submissions" className="gap-2 px-4 py-2">
+              <FileText className="w-4 h-4" />
+              Submissions
+            </TabsTrigger>
             <TabsTrigger value="description" className="gap-2 px-4 py-2">
               <FileText className="w-4 h-4" />
               Job Description
@@ -858,6 +863,20 @@ const JobDetailPage = () => {
               </motion.div>
             )}
           </AnimatePresence>
+        </TabsContent>
+
+        <TabsContent value="submissions" className="mt-0">
+          {job && tenantId && (
+            <JobSubmissionsTab
+              tenantId={tenantId}
+              jobId={job.id}
+              jobTitle={job.title}
+              candidates={candidates.map((c: any) => ({
+                candidate_id: c.candidate_id ?? c.candidate?.id ?? c.id,
+                full_name: c.candidate?.full_name ?? c.full_name ?? 'Candidate',
+              }))}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="description" className="mt-0">
