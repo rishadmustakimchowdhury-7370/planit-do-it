@@ -53,8 +53,8 @@ serve(async (req) => {
 
     // Load job + candidate via RLS (user must have access)
     const [{ data: job, error: jobErr }, { data: candidate, error: candErr }] = await Promise.all([
-      supabase.from("jobs").select("id, tenant_id, title, description, requirements, location, employment_type, seniority_level").eq("id", job_id).maybeSingle(),
-      supabase.from("candidates").select("id, full_name, current_title, current_company, location, years_experience, skills, summary, cv_text").eq("id", candidate_id).maybeSingle(),
+      supabase.from("jobs").select("id, tenant_id, title, description, requirements, location, employment_type, experience_level, skills, jd_parsed_text").eq("id", job_id).maybeSingle(),
+      supabase.from("candidates").select("id, full_name, current_title, current_company, location, experience_years, skills, summary, cv_parsed_data").eq("id", candidate_id).maybeSingle(),
     ]);
 
     if (jobErr || !job) {
@@ -86,11 +86,12 @@ serve(async (req) => {
 
     const userPrompt = `JOB
 Title: ${job.title}
-Seniority: ${job.seniority_level ?? "n/a"}
+Seniority: ${job.experience_level ?? "n/a"}
 Location: ${job.location ?? "n/a"}
 Employment: ${job.employment_type ?? "n/a"}
 Description:
 ${job.description ?? ""}
+${job.jd_parsed_text ?? ""}
 Requirements:
 ${typeof job.requirements === "string" ? job.requirements : JSON.stringify(job.requirements ?? "")}
 
@@ -98,11 +99,11 @@ CANDIDATE
 Name: ${candidate.full_name}
 Current Role: ${candidate.current_title ?? "n/a"} @ ${candidate.current_company ?? "n/a"}
 Location: ${candidate.location ?? "n/a"}
-Experience: ${candidate.years_experience ?? "n/a"} years
+Experience: ${candidate.experience_years ?? "n/a"} years
 Skills: ${Array.isArray(candidate.skills) ? candidate.skills.join(", ") : candidate.skills ?? "n/a"}
 Summary: ${candidate.summary ?? ""}
 CV:
-${(candidate.cv_text ?? "").slice(0, 8000)}`;
+${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSON.stringify(candidate.cv_parsed_data ?? "")).slice(0, 8000)}`;
 
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

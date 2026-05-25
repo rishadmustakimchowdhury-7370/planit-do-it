@@ -159,7 +159,7 @@ export function useRediscoveredMatches(jobId: string | undefined) {
     lastRun: lastRunQuery.data ?? null,
     isLoading: matchesQuery.isLoading,
     isScanning: scanMutation.isPending,
-    runScan: (force = false) => scanMutation.mutate(force),
+    runScan: (force = true) => scanMutation.mutate(force),
     dismiss: dismissMutation.mutate,
   };
 }
