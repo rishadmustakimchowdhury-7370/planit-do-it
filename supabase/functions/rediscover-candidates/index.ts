@@ -448,12 +448,12 @@ serve(async (req) => {
     }).select("id").single();
 
     try {
-      // 1. Embed prefilter
+      // 1. Embed prefilter — make sure the job is embedded and embed any missing candidates
       await embedJobIfMissing(supabase, job_id);
-      const embedded = await embedMissingCandidates(supabase, job.tenant_id, 25);
+      const embedded = await embedMissingCandidates(supabase, job.tenant_id, 200);
 
-      // 2. ANN prefilter — top 50 by semantic similarity
-      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 50 });
+      // 2. ANN prefilter — top 100 by semantic similarity (widened so different jobs return different pools)
+      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 100 });
       if (matchErr) throw matchErr;
 
       const prefilterIds = (prefilter ?? []).map((m: any) => m.candidate_id);
@@ -476,11 +476,20 @@ serve(async (req) => {
         .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
         .in("id", eligibleIds);
 
-      // 5. Deterministic hybrid scoring
-      const scored = (candidates ?? []).map((c: any) => ({ candidate: c, result: computeScore(job, c) }));
+      // 5. Deterministic hybrid scoring + blend with semantic similarity for differentiation
+      const similarityMap = new Map((prefilter ?? []).map((m: any) => [m.candidate_id, Number(m.similarity ?? 0)]));
+      const scored = (candidates ?? []).map((c: any) => {
+        const result = computeScore(job, c);
+        const sim = similarityMap.get(c.id) ?? 0; // 0..1
+        // Blend semantic similarity (10% weight) so different jobs differentiate even when keyword detection is weak
+        const blended = Math.min(100, Math.round(result.final * 0.9 + sim * 100 * 0.1));
+        return { candidate: c, result: { ...result, final: blended } };
+      });
 
-      // 6. Quality threshold — only persist medium/high (≥65). Quality > quantity.
-      const qualified = scored.filter((s) => s.result.final >= 65).sort((a, b) => b.result.final - a.result.final);
+      // 6. Quality threshold — keep ≥50 (was 65) and always surface at least the top 8
+      const sorted = scored.sort((a, b) => b.result.final - a.result.final);
+      let qualified = sorted.filter((s) => s.result.final >= 50);
+      if (qualified.length < 8) qualified = sorted.slice(0, Math.min(8, sorted.length));
 
       // 7. AI explanations for the qualified set (cap at 15 to control cost)
       let explainMap: Record<string, { strengths: string[]; gaps: string[]; summary: string }> = {};
