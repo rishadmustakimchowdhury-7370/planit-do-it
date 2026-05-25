@@ -38,7 +38,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minScore, setMinScore] = useState<string>('65');
+  const [minScore, setMinScore] = useState<string>('0');
   const [search, setSearch] = useState('');
   const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -130,7 +130,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               size="sm" variant="outline"
-              onClick={(e) => { e.stopPropagation(); runScan(matches.length > 0); }}
+              onClick={(e) => { e.stopPropagation(); runScan(true); }}
               disabled={isScanning}
               className="gap-2"
             >
@@ -166,10 +166,11 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                   <Select value={minScore} onValueChange={setMinScore}>
                     <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Min score" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="65">≥ 65% (default)</SelectItem>
+                      <SelectItem value="0">Show all (default)</SelectItem>
+                      <SelectItem value="50">≥ 50%</SelectItem>
+                      <SelectItem value="65">≥ 65%</SelectItem>
                       <SelectItem value="75">≥ 75%</SelectItem>
                       <SelectItem value="85">≥ 85%</SelectItem>
-                      <SelectItem value="0">Show all</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
