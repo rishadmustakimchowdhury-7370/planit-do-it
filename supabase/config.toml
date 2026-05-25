@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.rediscover-candidates]
 verify_jwt = true
+
+[functions.validate-candidate-fit]
+verify_jwt = true
