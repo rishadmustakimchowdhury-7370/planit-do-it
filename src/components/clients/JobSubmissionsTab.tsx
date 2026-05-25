@@ -141,27 +141,68 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       )}
 
       {/* Candidate picker for new submission */}
-      {pickerOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
-          <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-5 space-y-3">
-              <div>
-                <h4 className="font-semibold">Pick a candidate to submit</h4>
-                <p className="text-xs text-muted-foreground">Choose from this job's current pipeline.</p>
-              </div>
-              <div className="max-h-72 overflow-y-auto space-y-1">
-                {candidates.map(c => (
-                  <button key={c.candidate_id} onClick={() => openWizardFor(c.candidate_id, c.full_name)}
-                    className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm">
-                    {c.full_name}
-                  </button>
-                ))}
-              </div>
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setPickerOpen(false)}>Cancel</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {pickerOpen && (() => {
+        const pipelineIds = new Set(candidates.map(c => c.candidate_id));
+        const q = pickerQuery.trim().toLowerCase();
+        const matches = (name: string, title?: string | null) =>
+          !q || name.toLowerCase().includes(q) || (title ?? "").toLowerCase().includes(q);
+        const pipelineList = candidates.filter(c => matches(c.full_name, c.current_title));
+        const otherList = allCandidates
+          .filter(c => !pipelineIds.has(c.id))
+          .filter(c => matches(c.full_name, c.current_title));
+        return (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
+            <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <CardContent className="p-5 space-y-3">
+                <div>
+                  <h4 className="font-semibold">Pick a candidate to submit</h4>
+                  <p className="text-xs text-muted-foreground">Choose from this job's pipeline or any other candidate in your database.</p>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={pickerQuery}
+                    onChange={(e) => setPickerQuery(e.target.value)}
+                    placeholder="Search by name or title…"
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <div className="max-h-80 overflow-y-auto space-y-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 mb-1">
+                      In this job's pipeline ({pipelineList.length})
+                    </div>
+                    {pipelineList.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">No matches.</p>
+                    ) : pipelineList.map(c => (
+                      <button key={c.candidate_id} onClick={() => openWizardFor(c.candidate_id, c.full_name)}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm flex flex-col">
+                        <span className="font-medium">{c.full_name}</span>
+                        {c.current_title && <span className="text-xs text-muted-foreground">{c.current_title}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 mb-1">
+                      Other candidates ({otherList.length})
+                    </div>
+                    {otherList.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">No matches.</p>
+                    ) : otherList.slice(0, 100).map(c => (
+                      <button key={c.id} onClick={() => openWizardFor(c.id, c.full_name)}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm flex flex-col">
+                        <span className="font-medium">{c.full_name}</span>
+                        {c.current_title && <span className="text-xs text-muted-foreground">{c.current_title}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setPickerOpen(false)}>Cancel</Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {pickedCandidate && (
         <SubmissionWizard
