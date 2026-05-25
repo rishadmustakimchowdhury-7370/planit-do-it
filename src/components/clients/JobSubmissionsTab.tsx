@@ -108,7 +108,7 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
               <p className="font-medium">No submissions yet</p>
               <p className="text-sm text-muted-foreground">Submit a candidate from your pipeline to start collaborating with the client.</p>
             </div>
-            <Button onClick={() => candidates.length && setPickerOpen(true)} disabled={!candidates.length}>
+            <Button onClick={() => setPickerOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" /> Submit a Candidate
             </Button>
           </CardContent>
