@@ -4976,6 +4976,10 @@ export type Database = {
       }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      mark_submission_viewed: {
+        Args: { _submission_id: string }
+        Returns: undefined
+      }
       match_candidates_for_job: {
         Args: { p_job_id: string; p_match_count?: number }
         Returns: {
@@ -4990,6 +4994,10 @@ export type Database = {
       promote_to_super_admin: {
         Args: { user_email: string }
         Returns: undefined
+      }
+      respond_to_submission: {
+        Args: { _decision: string; _submission_id: string }
+        Returns: string
       }
       restore_user: {
         Args: { p_restored_by: string; p_user_id: string }
