@@ -105,7 +105,7 @@ serve(async (req) => {
       submission.ai_validation_id
         ? supabase.from("ai_candidate_validations").select("*").eq("id", submission.ai_validation_id).maybeSingle()
         : supabase.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      admin.from("organization_branding").select("logo_url, company_name, primary_color").eq("tenant_id", submission.tenant_id).maybeSingle(),
+      admin.from("branding_settings").select("logo_url, company_name, primary_color").eq("tenant_id", submission.tenant_id).maybeSingle(),
     ]);
 
     if (!candidate || !job) {
