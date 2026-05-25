@@ -83,7 +83,7 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
             <h3 className="text-base font-semibold">Client Submission Pipeline</h3>
             <p className="text-xs text-muted-foreground">Track candidates from submitted → hired across all client contacts.</p>
           </div>
-          <Button onClick={() => candidates.length ? setPickerOpen(true) : null} disabled={!candidates.length}>
+          <Button onClick={() => setPickerOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" /> Submit Candidate
           </Button>
         </div>
