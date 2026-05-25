@@ -108,8 +108,6 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
   if (recipients === null) {
     return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-16" />)}</div>;
   }
-    return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-16" />)}</div>;
-  }
 
   const available = users.filter(u => !recipients.some((r: any) => r.client_user_id === u.user_id));
 
