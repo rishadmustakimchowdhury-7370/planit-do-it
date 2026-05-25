@@ -373,25 +373,28 @@ async function embedJobIfMissing(supabase: any, jobId: string) {
   return resp.ok;
 }
 
-async function embedMissingCandidates(supabase: any, tenantId: string, limit = 30) {
+async function embedMissingCandidates(supabase: any, tenantId: string, limit = 200) {
   const { data: candidates } = await supabase
     .from("candidates").select("id").eq("tenant_id", tenantId)
-    .order("updated_at", { ascending: false }).limit(limit * 2);
+    .order("updated_at", { ascending: false }).limit(2000);
   if (!candidates?.length) return 0;
   const ids = candidates.map((r: any) => r.id);
   const { data: existing } = await supabase.from("candidate_embeddings").select("candidate_id").in("candidate_id", ids);
   const embedded = new Set((existing ?? []).map((r: any) => r.candidate_id));
   const missing = candidates.filter((r: any) => !embedded.has(r.id)).slice(0, limit);
   let count = 0;
-  for (const row of missing) {
-    try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/embed-candidate`, {
+  // Embed in parallel batches of 8 for speed
+  const batchSize = 8;
+  for (let i = 0; i < missing.length; i += batchSize) {
+    const batch = missing.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch.map((row: any) =>
+      fetch(`${SUPABASE_URL}/functions/v1/embed-candidate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ candidate_id: row.id }),
-      });
-      if (resp.ok) count++;
-    } catch (_) { /* continue */ }
+      })
+    ));
+    count += results.filter(r => r.status === "fulfilled" && (r.value as Response).ok).length;
   }
   return count;
 }
@@ -445,12 +448,12 @@ serve(async (req) => {
     }).select("id").single();
 
     try {
-      // 1. Embed prefilter
+      // 1. Embed prefilter — make sure the job is embedded and embed any missing candidates
       await embedJobIfMissing(supabase, job_id);
-      const embedded = await embedMissingCandidates(supabase, job.tenant_id, 25);
+      const embedded = await embedMissingCandidates(supabase, job.tenant_id, 200);
 
-      // 2. ANN prefilter — top 50 by semantic similarity
-      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 50 });
+      // 2. ANN prefilter — top 100 by semantic similarity (widened so different jobs return different pools)
+      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 100 });
       if (matchErr) throw matchErr;
 
       const prefilterIds = (prefilter ?? []).map((m: any) => m.candidate_id);
@@ -473,11 +476,20 @@ serve(async (req) => {
         .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
         .in("id", eligibleIds);
 
-      // 5. Deterministic hybrid scoring
-      const scored = (candidates ?? []).map((c: any) => ({ candidate: c, result: computeScore(job, c) }));
+      // 5. Deterministic hybrid scoring + blend with semantic similarity for differentiation
+      const similarityMap = new Map((prefilter ?? []).map((m: any) => [m.candidate_id, Number(m.similarity ?? 0)]));
+      const scored = (candidates ?? []).map((c: any) => {
+        const result = computeScore(job, c);
+        const sim = similarityMap.get(c.id) ?? 0; // 0..1
+        // Blend semantic similarity (10% weight) so different jobs differentiate even when keyword detection is weak
+        const blended = Math.min(100, Math.round(result.final * 0.9 + sim * 100 * 0.1));
+        return { candidate: c, result: { ...result, final: blended } };
+      });
 
-      // 6. Quality threshold — only persist medium/high (≥65). Quality > quantity.
-      const qualified = scored.filter((s) => s.result.final >= 65).sort((a, b) => b.result.final - a.result.final);
+      // 6. Quality threshold — keep ≥50 (was 65) and always surface at least the top 8
+      const sorted = scored.sort((a, b) => b.result.final - a.result.final);
+      let qualified = sorted.filter((s) => s.result.final >= 50);
+      if (qualified.length < 8) qualified = sorted.slice(0, Math.min(8, sorted.length));
 
       // 7. AI explanations for the qualified set (cap at 15 to control cost)
       let explainMap: Record<string, { strengths: string[]; gaps: string[]; summary: string }> = {};
@@ -495,7 +507,7 @@ serve(async (req) => {
       }
 
       // 8. Build rows
-      const similarityMap = new Map((prefilter ?? []).map((m: any) => [m.candidate_id, Number(m.similarity ?? 0)]));
+      // similarityMap already built above
       const { data: recentEmails } = await supabase.from("candidate_emails").select("candidate_id").in("candidate_id", qualified.map((s) => s.candidate.id));
       const contacted = new Set((recentEmails ?? []).map((r: any) => r.candidate_id));
 
