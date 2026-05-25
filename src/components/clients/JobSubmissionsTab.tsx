@@ -24,6 +24,8 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
   const [wizardOpen, setWizardOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickedCandidate, setPickedCandidate] = useState<{ id: string; name: string } | null>(null);
+  const [allCandidates, setAllCandidates] = useState<Array<{ id: string; full_name: string; current_title: string | null }>>([]);
+  const [pickerQuery, setPickerQuery] = useState("");
 
   const load = async () => {
     const { data } = await supabase
