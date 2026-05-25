@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Inbox, Eye, MessageSquare } from "lucide-react";
+import { Plus, Inbox, Eye, MessageSquare, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { SubmissionStatusBadge, type SubmissionStatus, SUBMISSION_STATUS_META, PIPELINE_STAGES } from "./SubmissionStatusBadge";
 import { SubmissionDetailDialog } from "./SubmissionDetailDialog";
@@ -14,7 +15,7 @@ interface Props {
   tenantId: string;
   jobId: string;
   jobTitle: string;
-  candidates?: Array<{ candidate_id: string; full_name: string }>;
+  candidates?: Array<{ candidate_id: string; full_name: string; current_title?: string | null }>;
 }
 
 export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }: Props) {
@@ -23,6 +24,8 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
   const [wizardOpen, setWizardOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickedCandidate, setPickedCandidate] = useState<{ id: string; name: string } | null>(null);
+  const [allCandidates, setAllCandidates] = useState<Array<{ id: string; full_name: string; current_title: string | null }>>([]);
+  const [pickerQuery, setPickerQuery] = useState("");
 
   const load = async () => {
     const { data } = await supabase
@@ -38,6 +41,20 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
   };
 
   useEffect(() => { load(); }, [jobId]);
+
+  // Load all tenant candidates so users can submit candidates not yet in this job's pipeline
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("candidates")
+        .select("id, full_name, current_title")
+        .eq("tenant_id", tenantId)
+        .order("full_name", { ascending: true })
+        .limit(500);
+      setAllCandidates(data ?? []);
+    })();
+  }, [tenantId]);
   useEffect(() => {
     const ch = supabase.channel(`job-subs-${jobId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "candidate_submissions", filter: `job_id=eq.${jobId}` }, load)
@@ -66,7 +83,7 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
             <h3 className="text-base font-semibold">Client Submission Pipeline</h3>
             <p className="text-xs text-muted-foreground">Track candidates from submitted → hired across all client contacts.</p>
           </div>
-          <Button onClick={() => candidates.length ? setPickerOpen(true) : null} disabled={!candidates.length}>
+          <Button onClick={() => setPickerOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" /> Submit Candidate
           </Button>
         </div>
@@ -91,7 +108,7 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
               <p className="font-medium">No submissions yet</p>
               <p className="text-sm text-muted-foreground">Submit a candidate from your pipeline to start collaborating with the client.</p>
             </div>
-            <Button onClick={() => candidates.length && setPickerOpen(true)} disabled={!candidates.length}>
+            <Button onClick={() => setPickerOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" /> Submit a Candidate
             </Button>
           </CardContent>
@@ -124,27 +141,68 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       )}
 
       {/* Candidate picker for new submission */}
-      {pickerOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
-          <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <CardContent className="p-5 space-y-3">
-              <div>
-                <h4 className="font-semibold">Pick a candidate to submit</h4>
-                <p className="text-xs text-muted-foreground">Choose from this job's current pipeline.</p>
-              </div>
-              <div className="max-h-72 overflow-y-auto space-y-1">
-                {candidates.map(c => (
-                  <button key={c.candidate_id} onClick={() => openWizardFor(c.candidate_id, c.full_name)}
-                    className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm">
-                    {c.full_name}
-                  </button>
-                ))}
-              </div>
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setPickerOpen(false)}>Cancel</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {pickerOpen && (() => {
+        const pipelineIds = new Set(candidates.map(c => c.candidate_id));
+        const q = pickerQuery.trim().toLowerCase();
+        const matches = (name: string, title?: string | null) =>
+          !q || name.toLowerCase().includes(q) || (title ?? "").toLowerCase().includes(q);
+        const pipelineList = candidates.filter(c => matches(c.full_name, c.current_title));
+        const otherList = allCandidates
+          .filter(c => !pipelineIds.has(c.id))
+          .filter(c => matches(c.full_name, c.current_title));
+        return (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
+            <Card className="max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <CardContent className="p-5 space-y-3">
+                <div>
+                  <h4 className="font-semibold">Pick a candidate to submit</h4>
+                  <p className="text-xs text-muted-foreground">Choose from this job's pipeline or any other candidate in your database.</p>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={pickerQuery}
+                    onChange={(e) => setPickerQuery(e.target.value)}
+                    placeholder="Search by name or title…"
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <div className="max-h-80 overflow-y-auto space-y-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 mb-1">
+                      In this job's pipeline ({pipelineList.length})
+                    </div>
+                    {pipelineList.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">No matches.</p>
+                    ) : pipelineList.map(c => (
+                      <button key={c.candidate_id} onClick={() => openWizardFor(c.candidate_id, c.full_name)}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm flex flex-col">
+                        <span className="font-medium">{c.full_name}</span>
+                        {c.current_title && <span className="text-xs text-muted-foreground">{c.current_title}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 mb-1">
+                      Other candidates ({otherList.length})
+                    </div>
+                    {otherList.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">No matches.</p>
+                    ) : otherList.slice(0, 100).map(c => (
+                      <button key={c.id} onClick={() => openWizardFor(c.id, c.full_name)}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm flex flex-col">
+                        <span className="font-medium">{c.full_name}</span>
+                        {c.current_title && <span className="text-xs text-muted-foreground">{c.current_title}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setPickerOpen(false)}>Cancel</Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {pickedCandidate && (
         <SubmissionWizard
