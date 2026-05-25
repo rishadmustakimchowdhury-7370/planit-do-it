@@ -183,6 +183,48 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
           {available.length ? "Add Recipient" : "All contacts added"}
         </Button>
       )}
+
+      {inviting ? (
+        <Card>
+          <CardContent className="p-3 space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Email address</label>
+              <Input type="email" placeholder="client@company.com" value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)} />
+              <p className="text-[11px] text-muted-foreground">
+                They'll receive an email invite and only see submissions you assign them to.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Portal role</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: "hiring_manager", label: "Hiring Manager" },
+                  { id: "client_user", label: "Client User" },
+                ].map(r => (
+                  <button key={r.id} type="button"
+                    onClick={() => setInviteRole(r.id as any)}
+                    className={`text-xs px-2 py-1.5 rounded border text-left ${inviteRole === r.id ? "bg-primary/10 border-primary text-primary" : "border-border hover:bg-muted"}`}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setInviting(false)} disabled={sendingInvite}>Cancel</Button>
+              <Button size="sm" onClick={sendInvite} disabled={sendingInvite || !inviteEmail}>
+                {sendingInvite ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+                Send Invite
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setInviting(true)}>
+          <Mail className="h-4 w-4 mr-2" />
+          Invite new client contact by email
+        </Button>
+      )}
     </div>
   );
 }
