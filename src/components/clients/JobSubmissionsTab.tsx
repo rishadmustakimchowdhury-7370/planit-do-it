@@ -14,7 +14,7 @@ interface Props {
   tenantId: string;
   jobId: string;
   jobTitle: string;
-  candidates?: Array<{ candidate_id: string; full_name: string }>;
+  candidates?: Array<{ candidate_id: string; full_name: string; current_title?: string | null }>;
 }
 
 export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }: Props) {
