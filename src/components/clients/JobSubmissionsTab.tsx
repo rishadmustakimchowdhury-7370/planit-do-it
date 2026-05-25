@@ -41,6 +41,20 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
   };
 
   useEffect(() => { load(); }, [jobId]);
+
+  // Load all tenant candidates so users can submit candidates not yet in this job's pipeline
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("candidates")
+        .select("id, full_name, current_title")
+        .eq("tenant_id", tenantId)
+        .order("full_name", { ascending: true })
+        .limit(500);
+      setAllCandidates(data ?? []);
+    })();
+  }, [tenantId]);
   useEffect(() => {
     const ch = supabase.channel(`job-subs-${jobId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "candidate_submissions", filter: `job_id=eq.${jobId}` }, load)
