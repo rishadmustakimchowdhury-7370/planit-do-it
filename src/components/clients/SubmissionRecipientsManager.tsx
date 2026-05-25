@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, CheckCircle2, X, CalendarClock, UserPlus, Trash2 } from "lucide-react";
+import { Eye, CheckCircle2, X, CalendarClock, UserPlus, Trash2, Mail, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
