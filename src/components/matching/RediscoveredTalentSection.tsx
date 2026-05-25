@@ -221,7 +221,8 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                   <EmptyState
                     icon={<Sparkles className="w-10 h-10 text-muted-foreground" />}
                     title="No strong matches yet"
-                    body="Upload more candidates or broaden the job description, then re-scan."
+                    body="Upload more candidates or run a fresh scan to rebuild matches for this job."
+                    cta={<Button onClick={() => runScan(true)} className="gap-2"><RefreshCw className="w-4 h-4" />Run fresh scan</Button>}
                   />
                 ) : filtered.length === 0 ? (
                   <EmptyState
