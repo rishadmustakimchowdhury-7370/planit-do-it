@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, CheckCircle2, X, CalendarClock, UserPlus, Trash2 } from "lucide-react";
+import { Eye, CheckCircle2, X, CalendarClock, UserPlus, Trash2, Mail, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,6 +28,10 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
   const [recipients, setRecipients] = useState<any[] | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"client_user" | "hiring_manager">("hiring_manager");
+  const [sendingInvite, setSendingInvite] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [preset, setPreset] = useState("hiring_manager");
 
@@ -78,6 +83,26 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
     const { error } = await supabase.from("submission_recipients" as any).delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     load();
+  };
+
+  const sendInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) { toast.error("Enter a valid email"); return; }
+    setSendingInvite(true);
+    try {
+      const { error } = await supabase.functions.invoke("invite-client-user", {
+        body: { client_org_id: clientOrgId, email, role: inviteRole },
+      });
+      if (error) throw error;
+      toast.success(`Invitation sent to ${email}. They'll appear here once they accept.`);
+      setInviteEmail("");
+      setInviting(false);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send invitation");
+    } finally {
+      setSendingInvite(false);
+    }
   };
 
   if (recipients === null) {
@@ -156,6 +181,48 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
         <Button variant="outline" size="sm" className="w-full" onClick={() => setAdding(true)} disabled={!available.length}>
           <UserPlus className="h-4 w-4 mr-2" />
           {available.length ? "Add Recipient" : "All contacts added"}
+        </Button>
+      )}
+
+      {inviting ? (
+        <Card>
+          <CardContent className="p-3 space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Email address</label>
+              <Input type="email" placeholder="client@company.com" value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)} />
+              <p className="text-[11px] text-muted-foreground">
+                They'll receive an email invite and only see submissions you assign them to.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Portal role</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: "hiring_manager", label: "Hiring Manager" },
+                  { id: "client_user", label: "Client User" },
+                ].map(r => (
+                  <button key={r.id} type="button"
+                    onClick={() => setInviteRole(r.id as any)}
+                    className={`text-xs px-2 py-1.5 rounded border text-left ${inviteRole === r.id ? "bg-primary/10 border-primary text-primary" : "border-border hover:bg-muted"}`}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setInviting(false)} disabled={sendingInvite}>Cancel</Button>
+              <Button size="sm" onClick={sendInvite} disabled={sendingInvite || !inviteEmail}>
+                {sendingInvite ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+                Send Invite
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setInviting(true)}>
+          <Mail className="h-4 w-4 mr-2" />
+          Invite new client contact by email
         </Button>
       )}
     </div>
