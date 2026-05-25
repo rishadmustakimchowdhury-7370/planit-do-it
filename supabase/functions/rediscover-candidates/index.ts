@@ -373,25 +373,28 @@ async function embedJobIfMissing(supabase: any, jobId: string) {
   return resp.ok;
 }
 
-async function embedMissingCandidates(supabase: any, tenantId: string, limit = 30) {
+async function embedMissingCandidates(supabase: any, tenantId: string, limit = 200) {
   const { data: candidates } = await supabase
     .from("candidates").select("id").eq("tenant_id", tenantId)
-    .order("updated_at", { ascending: false }).limit(limit * 2);
+    .order("updated_at", { ascending: false }).limit(2000);
   if (!candidates?.length) return 0;
   const ids = candidates.map((r: any) => r.id);
   const { data: existing } = await supabase.from("candidate_embeddings").select("candidate_id").in("candidate_id", ids);
   const embedded = new Set((existing ?? []).map((r: any) => r.candidate_id));
   const missing = candidates.filter((r: any) => !embedded.has(r.id)).slice(0, limit);
   let count = 0;
-  for (const row of missing) {
-    try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/embed-candidate`, {
+  // Embed in parallel batches of 8 for speed
+  const batchSize = 8;
+  for (let i = 0; i < missing.length; i += batchSize) {
+    const batch = missing.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch.map((row: any) =>
+      fetch(`${SUPABASE_URL}/functions/v1/embed-candidate`, {
         method: "POST",
         headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ candidate_id: row.id }),
-      });
-      if (resp.ok) count++;
-    } catch (_) { /* continue */ }
+      })
+    ));
+    count += results.filter(r => r.status === "fulfilled" && (r.value as Response).ok).length;
   }
   return count;
 }
