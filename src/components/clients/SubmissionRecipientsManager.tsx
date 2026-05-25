@@ -85,7 +85,29 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
     load();
   };
 
+  const sendInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) { toast.error("Enter a valid email"); return; }
+    setSendingInvite(true);
+    try {
+      const { error } = await supabase.functions.invoke("invite-client-user", {
+        body: { client_org_id: clientOrgId, email, role: inviteRole },
+      });
+      if (error) throw error;
+      toast.success(`Invitation sent to ${email}. They'll appear here once they accept.`);
+      setInviteEmail("");
+      setInviting(false);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send invitation");
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
   if (recipients === null) {
+    return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-16" />)}</div>;
+  }
     return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-16" />)}</div>;
   }
 
