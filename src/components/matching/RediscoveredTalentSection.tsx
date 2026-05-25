@@ -215,7 +215,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                     icon={<Wand2 className="w-10 h-10 text-accent" />}
                     title="Discover candidates already in your database"
                     body="Run an AI scan to surface past candidates who match this role."
-                    cta={<Button onClick={() => runScan(false)} className="gap-2"><Sparkles className="w-4 h-4" />Start AI scan</Button>}
+                    cta={<Button onClick={() => runScan(true)} className="gap-2"><Sparkles className="w-4 h-4" />Start AI scan</Button>}
                   />
                 ) : filtered.length === 0 && matches.length === 0 ? (
                   <EmptyState
