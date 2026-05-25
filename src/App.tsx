@@ -55,7 +55,7 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 
-// Client Portal pages
+const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
 const ClientJobsPage = lazy(() => import("./pages/client/ClientJobsPage"));
 const ClientJobDetailPage = lazy(() => import("./pages/client/ClientJobDetailPage"));
@@ -238,6 +238,7 @@ const AppRoutes = () => (
       <Route path="/client/dashboard" element={<ClientDashboardPage />} />
       <Route path="/client/jobs" element={<ClientJobsPage />} />
       <Route path="/client/jobs/:id" element={<ClientJobDetailPage />} />
+      <Route path="/client/submissions" element={<ClientSubmissionsPage />} />
       <Route path="/client/candidates" element={<ClientCandidatesPage />} />
       <Route path="/client/interviews" element={<ClientInterviewsPage />} />
       <Route path="/client/notifications" element={<ClientNotificationsPage />} />
