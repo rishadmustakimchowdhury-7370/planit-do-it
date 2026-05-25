@@ -10,6 +10,7 @@ import { AddCandidateToJobDialog } from '@/components/jobs/AddCandidateToJobDial
 import { RediscoveredTalentSection as AITalentMatchSection } from '@/components/matching/RediscoveredTalentSection';
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { ShareJobWithClientDialog } from '@/components/clients/ShareJobWithClientDialog';
+import { JobSubmissionsTab } from '@/components/clients/JobSubmissionsTab';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { 
