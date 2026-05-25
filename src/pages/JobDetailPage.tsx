@@ -872,8 +872,13 @@ const JobDetailPage = () => {
               jobId={job.id}
               jobTitle={job.title}
               candidates={candidates.map((c: any) => ({
-                candidate_id: c.candidate_id ?? c.candidate?.id ?? c.id,
-                full_name: c.candidate?.full_name ?? c.full_name ?? 'Candidate',
+                candidate_id: c.candidate_id ?? c.candidates?.id ?? c.candidate?.id ?? c.id,
+                full_name:
+                  c.candidates?.full_name ??
+                  c.candidate?.full_name ??
+                  c.full_name ??
+                  'Unnamed candidate',
+                current_title: c.candidates?.current_title ?? c.candidate?.current_title ?? null,
               }))}
             />
           )}
