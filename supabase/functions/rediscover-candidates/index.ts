@@ -507,7 +507,7 @@ serve(async (req) => {
       }
 
       // 8. Build rows
-      const similarityMap = new Map((prefilter ?? []).map((m: any) => [m.candidate_id, Number(m.similarity ?? 0)]));
+      // similarityMap already built above
       const { data: recentEmails } = await supabase.from("candidate_emails").select("candidate_id").in("candidate_id", qualified.map((s) => s.candidate.id));
       const contacted = new Set((recentEmails ?? []).map((r: any) => r.candidate_id));
 
