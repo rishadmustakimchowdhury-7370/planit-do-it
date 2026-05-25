@@ -28,6 +28,10 @@ export function SubmissionRecipientsManager({ submissionId, tenantId, clientOrgI
   const [recipients, setRecipients] = useState<any[] | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"client_user" | "hiring_manager">("hiring_manager");
+  const [sendingInvite, setSendingInvite] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [preset, setPreset] = useState("hiring_manager");
 
