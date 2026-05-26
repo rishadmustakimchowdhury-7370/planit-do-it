@@ -398,19 +398,18 @@ serve(async (req) => {
     };
 
     const sectionHeading = (label: string) => {
-      ensure(32);
-      cur.y -= 8;
-      // Navy section bar with gold accent
-      const barH = 18;
+      ensure(26);
+      cur.y -= 4;
+      const barH = 14;
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: innerW, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
       cur.page.drawText(tracked(label), {
-        x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE,
+        x: MARGIN + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE,
       });
-      cur.y -= barH + 10;
+      cur.y -= barH + 6;
     };
 
-    const paragraph = (text: string, size = 9.5, font: PDFFont = serif, color = INK, lh = 13) => {
+    const paragraph = (text: string, size = 9, font: PDFFont = serif, color = INK, lh = 12) => {
       const lines = wrap(text, font, size, innerW);
       for (const ln of lines) {
         ensure(lh);
