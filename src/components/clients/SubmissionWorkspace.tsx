@@ -68,6 +68,7 @@ export function SubmissionWorkspace({
   const [strengthsText, setStrengthsText] = useState("");
   const [considerationsText, setConsiderationsText] = useState("");
   const [recruiterMessage, setRecruiterMessage] = useState("");
+  const [recruiterNotesText, setRecruiterNotesText] = useState("");
 
   // Initial load + realtime
   useEffect(() => {
