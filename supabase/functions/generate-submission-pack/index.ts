@@ -455,39 +455,47 @@ serve(async (req) => {
       cur.y -= stripH + 12;
     }
 
-    // ===== AI Fit Assessment — premium score block =====
+    // ===== AI Fit Assessment — premium navy score block =====
     if (canonicalScore != null) {
       sectionHeading("AI Fit Assessment");
-      ensure(64);
-      const blockH = 56;
+      ensure(96);
+      const blockH = 88;
       const blockTop = cur.y;
-      cur.page.drawRectangle({ x: MARGIN, y: blockTop - blockH, width: innerW, height: blockH, color: PANEL, borderColor: PANEL_BORDER, borderWidth: 0.5 });
+      // Navy block with gold accent
+      cur.page.drawRectangle({ x: MARGIN, y: blockTop - blockH, width: innerW, height: blockH, color: NAVY });
+      cur.page.drawRectangle({ x: MARGIN, y: blockTop - blockH, width: 4, height: blockH, color: GOLD });
 
-      // Score number (large)
+      // Circular score ring (left)
+      const cx = MARGIN + 56, cy = blockTop - blockH / 2, rOuter = 30, rInner = 22;
+      // outer ring (royal)
+      cur.page.drawCircle({ x: cx, y: cy, size: rOuter, color: ROYAL });
+      // inner navy fill
+      cur.page.drawCircle({ x: cx, y: cy, size: rInner, color: NAVY_DEEP });
+      // gold thin outline
+      cur.page.drawCircle({ x: cx, y: cy, size: rOuter + 0.6, borderColor: GOLD, borderWidth: 0.6 });
+      // Score number centered
       const scoreTxt = `${canonicalScore}`;
-      cur.page.drawText(scoreTxt, { x: MARGIN + 16, y: blockTop - 40, size: 30, font: serifB, color: NAVY });
-      cur.page.drawText("/ 100", { x: MARGIN + 16 + serifB.widthOfTextAtSize(scoreTxt, 30) + 4, y: blockTop - 36, size: 11, font: sans, color: MUTED });
+      const scoreW = serifB.widthOfTextAtSize(scoreTxt, 22);
+      cur.page.drawText(scoreTxt, { x: cx - scoreW / 2, y: cy - 6, size: 22, font: serifB, color: WHITE });
+      const ofTxt = "/ 100";
+      const ofW = sans.widthOfTextAtSize(ofTxt, 7);
+      cur.page.drawText(ofTxt, { x: cx - ofW / 2, y: cy - 16, size: 7, font: sans, color: GOLD });
 
-      // Recommendation pill
-      const reco = recommendationLabel(canonicalScore);
-      const recoFit = fitLabel(canonicalScore / 100);
-      const pillTxt = reco.toUpperCase();
-      const pillW = sansB.widthOfTextAtSize(pillTxt, 8.5) + 18;
-      const pillX = MARGIN + 130;
-      const pillY = blockTop - 22;
-      cur.page.drawRectangle({ x: pillX, y: pillY - 8, width: pillW, height: 16, color: recoFit.bg, borderColor: recoFit.fg, borderWidth: 0.6 });
-      cur.page.drawText(pillTxt, { x: pillX + 9, y: pillY - 4, size: 8.5, font: sansB, color: recoFit.fg });
+      // Right side: recommendation + meta + progress
+      const rx = MARGIN + 110;
+      cur.page.drawText(tracked("Recommendation"), { x: rx, y: blockTop - 18, size: 7, font: sansB, color: GOLD });
+      const reco = recommendationLabel(canonicalScore).toUpperCase();
+      cur.page.drawText(reco, { x: rx, y: blockTop - 36, size: 14, font: sansB, color: WHITE });
 
-      // Confidence + version line
       const meta = `${confidenceLabel(confidence)}  ·  Centralized scoring engine · ${modelVersion}`;
-      cur.page.drawText(meta, { x: MARGIN + 130, y: blockTop - 38, size: 8.5, font: sans, color: MUTED });
+      cur.page.drawText(meta, { x: rx, y: blockTop - 52, size: 8, font: sans, color: ON_NAVY_MUTED });
 
-      // Progress bar
-      const barX = MARGIN + 130, barY = blockTop - 48, barW = innerW - 130 - 16;
-      cur.page.drawRectangle({ x: barX, y: barY, width: barW, height: 4, color: rgb(0.90, 0.92, 0.95) });
-      cur.page.drawRectangle({ x: barX, y: barY, width: barW * Math.min(1, Math.max(0, canonicalScore / 100)), height: 4, color: brand });
+      // Progress bar (gold fill on navy track)
+      const barX = rx, barY = blockTop - blockH + 16, barW = innerW - (rx - MARGIN) - 18;
+      cur.page.drawRectangle({ x: barX, y: barY, width: barW, height: 5, color: rgb(0.15, 0.22, 0.40) });
+      cur.page.drawRectangle({ x: barX, y: barY, width: barW * Math.min(1, Math.max(0, canonicalScore / 100)), height: 5, color: GOLD });
 
-      cur.y -= blockH + 10;
+      cur.y -= blockH + 12;
     }
 
     // ===== Fit Assessment vs Job Description — table =====
