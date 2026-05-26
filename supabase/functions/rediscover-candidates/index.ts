@@ -177,21 +177,23 @@ interface SubScores {
 
 function scoreRole(jobFamily: string | null, candFamily: string | null): number {
   if (!jobFamily) return 0.5;
-  if (!candFamily) return 0.2;
+  if (!candFamily) return 0.35;
   if (jobFamily === candFamily) return 1.0;
   const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
-  if (adj.includes(candFamily)) return 0.5;
-  return 0.1;
+  if (adj.includes(candFamily)) return 0.7; // adjacent = recruiter-recognized transferable
+  return 0.15;
 }
 
-function scoreSkills(jobSkills: Set<string>, candSkills: Set<string>): { score: number; matched: string[]; missing: string[] } {
+function scoreSkills(jobSkills: Set<string>, candSkills: Set<string>, adjacent: boolean): { score: number; matched: string[]; missing: string[] } {
   if (jobSkills.size === 0) return { score: 0.5, matched: [], missing: [] };
   const matched: string[] = [];
   const missing: string[] = [];
   for (const s of jobSkills) {
     if (candSkills.has(s)) matched.push(s); else missing.push(s);
   }
-  const score = matched.length / jobSkills.size;
+  let score = matched.length / jobSkills.size;
+  // Recruiter-grade floor: an adjacent-family engineer shouldn't read as 0% skills.
+  if (adjacent && score < 0.4) score = 0.4;
   return { score, matched, missing };
 }
 
@@ -235,7 +237,12 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
 
   const jobSkills = normalizeSkills(job.skills);
   const candSkills = normalizeSkills(cand.skills);
-  const skillRes = scoreSkills(jobSkills, candSkills);
+  const jobFamilyEarly = jobFamily;
+  const candFamilyEarly = candFamily;
+  const adjEarly = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly !== candFamilyEarly &&
+    (ROLE_FAMILIES[jobFamilyEarly]?.adjacent ?? []).includes(candFamilyEarly));
+  const sameFamily = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly === candFamilyEarly);
+  const skillRes = scoreSkills(jobSkills, candSkills, adjEarly || sameFamily);
 
   const jobRank = detectSeniority(`${job.title ?? ""} ${job.experience_level ?? ""}`, null);
   const candRank = detectSeniority(cand.current_title ?? "", cand.experience_years);
@@ -260,25 +267,26 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
     0.10 * sub.experience +
     0.05 * sub.location;
 
-  // Penalties
+  // Penalties — recruiter-grade: only penalize true mismatches, not partial alignment.
   let penalty = 0;
   if (jobFamily && candFamily && jobFamily !== candFamily) {
     const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
     if (!adj.includes(candFamily)) penalty += 0.25; // wrong role family
   }
-  if (jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.5) penalty += 0.15;
+  // Skill penalty only when truly sparse AND not adjacent (adjacent = transferable depth).
+  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.10;
   if (Math.abs(jobRank - candRank) >= 2) penalty += 0.15;
   sub.penalty = penalty;
 
   let final = Math.round(Math.max(0, base - penalty) * 100);
   if (final > 100) final = 100;
 
-  // Confidence
+  // Confidence — adjacent + decent base counts as medium, not low.
   let confidence: "low" | "medium" | "high" = "low";
   const roleOk = !jobFamily || !candFamily || sub.role >= 0.5;
-  const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.7;
+  const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.6 || adjEarly || sameFamily;
   if (final >= 80 && roleOk && skillsOk) confidence = "high";
-  else if (final >= 65) confidence = "medium";
+  else if (final >= 60 && roleOk) confidence = "medium";
 
   return { final, confidence, sub, matched: skillRes.matched, missing: skillRes.missing, jobFamily, candFamily, jobRank, candRank };
 }
@@ -296,10 +304,24 @@ async function explainBatch(job: any, scored: Array<{ candidate: any; result: Re
     missing_skills: r.missing.slice(0, 8),
     role_family: r.candFamily,
     job_family: r.jobFamily,
+    is_adjacent_family: !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
+      (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily)),
     experience_years: c.experience_years,
   }));
 
-  const system = `You write short, recruiter-facing match explanations. Be specific and honest. DO NOT change or quote the score. Return ONLY through the provided tool.`;
+  const system = `You write short, recruiter-grade match explanations. Be specific and proportional — like an experienced technical recruiter, NOT a binary ATS filter.
+
+LANGUAGE RULES (critical):
+- NEVER write "No matched skills", "No relevant skills", "Not qualified", or "Unrelated profile" unless role_family is set AND is_adjacent_family is false AND it's a clearly different domain (e.g. sales vs engineering).
+- For adjacent-family candidates (backend applying for fullstack, frontend applying for fullstack, devops for backend, etc.), describe gaps as transferable-but-unproven:
+    "Limited frontend evidence", "Partial alignment with full-stack scope",
+    "Backend-heavy profile", "Frontend production depth unclear",
+    "Advanced React ownership not evident", "Requires technical validation on UI depth".
+- For same-family candidates with thin skill overlap, use: "Stack overlap partial", "Specific tooling not evidenced", "Requires technical validation".
+- Strengths must reflect real evidence in the candidate's title / family / years; do not invent skills.
+- Summary: 1-2 sentences, proportional tone. A partially aligned engineer is "moderate fit", not "not suitable". Do not quote the score.
+
+DO NOT change the score. Return ONLY through the provided tool.`;
   const user = `JOB: ${job.title}\nRequired skills: ${toArray(job.skills).slice(0, 12).join(", ")}\nJob family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}\n\nCANDIDATES (with their deterministic scores):\n${JSON.stringify(payload)}`;
 
   const tool = {
@@ -518,8 +540,37 @@ serve(async (req) => {
         if (contacted.has(c.id)) insights.push("Previously contacted");
 
         // Strengths/gaps fallback from deterministic data if AI returned nothing
-        const strengths = explain.strengths.length > 0 ? explain.strengths : r.matched.slice(0, 3).map((s) => `Has ${s}`);
-        const gaps = explain.gaps.length > 0 ? explain.gaps : r.missing.slice(0, 2).map((s) => `Missing ${s}`);
+        const isAdjacent = !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
+          (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily));
+        const isSameFamily = !!(r.jobFamily && r.candFamily && r.jobFamily === r.candFamily);
+        const isUnrelated = !!(r.jobFamily && r.candFamily && !isAdjacent && !isSameFamily);
+
+        const strengths = explain.strengths.length > 0
+          ? explain.strengths
+          : (r.matched.length > 0
+              ? r.matched.slice(0, 3).map((s) => `Has ${s}`)
+              : (isSameFamily || isAdjacent ? [`Relevant ${r.candFamily ?? "engineering"} background`] : []));
+
+        // Recruiter-grade gap phrasing — never say "No matched skills" for adjacent/same-family candidates.
+        const fallbackGap = (s: string) => {
+          if (isAdjacent) return `Limited evidence of ${s}`;
+          if (isSameFamily) return `${s} not evidenced`;
+          return `Missing ${s}`;
+        };
+        let gaps = explain.gaps.length > 0 ? explain.gaps : r.missing.slice(0, 2).map(fallbackGap);
+        // Sanitize harsh phrasing for adjacent/same-family
+        if (!isUnrelated) {
+          const BAN = /no\s+(matched|relevant|matching)\s+skills|unrelated\s+profile|not\s+qualified|no\s+overlap/i;
+          gaps = gaps.map((g) => {
+            if (!BAN.test(g)) return g;
+            if (r.jobFamily === "fullstack" && r.candFamily === "backend") return "Limited frontend evidence — full-stack depth unclear";
+            if (r.jobFamily === "fullstack" && r.candFamily === "frontend") return "Limited backend evidence — full-stack depth unclear";
+            return "Partial alignment with role requirements";
+          });
+          if (gaps.length === 0 && r.missing.length === 0 && isAdjacent) {
+            gaps = ["Partial alignment with role requirements"];
+          }
+        }
 
         return {
           job_id,

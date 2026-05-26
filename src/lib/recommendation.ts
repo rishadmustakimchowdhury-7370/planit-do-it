@@ -72,11 +72,11 @@ const META: Record<RecommendationKey, RecommendationMeta> = {
 
 export function scoreToRecommendation(score: number | null | undefined): RecommendationMeta {
   if (score == null) return META.needs_review;
-  if (score >= 88) return META.strong_match;
-  if (score >= 75) return META.recommended;
-  if (score >= 62) return META.moderate_fit;
-  if (score >= 50) return META.needs_review;
-  if (score >= 35) return META.limited_alignment;
+  if (score >= 85) return META.strong_match;
+  if (score >= 72) return META.recommended;
+  if (score >= 55) return META.moderate_fit;
+  if (score >= 42) return META.needs_review;
+  if (score >= 28) return META.limited_alignment;
   return META.not_suitable;
 }
 
