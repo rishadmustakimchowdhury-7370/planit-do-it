@@ -524,16 +524,18 @@ serve(async (req) => {
     }
 
     // ===== Fit Assessment vs Job Description (AI-derived mandate_match) =====
+    // Filter out sidecar metadata rows (missing/recruiter_notes_summary).
     const mandateRows: Array<{ req: string; evidence: string; fit: string }> =
       Array.isArray(validation?.mandate_match)
         ? (validation.mandate_match as any[])
-            .filter((m) => m && m.requirement && m.evidence)
+            .filter((m) => m && !m.__kind && m.requirement && m.evidence)
             .map((m) => ({
               req: String(m.requirement),
               evidence: String(m.evidence),
               fit: String(m.fit || "PARTIAL").toUpperCase(),
             }))
         : [];
+
 
     if (mandateRows.length) {
       sectionHeading("Fit Assessment vs Job Description");
