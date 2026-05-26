@@ -642,6 +642,45 @@ serve(async (req) => {
       cur.y = Math.min(leftEndY, rightEndY) - 4;
     }
 
+    // ===== Missing Requirements (JD items without real CV evidence) =====
+    if (sideMissing.length) {
+      sectionHeading("Missing Requirements");
+      const dotW = 10;
+      for (const item of sideMissing.slice(0, 8)) {
+        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
+        ensure(13);
+        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 11, width: 4, height: 4, color: recAccent });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+        cur.y -= 13;
+        for (let i = 1; i < lines.length; i++) {
+          ensure(13);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+          cur.y -= 13;
+        }
+      }
+      cur.y -= 4;
+    }
+
+    // ===== How Recruiter Notes Influenced the View =====
+    if (sideRecruiterSummary.length) {
+      sectionHeading("Recruiter Insight Impact");
+      const dotW = 8;
+      for (const item of sideRecruiterSummary.slice(0, 6)) {
+        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
+        ensure(13);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+        cur.y -= 13;
+        for (let i = 1; i < lines.length; i++) {
+          ensure(13);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+          cur.y -= 13;
+        }
+      }
+      cur.y -= 4;
+    }
+
+
     // ===== Recruiter View (manual override wins, otherwise AI recruiter_review) =====
     sectionHeading("Recruiter View");
     const recView = submission.recruiter_recommendation
