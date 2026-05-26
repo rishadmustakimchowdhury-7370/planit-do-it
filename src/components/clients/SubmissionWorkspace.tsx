@@ -300,10 +300,32 @@ export function SubmissionWorkspace({
               {isFailed && !isBuilding && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
                   <AlertTriangle className="h-8 w-8 text-destructive" />
-                  <div className="text-sm font-medium">Package generation temporarily failed</div>
-                  <p className="text-xs text-muted-foreground max-w-sm">
-                    This sometimes happens with very large CVs or transient connectivity. You can retry.
-                  </p>
+                  <div className="text-sm font-medium">Submission can't be built yet</div>
+                  {readiness ? (
+                    <div className="text-left text-xs bg-muted/40 border rounded-lg p-3 w-full max-w-sm space-y-1.5">
+                      <div className="font-medium text-foreground mb-1">Readiness check</div>
+                      {[
+                        ["Candidate record", readiness.candidate],
+                        ["Job record", readiness.job],
+                        ["AI assessment", readiness.ai_validation],
+                        ["At least one CV", readiness.cv],
+                      ].map(([label, ok]) => (
+                        <div key={label as string} className="flex items-center gap-2">
+                          {ok ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+                          <span className={ok ? "text-muted-foreground" : "text-destructive"}>{label}</span>
+                        </div>
+                      ))}
+                      {readiness.missing?.length > 0 && (
+                        <div className="pt-1 text-[11px] text-muted-foreground">
+                          Fix: {readiness.missing.join(", ")}.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      {row.pack_error || "Some required data is missing. Open the candidate or job record to complete it, then retry."}
+                    </p>
+                  )}
                   <Button size="sm" onClick={regenerate}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Retry</Button>
                 </div>
               )}
