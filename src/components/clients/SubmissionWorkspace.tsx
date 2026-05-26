@@ -176,9 +176,12 @@ export function SubmissionWorkspace({
       toast.error("Add at least one client recipient first.");
       return;
     }
+    if (!(row?.pack_status === "ready" && signedUrl)) {
+      toast.error("Please wait for the pack to finish building.");
+      return;
+    }
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       const nowIso = new Date().toISOString();
       const { error } = await supabase.from("candidate_submissions").update({
         status: "submitted",
@@ -188,18 +191,17 @@ export function SubmissionWorkspace({
       }).eq("id", submissionId);
       if (error) throw error;
 
-      // Activity log (non-blocking)
       try {
-        await supabase.from("submission_activity" as any).insert({
-          submission_id: submissionId,
-          tenant_id: tenantId,
-          client_org_id: clientOrgId,
-          actor_user_id: user?.id ?? null,
-          actor_type: "internal",
-          event_type: "submission_sent",
-          metadata: { recipients: recipientCount },
+        const { data, error: fnErr } = await supabase.functions.invoke("send-submission-email", {
+          body: { submission_id: submissionId },
         });
-      } catch {}
+        if (fnErr) throw fnErr;
+        const res = data as any;
+        if (res?.sent > 0) toast.success(`Submission delivered to ${res.sent} recipient${res.sent === 1 ? "" : "s"}`);
+        if (res?.failed?.length) toast.warning(`Couldn't email: ${res.failed.join(", ")}`);
+      } catch (e) {
+        toast.warning("Submission saved, but email notification failed. You can resend from the timeline.");
+      }
 
       setSentScreen(true);
       onSent?.();
