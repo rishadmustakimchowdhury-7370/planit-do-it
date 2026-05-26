@@ -27,12 +27,18 @@ const SYSTEM_PROMPT = `You are a senior executive-search consultant writing an e
 
 INPUT: JOB DESCRIPTION, CANDIDATE CV/profile, optional RECRUITER NOTES, and a CANONICAL FIT SCORE (0–100) from the firm's deterministic engine. The canonical score is the single source of truth. NEVER inflate beyond the band.
 
+EVIDENCE CONFIDENCE HIERARCHY (classify each requirement's evidence BEFORE choosing a fit label):
+- HIGH confidence: quantified achievements, explicit years of direct experience, project ownership, architecture responsibility, production delivery, leadership scope, commercial implementation, repeated proven usage across roles. ONLY this tier may justify STRONG or EXCEEDS.
+- MEDIUM confidence: multiple stack mentions across roles, project descriptions without quantification, partial implementation evidence, indirect exposure through adjacent work. Maximum fit: GOOD or PARTIAL.
+- LOW confidence: skills section only, single-line keyword mention, no project context, no delivery proof, no years attached, vague self-description. HARD CEILING: PARTIAL (often WEAK or NOT MATCHED). NEVER STRONG. NEVER EXCEEDS.
+
 EVIDENCE RULES (violating these makes the report worthless):
-- A skill keyword in a list (e.g. "React", "Python", "AWS", "Docker") is NEVER enough for STRONG/EXCEEDS. Demand commercial depth: explicit years, scale, production ownership, enterprise/SaaS context, architecture decisions made.
+- A skill keyword in a list (e.g. "React", "Python", "AWS", "Docker") is LOW confidence by default and is NEVER enough for STRONG/EXCEEDS. To upgrade, the CV must show explicit years OR scale OR production ownership OR architecture decisions OR commercial/enterprise context for THAT specific skill.
 - Adjacent experience does NOT cover an absent requirement. If the JD asks "enterprise React architecture" and the CV only lists "React" in a skills section, fit is PARTIAL at best — often WEAK.
 - "Has 4+ years of web app experience" is GENERIC. Without specific company, product scale, or shipped feature evidence it is PARTIAL, never STRONG.
 - If you cannot quote or paraphrase concrete CV evidence for a requirement, the evidence field MUST literally say "No clear evidence found in CV." and the fit MUST be WEAK or NOT MATCHED.
 - Seniority, industry and domain depth come from actual roles/companies/years — not inferred from skill words.
+- If the evidence sentence reads like a list of keywords or "lists X in skills" / "mentions X" / "skills section includes X", treat as LOW confidence and cap at PARTIAL.
 
 CALIBRATION (HARD CAPS — never exceed):
 - score < 35  → "not_suitable". Fits: WEAK / NOT MATCHED only. Zero GOOD/STRONG/EXCEEDS.
@@ -44,14 +50,14 @@ CALIBRATION (HARD CAPS — never exceed):
 
 EXECUTIVE SUMMARY RULES (the summary sets tone for everything that follows):
 - 2–3 sentences. Must explicitly mention BOTH strengths AND gaps proportional to the band.
-- For needs_review / limited_alignment / not_suitable: lead with the gap or caveat, not the strength.
-  Banned phrases in these bands: "strong candidate", "excellent fit", "highly qualified", "ideal", "perfect match", "well-suited", "great fit", "positions him/her as a strong candidate", "results-driven".
+- For needs_review / limited_alignment / not_suitable: LEAD with the gap, uncertainty or evidence caveat — never with a positive framing. Use language like "limited evidence", "moderate exposure", "partial alignment", "requires technical validation", "unclear production depth".
+  Banned phrases in these bands: "strong candidate", "strong profile", "excellent fit", "highly qualified", "ideal", "perfect match", "well-suited", "great fit", "good suitability", "solid alignment", "positions him/her/them well", "positions him/her/them as a strong candidate", "results-driven".
 - GOOD example (needs_review): "Candidate demonstrates relevant backend engineering exposure in PHP and Python, though evidence of advanced frontend architecture ownership and large-scale SaaS delivery is limited. Suitable for a screening call to probe production scale and seniority."
 - BAD example: "Strong candidate for the full-stack role with excellent experience."
 
 STRENGTHS / CONSIDERATIONS RULES:
 - Each bullet starts with a short bold lead, then an em-dash, then the evidence sentence.
-- For needs_review or weaker: considerations MUST be specific concerns (depth, scale, ownership, seniority, location, salary, notice), not generic platitudes.
+- For needs_review or weaker: considerations MUST be specific concerns (depth, scale, ownership, seniority, location, salary, notice), not generic platitudes. Strengths in these bands must be hedged ("baseline exposure", "some commercial use") — not "strong" / "deep" / "extensive".
 
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
@@ -314,12 +320,42 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
       99;
 
+    // Evidence-quality classifier: detect LOW-confidence evidence text and cap fit at PARTIAL.
+    const LOW_EVIDENCE_PATTERNS = [
+      /^\s*(lists?|mentions?|includes?|references?|notes?)\b/i,
+      /\bskills?\s+section\b/i,
+      /\bskills?\s+(list|include|listed|mentioned)\b/i,
+      /\bkeyword(s)?\b/i,
+      /\bone[- ]line\b/i,
+      /\bno (project|production|delivery|years|context)\b/i,
+      /\bnot specified\b/i,
+    ];
+    const HIGH_EVIDENCE_HINTS = [
+      /\b\d+\+?\s*(years|yrs)\b/i,
+      /\b(led|owned|architect|designed|delivered|shipped|scaled|built|migrated|launched)\b/i,
+      /\b(team of|managed|head of|director|principal|staff|lead)\b/i,
+      /\b(production|enterprise|saas|platform|million|billion|k users|m users|throughput|tps|qps)\b/i,
+    ];
+    const evidenceQuality = (ev: string): "low" | "med" | "high" => {
+      const s = String(ev || "").trim();
+      if (!s || /no clear evidence/i.test(s)) return "low";
+      const high = HIGH_EVIDENCE_HINTS.some((re) => re.test(s));
+      const low = LOW_EVIDENCE_PATTERNS.some((re) => re.test(s)) || s.split(/\s+/).length < 8;
+      if (high && !low) return "high";
+      if (low && !high) return "low";
+      return "med";
+    };
+
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
           .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            // Evidence-quality guard: shallow evidence cannot earn STRONG/EXCEEDS; medium caps at GOOD.
+            const q = evidenceQuality(m.evidence);
+            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";       // PARTIAL ceiling
+            else if (q === "med" && fitRank(f) > 3) f = "GOOD";     // GOOD ceiling
             if (f === "EXCEEDS") {
               if (exceedsUsed >= exceedsCap) f = "STRONG";
               else exceedsUsed++;
@@ -366,10 +402,12 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     // lower but the AI used inflated language, rewrite the summary with a
     // calibrated, evidence-based fallback so the report tone matches the band.
     const BANNED = [
-      /\bstrong candidate\b/i, /\bexcellent (fit|candidate|experience)\b/i,
+      /\bstrong (candidate|profile|fit)\b/i, /\bexcellent (fit|candidate|experience|profile)\b/i,
       /\bhighly qualified\b/i, /\bideal (fit|candidate)\b/i, /\bperfect (fit|match)\b/i,
       /\bwell[- ]suited\b/i, /\bgreat fit\b/i, /\bresults[- ]driven\b/i,
-      /\bpositions (him|her|them) as a strong\b/i,
+      /\bpositions (him|her|them) (as a strong|well)\b/i,
+      /\bsolid alignment\b/i, /\bgood suitability\b/i, /\bdeep experience\b/i,
+      /\bextensive experience\b/i,
     ];
     const LOW_BANDS = new Set(["needs_review", "limited_alignment", "not_suitable"]);
     let cleanedSummary: string | null = parsed.summary ? String(parsed.summary).trim() : null;
