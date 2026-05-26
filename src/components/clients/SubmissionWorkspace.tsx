@@ -76,7 +76,7 @@ export function SubmissionWorkspace({
     const load = async () => {
       const { data } = await supabase
         .from("candidate_submissions")
-        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, submission_message, branded_cv_url, original_cv_url, status, sent_at")
+        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
         .eq("id", submissionId)
         .maybeSingle();
       if (!active || !data) return;
@@ -88,6 +88,7 @@ export function SubmissionWorkspace({
       setStrengthsText((r.recruiter_strengths ?? []).join("\n"));
       setConsiderationsText((r.recruiter_considerations ?? []).join("\n"));
       setRecruiterMessage(r.submission_message ?? "");
+      setRecruiterNotesText((r.recruiter_notes ?? []).join("\n"));
     };
     load();
 
