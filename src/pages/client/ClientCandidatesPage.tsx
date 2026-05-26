@@ -9,6 +9,8 @@ import { ClientCandidateSlideOver } from '@/components/client/ClientCandidateSli
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Users } from 'lucide-react';
+import { recommendationMeta } from '@/lib/recommendation';
+
 
 export default function ClientCandidatesPage() {
   const { clientPortal } = useAuth();
@@ -71,9 +73,13 @@ export default function ClientCandidatesPage() {
                         <div className="font-semibold truncate">{c?.full_name || 'Candidate'}</div>
                         <div className="text-xs text-muted-foreground truncate">{c?.current_title}</div>
                       </div>
-                      {s.ai_insights_snapshot?.match_score && (
-                        <Badge variant="outline" className="bg-primary/5 shrink-0">{s.ai_insights_snapshot.match_score}%</Badge>
-                      )}
+                      {(() => {
+                        const snap = s.ai_insights_snapshot || {};
+                        if (!snap.recommendation && !snap.match_score) return null;
+                        const meta = recommendationMeta(snap.recommendation, snap.match_score);
+                        return <Badge variant="outline" className={`shrink-0 ${meta.badgeClass}`}>{meta.label}</Badge>;
+                      })()}
+
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-2 truncate">
                       For: <span className="text-foreground/80 font-medium">{s.job_candidates?.jobs?.title}</span>

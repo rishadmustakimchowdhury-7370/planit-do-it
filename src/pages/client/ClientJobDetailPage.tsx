@@ -9,6 +9,8 @@ import { ClientCandidateSlideOver } from '@/components/client/ClientCandidateSli
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeft, MapPin, Users } from 'lucide-react';
+import { recommendationMeta } from '@/lib/recommendation';
+
 
 export default function ClientJobDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -84,9 +86,13 @@ export default function ClientJobDetailPage() {
                     <div className="font-semibold">{s.job_candidates?.candidate?.full_name || 'Candidate'}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">{s.job_candidates?.candidate?.current_title}</div>
                   </div>
-                  {s.ai_insights_snapshot?.match_score && (
-                    <Badge variant="outline" className="bg-primary/5">{s.ai_insights_snapshot.match_score}% match</Badge>
-                  )}
+                  {(() => {
+                    const snap = s.ai_insights_snapshot || {};
+                    if (!snap.recommendation && !snap.match_score) return null;
+                    const meta = recommendationMeta(snap.recommendation, snap.match_score);
+                    return <Badge variant="outline" className={meta.badgeClass}>{meta.label}</Badge>;
+                  })()}
+
                 </div>
                 {s.recruiter_summary && (
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-2">{s.recruiter_summary}</p>

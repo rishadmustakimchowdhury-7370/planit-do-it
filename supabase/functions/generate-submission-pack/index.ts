@@ -276,6 +276,53 @@ serve(async (req) => {
     const confidence = canonical?.confidence ?? null;
     const modelVersion = canonical?.model_version ?? "hybrid_v1";
 
+    // Recruiter-grade recommendation taxonomy — score is internal-only on the
+    // executive PDF; clients see the recruiter label.
+    type RecKey = "strong_match" | "recommended" | "moderate_fit" | "needs_review" | "limited_alignment" | "not_suitable";
+    const recFromScore = (s: number | null): RecKey => {
+      if (s == null) return "needs_review";
+      if (s >= 88) return "strong_match";
+      if (s >= 75) return "recommended";
+      if (s >= 62) return "moderate_fit";
+      if (s >= 50) return "needs_review";
+      if (s >= 35) return "limited_alignment";
+      return "not_suitable";
+    };
+    const recRaw = String(validation?.recommendation ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+    const VALID_RECS: RecKey[] = ["strong_match","recommended","moderate_fit","needs_review","limited_alignment","not_suitable"];
+    const recKey: RecKey = (VALID_RECS as string[]).includes(recRaw) ? (recRaw as RecKey) : recFromScore(canonicalScore);
+    const REC_LABEL: Record<RecKey, string> = {
+      strong_match: "Strong Match",
+      recommended: "Recommended",
+      moderate_fit: "Moderate Fit",
+      needs_review: "Needs Review",
+      limited_alignment: "Limited Alignment",
+      not_suitable: "Not Suitable",
+    };
+    const REC_ACCENT: Record<RecKey, any> = {
+      strong_match: rgb(0.04, 0.45, 0.30),
+      recommended: rgb(0.06, 0.40, 0.55),
+      moderate_fit: rgb(0.78, 0.63, 0.30),
+      needs_review: rgb(0.78, 0.48, 0.16),
+      limited_alignment: rgb(0.70, 0.30, 0.25),
+      not_suitable: rgb(0.60, 0.18, 0.18),
+    };
+    const recAccent = REC_ACCENT[recKey];
+    const recLabel = REC_LABEL[recKey];
+
+    // Sidecar metadata extracted from mandate_match (validate-candidate-fit packs
+    // missing_requirements and recruiter_notes_summary as __kind rows).
+    const mandateRaw: any[] = Array.isArray(validation?.mandate_match) ? validation.mandate_match : [];
+    const sideMissing: string[] = (() => {
+      const row = mandateRaw.find((r) => r && r.__kind === "missing");
+      return Array.isArray(row?.items) ? row.items.map(String) : [];
+    })();
+    const sideRecruiterSummary: string[] = (() => {
+      const row = mandateRaw.find((r) => r && r.__kind === "recruiter_notes_summary");
+      return Array.isArray(row?.items) ? row.items.map(String) : [];
+    })();
+
+
     const drawHeader = (page: PDFPage) => {
       const { width, height } = page.getSize();
       // Navy band
@@ -411,27 +458,25 @@ serve(async (req) => {
         });
       }
 
-      // Canonical fit score chip (right side of hero) — single source of truth
-      if (canonicalScore != null) {
-        const chipW = 130, chipH = 56;
+      // Recruiter recommendation pill (replaces numeric score) — single source of truth
+      {
+        const labelText = recLabel.toUpperCase();
+        const eyebrow = "RECRUITER ASSESSMENT";
+        const labelW = sansB.widthOfTextAtSize(labelText, 11);
+        const eyebrowW = sansB.widthOfTextAtSize(eyebrow, 6.5);
+        const chipW = Math.max(150, Math.max(labelW, eyebrowW) + 36);
+        const chipH = 56;
         const chipX = MARGIN + innerW - chipW - 14;
         const chipY = heroTop - heroH + (heroH - chipH) / 2;
         cur.page.drawRectangle({ x: chipX, y: chipY, width: chipW, height: chipH, color: NAVY_DEEP, borderColor: GOLD, borderWidth: 0.8 });
-        const scoreTxt = `${canonicalScore}`;
-        const scoreW = serifB.widthOfTextAtSize(scoreTxt, 28);
-        cur.page.drawText(scoreTxt, { x: chipX + (chipW - scoreW) / 2 - 12, y: chipY + 22, size: 28, font: serifB, color: WHITE });
-        cur.page.drawText("/100", { x: chipX + (chipW - scoreW) / 2 - 12 + scoreW + 2, y: chipY + 22, size: 10, font: sans, color: ON_NAVY_MUTED });
-        const recoLabel =
-          canonicalScore >= 90 ? "STRONGLY RECOMMENDED" :
-          canonicalScore >= 75 ? "RECOMMENDED" :
-          canonicalScore >= 65 ? "NEEDS REVIEW +" :
-          canonicalScore >= 50 ? "NEEDS REVIEW" : "NOT RECOMMENDED";
-        const rw = sansB.widthOfTextAtSize(recoLabel, 7);
-        cur.page.drawText(recoLabel, { x: chipX + (chipW - rw) / 2, y: chipY + 8, size: 7, font: sansB, color: GOLD });
-        const confTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : `Engine: ${modelVersion}`;
-        const cw = sans.widthOfTextAtSize(confTxt, 6.5);
-        cur.page.drawText(confTxt, { x: chipX + (chipW - cw) / 2, y: chipY - 8, size: 6.5, font: sans, color: ON_NAVY_MUTED });
+        cur.page.drawRectangle({ x: chipX, y: chipY + chipH - 3, width: chipW, height: 3, color: GOLD });
+        cur.page.drawText(eyebrow, { x: chipX + (chipW - eyebrowW) / 2, y: chipY + chipH - 18, size: 6.5, font: sansB, color: GOLD });
+        cur.page.drawText(labelText, { x: chipX + (chipW - labelW) / 2, y: chipY + 22, size: 11, font: sansB, color: WHITE });
+        const subTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : "Evidence-based assessment";
+        const swW = sans.widthOfTextAtSize(subTxt, 6.5);
+        cur.page.drawText(subTxt, { x: chipX + (chipW - swW) / 2, y: chipY + 8, size: 6.5, font: sans, color: ON_NAVY_MUTED });
       }
+
 
       cur.y -= heroH + 14;
     }
@@ -479,16 +524,18 @@ serve(async (req) => {
     }
 
     // ===== Fit Assessment vs Job Description (AI-derived mandate_match) =====
+    // Filter out sidecar metadata rows (missing/recruiter_notes_summary).
     const mandateRows: Array<{ req: string; evidence: string; fit: string }> =
       Array.isArray(validation?.mandate_match)
         ? (validation.mandate_match as any[])
-            .filter((m) => m && m.requirement && m.evidence)
+            .filter((m) => m && !m.__kind && m.requirement && m.evidence)
             .map((m) => ({
               req: String(m.requirement),
               evidence: String(m.evidence),
               fit: String(m.fit || "PARTIAL").toUpperCase(),
             }))
         : [];
+
 
     if (mandateRows.length) {
       sectionHeading("Fit Assessment vs Job Description");
@@ -594,6 +641,45 @@ serve(async (req) => {
       const rightEndY = bulletInto(considerations.length ? considerations : ["No material concerns identified"], MARGIN + colWidth + gap, colWidth);
       cur.y = Math.min(leftEndY, rightEndY) - 4;
     }
+
+    // ===== Missing Requirements (JD items without real CV evidence) =====
+    if (sideMissing.length) {
+      sectionHeading("Missing Requirements");
+      const dotW = 10;
+      for (const item of sideMissing.slice(0, 8)) {
+        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
+        ensure(13);
+        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 11, width: 4, height: 4, color: recAccent });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+        cur.y -= 13;
+        for (let i = 1; i < lines.length; i++) {
+          ensure(13);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+          cur.y -= 13;
+        }
+      }
+      cur.y -= 4;
+    }
+
+    // ===== How Recruiter Notes Influenced the View =====
+    if (sideRecruiterSummary.length) {
+      sectionHeading("Recruiter Insight Impact");
+      const dotW = 8;
+      for (const item of sideRecruiterSummary.slice(0, 6)) {
+        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
+        ensure(13);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+        cur.y -= 13;
+        for (let i = 1; i < lines.length; i++) {
+          ensure(13);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+          cur.y -= 13;
+        }
+      }
+      cur.y -= 4;
+    }
+
 
     // ===== Recruiter View (manual override wins, otherwise AI recruiter_review) =====
     sectionHeading("Recruiter View");
