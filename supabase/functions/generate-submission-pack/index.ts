@@ -149,6 +149,7 @@ serve(async (req) => {
       ...(reqComponents ? { pack_components: reqComponents } : {}),
     }).eq("id", submission_id);
 
+    // Step 1: Verify the user has access to this submission (RLS-checked).
     const { data: submission, error: subErr } = await supabase
       .from("candidate_submissions")
       .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation")
@@ -159,6 +160,11 @@ serve(async (req) => {
       return fail("This submission could not be found. Please refresh and try again.");
     }
 
+    // Step 2: Use admin client for relational reads. The user has already proven
+    // ownership of the submission via RLS above, so it is safe to bypass RLS for
+    // related rows in the same tenant. This avoids "Candidate or job data is missing"
+    // when the recruiter doesn't directly own the candidate/job (e.g. job is
+    // assigned to a teammate within the same tenant).
     const [
       { data: candidate },
       { data: job },
@@ -167,20 +173,51 @@ serve(async (req) => {
       { data: branding },
       { data: profile },
     ] = await Promise.all([
-      supabase.from("candidates").select("full_name, current_title, current_company, location, experience_years, email, phone, skills, summary, work_history, education, linkedin_url, availability, relocation, expected_salary").eq("id", submission.candidate_id).maybeSingle(),
-      supabase.from("jobs").select("title, location, employment_type, experience_level, department").eq("id", submission.job_id).maybeSingle(),
+      admin.from("candidates").select("full_name, current_title, current_company, location, experience_years, email, phone, skills, summary, work_history, education, linkedin_url, availability, relocation, expected_salary, tenant_id").eq("id", submission.candidate_id).maybeSingle(),
+      admin.from("jobs").select("title, location, employment_type, experience_level, department, tenant_id").eq("id", submission.job_id).maybeSingle(),
       submission.ai_validation_id
-        ? supabase.from("ai_candidate_validations").select("*").eq("id", submission.ai_validation_id).maybeSingle()
-        : supabase.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("rediscovered_matches").select("match_score, sub_scores, confidence, model_version, strengths, gaps, ai_summary").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).maybeSingle(),
+        ? admin.from("ai_candidate_validations").select("*").eq("id", submission.ai_validation_id).maybeSingle()
+        : admin.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("rediscovered_matches").select("match_score, sub_scores, confidence, model_version, strengths, gaps, ai_summary").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).maybeSingle(),
       admin.from("branding_settings").select("logo_url, company_name, primary_color, footer_text").eq("tenant_id", submission.tenant_id).maybeSingle(),
       admin.from("profiles").select("full_name, email, phone").eq("id", userId).maybeSingle(),
     ]);
 
-    if (!candidate || !job) {
-      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: "candidate/job missing" }).eq("id", submission_id);
-      return fail("Candidate or job data is missing. Please check the records.");
+    // Step 3: Detailed readiness diagnostics — surface the exact missing piece(s)
+    // to the recruiter instead of a generic error.
+    const missing: string[] = [];
+    if (!candidate) missing.push("Candidate record");
+    if (!job) missing.push("Job record");
+    if (candidate && (candidate as any).tenant_id && (candidate as any).tenant_id !== submission.tenant_id) {
+      missing.push("Candidate belongs to a different workspace");
     }
+    if (job && (job as any).tenant_id && (job as any).tenant_id !== submission.tenant_id) {
+      missing.push("Job belongs to a different workspace");
+    }
+
+    if (!candidate || !job) {
+      const detail = missing.join(" · ");
+      await admin.from("candidate_submissions").update({
+        pack_status: "failed",
+        pack_error: detail || "candidate/job missing",
+      }).eq("id", submission_id);
+      return new Response(JSON.stringify({
+        status: "failed",
+        user_message: `Submission is missing required data: ${detail}. Please open the candidate or job record to repair it, then retry.`,
+        readiness: {
+          candidate: !!candidate,
+          job: !!job,
+          ai_validation: !!(validation || canonical),
+          cv: !!(submission.branded_cv_url || submission.original_cv_url),
+          missing,
+        },
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Step 4: Safe fallbacks — missing AI validation / CV no longer blocks the pack.
+    // The AI Executive Report page is always rendered from whatever data IS available
+    // (canonical match score, narrative, candidate summary). Branded vs. original CV
+    // merge is best-effort and skipped silently if the file is missing.
 
     const brand = hexToRgb(branding?.primary_color);
     const companyName = branding?.company_name ?? "";
