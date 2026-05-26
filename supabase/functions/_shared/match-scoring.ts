@@ -108,17 +108,24 @@ export function computeMatchScore(job: any, cand: any): MatchResult {
   const jobSkills = normalizeSkills(job.skills);
   const candSkills = normalizeSkills(cand.skills);
 
+  const adjacent = !!(jobFamily && candFamily && jobFamily !== candFamily &&
+    (ROLE_FAMILIES[jobFamily]?.adjacent ?? []).includes(candFamily));
+  const sameFamily = !!(jobFamily && candFamily && jobFamily === candFamily);
+
   let skillScore = 0.5; const matched: string[] = []; const missing: string[] = [];
   if (jobSkills.size > 0) {
     for (const s of jobSkills) (candSkills.has(s) ? matched : missing).push(s);
     skillScore = matched.length / jobSkills.size;
+    if ((adjacent || sameFamily) && skillScore < 0.4) skillScore = 0.4; // transferable floor
   }
 
   const jobRank = detectSeniority(`${job.title ?? ""} ${job.experience_level ?? ""}`, null);
   const candRank = detectSeniority(cand.current_title ?? "", cand.experience_years);
   const jobYears = extractRequiredYears(`${job.requirements ?? ""} ${job.description ?? ""}`);
 
-  const roleScore = !jobFamily ? 0.5 : !candFamily ? 0.2 : jobFamily === candFamily ? 1.0 : (ROLE_FAMILIES[jobFamily]?.adjacent ?? []).includes(candFamily) ? 0.5 : 0.1;
+  const roleScore = !jobFamily ? 0.5 : !candFamily ? 0.35
+    : jobFamily === candFamily ? 1.0
+    : adjacent ? 0.7 : 0.15;
 
   const seniorDiff = Math.abs(jobRank - candRank);
   const seniorityScore = seniorDiff === 0 ? 1 : seniorDiff === 1 ? 0.6 : seniorDiff === 2 ? 0.2 : 0;
@@ -143,8 +150,8 @@ export function computeMatchScore(job: any, cand: any): MatchResult {
   const base = 0.40 * sub.role + 0.25 * sub.skills + 0.10 * sub.industry + 0.10 * sub.seniority + 0.10 * sub.experience + 0.05 * sub.location;
 
   let penalty = 0;
-  if (jobFamily && candFamily && jobFamily !== candFamily && !(ROLE_FAMILIES[jobFamily]?.adjacent ?? []).includes(candFamily)) penalty += 0.25;
-  if (jobSkills.size > 0 && matched.length / jobSkills.size < 0.5) penalty += 0.15;
+  if (jobFamily && candFamily && jobFamily !== candFamily && !adjacent) penalty += 0.25;
+  if (!adjacent && !sameFamily && jobSkills.size > 0 && matched.length / jobSkills.size < 0.3) penalty += 0.10;
   if (Math.abs(jobRank - candRank) >= 2) penalty += 0.15;
   sub.penalty = penalty;
 
@@ -152,9 +159,9 @@ export function computeMatchScore(job: any, cand: any): MatchResult {
 
   let confidence: "low" | "medium" | "high" = "low";
   const roleOk = !jobFamily || !candFamily || sub.role >= 0.5;
-  const skillsOk = jobSkills.size === 0 || skillScore >= 0.7;
+  const skillsOk = jobSkills.size === 0 || skillScore >= 0.6 || adjacent || sameFamily;
   if (final >= 80 && roleOk && skillsOk) confidence = "high";
-  else if (final >= 65) confidence = "medium";
+  else if (final >= 60 && roleOk) confidence = "medium";
 
   return {
     final, confidence, recommendation: recommendationFromScore(final),
