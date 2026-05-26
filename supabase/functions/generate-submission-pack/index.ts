@@ -411,6 +411,28 @@ serve(async (req) => {
         });
       }
 
+      // Canonical fit score chip (right side of hero) — single source of truth
+      if (canonicalScore != null) {
+        const chipW = 130, chipH = 56;
+        const chipX = MARGIN + innerW - chipW - 14;
+        const chipY = heroTop - heroH + (heroH - chipH) / 2;
+        cur.page.drawRectangle({ x: chipX, y: chipY, width: chipW, height: chipH, color: NAVY_DEEP, borderColor: GOLD, borderWidth: 0.8 });
+        const scoreTxt = `${canonicalScore}`;
+        const scoreW = serifB.widthOfTextAtSize(scoreTxt, 28);
+        cur.page.drawText(scoreTxt, { x: chipX + (chipW - scoreW) / 2 - 12, y: chipY + 22, size: 28, font: serifB, color: WHITE });
+        cur.page.drawText("/100", { x: chipX + (chipW - scoreW) / 2 - 12 + scoreW + 2, y: chipY + 22, size: 10, font: sans, color: ON_NAVY_MUTED });
+        const recoLabel =
+          canonicalScore >= 90 ? "STRONGLY RECOMMENDED" :
+          canonicalScore >= 75 ? "RECOMMENDED" :
+          canonicalScore >= 65 ? "NEEDS REVIEW +" :
+          canonicalScore >= 50 ? "NEEDS REVIEW" : "NOT RECOMMENDED";
+        const rw = sansB.widthOfTextAtSize(recoLabel, 7);
+        cur.page.drawText(recoLabel, { x: chipX + (chipW - rw) / 2, y: chipY + 8, size: 7, font: sansB, color: GOLD });
+        const confTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : `Engine: ${modelVersion}`;
+        const cw = sans.widthOfTextAtSize(confTxt, 6.5);
+        cur.page.drawText(confTxt, { x: chipX + (chipW - cw) / 2, y: chipY - 8, size: 6.5, font: sans, color: ON_NAVY_MUTED });
+      }
+
       cur.y -= heroH + 14;
     }
 

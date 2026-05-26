@@ -18,29 +18,33 @@ const corsHeaders = {
 // The fit_score itself is ALWAYS taken from the deterministic scoring engine.
 const SYSTEM_PROMPT = `You are a senior executive-search consultant preparing a retained-search candidate assessment for a client.
 
-You will receive: a JOB DESCRIPTION, a CANDIDATE CV/profile, and optional RECRUITER NOTES gathered from the recruiter's screening conversation. The recruiter notes (notice period, salary expectations, visa, relocation, motivation, communication, client-sensitive comments) MUST influence your analysis — incorporate them into stakeholder management, commercial suitability, and risk reasoning where relevant.
+You will receive: a JOB DESCRIPTION, a CANDIDATE CV/profile, optional RECRUITER NOTES, and a CANONICAL FIT SCORE (0–100) computed by the firm's deterministic scoring engine. The canonical score is the single source of truth — your narrative, fit labels, and recommendation language MUST be consistent with it. Never inflate the assessment above the canonical band.
+
+CALIBRATION RULES (HARD):
+- score < 50  → tone "Not Recommended". Allowed fits: PARTIAL, WEAK, NOT MATCHED. No EXCEEDS / STRONG. At most one GOOD.
+- 50–64       → "Needs Review". At most one STRONG, no EXCEEDS, majority PARTIAL/GOOD/WEAK.
+- 65–74       → "Needs Review (leaning positive)". At most two STRONG, no EXCEEDS, mix of GOOD/PARTIAL.
+- 75–89       → "Recommended". Majority STRONG/GOOD, EXCEEDS only if clearly evidenced.
+- ≥ 90        → "Strongly Recommended". EXCEEDS / STRONG dominate.
+
+Your job is to JUSTIFY the canonical band with real CV evidence — not to argue with it.
 
 Produce ONLY valid JSON in this exact shape:
 {
-  "summary": "<2–3 sentence executive summary that reads like a retained-search consultant. Evidence-based, no fluff.>",
+  "summary": "<2–3 sentence executive summary consistent with the canonical band.>",
   "mandate_match": [
-    {
-      "requirement": "<short JD requirement label, e.g. 'Post-fixture & voyage operations'>",
-      "evidence": "<specific evidence drawn from the candidate's CV/notes that addresses this requirement — quote roles, employers, years, achievements>",
-      "fit": "EXCEEDS" | "STRONG" | "GOOD" | "PARTIAL" | "WEAK" | "NOT MATCHED"
-    }
+    { "requirement": "<short JD requirement label>", "evidence": "<specific CV evidence; if none, say 'No evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" }
   ],
-  "strengths": ["<short bold lead — evidence sentence>", "..."],
-  "considerations": ["<short bold lead — balanced consideration>", "..."],
-  "recruiter_review": "<one paragraph in senior recruiter voice, e.g. 'Candidate has strong alignment with the commercial shipping mandate, particularly in tanker operations and charter-party exposure. Main consideration remains relocation and bulk-carrier exposure.'>"
+  "strengths": ["<bold lead — evidence sentence>", "..."],
+  "considerations": ["<bold lead — balanced consideration>", "..."],
+  "recruiter_review": "<one paragraph in senior recruiter voice, consistent with the score band.>"
 }
 
 RULES:
-- Extract 5–8 of the JOB's most important requirements (technical, domain, leadership, language, location, regulatory, etc.) and assess each one against actual candidate evidence. Do NOT invent evidence.
-- "fit" must reflect real evidence: EXCEEDS = clearly beyond requirement, STRONG = solid match, GOOD = meets baseline, PARTIAL = some overlap with gaps, WEAK = limited evidence, NOT MATCHED = no evidence found.
-- 4–6 strengths and 3–5 considerations. Each should follow the pattern "Lead — explanatory sentence" (the lead becomes bold). Considerations must be balanced and constructive, not negative.
-- Recruiter notes about salary/notice/relocation/visa belong in considerations only if they are genuine concerns for this mandate.
-- The recruiter_review must sound human, commercial, executive-level — never templated.
+- Extract 5–8 of the JOB's most important requirements and assess each against actual evidence. Do NOT invent evidence.
+- Missing/weak evidence → WEAK or NOT MATCHED even if the candidate has adjacent experience.
+- 4–6 strengths and 3–5 considerations. "Lead — explanatory sentence" format.
+- Recruiter notes (salary/notice/relocation/visa/communication) belong in considerations only if genuinely relevant.
 - Output JSON only, no markdown.`;
 
 function recommendationFromScore(score: number): "strongly_recommended" | "needs_review" | "not_recommended" {
@@ -146,7 +150,15 @@ serve(async (req) => {
         .eq("job_id", job_id).eq("candidate_id", candidate_id)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       const hasMandate = Array.isArray((existing as any)?.mandate_match) && (existing as any).mandate_match.length > 0;
-      if (existing && hasMandate && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
+      // Invalidate cache if any cached fit label is inflated above the current canonical band
+      const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
+      const ceil = canonical?.match_score == null ? 3
+                 : canonical.match_score < 50 ? 1
+                 : canonical.match_score < 75 ? 4 : 5;
+      const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
+        Math.max(0, RANK.indexOf(String(m?.fit ?? "").toUpperCase())) > ceil
+      );
+      if (existing && hasMandate && !inflated && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
@@ -187,9 +199,10 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
 RECRUITER NOTES (from screening — must influence your reasoning where relevant):
 ${recruiterNotes.length ? recruiterNotes.map((n) => `- ${n}`).join("\n") : "(none provided)"}
 
-REFERENCE FIT BAND (deterministic engine, for tone calibration only — do NOT echo or argue with it): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
+CANONICAL FIT SCORE (deterministic engine — single source of truth): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
+Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}
 
-Now produce the JSON assessment per the system spec.`;
+Now produce the JSON assessment per the system spec, calibrated to the canonical band.`;
 
     let parsed: any = {};
     try {
@@ -226,15 +239,43 @@ Now produce the JSON assessment per the system spec.`;
       parsed = { summary: canonical?.ai_summary ?? null, mandate_match: [], strengths: (canonical?.strengths ?? []), considerations: (canonical?.gaps ?? []), recruiter_review: null };
     }
 
-    const ALLOWED_FITS = new Set(["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "NOT MATCHED"]);
+    const ALLOWED_FITS = ["NOT MATCHED", "WEAK", "PARTIAL", "GOOD", "STRONG", "EXCEEDS"]; // ordered low→high
+    const fitRank = (f: string) => Math.max(0, ALLOWED_FITS.indexOf(f.toUpperCase()));
+
+    // Cap allowed fit ceiling by canonical band — single source of truth wins.
+    const fitCeiling = (score: number | null): number => {
+      if (score == null) return 3; // GOOD
+      if (score < 50) return 1;    // WEAK max (one GOOD allowed via override below)
+      if (score < 65) return 4;    // STRONG max
+      if (score < 75) return 4;    // STRONG max
+      if (score < 90) return 5;    // EXCEEDS allowed sparingly
+      return 5;
+    };
+    const ceil = fitCeiling(canonicalScore);
+    let strongUsed = 0;
+    const strongCap = canonicalScore != null && canonicalScore < 50 ? 0
+                    : canonicalScore != null && canonicalScore < 65 ? 1
+                    : canonicalScore != null && canonicalScore < 75 ? 2
+                    : 99;
+
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
           .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
-          .map((m: any) => ({
-            requirement: String(m.requirement).slice(0, 120),
-            evidence: String(m.evidence).slice(0, 600),
-            fit: ALLOWED_FITS.has(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL",
-          }))
+          .map((m: any) => {
+            let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
+            // Hard cap to canonical band
+            if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            // Limit STRONG count for low/mid bands
+            if (f === "STRONG") {
+              if (strongUsed >= strongCap) f = "GOOD";
+              else strongUsed++;
+            }
+            return {
+              requirement: String(m.requirement).slice(0, 120),
+              evidence: String(m.evidence).slice(0, 600),
+              fit: f,
+            };
+          })
           .slice(0, 10)
       : [];
 
