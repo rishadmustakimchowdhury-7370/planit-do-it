@@ -177,21 +177,23 @@ interface SubScores {
 
 function scoreRole(jobFamily: string | null, candFamily: string | null): number {
   if (!jobFamily) return 0.5;
-  if (!candFamily) return 0.2;
+  if (!candFamily) return 0.35;
   if (jobFamily === candFamily) return 1.0;
   const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
-  if (adj.includes(candFamily)) return 0.5;
-  return 0.1;
+  if (adj.includes(candFamily)) return 0.7; // adjacent = recruiter-recognized transferable
+  return 0.15;
 }
 
-function scoreSkills(jobSkills: Set<string>, candSkills: Set<string>): { score: number; matched: string[]; missing: string[] } {
+function scoreSkills(jobSkills: Set<string>, candSkills: Set<string>, adjacent: boolean): { score: number; matched: string[]; missing: string[] } {
   if (jobSkills.size === 0) return { score: 0.5, matched: [], missing: [] };
   const matched: string[] = [];
   const missing: string[] = [];
   for (const s of jobSkills) {
     if (candSkills.has(s)) matched.push(s); else missing.push(s);
   }
-  const score = matched.length / jobSkills.size;
+  let score = matched.length / jobSkills.size;
+  // Recruiter-grade floor: an adjacent-family engineer shouldn't read as 0% skills.
+  if (adjacent && score < 0.4) score = 0.4;
   return { score, matched, missing };
 }
 
