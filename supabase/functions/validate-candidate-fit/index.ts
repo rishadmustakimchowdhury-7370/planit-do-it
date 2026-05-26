@@ -284,23 +284,34 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     const fitRank = (f: string) => Math.max(0, ALLOWED_FITS.indexOf(f.toUpperCase()));
 
     // Hard ceiling tied to canonical band — single source of truth.
+    // Rank: 0=NOT MATCHED 1=WEAK 2=PARTIAL 3=GOOD 4=STRONG 5=EXCEEDS
     const fitCeiling = (score: number | null): number => {
-      if (score == null) return 3;       // GOOD
+      if (score == null) return 2;       // PARTIAL
       if (score < 35) return 1;          // WEAK
       if (score < 50) return 2;          // PARTIAL
-      if (score < 62) return 4;          // STRONG cap (rare)
-      if (score < 75) return 4;          // STRONG
-      if (score < 88) return 5;          // EXCEEDS sparingly
-      return 5;
+      if (score < 62) return 3;          // up to GOOD (rare)
+      if (score < 75) return 4;          // STRONG (rare)
+      if (score < 88) return 4;          // STRONG
+      return 5;                          // EXCEEDS
     };
     const ceil = fitCeiling(canonicalScore);
-    let strongUsed = 0;
-    const strongCap =
+    let goodUsed = 0, strongUsed = 0, exceedsUsed = 0;
+    const goodCap =
       canonicalScore == null ? 99 :
       canonicalScore < 35 ? 0 :
       canonicalScore < 50 ? 0 :
-      canonicalScore < 62 ? 1 :
-      canonicalScore < 75 ? 2 : 99;
+      canonicalScore < 62 ? 1 :   // needs_review: max ONE GOOD
+      99;
+    const strongCap =
+      canonicalScore == null ? 99 :
+      canonicalScore < 62 ? 0 :   // needs_review and below: ZERO STRONG
+      canonicalScore < 75 ? 1 :   // moderate_fit: max ONE STRONG
+      99;
+    const exceedsCap =
+      canonicalScore == null ? 0 :
+      canonicalScore < 75 ? 0 :
+      canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
+      99;
 
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
@@ -308,9 +319,17 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            if (f === "EXCEEDS") {
+              if (exceedsUsed >= exceedsCap) f = "STRONG";
+              else exceedsUsed++;
+            }
             if (f === "STRONG") {
               if (strongUsed >= strongCap) f = "GOOD";
               else strongUsed++;
+            }
+            if (f === "GOOD") {
+              if (goodUsed >= goodCap) f = "PARTIAL";
+              else goodUsed++;
             }
             return {
               requirement: String(m.requirement).slice(0, 120),
