@@ -9,7 +9,7 @@ export type AICandidateValidation = {
   job_id: string;
   candidate_id: string;
   fit_score: number | null;
-  recommendation: "strongly_recommended" | "needs_review" | "not_recommended" | null;
+  recommendation: string | null;
   summary: string | null;
   strengths: string[];
   weaknesses: string[];
