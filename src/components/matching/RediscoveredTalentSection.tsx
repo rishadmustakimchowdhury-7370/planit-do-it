@@ -28,11 +28,13 @@ interface RediscoveredTalentSectionProps {
   onCandidateAdded?: () => void;
 }
 
-const CONFIDENCE_COLOR = {
-  high: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  medium: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  low: 'bg-muted text-muted-foreground border-border',
-} as const;
+import { scoreToRecommendation } from '@/lib/recommendation';
+
+// Recommendation rank for filtering — higher = stronger
+const REC_RANK: Record<string, number> = {
+  strong_match: 5, recommended: 4, moderate_fit: 3,
+  needs_review: 2, limited_alignment: 1, not_suitable: 0,
+};
 
 export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }: RediscoveredTalentSectionProps) {
   const { tenantId } = useAuth();
