@@ -438,6 +438,15 @@ export function SubmissionWorkspace({
                   />
                 </AccordionContent>
               </AccordionItem>
+
+              <AccordionItem value="activity" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm hover:no-underline">
+                  <span className="flex items-center gap-2"><Activity className="h-4 w-4" /> Live activity</span>
+                </AccordionTrigger>
+                <AccordionContent className="pt-1">
+                  <SubmissionActivityTimeline submissionId={submissionId} />
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
           </div>
         </ResizablePanel>
