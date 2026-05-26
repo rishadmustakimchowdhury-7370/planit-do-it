@@ -66,8 +66,10 @@ export type Database = {
           generated_by: string | null
           id: string
           job_id: string
+          mandate_match: Json | null
           model: string | null
           recommendation: string | null
+          recruiter_review: string | null
           risks: Json
           strengths: Json
           summary: string | null
@@ -82,8 +84,10 @@ export type Database = {
           generated_by?: string | null
           id?: string
           job_id: string
+          mandate_match?: Json | null
           model?: string | null
           recommendation?: string | null
+          recruiter_review?: string | null
           risks?: Json
           strengths?: Json
           summary?: string | null
@@ -98,8 +102,10 @@ export type Database = {
           generated_by?: string | null
           id?: string
           job_id?: string
+          mandate_match?: Json | null
           model?: string | null
           recommendation?: string | null
+          recruiter_review?: string | null
           risks?: Json
           strengths?: Json
           summary?: string | null
@@ -654,6 +660,7 @@ export type Database = {
           pack_pdf_url: string | null
           pack_status: string
           recruiter_considerations: string[] | null
+          recruiter_notes: string[] | null
           recruiter_recommendation: string | null
           recruiter_strengths: string[] | null
           recruiter_summary: string | null
@@ -683,6 +690,7 @@ export type Database = {
           pack_pdf_url?: string | null
           pack_status?: string
           recruiter_considerations?: string[] | null
+          recruiter_notes?: string[] | null
           recruiter_recommendation?: string | null
           recruiter_strengths?: string[] | null
           recruiter_summary?: string | null
@@ -712,6 +720,7 @@ export type Database = {
           pack_pdf_url?: string | null
           pack_status?: string
           recruiter_considerations?: string[] | null
+          recruiter_notes?: string[] | null
           recruiter_recommendation?: string | null
           recruiter_strengths?: string[] | null
           recruiter_summary?: string | null
