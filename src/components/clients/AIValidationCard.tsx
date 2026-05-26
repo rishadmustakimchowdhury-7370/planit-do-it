@@ -106,6 +106,23 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
           <p className="text-sm text-muted-foreground">{validation.summary}</p>
         )}
 
+        {subRows.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Score Breakdown</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+              {subRows.map(([label, val]) => (
+                <div key={label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium">{val}</span>
+                  </div>
+                  <Progress value={val} className="h-1.5" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {!compact && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ValidationList title="Strengths" items={validation.strengths} tone="positive" />
