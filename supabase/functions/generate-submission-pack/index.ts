@@ -531,9 +531,11 @@ serve(async (req) => {
       cur.y = Math.min(leftEndY, rightEndY) - 4;
     }
 
-    // ===== Recruiter View =====
+    // ===== Recruiter View (overrides win) =====
     sectionHeading("Recruiter View");
-    const recView = submission.submission_message
+    const recView = submission.recruiter_recommendation
+      || submission.recruiter_summary
+      || submission.submission_message
       || (canonicalScore != null
         ? `${candidate.full_name?.split(" ")[0] ?? "This candidate"} ${canonicalScore >= 75 ? "demonstrates strong" : canonicalScore >= 60 ? "shows reasonable" : "shows partial"} alignment with the ${job.title ?? "role"} requirements and is ${canonicalScore >= 75 ? "recommended for client screening" : canonicalScore >= 60 ? "worth a screening conversation" : "submitted for the client's review"}.`
         : "Submitted for client review.");
