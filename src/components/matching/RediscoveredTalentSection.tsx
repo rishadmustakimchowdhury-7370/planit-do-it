@@ -46,6 +46,19 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [addingId, setAddingId] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<RediscoveredMatch | null>(null);
   const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
+  const autoRescanRef = useRef(false);
+
+  // Auto re-scan once on mount if last scan is older than 10 minutes (clears stale calibration results)
+  useEffect(() => {
+    if (autoRescanRef.current) return;
+    if (isLoading || isScanning) return;
+    if (!lastRun?.completed_at) return;
+    const ageMs = Date.now() - new Date(lastRun.completed_at).getTime();
+    if (ageMs > 10 * 60 * 1000) {
+      autoRescanRef.current = true;
+      runScan(true);
+    }
+  }, [lastRun?.completed_at, isLoading, isScanning, runScan]);
 
   const filtered = useMemo(() => {
     const floor = REC_RANK[minRec] ?? 3;
