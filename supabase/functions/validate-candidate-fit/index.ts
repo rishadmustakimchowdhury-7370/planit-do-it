@@ -74,14 +74,46 @@ serve(async (req) => {
 
     // === SINGLE SOURCE OF TRUTH ===
     // The authoritative fit score is the deterministic hybrid_v1 score produced
-    // by rediscover-candidates and stored on rediscovered_matches. We read it here
-    // and reuse it so AI Talent Match and AI Validation NEVER disagree.
-    const { data: canonical } = await supabase
+    // by the centralized scoring engine (shared with AI Talent Match / rediscover-candidates).
+    // We read it from rediscovered_matches if present; otherwise we compute it inline
+    // with the SAME engine and persist it, so the score is consistent everywhere.
+    let { data: canonical } = await supabase
       .from("rediscovered_matches")
       .select("match_score, sub_scores, confidence, model_version, ai_summary, strengths, gaps")
       .eq("job_id", job_id)
       .eq("candidate_id", candidate_id)
       .maybeSingle();
+
+    if (!canonical) {
+      // Compute deterministic score with the shared engine and upsert it.
+      const r = computeMatchScore(job, candidate);
+      const newRow = {
+        job_id, candidate_id, tenant_id: job.tenant_id,
+        match_score: r.final, ai_score: r.final,
+        confidence: r.confidence,
+        sub_scores: {
+          role: r.sub.role, skills: r.sub.skills, industry: r.sub.industry,
+          seniority: r.sub.seniority, experience: r.sub.experience, location: r.sub.location,
+          penalty: r.sub.penalty, job_family: r.jobFamily, candidate_family: r.candFamily,
+        },
+        model_version: r.model_version,
+        strengths: r.matched.slice(0, 3).map((s) => `Has ${s}`),
+        gaps: r.missing.slice(0, 3).map((s) => `Missing ${s}`),
+        insights: [],
+        dismissed: false,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: inserted } = await supabase
+        .from("rediscovered_matches")
+        .upsert(newRow, { onConflict: "job_id,candidate_id" })
+        .select("match_score, sub_scores, confidence, model_version, ai_summary, strengths, gaps")
+        .single();
+      canonical = inserted ?? {
+        match_score: r.final, sub_scores: newRow.sub_scores, confidence: r.confidence,
+        model_version: r.model_version, ai_summary: null,
+        strengths: newRow.strengths, gaps: newRow.gaps,
+      };
+    }
 
     // Reuse recent enrichment unless force=true
     if (!force) {
