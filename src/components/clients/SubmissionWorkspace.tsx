@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/resizable";
 import {
   Loader2, RefreshCw, Download, ExternalLink, FileText, Sparkles, Send,
-  CheckCircle2, AlertTriangle, Users, Settings2, MessageSquare, Activity,
+  CheckCircle2, AlertTriangle, Users, Settings2, MessageSquare, Activity, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
