@@ -104,14 +104,24 @@ function confidenceLabel(c?: string | null) {
   return c.charAt(0).toUpperCase() + c.slice(1) + " confidence";
 }
 
+// Always return 200 with { status:'failed', user_message } so the client never sees a raw "non-2xx"
+const fail = (user_message: string, internal?: unknown) => {
+  if (internal) console.error("[generate-submission-pack]", user_message, internal);
+  return new Response(JSON.stringify({ status: "failed", user_message }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let submissionIdForStatus: string | null = null;
+  let adminForStatus: any = null;
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!authHeader?.startsWith("Bearer ")) return fail("Please sign in again to generate this pack.");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -122,25 +132,31 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    adminForStatus = admin;
 
     const { data: userData, error: ue } = await supabase.auth.getUser();
-    if (ue || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (ue || !userData?.user) return fail("Your session has expired. Please sign in again.");
     const userId = userData.user.id;
 
-    const { submission_id } = await req.json();
-    if (!submission_id) {
-      return new Response(JSON.stringify({ error: "submission_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const body = await req.json().catch(() => ({} as any));
+    const { submission_id, components: reqComponents } = body || {};
+    if (!submission_id) return fail("Missing submission reference.");
+    submissionIdForStatus = submission_id;
+
+    await admin.from("candidate_submissions").update({
+      pack_status: "generating",
+      pack_error: null,
+      ...(reqComponents ? { pack_components: reqComponents } : {}),
+    }).eq("id", submission_id);
 
     const { data: submission, error: subErr } = await supabase
       .from("candidate_submissions")
-      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id")
+      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation")
       .eq("id", submission_id)
       .maybeSingle();
     if (subErr || !submission) {
-      return new Response(JSON.stringify({ error: "Submission not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: "not found" }).eq("id", submission_id);
+      return fail("This submission could not be found. Please refresh and try again.");
     }
 
     const [
