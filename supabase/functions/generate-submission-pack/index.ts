@@ -214,10 +214,37 @@ serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Trigger AI executive-search validation if structured mandate_match is missing
+    // or recruiter notes exist (so the AI can incorporate them). Errors are non-fatal —
+    // we keep going with whatever validation data we already have.
+    const needsValidation =
+      !validation ||
+      !Array.isArray((validation as any).mandate_match) ||
+      ((validation as any).mandate_match?.length ?? 0) === 0 ||
+      ((submission.recruiter_notes as string[] | null)?.length ?? 0) > 0;
+    if (needsValidation) {
+      try {
+        const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/validate-candidate-fit`;
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: authHeader!, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: submission.job_id,
+            candidate_id: submission.candidate_id,
+            submission_id: submission.id,
+            force: ((submission.recruiter_notes as string[] | null)?.length ?? 0) > 0,
+          }),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.validation) validation = j.validation as any;
+        }
+      } catch (e) { console.error("validate-fit invoke failed", e); }
+    }
+
     // Step 4: Safe fallbacks — missing AI validation / CV no longer blocks the pack.
-    // The AI Executive Report page is always rendered from whatever data IS available
-    // (canonical match score, narrative, candidate summary). Branded vs. original CV
-    // merge is best-effort and skipped silently if the file is missing.
+
+
 
     const brand = hexToRgb(branding?.primary_color);
     const companyName = branding?.company_name ?? "";
