@@ -681,23 +681,23 @@ serve(async (req) => {
     }
 
 
-    // ===== Recruiter View (manual override wins, otherwise AI recruiter_review) =====
-    sectionHeading("Recruiter View");
-    const recView = submission.recruiter_recommendation
-      || submission.recruiter_summary
-      || (validation?.recruiter_review as string | null)
-      || submission.submission_message
-      || `${candidate.full_name?.split(" ")[0] ?? "This candidate"} has been submitted for the ${job.title ?? "role"} for the client's review.`;
-    paragraph(recView, 9.5, serif, INK, 13);
-
-    // Recruiter signature footer
+    // Recruiter signature footer (compact — replaces the redundant "Recruiter View"
+    // section; the executive summary already owns the closing voice).
+    const overrideRecView =
+      (submission.recruiter_recommendation && String(submission.recruiter_recommendation).trim()) ||
+      (submission.recruiter_summary && String(submission.recruiter_summary).trim()) ||
+      "";
+    if (overrideRecView) {
+      sectionHeading("Recruiter View");
+      paragraph(overrideRecView, 9, serif, INK, 12);
+    }
     if (recruiterName) {
-      cur.y -= 6;
-      ensure(14);
+      cur.y -= 4;
+      ensure(12);
       cur.page.drawText(`Submitted by ${recruiterName}${companyName ? " · " + companyName : ""}`, {
-        x: MARGIN, y: cur.y - 10, size: 8.5, font: sans, color: MUTED,
+        x: MARGIN, y: cur.y - 9, size: 8, font: sans, color: MUTED,
       });
-      cur.y -= 12;
+      cur.y -= 10;
     }
 
     // ===== Optional: merge in Branded CV + Original CV PDFs =====
