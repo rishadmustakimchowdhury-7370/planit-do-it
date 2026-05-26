@@ -32,7 +32,7 @@ export function SubmissionActivityTimeline({ submissionId, className = "" }: Pro
     const load = async () => {
       const { data } = await supabase
         .from("submission_activity" as any)
-        .select("id, activity_type, payload, actor_id, created_at")
+        .select("id, event_type, metadata, actor_user_id, created_at")
         .eq("submission_id", submissionId)
         .order("created_at", { ascending: false })
         .limit(100);
