@@ -17,18 +17,26 @@ const corsHeaders = {
 
 const A4 = { w: 595.28, h: 841.89 };
 const MARGIN = 44;
+const HEADER_H = 86;
+const FOOTER_H = 38;
 
-// Palette
-const NAVY = rgb(0.05, 0.10, 0.22);          // primary text / headings  ~#0D1A38
-const NAVY_SOFT = rgb(0.18, 0.24, 0.38);
+// Premium executive-search palette (dark navy + royal blue + gold)
+const NAVY = rgb(0.031, 0.106, 0.267);       // #081B44 primary headers / bands
+const NAVY_DEEP = rgb(0.020, 0.067, 0.180);  // #05112E deeper accents
+const ROYAL = rgb(0.118, 0.251, 0.686);      // #1E40AF royal-blue accents
+const GOLD = rgb(0.788, 0.659, 0.298);       // #C9A84C subtle gold separators
+const GOLD_SOFT = rgb(0.886, 0.792, 0.490);  // lighter gold for thin lines
+const NAVY_SOFT = rgb(0.20, 0.27, 0.42);
 const INK = rgb(0.13, 0.14, 0.18);
 const MUTED = rgb(0.46, 0.49, 0.56);
 const HAIR = rgb(0.85, 0.87, 0.91);
-const PANEL = rgb(0.965, 0.972, 0.984);      // very light gray panel
-const PANEL_BORDER = rgb(0.90, 0.92, 0.95);
+const PANEL = rgb(0.961, 0.969, 0.980);      // #F4F6FA very light gray panel
+const PANEL_BORDER = rgb(0.88, 0.90, 0.94);
+const WHITE = rgb(1, 1, 1);
+const ON_NAVY_MUTED = rgb(0.75, 0.80, 0.92);
 
-// Status colors (text/border for pills)
-const C_EXCEEDS = rgb(0.13, 0.36, 0.72);     // navy blue
+// Status colors (text/border for pills) — kept readable on light panels
+const C_EXCEEDS = rgb(0.118, 0.251, 0.686);  // royal
 const C_STRONG  = rgb(0.10, 0.50, 0.30);     // green
 const C_MOD     = rgb(0.70, 0.50, 0.10);     // amber
 const C_PARTIAL = rgb(0.75, 0.30, 0.20);     // muted red
