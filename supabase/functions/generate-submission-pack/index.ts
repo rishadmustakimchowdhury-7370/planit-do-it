@@ -182,6 +182,8 @@ serve(async (req) => {
       admin.from("branding_settings").select("logo_url, company_name, primary_color, footer_text").eq("tenant_id", submission.tenant_id).maybeSingle(),
       admin.from("profiles").select("full_name, email, phone").eq("id", userId).maybeSingle(),
     ]);
+    let validation: any = validationRow;
+
 
     // Step 3: Detailed readiness diagnostics — surface the exact missing piece(s)
     // to the recruiter instead of a generic error.
