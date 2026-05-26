@@ -510,12 +510,11 @@ serve(async (req) => {
     const narrative = validation?.summary || canonical?.ai_summary || candidate.summary;
     if (narrative) {
       sectionHeading("Executive Summary");
-      paragraph(String(narrative), 9.5, serif, INK, 13);
-      cur.y -= 4;
+      paragraph(String(narrative), 8.5, serif, INK, 11.5);
+      cur.y -= 2;
     }
 
-    // ===== Fit Assessment vs Job Description (AI-derived mandate_match) =====
-    // Filter out sidecar metadata rows (missing/recruiter_notes_summary).
+    // ===== Fit Assessment vs Job Description =====
     const mandateRows: Array<{ req: string; evidence: string; fit: string }> =
       Array.isArray(validation?.mandate_match)
         ? (validation.mandate_match as any[])
@@ -527,47 +526,46 @@ serve(async (req) => {
             }))
         : [];
 
-
     if (mandateRows.length) {
       sectionHeading("Fit Assessment vs Job Description");
-      const cReq = 145, cFit = 76;
+      const cReq = 135, cFit = 68;
       const cEv = innerW - cReq - cFit;
-      ensure(22);
-      cur.page.drawRectangle({ x: MARGIN, y: cur.y - 18, width: innerW, height: 18, color: NAVY });
-      cur.page.drawText("Requirement", { x: MARGIN + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.y -= 18;
+      ensure(18);
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - 14, width: innerW, height: 14, color: NAVY });
+      cur.page.drawText("Requirement", { x: MARGIN + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.y -= 14;
 
       let rowIdx = 0;
       for (const r of mandateRows) {
-        const evLines = wrap(r.evidence, serif, 9, cEv - 20);
-        const reqLines = wrap(r.req, sansB, 9, cReq - 20);
-        const rowH = Math.max(28, Math.max(evLines.length, reqLines.length) * 12 + 12);
-        ensure(rowH + 2);
+        const evLines = wrap(r.evidence, serif, 8, cEv - 16);
+        const reqLines = wrap(r.req, sansB, 8, cReq - 16);
+        const rowH = Math.max(22, Math.max(evLines.length, reqLines.length) * 10 + 8);
+        ensure(rowH + 1);
         if (rowIdx % 2 === 0) {
           cur.page.drawRectangle({ x: MARGIN, y: cur.y - rowH, width: innerW, height: rowH, color: PANEL });
         }
-        let ry = cur.y - 14;
+        let ry = cur.y - 11;
         for (const ln of reqLines) {
-          cur.page.drawText(ln, { x: MARGIN + 10, y: ry, size: 9, font: sansB, color: NAVY });
-          ry -= 12;
+          cur.page.drawText(ln, { x: MARGIN + 8, y: ry, size: 8, font: sansB, color: NAVY });
+          ry -= 10;
         }
-        let ey = cur.y - 14;
+        let ey = cur.y - 11;
         for (const ln of evLines) {
-          cur.page.drawText(ln, { x: MARGIN + cReq + 10, y: ey, size: 9, font: serif, color: INK });
-          ey -= 12;
+          cur.page.drawText(ln, { x: MARGIN + cReq + 8, y: ey, size: 8, font: serif, color: INK });
+          ey -= 10;
         }
         const f = fitColors(r.fit);
-        const pillW = sansB.widthOfTextAtSize(r.fit, 8) + 14;
+        const pillW = sansB.widthOfTextAtSize(r.fit, 7) + 10;
         const px = MARGIN + cReq + cEv + (cFit - pillW) / 2;
-        const py = cur.y - rowH / 2 - 7;
-        cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 14, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
-        cur.page.drawText(r.fit, { x: px + 7, y: py + 4, size: 8, font: sansB, color: f.fg });
+        const py = cur.y - rowH / 2 - 6;
+        cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 12, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
+        cur.page.drawText(r.fit, { x: px + 5, y: py + 3.5, size: 7, font: sansB, color: f.fg });
         cur.y -= rowH;
         rowIdx++;
       }
-      cur.y -= 6;
+      cur.y -= 4;
     }
 
 
