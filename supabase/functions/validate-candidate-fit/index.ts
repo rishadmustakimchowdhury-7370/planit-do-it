@@ -320,12 +320,42 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
       99;
 
+    // Evidence-quality classifier: detect LOW-confidence evidence text and cap fit at PARTIAL.
+    const LOW_EVIDENCE_PATTERNS = [
+      /^\s*(lists?|mentions?|includes?|references?|notes?)\b/i,
+      /\bskills?\s+section\b/i,
+      /\bskills?\s+(list|include|listed|mentioned)\b/i,
+      /\bkeyword(s)?\b/i,
+      /\bone[- ]line\b/i,
+      /\bno (project|production|delivery|years|context)\b/i,
+      /\bnot specified\b/i,
+    ];
+    const HIGH_EVIDENCE_HINTS = [
+      /\b\d+\+?\s*(years|yrs)\b/i,
+      /\b(led|owned|architect|designed|delivered|shipped|scaled|built|migrated|launched)\b/i,
+      /\b(team of|managed|head of|director|principal|staff|lead)\b/i,
+      /\b(production|enterprise|saas|platform|million|billion|k users|m users|throughput|tps|qps)\b/i,
+    ];
+    const evidenceQuality = (ev: string): "low" | "med" | "high" => {
+      const s = String(ev || "").trim();
+      if (!s || /no clear evidence/i.test(s)) return "low";
+      const high = HIGH_EVIDENCE_HINTS.some((re) => re.test(s));
+      const low = LOW_EVIDENCE_PATTERNS.some((re) => re.test(s)) || s.split(/\s+/).length < 8;
+      if (high && !low) return "high";
+      if (low && !high) return "low";
+      return "med";
+    };
+
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
           .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            // Evidence-quality guard: shallow evidence cannot earn STRONG/EXCEEDS; medium caps at GOOD.
+            const q = evidenceQuality(m.evidence);
+            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";       // PARTIAL ceiling
+            else if (q === "med" && fitRank(f) > 3) f = "GOOD";     // GOOD ceiling
             if (f === "EXCEEDS") {
               if (exceedsUsed >= exceedsCap) f = "STRONG";
               else exceedsUsed++;
