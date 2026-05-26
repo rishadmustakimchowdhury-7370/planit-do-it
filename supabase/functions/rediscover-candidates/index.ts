@@ -237,7 +237,12 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
 
   const jobSkills = normalizeSkills(job.skills);
   const candSkills = normalizeSkills(cand.skills);
-  const skillRes = scoreSkills(jobSkills, candSkills);
+  const jobFamilyEarly = jobFamily;
+  const candFamilyEarly = candFamily;
+  const adjEarly = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly !== candFamilyEarly &&
+    (ROLE_FAMILIES[jobFamilyEarly]?.adjacent ?? []).includes(candFamilyEarly));
+  const sameFamily = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly === candFamilyEarly);
+  const skillRes = scoreSkills(jobSkills, candSkills, adjEarly || sameFamily);
 
   const jobRank = detectSeniority(`${job.title ?? ""} ${job.experience_level ?? ""}`, null);
   const candRank = detectSeniority(cand.current_title ?? "", cand.experience_years);
@@ -262,25 +267,26 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
     0.10 * sub.experience +
     0.05 * sub.location;
 
-  // Penalties
+  // Penalties — recruiter-grade: only penalize true mismatches, not partial alignment.
   let penalty = 0;
   if (jobFamily && candFamily && jobFamily !== candFamily) {
     const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
     if (!adj.includes(candFamily)) penalty += 0.25; // wrong role family
   }
-  if (jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.5) penalty += 0.15;
+  // Skill penalty only when truly sparse AND not adjacent (adjacent = transferable depth).
+  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.10;
   if (Math.abs(jobRank - candRank) >= 2) penalty += 0.15;
   sub.penalty = penalty;
 
   let final = Math.round(Math.max(0, base - penalty) * 100);
   if (final > 100) final = 100;
 
-  // Confidence
+  // Confidence — adjacent + decent base counts as medium, not low.
   let confidence: "low" | "medium" | "high" = "low";
   const roleOk = !jobFamily || !candFamily || sub.role >= 0.5;
-  const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.7;
+  const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.6 || adjEarly || sameFamily;
   if (final >= 80 && roleOk && skillsOk) confidence = "high";
-  else if (final >= 65) confidence = "medium";
+  else if (final >= 60 && roleOk) confidence = "medium";
 
   return { final, confidence, sub, matched: skillRes.matched, missing: skillRes.missing, jobFamily, candFamily, jobRank, candRank };
 }
