@@ -666,6 +666,7 @@ export type Database = {
           recruiter_summary: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["submission_status"]
+          structured_notes: Json
           submission_message: string | null
           submitted_at: string | null
           submitted_by: string | null
@@ -696,6 +697,7 @@ export type Database = {
           recruiter_summary?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
+          structured_notes?: Json
           submission_message?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
@@ -726,6 +728,7 @@ export type Database = {
           recruiter_summary?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
+          structured_notes?: Json
           submission_message?: string | null
           submitted_at?: string | null
           submitted_by?: string | null
