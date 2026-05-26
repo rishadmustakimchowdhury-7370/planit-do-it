@@ -612,13 +612,13 @@ serve(async (req) => {
           const firstLineMax = restMax - leadW;
           const lines = wrap(rest, serif, 9, firstLineMax);
           // bullet dot
-          if (y - 14 < 64) break;
-          cur.page.drawText("•", { x, y: y - 10, size: 10, font: sansB, color: brand });
+          if (y - 14 < FOOTER_H + 18) break;
+          cur.page.drawText("•", { x, y: y - 10, size: 10, font: sansB, color: GOLD });
           if (leadStr) cur.page.drawText(leadStr, { x: x + dotW, y: y - 10, size: 9, font: sansB, color: NAVY });
           if (lines[0]) cur.page.drawText(lines[0], { x: x + dotW + leadW, y: y - 10, size: 9, font: serif, color: INK });
           y -= 12;
           for (let i = 1; i < lines.length; i++) {
-            if (y - 12 < 64) break;
+            if (y - 12 < FOOTER_H + 18) break;
             cur.page.drawText(lines[i], { x: x + dotW, y: y - 10, size: 9, font: serif, color: INK });
             y -= 12;
           }
