@@ -16,9 +16,9 @@ const corsHeaders = {
 // ============================================================================
 
 const A4 = { w: 595.28, h: 841.89 };
-const MARGIN = 44;
-const HEADER_H = 86;
-const FOOTER_H = 38;
+const MARGIN = 40;
+const HEADER_H = 72;
+const FOOTER_H = 30;
 
 // Premium executive-search palette (dark navy + royal blue + gold)
 const NAVY = rgb(0.031, 0.106, 0.267);       // #081B44 primary headers / bands
