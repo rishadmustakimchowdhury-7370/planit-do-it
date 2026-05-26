@@ -58,6 +58,16 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
 
   const meta = RECO_META[validation.recommendation ?? "needs_review"];
   const Icon = meta.icon;
+  const subScores = validation.sub_scores as any;
+  const confidence = validation.confidence;
+  const subRows: Array<[string, number]> = subScores ? [
+    ["Role", Math.round((subScores.role ?? 0) * 100)],
+    ["Skills", Math.round((subScores.skills ?? 0) * 100)],
+    ["Experience", Math.round((subScores.experience ?? 0) * 100)],
+    ["Seniority", Math.round((subScores.seniority ?? 0) * 100)],
+    ["Location", Math.round((subScores.location ?? 0) * 100)],
+    ["Industry", Math.round((subScores.industry ?? 0) * 100)],
+  ] : [];
 
   return (
     <Card>
@@ -67,8 +77,8 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
             <Sparkles className="h-4 w-4 text-primary" /> AI Fit Validation
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
-            {validation.model ? ` · ${validation.model}` : ""}
+            Based on centralized AI scoring engine{validation.scoring_version ? ` · ${validation.scoring_version}` : ""} · Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
+            {confidence ? ` · ${confidence} confidence` : ""}
           </p>
         </div>
         {canRegenerate && (
@@ -94,6 +104,23 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
 
         {validation.summary && (
           <p className="text-sm text-muted-foreground">{validation.summary}</p>
+        )}
+
+        {subRows.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Score Breakdown</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+              {subRows.map(([label, val]) => (
+                <div key={label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium">{val}</span>
+                  </div>
+                  <Progress value={val} className="h-1.5" />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {!compact && (
