@@ -71,7 +71,18 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Candidate not found or access denied" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Reuse recent validation unless force=true
+    // === SINGLE SOURCE OF TRUTH ===
+    // The authoritative fit score is the deterministic hybrid_v1 score produced
+    // by rediscover-candidates and stored on rediscovered_matches. We read it here
+    // and reuse it so AI Talent Match and AI Validation NEVER disagree.
+    const { data: canonical } = await supabase
+      .from("rediscovered_matches")
+      .select("match_score, sub_scores, confidence, model_version, ai_summary, strengths, gaps")
+      .eq("job_id", job_id)
+      .eq("candidate_id", candidate_id)
+      .maybeSingle();
+
+    // Reuse recent enrichment unless force=true
     if (!force) {
       const { data: existing } = await supabase
         .from("ai_candidate_validations")
@@ -81,8 +92,13 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (existing) {
-        return new Response(JSON.stringify({ validation: existing, cached: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // Only reuse if the cached validation's fit_score matches the canonical score.
+      // If they diverge (e.g. score was re-computed), re-enrich.
+      if (existing && (!canonical || existing.fit_score === canonical.match_score)) {
+        return new Response(JSON.stringify({
+          validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
+          cached: true,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
@@ -91,7 +107,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const userPrompt = `JOB
+    const canonicalScore = canonical?.match_score ?? null;
+    const confidence = canonical?.confidence ?? null;
+    const scoringVersion = canonical?.model_version ?? "hybrid_v1";
+
+    const userPrompt = `CENTRALIZED SCORE (do NOT change): ${canonicalScore != null ? canonicalScore + "/100" : "not yet computed — produce an honest narrative without inventing a number"}
+${canonical?.sub_scores ? "Sub-scores: " + JSON.stringify(canonical.sub_scores) : ""}
+
+JOB
 Title: ${job.title}
 Seniority: ${job.experience_level ?? "n/a"}
 Location: ${job.location ?? "n/a"}
@@ -112,40 +135,45 @@ Summary: ${candidate.summary ?? ""}
 CV:
 ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSON.stringify(candidate.cv_parsed_data ?? "")).slice(0, 8000)}`;
 
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const t = await aiRes.text();
-      console.error("OpenAI error", aiRes.status, t);
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let parsed: any = {};
+    try {
+      const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        console.error("OpenAI error", aiRes.status, t);
+        if (aiRes.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        // Graceful fallback: if AI fails but we have a canonical score, return a minimal validation.
+        if (canonicalScore != null) {
+          parsed = { summary: canonical?.ai_summary ?? null, strengths: canonical?.strengths ?? [], weaknesses: canonical?.gaps ?? [], risks: [] };
+        } else {
+          return new Response(JSON.stringify({ error: "AI provider error" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      } else {
+        const aiJson = await aiRes.json();
+        try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content); } catch { parsed = {}; }
       }
-      return new Response(JSON.stringify({ error: "AI provider error" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    } catch (e) {
+      console.error("AI call failed", e);
+      parsed = { summary: canonical?.ai_summary ?? null, strengths: canonical?.strengths ?? [], weaknesses: canonical?.gaps ?? [], risks: [] };
     }
 
-    const aiJson = await aiRes.json();
-    const content = aiJson.choices?.[0]?.message?.content;
-    let parsed: any;
-    try { parsed = JSON.parse(content); } catch {
-      return new Response(JSON.stringify({ error: "AI returned invalid JSON" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const fit_score = Math.max(0, Math.min(100, parseInt(parsed.fit_score, 10) || 0));
-    const recommendation = ["strongly_recommended", "needs_review", "not_recommended"].includes(parsed.recommendation)
-      ? parsed.recommendation
-      : (fit_score >= 80 ? "strongly_recommended" : fit_score < 50 ? "not_recommended" : "needs_review");
+    // === AUTHORITATIVE SCORE — taken from centralized engine, never from AI ===
+    const fit_score = canonicalScore != null ? canonicalScore : 0;
+    const recommendation = recommendationFromScore(fit_score);
 
     const insertRow = {
       tenant_id: job.tenant_id,
@@ -172,7 +200,10 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
       return new Response(JSON.stringify({ error: insErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ validation, cached: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({
+      validation: { ...validation, sub_scores: canonical?.sub_scores ?? null, confidence, scoring_version: scoringVersion },
+      cached: false,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("validate-candidate-fit error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
