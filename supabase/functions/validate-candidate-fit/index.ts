@@ -23,46 +23,51 @@ const corsHeaders = {
 //   missing_requirements     : JD items with no real CV evidence
 //   recruiter_notes_summary  : how the recruiter notes shaped the view
 //   recruiter_review         : one closing paragraph, consultant voice
-const SYSTEM_PROMPT = `You are a senior executive-search consultant writing an evidence-based candidate assessment for a paying client. You are NOT a keyword matcher. You are NOT an optimistic AI summariser.
+const SYSTEM_PROMPT = `You are a senior executive-search consultant writing an evidence-based candidate assessment for a paying client. You are NOT a keyword matcher and NOT an optimistic AI summariser. Calibrated, restrained, JD-anchored. The recommendation, executive summary, fit table, strengths and considerations MUST be internally consistent — never contradict the recommendation band.
 
-You will receive: a JOB DESCRIPTION, a CANDIDATE CV/profile, optional RECRUITER NOTES, and a CANONICAL FIT SCORE (0–100) computed by the firm's deterministic engine. The canonical score is the single source of truth — your recommendation, fit labels, strengths and considerations MUST be consistent with it. NEVER inflate.
+INPUT: JOB DESCRIPTION, CANDIDATE CV/profile, optional RECRUITER NOTES, and a CANONICAL FIT SCORE (0–100) from the firm's deterministic engine. The canonical score is the single source of truth. NEVER inflate beyond the band.
 
-EVIDENCE RULES (these are the most important rules — violating them makes the report worthless):
-- Simply seeing a keyword in a skills list (e.g. "React", "Python", "AWS") is NEVER enough for STRONG or EXCEEDS. You must see commercial depth: years of usage, scale, ownership, production exposure, enterprise context.
-- Adjacent experience does NOT cover an absent requirement. If the JD asks for "enterprise React architecture" and the CV only lists "React" in a skills section, the fit is PARTIAL at best — likely WEAK.
-- If you cannot quote or paraphrase concrete CV evidence for a requirement, the evidence field MUST say "No clear evidence found in CV." and the fit MUST be WEAK or NOT MATCHED.
-- Seniority, industry, and domain depth must be evidenced by actual roles/companies/years — not inferred from skill words.
+EVIDENCE RULES (violating these makes the report worthless):
+- A skill keyword in a list (e.g. "React", "Python", "AWS", "Docker") is NEVER enough for STRONG/EXCEEDS. Demand commercial depth: explicit years, scale, production ownership, enterprise/SaaS context, architecture decisions made.
+- Adjacent experience does NOT cover an absent requirement. If the JD asks "enterprise React architecture" and the CV only lists "React" in a skills section, fit is PARTIAL at best — often WEAK.
+- "Has 4+ years of web app experience" is GENERIC. Without specific company, product scale, or shipped feature evidence it is PARTIAL, never STRONG.
+- If you cannot quote or paraphrase concrete CV evidence for a requirement, the evidence field MUST literally say "No clear evidence found in CV." and the fit MUST be WEAK or NOT MATCHED.
+- Seniority, industry and domain depth come from actual roles/companies/years — not inferred from skill words.
 
-CALIBRATION (HARD — never exceed):
-- score < 35  → recommendation "not_suitable". Allowed fits: WEAK, NOT MATCHED, occasional PARTIAL. No GOOD/STRONG/EXCEEDS.
-- 35–49       → "limited_alignment". Allowed: WEAK, PARTIAL, NOT MATCHED. At most one GOOD.
-- 50–61       → "needs_review". Mostly PARTIAL/WEAK. At most one STRONG, no EXCEEDS.
-- 62–74       → "moderate_fit". Mix of GOOD and PARTIAL. At most two STRONG, no EXCEEDS.
-- 75–87       → "recommended". Majority STRONG/GOOD. EXCEEDS only with concrete proof.
+CALIBRATION (HARD CAPS — never exceed):
+- score < 35  → "not_suitable". Fits: WEAK / NOT MATCHED only. Zero GOOD/STRONG/EXCEEDS.
+- 35–49       → "limited_alignment". Mostly WEAK / PARTIAL / NOT MATCHED. Zero GOOD/STRONG/EXCEEDS.
+- 50–61       → "needs_review". Majority PARTIAL with some WEAK. At most ONE GOOD across the whole table. ZERO STRONG. ZERO EXCEEDS.
+- 62–74       → "moderate_fit". Mix of GOOD and PARTIAL, some WEAK. At most ONE STRONG. ZERO EXCEEDS.
+- 75–87       → "recommended". Majority GOOD/STRONG. EXCEEDS only with concrete enterprise-scale proof (max 1).
 - ≥ 88        → "strong_match". STRONG/EXCEEDS dominate.
 
-TONE RULES:
-- Sound like a senior recruiter, not a chatbot. Specific. Restrained. JD-anchored.
-- BAD: "Highly qualified excellent candidate". GOOD: "Strong backend profile with eight years of API design at fintech scale; frontend architecture depth is less evident."
-- Mention strengths AND gaps. Never pure praise.
-- The recommendation, summary and mandate_match table MUST agree. If recommendation is needs_review, the table cannot be mostly STRONG.
+EXECUTIVE SUMMARY RULES (the summary sets tone for everything that follows):
+- 2–3 sentences. Must explicitly mention BOTH strengths AND gaps proportional to the band.
+- For needs_review / limited_alignment / not_suitable: lead with the gap or caveat, not the strength.
+  Banned phrases in these bands: "strong candidate", "excellent fit", "highly qualified", "ideal", "perfect match", "well-suited", "great fit", "positions him/her as a strong candidate", "results-driven".
+- GOOD example (needs_review): "Candidate demonstrates relevant backend engineering exposure in PHP and Python, though evidence of advanced frontend architecture ownership and large-scale SaaS delivery is limited. Suitable for a screening call to probe production scale and seniority."
+- BAD example: "Strong candidate for the full-stack role with excellent experience."
+
+STRENGTHS / CONSIDERATIONS RULES:
+- Each bullet starts with a short bold lead, then an em-dash, then the evidence sentence.
+- For needs_review or weaker: considerations MUST be specific concerns (depth, scale, ownership, seniority, location, salary, notice), not generic platitudes.
 
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
   "recommendation": "strong_match|recommended|moderate_fit|needs_review|limited_alignment|not_suitable",
-  "summary": "<2–3 sentence executive summary, JD-specific, mentions strengths and gaps>",
+  "summary": "<2–3 sentence executive summary, JD-specific, respects band tone>",
   "mandate_match": [
     { "requirement": "<short JD requirement label>", "evidence": "<specific CV evidence or 'No clear evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" }
   ],
   "strengths": ["<lead — evidence sentence>", "..."],
-  "considerations": ["<lead — balanced consideration>", "..."],
+  "considerations": ["<lead — specific concern>", "..."],
   "risks": ["<hiring risk if applicable>"],
   "missing_requirements": ["<JD requirement with no real evidence>"],
-  "recruiter_notes_summary": ["<how the recruiter note shaped this view>"],
-  "recruiter_review": "<one paragraph, senior consultant voice, consistent with the band>"
+  "recruiter_notes_summary": ["<how the recruiter note shaped this view>"]
 }
 
-Extract 5–8 of the JOB's most important requirements. 4–6 strengths, 3–5 considerations. Output JSON only.`;
+Extract 5–8 of the JOB's most important requirements. 3–5 strengths, 3–5 considerations. Output JSON only.`;
 
 type RecLabel =
   | "strong_match" | "recommended" | "moderate_fit"
@@ -182,14 +187,15 @@ serve(async (req) => {
       // Invalidate cache if any cached fit label is inflated above the current canonical band
       const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
       const score = canonical?.match_score;
-      const ceil = score == null ? 3
+      const ceil = score == null ? 2
                  : score < 35 ? 1
                  : score < 50 ? 2
-                 : score < 62 ? 4
+                 : score < 62 ? 3
                  : score < 75 ? 4
+                 : score < 88 ? 4
                  : 5;
       const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
-        m && typeof m.fit === "string" &&
+        m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
       // Also invalidate if the stored recommendation is still on the old 3-tier system.
@@ -279,23 +285,34 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     const fitRank = (f: string) => Math.max(0, ALLOWED_FITS.indexOf(f.toUpperCase()));
 
     // Hard ceiling tied to canonical band — single source of truth.
+    // Rank: 0=NOT MATCHED 1=WEAK 2=PARTIAL 3=GOOD 4=STRONG 5=EXCEEDS
     const fitCeiling = (score: number | null): number => {
-      if (score == null) return 3;       // GOOD
+      if (score == null) return 2;       // PARTIAL
       if (score < 35) return 1;          // WEAK
       if (score < 50) return 2;          // PARTIAL
-      if (score < 62) return 4;          // STRONG cap (rare)
-      if (score < 75) return 4;          // STRONG
-      if (score < 88) return 5;          // EXCEEDS sparingly
-      return 5;
+      if (score < 62) return 3;          // up to GOOD (rare)
+      if (score < 75) return 4;          // STRONG (rare)
+      if (score < 88) return 4;          // STRONG
+      return 5;                          // EXCEEDS
     };
     const ceil = fitCeiling(canonicalScore);
-    let strongUsed = 0;
-    const strongCap =
+    let goodUsed = 0, strongUsed = 0, exceedsUsed = 0;
+    const goodCap =
       canonicalScore == null ? 99 :
       canonicalScore < 35 ? 0 :
       canonicalScore < 50 ? 0 :
-      canonicalScore < 62 ? 1 :
-      canonicalScore < 75 ? 2 : 99;
+      canonicalScore < 62 ? 1 :   // needs_review: max ONE GOOD
+      99;
+    const strongCap =
+      canonicalScore == null ? 99 :
+      canonicalScore < 62 ? 0 :   // needs_review and below: ZERO STRONG
+      canonicalScore < 75 ? 1 :   // moderate_fit: max ONE STRONG
+      99;
+    const exceedsCap =
+      canonicalScore == null ? 0 :
+      canonicalScore < 75 ? 0 :
+      canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
+      99;
 
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
@@ -303,9 +320,17 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            if (f === "EXCEEDS") {
+              if (exceedsUsed >= exceedsCap) f = "STRONG";
+              else exceedsUsed++;
+            }
             if (f === "STRONG") {
               if (strongUsed >= strongCap) f = "GOOD";
               else strongUsed++;
+            }
+            if (f === "GOOD") {
+              if (goodUsed >= goodCap) f = "PARTIAL";
+              else goodUsed++;
             }
             return {
               requirement: String(m.requirement).slice(0, 120),
@@ -337,21 +362,49 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     // payload to carry the structured details under a known shape too.
     const risksOut = Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 6) : [];
 
+    // Band-aware summary sanitization: if the recommendation is needs_review or
+    // lower but the AI used inflated language, rewrite the summary with a
+    // calibrated, evidence-based fallback so the report tone matches the band.
+    const BANNED = [
+      /\bstrong candidate\b/i, /\bexcellent (fit|candidate|experience)\b/i,
+      /\bhighly qualified\b/i, /\bideal (fit|candidate)\b/i, /\bperfect (fit|match)\b/i,
+      /\bwell[- ]suited\b/i, /\bgreat fit\b/i, /\bresults[- ]driven\b/i,
+      /\bpositions (him|her|them) as a strong\b/i,
+    ];
+    const LOW_BANDS = new Set(["needs_review", "limited_alignment", "not_suitable"]);
+    let cleanedSummary: string | null = parsed.summary ? String(parsed.summary).trim() : null;
+    if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
+      const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
+      const role = job.title ?? "this role";
+      const topGap =
+        (Array.isArray(parsed.considerations) && parsed.considerations[0]) ||
+        (mandate_match.find((m: any) => m.fit === "PARTIAL" || m.fit === "WEAK" || m.fit === "NOT MATCHED")?.requirement) ||
+        "depth on key mandate areas";
+      const topStrength =
+        (Array.isArray(parsed.strengths) && parsed.strengths[0]) ||
+        (mandate_match.find((m: any) => m.fit === "GOOD" || m.fit === "STRONG")?.requirement) ||
+        "relevant baseline experience";
+      cleanedSummary =
+        `${firstName} shows ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
+        `but evidence is limited around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()}. ` +
+        `Recommend a screening call to validate commercial depth and production ownership before progressing.`;
+    }
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
       fit_score, recommendation,
-      summary: parsed.summary ?? null,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 8) : [],
-      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 8) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
+      summary: cleanedSummary,
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
+      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
       risks: risksOut,
       mandate_match: [
         ...mandate_match,
-        // Sidecar metadata row(s) — consumers can ignore unknown shapes.
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
       ],
-      recruiter_review: parsed.recruiter_review ?? null,
+      // recruiter_review intentionally dropped — the executive summary owns the closing voice.
+      recruiter_review: null,
       model: "gpt-4o",
       generated_by: userId,
     };

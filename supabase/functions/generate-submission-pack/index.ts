@@ -16,9 +16,9 @@ const corsHeaders = {
 // ============================================================================
 
 const A4 = { w: 595.28, h: 841.89 };
-const MARGIN = 44;
-const HEADER_H = 86;
-const FOOTER_H = 38;
+const MARGIN = 40;
+const HEADER_H = 72;
+const FOOTER_H = 30;
 
 // Premium executive-search palette (dark navy + royal blue + gold)
 const NAVY = rgb(0.031, 0.106, 0.267);       // #081B44 primary headers / bands
@@ -398,19 +398,18 @@ serve(async (req) => {
     };
 
     const sectionHeading = (label: string) => {
-      ensure(32);
-      cur.y -= 8;
-      // Navy section bar with gold accent
-      const barH = 18;
+      ensure(26);
+      cur.y -= 4;
+      const barH = 14;
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: innerW, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
       cur.page.drawText(tracked(label), {
-        x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE,
+        x: MARGIN + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE,
       });
-      cur.y -= barH + 10;
+      cur.y -= barH + 6;
     };
 
-    const paragraph = (text: string, size = 9.5, font: PDFFont = serif, color = INK, lh = 13) => {
+    const paragraph = (text: string, size = 9, font: PDFFont = serif, color = INK, lh = 12) => {
       const lines = wrap(text, font, size, innerW);
       for (const ln of lines) {
         ensure(lh);
@@ -422,39 +421,32 @@ serve(async (req) => {
     // ===== Hero — premium navy candidate banner =====
     const name = candidate.full_name ?? "Candidate";
     {
-      const heroH = 92;
-      ensure(heroH + 6);
+      const heroH = 74;
+      ensure(heroH + 4);
       const heroTop = cur.y;
-      // Navy banner
       cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: heroH, color: NAVY });
-      // Deeper inner band on the left for editorial accent
-      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: 6, height: heroH, color: GOLD });
-      // Subtle royal accent strip at bottom
-      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: 3, color: ROYAL });
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: 5, height: heroH, color: GOLD });
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: 2, color: ROYAL });
 
-      // "Executive Candidate Profile" eyebrow
       cur.page.drawText(tracked("Executive Candidate Profile"), {
-        x: MARGIN + 22, y: heroTop - 20, size: 7.5, font: sansB, color: GOLD,
+        x: MARGIN + 18, y: heroTop - 16, size: 6.5, font: sansB, color: GOLD,
       });
-      // Candidate name
       cur.page.drawText(name, {
-        x: MARGIN + 22, y: heroTop - 46, size: 24, font: serifB, color: WHITE,
+        x: MARGIN + 18, y: heroTop - 38, size: 19, font: serifB, color: WHITE,
       });
-      // Target role line
       const targetRole = job.title ? `Submitted for ${job.title}` : "";
       if (targetRole) {
         cur.page.drawText(targetRole, {
-          x: MARGIN + 22, y: heroTop - 64, size: 10, font: sansB, color: ON_NAVY_MUTED,
+          x: MARGIN + 18, y: heroTop - 54, size: 9, font: sansB, color: ON_NAVY_MUTED,
         });
       }
-      // Sub line: current title @ company · location
       const subBits: string[] = [];
       if (candidate.current_title) subBits.push(String(candidate.current_title));
       if (candidate.current_company) subBits.push(String(candidate.current_company));
       if (candidate.location) subBits.push(String(candidate.location));
       if (subBits.length) {
         cur.page.drawText(subBits.join("  ·  "), {
-          x: MARGIN + 22, y: heroTop - 80, size: 9, font: sans, color: ON_NAVY_MUTED,
+          x: MARGIN + 18, y: heroTop - 66, size: 8, font: sans, color: ON_NAVY_MUTED,
         });
       }
 
@@ -462,69 +454,67 @@ serve(async (req) => {
       {
         const labelText = recLabel.toUpperCase();
         const eyebrow = "RECRUITER ASSESSMENT";
-        const labelW = sansB.widthOfTextAtSize(labelText, 11);
-        const eyebrowW = sansB.widthOfTextAtSize(eyebrow, 6.5);
-        const chipW = Math.max(150, Math.max(labelW, eyebrowW) + 36);
-        const chipH = 56;
-        const chipX = MARGIN + innerW - chipW - 14;
+        const labelW = sansB.widthOfTextAtSize(labelText, 10);
+        const eyebrowW = sansB.widthOfTextAtSize(eyebrow, 6);
+        const chipW = Math.max(140, Math.max(labelW, eyebrowW) + 28);
+        const chipH = 46;
+        const chipX = MARGIN + innerW - chipW - 10;
         const chipY = heroTop - heroH + (heroH - chipH) / 2;
         cur.page.drawRectangle({ x: chipX, y: chipY, width: chipW, height: chipH, color: NAVY_DEEP, borderColor: GOLD, borderWidth: 0.8 });
         cur.page.drawRectangle({ x: chipX, y: chipY + chipH - 3, width: chipW, height: 3, color: GOLD });
-        cur.page.drawText(eyebrow, { x: chipX + (chipW - eyebrowW) / 2, y: chipY + chipH - 18, size: 6.5, font: sansB, color: GOLD });
-        cur.page.drawText(labelText, { x: chipX + (chipW - labelW) / 2, y: chipY + 22, size: 11, font: sansB, color: WHITE });
-        const subTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : "Evidence-based assessment";
-        const swW = sans.widthOfTextAtSize(subTxt, 6.5);
-        cur.page.drawText(subTxt, { x: chipX + (chipW - swW) / 2, y: chipY + 8, size: 6.5, font: sans, color: ON_NAVY_MUTED });
+        cur.page.drawText(eyebrow, { x: chipX + (chipW - eyebrowW) / 2, y: chipY + chipH - 14, size: 6, font: sansB, color: GOLD });
+        cur.page.drawText(labelText, { x: chipX + (chipW - labelW) / 2, y: chipY + 18, size: 10, font: sansB, color: WHITE });
+        const subTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : "Evidence-based";
+        const swW = sans.widthOfTextAtSize(subTxt, 6);
+        cur.page.drawText(subTxt, { x: chipX + (chipW - swW) / 2, y: chipY + 6, size: 6, font: sans, color: ON_NAVY_MUTED });
       }
 
-
-      cur.y -= heroH + 14;
+      cur.y -= heroH + 8;
     }
 
-    // ===== Mandate strip (compact navy band with role) =====
+    // ===== Mandate strip =====
     {
-      ensure(28);
-      const stripH = 24;
+      ensure(22);
+      const stripH = 18;
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: innerW, height: stripH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: 3, height: stripH, color: GOLD });
       const label = tracked("Mandate");
-      cur.page.drawText(label, { x: MARGIN + 12, y: cur.y - 15, size: 7.5, font: sansB, color: GOLD });
-      const labelW = sansB.widthOfTextAtSize(label, 7.5);
+      cur.page.drawText(label, { x: MARGIN + 10, y: cur.y - 12, size: 6.5, font: sansB, color: GOLD });
+      const labelW = sansB.widthOfTextAtSize(label, 6.5);
       const jobBits = [job.title, job.experience_level, job.department, job.employment_type, job.location].filter(Boolean).join("  ·  ");
-      cur.page.drawText(jobBits, { x: MARGIN + 12 + labelW + 14, y: cur.y - 15, size: 9.5, font: sansB, color: WHITE });
-      cur.y -= stripH + 12;
+      cur.page.drawText(jobBits, { x: MARGIN + 10 + labelW + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.y -= stripH + 8;
     }
 
-    // ===== Recruiter Notes (recruiter-entered context, shown before AI analysis) =====
+    // ===== Recruiter Notes =====
     const recruiterNotes = (submission.recruiter_notes as string[] | null) ?? [];
     if (recruiterNotes.length) {
       sectionHeading("Recruiter Notes");
       const dotW = 8;
       for (const note of recruiterNotes.slice(0, 12)) {
-        const lines = wrap(String(note), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+        const lines = wrap(String(note), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 9, size: 9, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
     // ===== Executive Summary =====
     const narrative = validation?.summary || canonical?.ai_summary || candidate.summary;
     if (narrative) {
       sectionHeading("Executive Summary");
-      paragraph(String(narrative), 9.5, serif, INK, 13);
-      cur.y -= 4;
+      paragraph(String(narrative), 8.5, serif, INK, 11.5);
+      cur.y -= 2;
     }
 
-    // ===== Fit Assessment vs Job Description (AI-derived mandate_match) =====
-    // Filter out sidecar metadata rows (missing/recruiter_notes_summary).
+    // ===== Fit Assessment vs Job Description =====
     const mandateRows: Array<{ req: string; evidence: string; fit: string }> =
       Array.isArray(validation?.mandate_match)
         ? (validation.mandate_match as any[])
@@ -536,47 +526,46 @@ serve(async (req) => {
             }))
         : [];
 
-
     if (mandateRows.length) {
       sectionHeading("Fit Assessment vs Job Description");
-      const cReq = 145, cFit = 76;
+      const cReq = 135, cFit = 68;
       const cEv = innerW - cReq - cFit;
-      ensure(22);
-      cur.page.drawRectangle({ x: MARGIN, y: cur.y - 18, width: innerW, height: 18, color: NAVY });
-      cur.page.drawText("Requirement", { x: MARGIN + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.y -= 18;
+      ensure(18);
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - 14, width: innerW, height: 14, color: NAVY });
+      cur.page.drawText("Requirement", { x: MARGIN + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 8, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.y -= 14;
 
       let rowIdx = 0;
       for (const r of mandateRows) {
-        const evLines = wrap(r.evidence, serif, 9, cEv - 20);
-        const reqLines = wrap(r.req, sansB, 9, cReq - 20);
-        const rowH = Math.max(28, Math.max(evLines.length, reqLines.length) * 12 + 12);
-        ensure(rowH + 2);
+        const evLines = wrap(r.evidence, serif, 8, cEv - 16);
+        const reqLines = wrap(r.req, sansB, 8, cReq - 16);
+        const rowH = Math.max(22, Math.max(evLines.length, reqLines.length) * 10 + 8);
+        ensure(rowH + 1);
         if (rowIdx % 2 === 0) {
           cur.page.drawRectangle({ x: MARGIN, y: cur.y - rowH, width: innerW, height: rowH, color: PANEL });
         }
-        let ry = cur.y - 14;
+        let ry = cur.y - 11;
         for (const ln of reqLines) {
-          cur.page.drawText(ln, { x: MARGIN + 10, y: ry, size: 9, font: sansB, color: NAVY });
-          ry -= 12;
+          cur.page.drawText(ln, { x: MARGIN + 8, y: ry, size: 8, font: sansB, color: NAVY });
+          ry -= 10;
         }
-        let ey = cur.y - 14;
+        let ey = cur.y - 11;
         for (const ln of evLines) {
-          cur.page.drawText(ln, { x: MARGIN + cReq + 10, y: ey, size: 9, font: serif, color: INK });
-          ey -= 12;
+          cur.page.drawText(ln, { x: MARGIN + cReq + 8, y: ey, size: 8, font: serif, color: INK });
+          ey -= 10;
         }
         const f = fitColors(r.fit);
-        const pillW = sansB.widthOfTextAtSize(r.fit, 8) + 14;
+        const pillW = sansB.widthOfTextAtSize(r.fit, 7) + 10;
         const px = MARGIN + cReq + cEv + (cFit - pillW) / 2;
-        const py = cur.y - rowH / 2 - 7;
-        cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 14, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
-        cur.page.drawText(r.fit, { x: px + 7, y: py + 4, size: 8, font: sansB, color: f.fg });
+        const py = cur.y - rowH / 2 - 6;
+        cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 12, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
+        cur.page.drawText(r.fit, { x: px + 5, y: py + 3.5, size: 7, font: sansB, color: f.fg });
         cur.y -= rowH;
         rowIdx++;
       }
-      cur.y -= 6;
+      cur.y -= 4;
     }
 
 
@@ -591,113 +580,110 @@ serve(async (req) => {
       : [...baseWeak, ...baseRisks];
 
     if (strengths.length || considerations.length) {
-      ensure(36);
-      const gap = 18;
+      ensure(28);
+      const gap = 14;
       const colWidth = (innerW - gap) / 2;
-      const barH = 18;
+      const barH = 14;
 
-      // Two-column navy heading bars with gold accent
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
-      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
 
       cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: 3, height: barH, color: GOLD });
-      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.y -= barH + 10;
+      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.y -= barH + 6;
 
       const bulletInto = (items: string[], x: number, width: number): number => {
         let y = cur.y;
-        const dotW = 8;
-        for (const item of items.slice(0, 6)) {
-          const m = String(item).match(/^([^—:\-]{2,40})\s*[—:\-]\s*(.+)$/);
+        const dotW = 7;
+        for (const item of items.slice(0, 5)) {
+          const m = String(item).match(/^\**([^*—:\-]{2,40})\**\s*[—:\-]\s*(.+)$/);
           const lead = m ? m[1].trim() : "";
-          const rest = m ? m[2] : String(item);
-          // Build lines: bold lead + rest
+          const rest = m ? m[2] : String(item).replace(/^\**|\**$/g, "");
           const restMax = width - dotW;
           const leadStr = lead ? `${lead} — ` : "";
-          const leadW = leadStr ? sansB.widthOfTextAtSize(leadStr, 9) : 0;
+          const leadW = leadStr ? sansB.widthOfTextAtSize(leadStr, 8) : 0;
           const firstLineMax = restMax - leadW;
-          const lines = wrap(rest, serif, 9, firstLineMax);
-          // bullet dot
-          if (y - 14 < FOOTER_H + 18) break;
-          cur.page.drawText("•", { x, y: y - 10, size: 10, font: sansB, color: GOLD });
-          if (leadStr) cur.page.drawText(leadStr, { x: x + dotW, y: y - 10, size: 9, font: sansB, color: NAVY });
-          if (lines[0]) cur.page.drawText(lines[0], { x: x + dotW + leadW, y: y - 10, size: 9, font: serif, color: INK });
-          y -= 12;
+          const lines = wrap(rest, serif, 8, firstLineMax);
+          if (y - 11 < FOOTER_H + 14) break;
+          cur.page.drawText("•", { x, y: y - 8, size: 9, font: sansB, color: GOLD });
+          if (leadStr) cur.page.drawText(leadStr, { x: x + dotW, y: y - 8, size: 8, font: sansB, color: NAVY });
+          if (lines[0]) cur.page.drawText(lines[0], { x: x + dotW + leadW, y: y - 8, size: 8, font: serif, color: INK });
+          y -= 10;
           for (let i = 1; i < lines.length; i++) {
-            if (y - 12 < FOOTER_H + 18) break;
-            cur.page.drawText(lines[i], { x: x + dotW, y: y - 10, size: 9, font: serif, color: INK });
-            y -= 12;
+            if (y - 10 < FOOTER_H + 14) break;
+            cur.page.drawText(lines[i], { x: x + dotW, y: y - 8, size: 8, font: serif, color: INK });
+            y -= 10;
           }
-          y -= 3;
+          y -= 2;
         }
         return y;
       };
 
       const startY = cur.y;
-      const leftEndY = bulletInto(strengths.length ? strengths : ["Strong alignment with role requirements"], MARGIN, colWidth);
+      const leftEndY = bulletInto(strengths.length ? strengths : ["Baseline alignment with role requirements"], MARGIN, colWidth);
       cur.y = startY;
       const rightEndY = bulletInto(considerations.length ? considerations : ["No material concerns identified"], MARGIN + colWidth + gap, colWidth);
-      cur.y = Math.min(leftEndY, rightEndY) - 4;
+      cur.y = Math.min(leftEndY, rightEndY) - 2;
     }
 
-    // ===== Missing Requirements (JD items without real CV evidence) =====
+    // ===== Missing Requirements =====
     if (sideMissing.length) {
       sectionHeading("Missing Requirements");
-      const dotW = 10;
+      const dotW = 9;
       for (const item of sideMissing.slice(0, 8)) {
-        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 11, width: 4, height: 4, color: recAccent });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+        const lines = wrap(String(item), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 9, width: 4, height: 4, color: recAccent });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
     // ===== How Recruiter Notes Influenced the View =====
     if (sideRecruiterSummary.length) {
       sectionHeading("Recruiter Insight Impact");
-      const dotW = 8;
-      for (const item of sideRecruiterSummary.slice(0, 6)) {
-        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+      const dotW = 7;
+      for (const item of sideRecruiterSummary.slice(0, 5)) {
+        const lines = wrap(String(item), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 9, size: 9, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
 
-    // ===== Recruiter View (manual override wins, otherwise AI recruiter_review) =====
-    sectionHeading("Recruiter View");
-    const recView = submission.recruiter_recommendation
-      || submission.recruiter_summary
-      || (validation?.recruiter_review as string | null)
-      || submission.submission_message
-      || `${candidate.full_name?.split(" ")[0] ?? "This candidate"} has been submitted for the ${job.title ?? "role"} for the client's review.`;
-    paragraph(recView, 9.5, serif, INK, 13);
-
-    // Recruiter signature footer
+    // Recruiter signature footer (compact — replaces the redundant "Recruiter View"
+    // section; the executive summary already owns the closing voice).
+    const overrideRecView =
+      (submission.recruiter_recommendation && String(submission.recruiter_recommendation).trim()) ||
+      (submission.recruiter_summary && String(submission.recruiter_summary).trim()) ||
+      "";
+    if (overrideRecView) {
+      sectionHeading("Recruiter View");
+      paragraph(overrideRecView, 9, serif, INK, 12);
+    }
     if (recruiterName) {
-      cur.y -= 6;
-      ensure(14);
+      cur.y -= 4;
+      ensure(12);
       cur.page.drawText(`Submitted by ${recruiterName}${companyName ? " · " + companyName : ""}`, {
-        x: MARGIN, y: cur.y - 10, size: 8.5, font: sans, color: MUTED,
+        x: MARGIN, y: cur.y - 9, size: 8, font: sans, color: MUTED,
       });
-      cur.y -= 12;
+      cur.y -= 10;
     }
 
     // ===== Optional: merge in Branded CV + Original CV PDFs =====
