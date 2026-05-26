@@ -633,8 +633,15 @@ serve(async (req) => {
       await appendPdf(doc, b);
     }
     if (components.original_cv) {
-      const o = await tryLoadPdfBytes(submission.original_cv_url);
+      const originalUrl = submission.original_cv_url || (candidate as any)?.cv_file_url || null;
+      const o = await tryLoadPdfBytes(originalUrl);
       await appendPdf(doc, o);
+      // Persist the resolved original CV URL on the submission so the UI reflects it
+      if (!submission.original_cv_url && (candidate as any)?.cv_file_url) {
+        await admin.from("candidate_submissions")
+          .update({ original_cv_url: (candidate as any).cv_file_url })
+          .eq("id", submission.id);
+      }
     }
 
     // ===== Footers =====

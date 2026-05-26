@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/resizable";
 import {
   Loader2, RefreshCw, Download, ExternalLink, FileText, Sparkles, Send,
-  CheckCircle2, AlertTriangle, Users, Settings2, MessageSquare, Activity,
+  CheckCircle2, AlertTriangle, Users, Settings2, MessageSquare, Activity, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
@@ -150,6 +150,25 @@ export function SubmissionWorkspace({
   }, [recommendation, summary, strengthsText, considerationsText, recruiterMessage, JSON.stringify(components)]);
 
   const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
+  const [buildStage, setBuildStage] = useState<string>("Preparing…");
+
+  // Cycle through build stage messages while generating
+  useEffect(() => {
+    if (!regenerating && row?.pack_status !== "generating") return;
+    const stages = [
+      "Generating AI Executive Report…",
+      "Building branded CV…",
+      "Combining PDFs…",
+      "Rendering preview…",
+    ];
+    let i = 0;
+    setBuildStage(stages[0]);
+    const t = setInterval(() => {
+      i = (i + 1) % stages.length;
+      setBuildStage(stages[i]);
+    }, 1400);
+    return () => clearInterval(t);
+  }, [regenerating, row?.pack_status]);
 
   const regenerate = async () => {
     setRegenerating(true);
@@ -164,11 +183,38 @@ export function SubmissionWorkspace({
         toast.error(result.user_message || "Package generation temporarily failed. Please retry.");
         return;
       }
-      toast.success("Submission pack updated");
+      // Use response directly so preview shows immediately (don't wait on realtime)
+      if (result?.status === "ready" && result?.path) {
+        setRow(prev => prev ? { ...prev, pack_pdf_url: result.path, pack_status: "ready", pack_error: null } : prev);
+        if (result?.signed_url) setSignedUrl(result.signed_url);
+      }
+      toast.success("Submission pack ready");
     } catch (e: any) {
       toast.error("Package generation temporarily failed. Please retry.");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  // Upload a CV file (branded or original) into the documents bucket, save URL, then rebuild
+  const uploadCV = async (kind: "branded_cv_url" | "original_cv_url", file: File) => {
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${tenantId}/${submissionId}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file, {
+        contentType: file.type || "application/pdf", upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
+      const url = pub?.publicUrl || path;
+      const { error: updErr } = await supabase.from("candidate_submissions")
+        .update({ [kind]: url }).eq("id", submissionId);
+      if (updErr) throw updErr;
+      setRow(prev => prev ? { ...prev, [kind]: url } as any : prev);
+      toast.success(kind === "branded_cv_url" ? "Branded CV uploaded" : "Original CV uploaded");
+      regenerate();
+    } catch (e: any) {
+      toast.error(e?.message || "Upload failed");
     }
   };
 
@@ -296,7 +342,7 @@ export function SubmissionWorkspace({
               {isBuilding && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-background/70 backdrop-blur-sm">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <div className="text-sm font-medium">Composing your branded pack…</div>
+                  <div className="text-sm font-medium">{buildStage}</div>
                   <div className="text-xs text-muted-foreground">AI report · branded CV · original CV</div>
                 </div>
               )}
@@ -361,21 +407,36 @@ export function SubmissionWorkspace({
                 </AccordionTrigger>
                 <AccordionContent className="space-y-3 pt-1">
                   {([
-                    { key: "ai_report", label: "AI Executive Report", desc: "Branded AI-powered candidate report" },
-                    { key: "branded_cv", label: "Branded CV", desc: row.branded_cv_url ? "Available" : "No branded CV uploaded" },
-                    { key: "original_cv", label: "Original CV", desc: row.original_cv_url ? "Available" : "No original CV uploaded" },
-                  ] as const).map((c) => (
-                    <div key={c.key} className="flex items-center justify-between">
-                      <div className="min-w-0 pr-3">
-                        <div className="text-sm font-medium">{c.label}</div>
-                        <div className="text-[11px] text-muted-foreground">{c.desc}</div>
+                    { key: "ai_report", label: "AI Executive Report", desc: "Branded AI-powered candidate report", uploadKey: null },
+                    { key: "branded_cv", label: "Branded CV", desc: row.branded_cv_url ? "Available" : "Not uploaded yet", uploadKey: "branded_cv_url" as const },
+                    { key: "original_cv", label: "Original CV", desc: row.original_cv_url ? "Available" : "Not uploaded yet", uploadKey: "original_cv_url" as const },
+                  ]).map((c) => {
+                    const hasFile = c.uploadKey ? !!(row as any)[c.uploadKey] : true;
+                    return (
+                      <div key={c.key} className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 pr-3 flex-1">
+                          <div className="text-sm font-medium">{c.label}</div>
+                          <div className="text-[11px] text-muted-foreground">{c.desc}</div>
+                        </div>
+                        {c.uploadKey && !hasFile && (
+                          <label className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer hover:bg-muted">
+                            <Upload className="h-3 w-3" /> Upload CV
+                            <input type="file" accept="application/pdf" className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) uploadCV(c.uploadKey!, f);
+                                e.currentTarget.value = "";
+                              }} />
+                          </label>
+                        )}
+                        <Switch
+                          checked={(components as any)[c.key]}
+                          disabled={c.uploadKey ? !hasFile : false}
+                          onCheckedChange={(v) => setComponents(prev => ({ ...prev, [c.key]: v }))}
+                        />
                       </div>
-                      <Switch
-                        checked={(components as any)[c.key]}
-                        onCheckedChange={(v) => setComponents(prev => ({ ...prev, [c.key]: v }))}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                   <Button size="sm" className="w-full" variant="outline" onClick={regenerate} disabled={isBuilding}>
                     <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isBuilding ? "animate-spin" : ""}`} /> Rebuild Pack
                   </Button>
