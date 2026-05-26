@@ -40,9 +40,8 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minScore, setMinScore] = useState<string>('0');
+  const [minRec, setMinRec] = useState<string>('moderate_fit');
   const [search, setSearch] = useState('');
-  const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<RediscoveredMatch | null>(null);
