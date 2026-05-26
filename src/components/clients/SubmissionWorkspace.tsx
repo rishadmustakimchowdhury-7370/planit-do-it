@@ -43,6 +43,7 @@ interface SubmissionRow {
   recruiter_recommendation: string | null;
   recruiter_strengths: string[] | null;
   recruiter_considerations: string[] | null;
+  recruiter_notes: string[] | null;
   submission_message: string | null;
   branded_cv_url: string | null;
   original_cv_url: string | null;
