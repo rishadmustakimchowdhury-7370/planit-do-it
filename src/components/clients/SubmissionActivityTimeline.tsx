@@ -66,7 +66,7 @@ export function SubmissionActivityTimeline({ submissionId, className = "" }: Pro
     <ScrollArea className={`max-h-[420px] pr-2 ${className}`}>
       <ol className="relative border-l border-border ml-2 space-y-3">
         {items.map((it) => {
-          const Icon = ICONS[it.activity_type] ?? Activity;
+          const Icon = ICONS[it.event_type] ?? Activity;
           const label = describe(it);
           return (
             <li key={it.id} className="ml-4">
