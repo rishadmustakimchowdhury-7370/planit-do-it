@@ -178,7 +178,8 @@ serve(async (req) => {
     ]);
 
     if (!candidate || !job) {
-      return new Response(JSON.stringify({ error: "Candidate or job missing" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: "candidate/job missing" }).eq("id", submission_id);
+      return fail("Candidate or job data is missing. Please check the records.");
     }
 
     const brand = hexToRgb(branding?.primary_color);
