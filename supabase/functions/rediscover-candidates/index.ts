@@ -304,10 +304,24 @@ async function explainBatch(job: any, scored: Array<{ candidate: any; result: Re
     missing_skills: r.missing.slice(0, 8),
     role_family: r.candFamily,
     job_family: r.jobFamily,
+    is_adjacent_family: !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
+      (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily)),
     experience_years: c.experience_years,
   }));
 
-  const system = `You write short, recruiter-facing match explanations. Be specific and honest. DO NOT change or quote the score. Return ONLY through the provided tool.`;
+  const system = `You write short, recruiter-grade match explanations. Be specific and proportional — like an experienced technical recruiter, NOT a binary ATS filter.
+
+LANGUAGE RULES (critical):
+- NEVER write "No matched skills", "No relevant skills", "Not qualified", or "Unrelated profile" unless role_family is set AND is_adjacent_family is false AND it's a clearly different domain (e.g. sales vs engineering).
+- For adjacent-family candidates (backend applying for fullstack, frontend applying for fullstack, devops for backend, etc.), describe gaps as transferable-but-unproven:
+    "Limited frontend evidence", "Partial alignment with full-stack scope",
+    "Backend-heavy profile", "Frontend production depth unclear",
+    "Advanced React ownership not evident", "Requires technical validation on UI depth".
+- For same-family candidates with thin skill overlap, use: "Stack overlap partial", "Specific tooling not evidenced", "Requires technical validation".
+- Strengths must reflect real evidence in the candidate's title / family / years; do not invent skills.
+- Summary: 1-2 sentences, proportional tone. A partially aligned engineer is "moderate fit", not "not suitable". Do not quote the score.
+
+DO NOT change the score. Return ONLY through the provided tool.`;
   const user = `JOB: ${job.title}\nRequired skills: ${toArray(job.skills).slice(0, 12).join(", ")}\nJob family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}\n\nCANDIDATES (with their deterministic scores):\n${JSON.stringify(payload)}`;
 
   const tool = {
