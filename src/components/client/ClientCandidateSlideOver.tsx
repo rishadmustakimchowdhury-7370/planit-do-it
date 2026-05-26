@@ -93,12 +93,16 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
                     {job && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" /> {job.title}</span>}
                   </div>
                 </div>
-                {insights.match_score && (
-                  <div className="text-center shrink-0">
-                    <div className="text-2xl font-bold text-primary">{insights.match_score}%</div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">AI Match</div>
-                  </div>
-                )}
+                {(insights.recommendation || insights.match_score) && (() => {
+                  const meta = recommendationMeta(insights.recommendation, insights.match_score);
+                  return (
+                    <div className="text-right shrink-0">
+                      <Badge variant="outline" className={`text-xs font-semibold ${meta.badgeClass}`}>{meta.label}</Badge>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">Recruiter assessment</div>
+                    </div>
+                  );
+                })()}
+
               </div>
 
               <div className="flex flex-wrap gap-2 mt-5">
