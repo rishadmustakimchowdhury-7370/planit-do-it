@@ -179,7 +179,7 @@ export function SubmissionWorkspace({
       const { data: { user } } = await supabase.auth.getUser();
       const nowIso = new Date().toISOString();
       const { error } = await supabase.from("candidate_submissions").update({
-        status: "sent_to_client",
+        status: "submitted",
         sent_at: nowIso,
         submitted_at: nowIso,
         last_activity_at: nowIso,
