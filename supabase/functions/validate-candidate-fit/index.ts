@@ -361,21 +361,49 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     // payload to carry the structured details under a known shape too.
     const risksOut = Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 6) : [];
 
+    // Band-aware summary sanitization: if the recommendation is needs_review or
+    // lower but the AI used inflated language, rewrite the summary with a
+    // calibrated, evidence-based fallback so the report tone matches the band.
+    const BANNED = [
+      /\bstrong candidate\b/i, /\bexcellent (fit|candidate|experience)\b/i,
+      /\bhighly qualified\b/i, /\bideal (fit|candidate)\b/i, /\bperfect (fit|match)\b/i,
+      /\bwell[- ]suited\b/i, /\bgreat fit\b/i, /\bresults[- ]driven\b/i,
+      /\bpositions (him|her|them) as a strong\b/i,
+    ];
+    const LOW_BANDS = new Set(["needs_review", "limited_alignment", "not_suitable"]);
+    let cleanedSummary: string | null = parsed.summary ? String(parsed.summary).trim() : null;
+    if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
+      const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
+      const role = job.title ?? "this role";
+      const topGap =
+        (Array.isArray(parsed.considerations) && parsed.considerations[0]) ||
+        (mandate_match.find((m: any) => m.fit === "PARTIAL" || m.fit === "WEAK" || m.fit === "NOT MATCHED")?.requirement) ||
+        "depth on key mandate areas";
+      const topStrength =
+        (Array.isArray(parsed.strengths) && parsed.strengths[0]) ||
+        (mandate_match.find((m: any) => m.fit === "GOOD" || m.fit === "STRONG")?.requirement) ||
+        "relevant baseline experience";
+      cleanedSummary =
+        `${firstName} shows ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
+        `but evidence is limited around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()}. ` +
+        `Recommend a screening call to validate commercial depth and production ownership before progressing.`;
+    }
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
       fit_score, recommendation,
-      summary: parsed.summary ?? null,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 8) : [],
-      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 8) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
+      summary: cleanedSummary,
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
+      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
       risks: risksOut,
       mandate_match: [
         ...mandate_match,
-        // Sidecar metadata row(s) — consumers can ignore unknown shapes.
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
       ],
-      recruiter_review: parsed.recruiter_review ?? null,
+      // recruiter_review intentionally dropped — the executive summary owns the closing voice.
+      recruiter_review: null,
       model: "gpt-4o",
       generated_by: userId,
     };
