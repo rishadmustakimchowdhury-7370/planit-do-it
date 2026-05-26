@@ -643,12 +643,21 @@ export type Database = {
           candidate_id: string
           client_org_id: string
           created_at: string
+          draft_state: Json | null
           id: string
           job_candidate_id: string | null
           job_id: string
           last_activity_at: string
           original_cv_url: string | null
+          pack_components: Json
+          pack_error: string | null
           pack_pdf_url: string | null
+          pack_status: string
+          recruiter_considerations: string[] | null
+          recruiter_recommendation: string | null
+          recruiter_strengths: string[] | null
+          recruiter_summary: string | null
+          sent_at: string | null
           status: Database["public"]["Enums"]["submission_status"]
           submission_message: string | null
           submitted_at: string | null
@@ -663,12 +672,21 @@ export type Database = {
           candidate_id: string
           client_org_id: string
           created_at?: string
+          draft_state?: Json | null
           id?: string
           job_candidate_id?: string | null
           job_id: string
           last_activity_at?: string
           original_cv_url?: string | null
+          pack_components?: Json
+          pack_error?: string | null
           pack_pdf_url?: string | null
+          pack_status?: string
+          recruiter_considerations?: string[] | null
+          recruiter_recommendation?: string | null
+          recruiter_strengths?: string[] | null
+          recruiter_summary?: string | null
+          sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
           submission_message?: string | null
           submitted_at?: string | null
@@ -683,12 +701,21 @@ export type Database = {
           candidate_id?: string
           client_org_id?: string
           created_at?: string
+          draft_state?: Json | null
           id?: string
           job_candidate_id?: string | null
           job_id?: string
           last_activity_at?: string
           original_cv_url?: string | null
+          pack_components?: Json
+          pack_error?: string | null
           pack_pdf_url?: string | null
+          pack_status?: string
+          recruiter_considerations?: string[] | null
+          recruiter_recommendation?: string | null
+          recruiter_strengths?: string[] | null
+          recruiter_summary?: string | null
+          sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
           submission_message?: string | null
           submitted_at?: string | null
@@ -3834,6 +3861,47 @@ export type Database = {
           },
         ]
       }
+      submission_pack_versions: {
+        Row: {
+          components: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          path: string
+          submission_id: string
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          path: string
+          submission_id: string
+          tenant_id: string
+          version: number
+        }
+        Update: {
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          path?: string
+          submission_id?: string
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_pack_versions_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submission_recipients: {
         Row: {
           client_org_id: string
@@ -3841,7 +3909,9 @@ export type Database = {
           created_at: string
           decision: string | null
           decision_at: string | null
+          downloaded_at: string | null
           id: string
+          last_action_at: string | null
           submission_id: string
           tenant_id: string
           viewed_at: string | null
@@ -3852,7 +3922,9 @@ export type Database = {
           created_at?: string
           decision?: string | null
           decision_at?: string | null
+          downloaded_at?: string | null
           id?: string
+          last_action_at?: string | null
           submission_id: string
           tenant_id: string
           viewed_at?: string | null
@@ -3863,7 +3935,9 @@ export type Database = {
           created_at?: string
           decision?: string | null
           decision_at?: string | null
+          downloaded_at?: string | null
           id?: string
+          last_action_at?: string | null
           submission_id?: string
           tenant_id?: string
           viewed_at?: string | null

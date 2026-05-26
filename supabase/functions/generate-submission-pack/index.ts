@@ -104,14 +104,24 @@ function confidenceLabel(c?: string | null) {
   return c.charAt(0).toUpperCase() + c.slice(1) + " confidence";
 }
 
+// Always return 200 with { status:'failed', user_message } so the client never sees a raw "non-2xx"
+const fail = (user_message: string, internal?: unknown) => {
+  if (internal) console.error("[generate-submission-pack]", user_message, internal);
+  return new Response(JSON.stringify({ status: "failed", user_message }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let submissionIdForStatus: string | null = null;
+  let adminForStatus: any = null;
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!authHeader?.startsWith("Bearer ")) return fail("Please sign in again to generate this pack.");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -122,25 +132,31 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    adminForStatus = admin;
 
     const { data: userData, error: ue } = await supabase.auth.getUser();
-    if (ue || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (ue || !userData?.user) return fail("Your session has expired. Please sign in again.");
     const userId = userData.user.id;
 
-    const { submission_id } = await req.json();
-    if (!submission_id) {
-      return new Response(JSON.stringify({ error: "submission_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const body = await req.json().catch(() => ({} as any));
+    const { submission_id, components: reqComponents } = body || {};
+    if (!submission_id) return fail("Missing submission reference.");
+    submissionIdForStatus = submission_id;
+
+    await admin.from("candidate_submissions").update({
+      pack_status: "generating",
+      pack_error: null,
+      ...(reqComponents ? { pack_components: reqComponents } : {}),
+    }).eq("id", submission_id);
 
     const { data: submission, error: subErr } = await supabase
       .from("candidate_submissions")
-      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id")
+      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation")
       .eq("id", submission_id)
       .maybeSingle();
     if (subErr || !submission) {
-      return new Response(JSON.stringify({ error: "Submission not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: "not found" }).eq("id", submission_id);
+      return fail("This submission could not be found. Please refresh and try again.");
     }
 
     const [
@@ -162,7 +178,8 @@ serve(async (req) => {
     ]);
 
     if (!candidate || !job) {
-      return new Response(JSON.stringify({ error: "Candidate or job missing" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: "candidate/job missing" }).eq("id", submission_id);
+      return fail("Candidate or job data is missing. Please check the records.");
     }
 
     const brand = hexToRgb(branding?.primary_color);
@@ -455,11 +472,15 @@ serve(async (req) => {
       cur.y -= 6;
     }
 
-    // ===== Two-column Strengths / Considerations =====
-    const strengths = (validation?.strengths as string[]) || (canonical?.strengths as string[]) || [];
-    const weaknesses = (validation?.weaknesses as string[]) || (canonical?.gaps as string[]) || [];
-    const risks = (validation?.risks as string[]) || [];
-    const considerations = [...weaknesses, ...risks];
+    // ===== Two-column Strengths / Considerations (recruiter overrides win) =====
+    const strengths = (submission.recruiter_strengths as string[] | null)?.length
+      ? (submission.recruiter_strengths as string[])
+      : ((validation?.strengths as string[]) || (canonical?.strengths as string[]) || []);
+    const baseWeak = (validation?.weaknesses as string[]) || (canonical?.gaps as string[]) || [];
+    const baseRisks = (validation?.risks as string[]) || [];
+    const considerations = (submission.recruiter_considerations as string[] | null)?.length
+      ? (submission.recruiter_considerations as string[])
+      : [...baseWeak, ...baseRisks];
 
     if (strengths.length || considerations.length) {
       ensure(28);
@@ -510,9 +531,11 @@ serve(async (req) => {
       cur.y = Math.min(leftEndY, rightEndY) - 4;
     }
 
-    // ===== Recruiter View =====
+    // ===== Recruiter View (overrides win) =====
     sectionHeading("Recruiter View");
-    const recView = submission.submission_message
+    const recView = submission.recruiter_recommendation
+      || submission.recruiter_summary
+      || submission.submission_message
       || (canonicalScore != null
         ? `${candidate.full_name?.split(" ")[0] ?? "This candidate"} ${canonicalScore >= 75 ? "demonstrates strong" : canonicalScore >= 60 ? "shows reasonable" : "shows partial"} alignment with the ${job.title ?? "role"} requirements and is ${canonicalScore >= 75 ? "recommended for client screening" : canonicalScore >= 60 ? "worth a screening conversation" : "submitted for the client's review"}.`
         : "Submitted for client review.");
@@ -528,25 +551,92 @@ serve(async (req) => {
       cur.y -= 12;
     }
 
+    // ===== Optional: merge in Branded CV + Original CV PDFs =====
+    const components = {
+      ai_report: true,
+      branded_cv: true,
+      original_cv: true,
+      ...(submission.pack_components as any || {}),
+      ...(reqComponents || {}),
+    };
+
+    const tryLoadPdfBytes = async (urlOrPath?: string | null): Promise<Uint8Array | null> => {
+      if (!urlOrPath) return null;
+      try {
+        // If it's already a storage path (no http), try common buckets
+        if (!/^https?:\/\//i.test(urlOrPath)) {
+          for (const bucket of ["branded-cvs", "cvs", "candidate-cvs", "documents"]) {
+            const { data } = await admin.storage.from(bucket).download(urlOrPath);
+            if (data) return new Uint8Array(await data.arrayBuffer());
+          }
+          return null;
+        }
+        const m = urlOrPath.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+        if (m) {
+          const { data } = await admin.storage.from(m[1]).download(decodeURIComponent(m[2]));
+          if (data) return new Uint8Array(await data.arrayBuffer());
+        }
+        const r = await fetch(urlOrPath);
+        if (r.ok) return new Uint8Array(await r.arrayBuffer());
+      } catch (e) { console.error("pdf load fail", e); }
+      return null;
+    };
+
+    const appendPdf = async (target: PDFDocument, src: Uint8Array | null) => {
+      if (!src) return;
+      try {
+        const ext = await PDFDocument.load(src, { ignoreEncryption: true });
+        const pages = await target.copyPages(ext, ext.getPageIndices());
+        for (const p of pages) target.addPage(p);
+      } catch (e) { console.error("merge fail", e); }
+    };
+
+    if (components.branded_cv) {
+      const b = await tryLoadPdfBytes(submission.branded_cv_url);
+      await appendPdf(doc, b);
+    }
+    if (components.original_cv) {
+      const o = await tryLoadPdfBytes(submission.original_cv_url);
+      await appendPdf(doc, o);
+    }
+
     // ===== Footers =====
     const total = doc.getPageCount();
     for (let i = 0; i < total; i++) drawFooter(doc.getPage(i), i + 1, total);
 
     const bytes = await doc.save();
-    const path = `${submission.tenant_id}/${submission.id}/pack.pdf`;
+    const versionStamp = Date.now();
+    const path = `${submission.tenant_id}/${submission.id}/pack-${versionStamp}.pdf`;
     const { error: upErr } = await admin.storage.from("submission-packs").upload(path, bytes, {
       contentType: "application/pdf",
       upsert: true,
     });
     if (upErr) {
-      console.error("upload error", upErr);
-      return new Response(JSON.stringify({ error: upErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: upErr.message }).eq("id", submission.id);
+      return fail("We couldn't save the pack to storage. Please retry.", upErr);
     }
 
     const { data: signed } = await admin.storage.from("submission-packs").createSignedUrl(path, 60 * 60 * 24);
 
+    // Determine next version number
+    const { data: lastVer } = await admin.from("submission_pack_versions")
+      .select("version").eq("submission_id", submission.id)
+      .order("version", { ascending: false }).limit(1).maybeSingle();
+    const nextVersion = ((lastVer?.version as number) || 0) + 1;
+
+    await admin.from("submission_pack_versions").insert({
+      submission_id: submission.id,
+      tenant_id: submission.tenant_id,
+      version: nextVersion,
+      path,
+      components,
+      created_by: userId,
+    });
+
     await admin.from("candidate_submissions").update({
       pack_pdf_url: path,
+      pack_status: "ready",
+      pack_error: null,
       last_activity_at: new Date().toISOString(),
     }).eq("id", submission.id);
 
@@ -556,22 +646,28 @@ serve(async (req) => {
         tenant_id: submission.tenant_id,
         client_org_id: submission.client_org_id ?? null,
         actor_user_id: userId,
-        actor_type: "recruiter",
+        actor_type: "internal",
         event_type: "pack_generated",
-        metadata: { path },
+        metadata: { path, version: nextVersion, components },
       });
-    } catch (e) {
-      console.error("activity log failed (non-blocking)", e);
-    }
+    } catch (e) { console.error("activity log failed (non-blocking)", e); }
 
-    return new Response(JSON.stringify({ path, signed_url: signed?.signedUrl ?? null }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      status: "ready",
+      path,
+      signed_url: signed?.signedUrl ?? null,
+      version: nextVersion,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("generate-submission-pack error", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("generate-submission-pack fatal", e);
+    if (submissionIdForStatus && adminForStatus) {
+      try {
+        await adminForStatus.from("candidate_submissions").update({
+          pack_status: "failed",
+          pack_error: e instanceof Error ? e.message : String(e),
+        }).eq("id", submissionIdForStatus);
+      } catch {}
+    }
+    return fail("Package generation temporarily failed. Please retry.", e);
   }
 });
