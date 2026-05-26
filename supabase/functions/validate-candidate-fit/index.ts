@@ -187,14 +187,15 @@ serve(async (req) => {
       // Invalidate cache if any cached fit label is inflated above the current canonical band
       const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
       const score = canonical?.match_score;
-      const ceil = score == null ? 3
+      const ceil = score == null ? 2
                  : score < 35 ? 1
                  : score < 50 ? 2
-                 : score < 62 ? 4
+                 : score < 62 ? 3
                  : score < 75 ? 4
+                 : score < 88 ? 4
                  : 5;
       const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
-        m && typeof m.fit === "string" &&
+        m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
       // Also invalidate if the stored recommendation is still on the old 3-tier system.
