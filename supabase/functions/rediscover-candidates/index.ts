@@ -540,8 +540,37 @@ serve(async (req) => {
         if (contacted.has(c.id)) insights.push("Previously contacted");
 
         // Strengths/gaps fallback from deterministic data if AI returned nothing
-        const strengths = explain.strengths.length > 0 ? explain.strengths : r.matched.slice(0, 3).map((s) => `Has ${s}`);
-        const gaps = explain.gaps.length > 0 ? explain.gaps : r.missing.slice(0, 2).map((s) => `Missing ${s}`);
+        const isAdjacent = !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
+          (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily));
+        const isSameFamily = !!(r.jobFamily && r.candFamily && r.jobFamily === r.candFamily);
+        const isUnrelated = !!(r.jobFamily && r.candFamily && !isAdjacent && !isSameFamily);
+
+        const strengths = explain.strengths.length > 0
+          ? explain.strengths
+          : (r.matched.length > 0
+              ? r.matched.slice(0, 3).map((s) => `Has ${s}`)
+              : (isSameFamily || isAdjacent ? [`Relevant ${r.candFamily ?? "engineering"} background`] : []));
+
+        // Recruiter-grade gap phrasing — never say "No matched skills" for adjacent/same-family candidates.
+        const fallbackGap = (s: string) => {
+          if (isAdjacent) return `Limited evidence of ${s}`;
+          if (isSameFamily) return `${s} not evidenced`;
+          return `Missing ${s}`;
+        };
+        let gaps = explain.gaps.length > 0 ? explain.gaps : r.missing.slice(0, 2).map(fallbackGap);
+        // Sanitize harsh phrasing for adjacent/same-family
+        if (!isUnrelated) {
+          const BAN = /no\s+(matched|relevant|matching)\s+skills|unrelated\s+profile|not\s+qualified|no\s+overlap/i;
+          gaps = gaps.map((g) => {
+            if (!BAN.test(g)) return g;
+            if (r.jobFamily === "fullstack" && r.candFamily === "backend") return "Limited frontend evidence — full-stack depth unclear";
+            if (r.jobFamily === "fullstack" && r.candFamily === "frontend") return "Limited backend evidence — full-stack depth unclear";
+            return "Partial alignment with role requirements";
+          });
+          if (gaps.length === 0 && r.missing.length === 0 && isAdjacent) {
+            gaps = ["Partial alignment with role requirements"];
+          }
+        }
 
         return {
           job_id,
