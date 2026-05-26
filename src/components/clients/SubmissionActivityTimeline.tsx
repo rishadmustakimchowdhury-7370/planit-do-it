@@ -32,7 +32,7 @@ export function SubmissionActivityTimeline({ submissionId, className = "" }: Pro
     const load = async () => {
       const { data } = await supabase
         .from("submission_activity" as any)
-        .select("id, activity_type, payload, actor_id, created_at")
+        .select("id, event_type, metadata, actor_user_id, created_at")
         .eq("submission_id", submissionId)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -66,7 +66,7 @@ export function SubmissionActivityTimeline({ submissionId, className = "" }: Pro
     <ScrollArea className={`max-h-[420px] pr-2 ${className}`}>
       <ol className="relative border-l border-border ml-2 space-y-3">
         {items.map((it) => {
-          const Icon = ICONS[it.activity_type] ?? Activity;
+          const Icon = ICONS[it.event_type] ?? Activity;
           const label = describe(it);
           return (
             <li key={it.id} className="ml-4">
@@ -88,13 +88,13 @@ export function SubmissionActivityTimeline({ submissionId, className = "" }: Pro
 }
 
 function describe(a: any): string {
-  switch (a.activity_type) {
+  switch (a.event_type) {
     case "submission_created": return "Submission created";
-    case "status_changed":     return `Status: ${a.payload?.from ?? "?"} → ${a.payload?.to ?? "?"}`;
+    case "status_changed":     return `Status: ${a.metadata?.from ?? "?"} → ${a.metadata?.to ?? "?"}`;
     case "pack_generated":     return "Branded submission pack generated";
     case "recipient_viewed":   return "A client recipient viewed the submission";
-    case "recipient_decision": return `Recipient decision: ${a.payload?.decision ?? "?"}`;
-    case "message":            return a.payload?.text ?? "New message";
-    default:                   return a.activity_type.replace(/_/g, " ");
+    case "recipient_decision": return `Recipient decision: ${a.metadata?.decision ?? "?"}`;
+    case "message":            return a.metadata?.text ?? "New message";
+    default:                   return (a.event_type ?? "").replace(/_/g, " ");
   }
 }
