@@ -168,7 +168,7 @@ serve(async (req) => {
     const [
       { data: candidate },
       { data: job },
-      { data: validation },
+      { data: validationRow },
       { data: canonical },
       { data: branding },
       { data: profile },
