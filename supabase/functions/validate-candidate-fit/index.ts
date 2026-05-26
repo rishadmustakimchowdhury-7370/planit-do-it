@@ -231,15 +231,43 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       parsed = { summary: canonical?.ai_summary ?? null, mandate_match: [], strengths: (canonical?.strengths ?? []), considerations: (canonical?.gaps ?? []), recruiter_review: null };
     }
 
-    const ALLOWED_FITS = new Set(["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "NOT MATCHED"]);
+    const ALLOWED_FITS = ["NOT MATCHED", "WEAK", "PARTIAL", "GOOD", "STRONG", "EXCEEDS"]; // ordered low→high
+    const fitRank = (f: string) => Math.max(0, ALLOWED_FITS.indexOf(f.toUpperCase()));
+
+    // Cap allowed fit ceiling by canonical band — single source of truth wins.
+    const fitCeiling = (score: number | null): number => {
+      if (score == null) return 3; // GOOD
+      if (score < 50) return 1;    // WEAK max (one GOOD allowed via override below)
+      if (score < 65) return 4;    // STRONG max
+      if (score < 75) return 4;    // STRONG max
+      if (score < 90) return 5;    // EXCEEDS allowed sparingly
+      return 5;
+    };
+    const ceil = fitCeiling(canonicalScore);
+    let strongUsed = 0;
+    const strongCap = canonicalScore != null && canonicalScore < 50 ? 0
+                    : canonicalScore != null && canonicalScore < 65 ? 1
+                    : canonicalScore != null && canonicalScore < 75 ? 2
+                    : 99;
+
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
           .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
-          .map((m: any) => ({
-            requirement: String(m.requirement).slice(0, 120),
-            evidence: String(m.evidence).slice(0, 600),
-            fit: ALLOWED_FITS.has(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL",
-          }))
+          .map((m: any) => {
+            let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
+            // Hard cap to canonical band
+            if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
+            // Limit STRONG count for low/mid bands
+            if (f === "STRONG") {
+              if (strongUsed >= strongCap) f = "GOOD";
+              else strongUsed++;
+            }
+            return {
+              requirement: String(m.requirement).slice(0, 120),
+              evidence: String(m.evidence).slice(0, 600),
+              fit: f,
+            };
+          })
           .slice(0, 10)
       : [];
 
