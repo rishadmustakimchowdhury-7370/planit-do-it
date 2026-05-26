@@ -48,11 +48,11 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
 
   const filtered = useMemo(() => {
-    const m = Number(minScore) || 0;
+    const floor = REC_RANK[minRec] ?? 3;
     const q = search.trim().toLowerCase();
     return matches.filter(x => {
-      if ((x.match_score ?? 0) < m) return false;
-      if (confidenceFilter !== 'all' && x.confidence !== confidenceFilter) return false;
+      const recKey = scoreToRecommendation(x.match_score ?? 0).key;
+      if ((REC_RANK[recKey] ?? 0) < floor) return false;
       if (q) {
         const haystack = [
           x.candidate?.full_name, x.candidate?.current_title, x.candidate?.location,
@@ -61,7 +61,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
       }
       return true;
     });
-  }, [matches, minScore, confidenceFilter, search]);
+  }, [matches, minRec, search]);
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
