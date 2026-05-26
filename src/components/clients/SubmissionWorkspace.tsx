@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
 import { SubmissionRecipientsManager } from "./SubmissionRecipientsManager";
+import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
 
 interface Props {
   submissionId: string;
