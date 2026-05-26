@@ -54,7 +54,32 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
     if (!share || !user) return;
     setSubmitting(true);
     try {
-      // Phase 4 will introduce candidate_feedback; for now, log via console + toast.
+      const jc = share?.job_candidates;
+      const cand = jc?.candidate;
+      const jb = jc?.jobs;
+      // Notify recruiter + manager + owner via the centralized dispatcher.
+      const eventMap: Record<typeof decision, 'candidate_offered' | 'candidate_rejected' | 'cv_submitted'> = {
+        approve: 'candidate_offered',
+        reject: 'candidate_rejected',
+        request_more: 'cv_submitted',
+      };
+      try {
+        await supabase.functions.invoke('dispatch-notification', {
+          body: {
+            event_type: eventMap[decision],
+            tenant_id: (clientPortal as any)?.tenant_id,
+            data: {
+              candidate_name: cand?.full_name,
+              job_title: jb?.title,
+              candidate_id: cand?.id,
+              job_id: jb?.id,
+              client_decision: decision,
+              client_feedback: feedbackNote || null,
+              source: 'client_portal',
+            },
+          },
+        });
+      } catch (e) { console.error('notify failed', e); }
       toast.success(
         decision === 'approve' ? 'Approved — your recruiter has been notified.'
         : decision === 'reject' ? 'Rejected — feedback shared with recruiter.'
@@ -65,6 +90,7 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
       setSubmitting(false);
     }
   };
+
 
   const candidate = share?.job_candidates?.candidate;
   const job = share?.job_candidates?.jobs;
