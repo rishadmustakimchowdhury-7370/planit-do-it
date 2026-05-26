@@ -92,24 +92,16 @@ async function fetchImageBytes(supa: any, url?: string | null) {
 
 interface Cursor { page: PDFPage; y: number; }
 
-// Map a normalized 0-1 sub-score to a fit label
-function fitLabel(score: number): { label: string; fg: any; bg: any } {
-  if (score >= 0.9) return { label: "EXCEEDS", fg: C_EXCEEDS, bg: C_EXCEEDS_BG };
-  if (score >= 0.7) return { label: "STRONG", fg: C_STRONG, bg: C_STRONG_BG };
-  if (score >= 0.5) return { label: "MODERATE", fg: C_MOD, bg: C_MOD_BG };
-  return { label: "PARTIAL", fg: C_PARTIAL, bg: C_PARTIAL_BG };
-}
-
-function recommendationLabel(score: number) {
-  if (score >= 90) return "Strongly Recommended";
-  if (score >= 75) return "Recommended";
-  if (score >= 60) return "Moderate Match";
-  return "Needs Review";
-}
-
-function confidenceLabel(c?: string | null) {
-  if (!c) return "—";
-  return c.charAt(0).toUpperCase() + c.slice(1) + " confidence";
+// Executive-search fit labels driven by AI mandate_match output
+function fitColors(label: string): { fg: any; bg: any } {
+  const L = (label || "").toUpperCase();
+  if (L === "EXCEEDS")     return { fg: C_EXCEEDS, bg: C_EXCEEDS_BG };
+  if (L === "STRONG")      return { fg: C_STRONG,  bg: C_STRONG_BG };
+  if (L === "GOOD")        return { fg: C_STRONG,  bg: C_STRONG_BG };
+  if (L === "PARTIAL")     return { fg: C_MOD,     bg: C_MOD_BG };
+  if (L === "WEAK")        return { fg: C_PARTIAL, bg: C_PARTIAL_BG };
+  if (L === "NOT MATCHED") return { fg: C_PARTIAL, bg: C_PARTIAL_BG };
+  return { fg: C_MOD, bg: C_MOD_BG };
 }
 
 // Always return 200 with { status:'failed', user_message } so the client never sees a raw "non-2xx"
