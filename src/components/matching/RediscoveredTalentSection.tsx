@@ -296,12 +296,10 @@ interface CardProps {
 
 function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
-  const isTop = index < 3 && match.match_score >= 80;
+  const recMeta = scoreToRecommendation(match.match_score);
+  const isTop = index < 3 && (recMeta.key === 'strong_match' || recMeta.key === 'recommended');
   const fullName = c?.full_name || 'Unknown candidate';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
-  const confidence = match.confidence === 'high' || match.confidence === 'medium' || match.confidence === 'low'
-    ? match.confidence
-    : 'low';
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
   const insights = Array.isArray(match.insights) ? match.insights : [];
@@ -346,12 +344,15 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
             {c.experience_years != null && <span>{c.experience_years}y exp</span>}
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <MatchScoreCircle score={match.match_score} size="sm" />
-          <Badge variant="outline" className={cn('text-[9px] uppercase px-1.5 py-0 h-4', CONFIDENCE_COLOR[confidence] ?? CONFIDENCE_COLOR.low)}>
-            {confidence}
-          </Badge>
-        </div>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border font-medium leading-none text-[11px] px-2.5 py-1',
+            recMeta.badgeClass,
+          )}
+        >
+          <span className={cn('h-1.5 w-1.5 rounded-full', recMeta.dotClass)} />
+          {recMeta.label}
+        </span>
       </div>
 
       {match.ai_summary && (
@@ -360,9 +361,6 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </p>
       )}
 
-      {match.sub_scores && (
-        <ScoreBreakdown sub={match.sub_scores} />
-      )}
 
       {(strengths.length > 0 || gaps.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1">
