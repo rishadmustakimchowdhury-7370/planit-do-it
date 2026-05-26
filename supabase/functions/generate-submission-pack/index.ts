@@ -537,13 +537,16 @@ serve(async (req) => {
       cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 10, y: cur.y - 12, size: 8.5, font: sansB, color: rgb(1, 1, 1) });
       cur.y -= 18;
 
+      let rowIdx = 0;
       for (const r of rows) {
         const evLines = wrap(r.evidence, serif, 9, cEv - 20);
         const reqLines = wrap(r.req, sansB, 9, cReq - 20);
-        const rowH = Math.max(26, Math.max(evLines.length, reqLines.length) * 12 + 10);
+        const rowH = Math.max(28, Math.max(evLines.length, reqLines.length) * 12 + 12);
         ensure(rowH + 2);
-        // bottom border
-        cur.page.drawLine({ start: { x: MARGIN, y: cur.y - rowH }, end: { x: MARGIN + innerW, y: cur.y - rowH }, thickness: 0.3, color: HAIR });
+        // alternating row background
+        if (rowIdx % 2 === 0) {
+          cur.page.drawRectangle({ x: MARGIN, y: cur.y - rowH, width: innerW, height: rowH, color: PANEL });
+        }
         // requirement
         let ry = cur.y - 14;
         for (const ln of reqLines) {
