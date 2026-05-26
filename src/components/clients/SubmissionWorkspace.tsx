@@ -151,7 +151,7 @@ export function SubmissionWorkspace({
         structured_notes: structuredNotes as any,
         submission_message: recruiterMessage || null,
         pack_components: components,
-        draft_state: { recommendation, summary, strengthsText, considerationsText, structuredNotes, recruiterMessage, components, savedAt: new Date().toISOString() },
+        draft_state: { recommendation, summary, strengthsText, considerationsText, structuredNotes, recruiterMessage, components, savedAt: new Date().toISOString() } as any,
       }).eq("id", submissionId);
     }, 800);
     return () => clearTimeout(t);
