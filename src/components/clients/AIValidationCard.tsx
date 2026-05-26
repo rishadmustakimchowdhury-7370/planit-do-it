@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, RefreshCw, CheckCircle2, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Sparkles, RefreshCw } from "lucide-react";
 import { useLatestValidation, useValidateCandidateFit } from "@/hooks/useCandidateValidation";
+import { RecommendationBadge } from "@/components/matching/RecommendationBadge";
 import { formatDistanceToNow } from "date-fns";
 
 interface Props {
@@ -13,12 +12,6 @@ interface Props {
   compact?: boolean;
   canRegenerate?: boolean;
 }
-
-const RECO_META: Record<string, { label: string; variant: "default" | "secondary" | "destructive"; icon: any }> = {
-  strongly_recommended: { label: "Strongly Recommended", variant: "default", icon: CheckCircle2 },
-  needs_review: { label: "Needs Review", variant: "secondary", icon: AlertTriangle },
-  not_recommended: { label: "Not Recommended", variant: "destructive", icon: ShieldAlert },
-};
 
 export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = true }: Props) {
   const { data: validation, isLoading } = useLatestValidation(jobId, candidateId);
@@ -45,7 +38,7 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
           <Sparkles className="h-8 w-8 text-primary" />
           <div>
             <p className="font-medium">No AI validation yet</p>
-            <p className="text-sm text-muted-foreground">Run a fit assessment before submitting this candidate.</p>
+            <p className="text-sm text-muted-foreground">Run an evidence-based recruiter assessment before submitting this candidate.</p>
           </div>
           <Button onClick={() => generate(false)} disabled={loading}>
             <Sparkles className="h-4 w-4 mr-2" />
@@ -56,28 +49,21 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
     );
   }
 
-  const meta = RECO_META[validation.recommendation ?? "needs_review"];
-  const Icon = meta.icon;
-  const subScores = validation.sub_scores as any;
   const confidence = validation.confidence;
-  const subRows: Array<[string, number]> = subScores ? [
-    ["Role", Math.round((subScores.role ?? 0) * 100)],
-    ["Skills", Math.round((subScores.skills ?? 0) * 100)],
-    ["Experience", Math.round((subScores.experience ?? 0) * 100)],
-    ["Seniority", Math.round((subScores.seniority ?? 0) * 100)],
-    ["Location", Math.round((subScores.location ?? 0) * 100)],
-    ["Industry", Math.round((subScores.industry ?? 0) * 100)],
-  ] : [];
+  const mandate = Array.isArray((validation as any).mandate_match) ? (validation as any).mandate_match : [];
+  const visibleMandate = mandate.filter((m: any) => m && !m.__kind && typeof m.requirement === "string");
+  const missingSidecar = mandate.find((m: any) => m?.__kind === "missing");
+  const missing = Array.isArray(missingSidecar?.items) ? missingSidecar.items : [];
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div className="space-y-1">
           <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" /> AI Fit Validation
+            <Sparkles className="h-4 w-4 text-primary" /> Recruiter Assessment
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Based on centralized AI scoring engine{validation.scoring_version ? ` · ${validation.scoring_version}` : ""} · Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
+            Evidence-based AI validation · Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
             {confidence ? ` · ${confidence} confidence` : ""}
           </p>
         </div>
@@ -89,50 +75,86 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium">Fit Score</span>
-              <span className="text-sm font-semibold">{validation.fit_score ?? 0}%</span>
-            </div>
-            <Progress value={validation.fit_score ?? 0} />
-          </div>
-          <Badge variant={meta.variant} className="gap-1">
-            <Icon className="h-3 w-3" /> {meta.label}
-          </Badge>
+        <div className="flex items-center justify-between gap-3">
+          <RecommendationBadge
+            recommendation={validation.recommendation}
+            score={validation.fit_score}
+            size="lg"
+          />
+          <span
+            className="text-[11px] text-muted-foreground"
+            title="Internal ranking signal — used for sorting only. Not shown to clients."
+          >
+            Internal signal · {validation.fit_score ?? "—"}
+          </span>
         </div>
 
         {validation.summary && (
-          <p className="text-sm text-muted-foreground">{validation.summary}</p>
-        )}
-
-        {subRows.length > 0 && (
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Score Breakdown</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-              {subRows.map(([label, val]) => (
-                <div key={label}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium">{val}</span>
-                  </div>
-                  <Progress value={val} className="h-1.5" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="text-sm text-foreground/90 leading-relaxed">{validation.summary}</p>
         )}
 
         {!compact && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ValidationList title="Strengths" items={validation.strengths} tone="positive" />
             <ValidationList title="Considerations" items={validation.weaknesses} tone="warning" />
-            <ValidationList title="Risks" items={validation.risks} tone="danger" />
+          </div>
+        )}
+
+        {!compact && visibleMandate.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              Fit Assessment vs Job Requirements
+            </p>
+            <ul className="space-y-2">
+              {visibleMandate.slice(0, 8).map((m: any, i: number) => (
+                <li key={i} className="text-xs grid grid-cols-[1fr_auto] gap-2 items-start">
+                  <div>
+                    <div className="font-medium text-foreground">{m.requirement}</div>
+                    <div className="text-muted-foreground mt-0.5">{m.evidence}</div>
+                  </div>
+                  <FitChip fit={String(m.fit).toUpperCase()} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!compact && missing.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Missing Requirements</p>
+            <ul className="flex flex-wrap gap-1.5">
+              {missing.map((m: string, i: number) => (
+                <li key={i} className="text-[11px] rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 px-2 py-0.5">
+                  {m}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!compact && (validation as any).recruiter_review && (
+          <div className="rounded-lg border-l-2 border-primary pl-3 py-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Recruiter Review</p>
+            <p className="text-sm text-foreground/90 italic">{(validation as any).recruiter_review}</p>
           </div>
         )}
       </CardContent>
     </Card>
   );
+}
+
+const FIT_STYLES: Record<string, string> = {
+  "EXCEEDS": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  "STRONG": "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  "GOOD": "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  "PARTIAL": "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  "WEAK": "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  "NOT MATCHED": "bg-destructive/15 text-destructive border-destructive/30",
+};
+
+function FitChip({ fit }: { fit: string }) {
+  const cls = FIT_STYLES[fit] ?? FIT_STYLES["PARTIAL"];
+  return <span className={`text-[10px] font-semibold uppercase tracking-wide border rounded px-1.5 py-0.5 ${cls}`}>{fit}</span>;
 }
 
 function ValidationList({ title, items, tone }: { title: string; items: string[]; tone: "positive" | "warning" | "danger" }) {
