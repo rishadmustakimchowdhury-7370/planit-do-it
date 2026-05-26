@@ -28,30 +28,31 @@ interface RediscoveredTalentSectionProps {
   onCandidateAdded?: () => void;
 }
 
-const CONFIDENCE_COLOR = {
-  high: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  medium: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  low: 'bg-muted text-muted-foreground border-border',
-} as const;
+import { scoreToRecommendation } from '@/lib/recommendation';
+
+// Recommendation rank for filtering — higher = stronger
+const REC_RANK: Record<string, number> = {
+  strong_match: 5, recommended: 4, moderate_fit: 3,
+  needs_review: 2, limited_alignment: 1, not_suitable: 0,
+};
 
 export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }: RediscoveredTalentSectionProps) {
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minScore, setMinScore] = useState<string>('0');
+  const [minRec, setMinRec] = useState<string>('moderate_fit');
   const [search, setSearch] = useState('');
-  const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<RediscoveredMatch | null>(null);
   const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
 
   const filtered = useMemo(() => {
-    const m = Number(minScore) || 0;
+    const floor = REC_RANK[minRec] ?? 3;
     const q = search.trim().toLowerCase();
     return matches.filter(x => {
-      if ((x.match_score ?? 0) < m) return false;
-      if (confidenceFilter !== 'all' && x.confidence !== confidenceFilter) return false;
+      const recKey = scoreToRecommendation(x.match_score ?? 0).key;
+      if ((REC_RANK[recKey] ?? 0) < floor) return false;
       if (q) {
         const haystack = [
           x.candidate?.full_name, x.candidate?.current_title, x.candidate?.location,
@@ -60,7 +61,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
       }
       return true;
     });
-  }, [matches, minScore, confidenceFilter, search]);
+  }, [matches, minRec, search]);
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -163,23 +164,13 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                       className="pl-9 h-9"
                     />
                   </div>
-                  <Select value={minScore} onValueChange={setMinScore}>
-                    <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Min score" /></SelectTrigger>
+                  <Select value={minRec} onValueChange={setMinRec}>
+                    <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Min recommendation" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Show all (default)</SelectItem>
-                      <SelectItem value="50">≥ 50%</SelectItem>
-                      <SelectItem value="65">≥ 65%</SelectItem>
-                      <SelectItem value="75">≥ 75%</SelectItem>
-                      <SelectItem value="85">≥ 85%</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-                    <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Confidence" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All confidence</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="strong_match">Strong Match only</SelectItem>
+                      <SelectItem value="recommended">Recommended & above</SelectItem>
+                      <SelectItem value="moderate_fit">Moderate Fit & above (default)</SelectItem>
+                      <SelectItem value="needs_review">Include Needs Review</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -305,12 +296,10 @@ interface CardProps {
 
 function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
-  const isTop = index < 3 && match.match_score >= 80;
+  const recMeta = scoreToRecommendation(match.match_score);
+  const isTop = index < 3 && (recMeta.key === 'strong_match' || recMeta.key === 'recommended');
   const fullName = c?.full_name || 'Unknown candidate';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
-  const confidence = match.confidence === 'high' || match.confidence === 'medium' || match.confidence === 'low'
-    ? match.confidence
-    : 'low';
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
   const insights = Array.isArray(match.insights) ? match.insights : [];
@@ -355,12 +344,15 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
             {c.experience_years != null && <span>{c.experience_years}y exp</span>}
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
-          <MatchScoreCircle score={match.match_score} size="sm" />
-          <Badge variant="outline" className={cn('text-[9px] uppercase px-1.5 py-0 h-4', CONFIDENCE_COLOR[confidence] ?? CONFIDENCE_COLOR.low)}>
-            {confidence}
-          </Badge>
-        </div>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border font-medium leading-none text-[11px] px-2.5 py-1',
+            recMeta.badgeClass,
+          )}
+        >
+          <span className={cn('h-1.5 w-1.5 rounded-full', recMeta.dotClass)} />
+          {recMeta.label}
+        </span>
       </div>
 
       {match.ai_summary && (
@@ -369,9 +361,6 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </p>
       )}
 
-      {match.sub_scores && (
-        <ScoreBreakdown sub={match.sub_scores} />
-      )}
 
       {(strengths.length > 0 || gaps.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1">

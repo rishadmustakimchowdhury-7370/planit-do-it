@@ -508,10 +508,25 @@ serve(async (req) => {
         return { candidate: c, result: { ...result, final: blended } };
       });
 
-      // 6. Quality threshold — keep ≥50 (was 65) and always surface at least the top 8
+      // 6. Strict recruiter-grade filtering — only A+ / A / B+ relevant candidates.
+      //    Irrelevant role families (e.g. Middle Office Analyst for a Software Engineer
+      //    role) MUST be hidden completely, not just ranked lower. We never show
+      //    candidates whose family is unrelated to the job family.
       const sorted = scored.sort((a, b) => b.result.final - a.result.final);
-      let qualified = sorted.filter((s) => s.result.final >= 50);
-      if (qualified.length < 8) qualified = sorted.slice(0, Math.min(8, sorted.length));
+      const isRelevant = (s: typeof sorted[number]) => {
+        const r = s.result;
+        // If we couldn't detect a job family, fall back to score threshold only.
+        if (!r.jobFamily) return r.final >= 55;
+        // If we detected a candidate family that is unrelated AND not adjacent → drop.
+        if (r.candFamily && r.candFamily !== r.jobFamily) {
+          const adj = ROLE_FAMILIES[r.jobFamily]?.adjacent ?? [];
+          if (!adj.includes(r.candFamily)) return false;
+        }
+        // Recruiter-grade floor: must clear "moderate fit" to be shown.
+        // (corresponds to recommendation >= moderate_fit; below this is noise.)
+        return r.final >= 55;
+      };
+      const qualified = sorted.filter(isRelevant);
 
       // 7. AI explanations for the qualified set (cap at 15 to control cost)
       let explainMap: Record<string, { strengths: string[]; gaps: string[]; summary: string }> = {};

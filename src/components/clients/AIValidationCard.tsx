@@ -81,13 +81,8 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
             score={validation.fit_score}
             size="lg"
           />
-          <span
-            className="text-[11px] text-muted-foreground"
-            title="Internal ranking signal — used for sorting only. Not shown to clients."
-          >
-            Internal signal · {validation.fit_score ?? "—"}
-          </span>
         </div>
+
 
         {validation.summary && (
           <p className="text-sm text-foreground/90 leading-relaxed">{validation.summary}</p>
