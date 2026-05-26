@@ -421,39 +421,32 @@ serve(async (req) => {
     // ===== Hero — premium navy candidate banner =====
     const name = candidate.full_name ?? "Candidate";
     {
-      const heroH = 92;
-      ensure(heroH + 6);
+      const heroH = 74;
+      ensure(heroH + 4);
       const heroTop = cur.y;
-      // Navy banner
       cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: heroH, color: NAVY });
-      // Deeper inner band on the left for editorial accent
-      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: 6, height: heroH, color: GOLD });
-      // Subtle royal accent strip at bottom
-      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: 3, color: ROYAL });
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: 5, height: heroH, color: GOLD });
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: 2, color: ROYAL });
 
-      // "Executive Candidate Profile" eyebrow
       cur.page.drawText(tracked("Executive Candidate Profile"), {
-        x: MARGIN + 22, y: heroTop - 20, size: 7.5, font: sansB, color: GOLD,
+        x: MARGIN + 18, y: heroTop - 16, size: 6.5, font: sansB, color: GOLD,
       });
-      // Candidate name
       cur.page.drawText(name, {
-        x: MARGIN + 22, y: heroTop - 46, size: 24, font: serifB, color: WHITE,
+        x: MARGIN + 18, y: heroTop - 38, size: 19, font: serifB, color: WHITE,
       });
-      // Target role line
       const targetRole = job.title ? `Submitted for ${job.title}` : "";
       if (targetRole) {
         cur.page.drawText(targetRole, {
-          x: MARGIN + 22, y: heroTop - 64, size: 10, font: sansB, color: ON_NAVY_MUTED,
+          x: MARGIN + 18, y: heroTop - 54, size: 9, font: sansB, color: ON_NAVY_MUTED,
         });
       }
-      // Sub line: current title @ company · location
       const subBits: string[] = [];
       if (candidate.current_title) subBits.push(String(candidate.current_title));
       if (candidate.current_company) subBits.push(String(candidate.current_company));
       if (candidate.location) subBits.push(String(candidate.location));
       if (subBits.length) {
         cur.page.drawText(subBits.join("  ·  "), {
-          x: MARGIN + 22, y: heroTop - 80, size: 9, font: sans, color: ON_NAVY_MUTED,
+          x: MARGIN + 18, y: heroTop - 66, size: 8, font: sans, color: ON_NAVY_MUTED,
         });
       }
 
@@ -461,23 +454,22 @@ serve(async (req) => {
       {
         const labelText = recLabel.toUpperCase();
         const eyebrow = "RECRUITER ASSESSMENT";
-        const labelW = sansB.widthOfTextAtSize(labelText, 11);
-        const eyebrowW = sansB.widthOfTextAtSize(eyebrow, 6.5);
-        const chipW = Math.max(150, Math.max(labelW, eyebrowW) + 36);
-        const chipH = 56;
-        const chipX = MARGIN + innerW - chipW - 14;
+        const labelW = sansB.widthOfTextAtSize(labelText, 10);
+        const eyebrowW = sansB.widthOfTextAtSize(eyebrow, 6);
+        const chipW = Math.max(140, Math.max(labelW, eyebrowW) + 28);
+        const chipH = 46;
+        const chipX = MARGIN + innerW - chipW - 10;
         const chipY = heroTop - heroH + (heroH - chipH) / 2;
         cur.page.drawRectangle({ x: chipX, y: chipY, width: chipW, height: chipH, color: NAVY_DEEP, borderColor: GOLD, borderWidth: 0.8 });
         cur.page.drawRectangle({ x: chipX, y: chipY + chipH - 3, width: chipW, height: 3, color: GOLD });
-        cur.page.drawText(eyebrow, { x: chipX + (chipW - eyebrowW) / 2, y: chipY + chipH - 18, size: 6.5, font: sansB, color: GOLD });
-        cur.page.drawText(labelText, { x: chipX + (chipW - labelW) / 2, y: chipY + 22, size: 11, font: sansB, color: WHITE });
-        const subTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : "Evidence-based assessment";
-        const swW = sans.widthOfTextAtSize(subTxt, 6.5);
-        cur.page.drawText(subTxt, { x: chipX + (chipW - swW) / 2, y: chipY + 8, size: 6.5, font: sans, color: ON_NAVY_MUTED });
+        cur.page.drawText(eyebrow, { x: chipX + (chipW - eyebrowW) / 2, y: chipY + chipH - 14, size: 6, font: sansB, color: GOLD });
+        cur.page.drawText(labelText, { x: chipX + (chipW - labelW) / 2, y: chipY + 18, size: 10, font: sansB, color: WHITE });
+        const subTxt = confidence ? `Confidence: ${String(confidence).toUpperCase()}` : "Evidence-based";
+        const swW = sans.widthOfTextAtSize(subTxt, 6);
+        cur.page.drawText(subTxt, { x: chipX + (chipW - swW) / 2, y: chipY + 6, size: 6, font: sans, color: ON_NAVY_MUTED });
       }
 
-
-      cur.y -= heroH + 14;
+      cur.y -= heroH + 8;
     }
 
     // ===== Mandate strip (compact navy band with role) =====
