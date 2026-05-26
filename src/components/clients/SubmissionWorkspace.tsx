@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
 import { SubmissionRecipientsManager } from "./SubmissionRecipientsManager";
 import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
+import { StructuredRecruiterNotesForm } from "./StructuredRecruiterNotesForm";
+import { emptyStructuredNotes, structuredNotesToLines, type StructuredRecruiterNotes } from "@/lib/recruiterNotes";
 
 interface Props {
   submissionId: string;
@@ -44,6 +46,7 @@ interface SubmissionRow {
   recruiter_strengths: string[] | null;
   recruiter_considerations: string[] | null;
   recruiter_notes: string[] | null;
+  structured_notes: StructuredRecruiterNotes | null;
   submission_message: string | null;
   branded_cv_url: string | null;
   original_cv_url: string | null;
@@ -68,7 +71,7 @@ export function SubmissionWorkspace({
   const [strengthsText, setStrengthsText] = useState("");
   const [considerationsText, setConsiderationsText] = useState("");
   const [recruiterMessage, setRecruiterMessage] = useState("");
-  const [recruiterNotesText, setRecruiterNotesText] = useState("");
+  const [structuredNotes, setStructuredNotes] = useState<StructuredRecruiterNotes>(emptyStructuredNotes());
 
   // Initial load + realtime
   useEffect(() => {
@@ -76,7 +79,7 @@ export function SubmissionWorkspace({
     const load = async () => {
       const { data } = await supabase
         .from("candidate_submissions")
-        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
+        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, structured_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
         .eq("id", submissionId)
         .maybeSingle();
       if (!active || !data) return;
@@ -88,7 +91,7 @@ export function SubmissionWorkspace({
       setStrengthsText((r.recruiter_strengths ?? []).join("\n"));
       setConsiderationsText((r.recruiter_considerations ?? []).join("\n"));
       setRecruiterMessage(r.submission_message ?? "");
-      setRecruiterNotesText((r.recruiter_notes ?? []).join("\n"));
+      setStructuredNotes({ ...emptyStructuredNotes(), ...(r.structured_notes ?? {}) });
     };
     load();
 
@@ -138,20 +141,22 @@ export function SubmissionWorkspace({
   useEffect(() => {
     if (!row) return;
     const t = setTimeout(async () => {
+      const derivedNotes = structuredNotesToLines(structuredNotes);
       await supabase.from("candidate_submissions").update({
         recruiter_recommendation: recommendation || null,
         recruiter_summary: summary || null,
         recruiter_strengths: strengthsText.split("\n").map(s => s.trim()).filter(Boolean),
         recruiter_considerations: considerationsText.split("\n").map(s => s.trim()).filter(Boolean),
-        recruiter_notes: recruiterNotesText.split("\n").map(s => s.trim()).filter(Boolean),
+        recruiter_notes: derivedNotes,
+        structured_notes: structuredNotes as any,
         submission_message: recruiterMessage || null,
         pack_components: components,
-        draft_state: { recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, components, savedAt: new Date().toISOString() },
+        draft_state: { recommendation, summary, strengthsText, considerationsText, structuredNotes, recruiterMessage, components, savedAt: new Date().toISOString() },
       }).eq("id", submissionId);
     }, 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, JSON.stringify(components)]);
+  }, [recommendation, summary, strengthsText, considerationsText, JSON.stringify(structuredNotes), recruiterMessage, JSON.stringify(components)]);
 
   const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
   const [buildStage, setBuildStage] = useState<string>("Preparing…");
