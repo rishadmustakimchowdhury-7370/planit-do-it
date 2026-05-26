@@ -173,8 +173,8 @@ serve(async (req) => {
       { data: branding },
       { data: profile },
     ] = await Promise.all([
-      admin.from("candidates").select("full_name, current_title, current_company, location, experience_years, email, phone, skills, summary, work_history, education, linkedin_url, availability, relocation, expected_salary, tenant_id").eq("id", submission.candidate_id).maybeSingle(),
-      admin.from("jobs").select("title, location, employment_type, experience_level, department, tenant_id").eq("id", submission.job_id).maybeSingle(),
+      admin.from("candidates").select("*").eq("id", submission.candidate_id).maybeSingle(),
+      admin.from("jobs").select("*").eq("id", submission.job_id).maybeSingle(),
       submission.ai_validation_id
         ? admin.from("ai_candidate_validations").select("*").eq("id", submission.ai_validation_id).maybeSingle()
         : admin.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
