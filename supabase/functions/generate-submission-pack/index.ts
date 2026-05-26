@@ -551,25 +551,92 @@ serve(async (req) => {
       cur.y -= 12;
     }
 
+    // ===== Optional: merge in Branded CV + Original CV PDFs =====
+    const components = {
+      ai_report: true,
+      branded_cv: true,
+      original_cv: true,
+      ...(submission.pack_components as any || {}),
+      ...(reqComponents || {}),
+    };
+
+    const tryLoadPdfBytes = async (urlOrPath?: string | null): Promise<Uint8Array | null> => {
+      if (!urlOrPath) return null;
+      try {
+        // If it's already a storage path (no http), try common buckets
+        if (!/^https?:\/\//i.test(urlOrPath)) {
+          for (const bucket of ["branded-cvs", "cvs", "candidate-cvs", "documents"]) {
+            const { data } = await admin.storage.from(bucket).download(urlOrPath);
+            if (data) return new Uint8Array(await data.arrayBuffer());
+          }
+          return null;
+        }
+        const m = urlOrPath.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+        if (m) {
+          const { data } = await admin.storage.from(m[1]).download(decodeURIComponent(m[2]));
+          if (data) return new Uint8Array(await data.arrayBuffer());
+        }
+        const r = await fetch(urlOrPath);
+        if (r.ok) return new Uint8Array(await r.arrayBuffer());
+      } catch (e) { console.error("pdf load fail", e); }
+      return null;
+    };
+
+    const appendPdf = async (target: PDFDocument, src: Uint8Array | null) => {
+      if (!src) return;
+      try {
+        const ext = await PDFDocument.load(src, { ignoreEncryption: true });
+        const pages = await target.copyPages(ext, ext.getPageIndices());
+        for (const p of pages) target.addPage(p);
+      } catch (e) { console.error("merge fail", e); }
+    };
+
+    if (components.branded_cv) {
+      const b = await tryLoadPdfBytes(submission.branded_cv_url);
+      await appendPdf(doc, b);
+    }
+    if (components.original_cv) {
+      const o = await tryLoadPdfBytes(submission.original_cv_url);
+      await appendPdf(doc, o);
+    }
+
     // ===== Footers =====
     const total = doc.getPageCount();
     for (let i = 0; i < total; i++) drawFooter(doc.getPage(i), i + 1, total);
 
     const bytes = await doc.save();
-    const path = `${submission.tenant_id}/${submission.id}/pack.pdf`;
+    const versionStamp = Date.now();
+    const path = `${submission.tenant_id}/${submission.id}/pack-${versionStamp}.pdf`;
     const { error: upErr } = await admin.storage.from("submission-packs").upload(path, bytes, {
       contentType: "application/pdf",
       upsert: true,
     });
     if (upErr) {
-      console.error("upload error", upErr);
-      return new Response(JSON.stringify({ error: upErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      await admin.from("candidate_submissions").update({ pack_status: "failed", pack_error: upErr.message }).eq("id", submission.id);
+      return fail("We couldn't save the pack to storage. Please retry.", upErr);
     }
 
     const { data: signed } = await admin.storage.from("submission-packs").createSignedUrl(path, 60 * 60 * 24);
 
+    // Determine next version number
+    const { data: lastVer } = await admin.from("submission_pack_versions")
+      .select("version").eq("submission_id", submission.id)
+      .order("version", { ascending: false }).limit(1).maybeSingle();
+    const nextVersion = ((lastVer?.version as number) || 0) + 1;
+
+    await admin.from("submission_pack_versions").insert({
+      submission_id: submission.id,
+      tenant_id: submission.tenant_id,
+      version: nextVersion,
+      path,
+      components,
+      created_by: userId,
+    });
+
     await admin.from("candidate_submissions").update({
       pack_pdf_url: path,
+      pack_status: "ready",
+      pack_error: null,
       last_activity_at: new Date().toISOString(),
     }).eq("id", submission.id);
 
@@ -579,22 +646,28 @@ serve(async (req) => {
         tenant_id: submission.tenant_id,
         client_org_id: submission.client_org_id ?? null,
         actor_user_id: userId,
-        actor_type: "recruiter",
+        actor_type: "internal",
         event_type: "pack_generated",
-        metadata: { path },
+        metadata: { path, version: nextVersion, components },
       });
-    } catch (e) {
-      console.error("activity log failed (non-blocking)", e);
-    }
+    } catch (e) { console.error("activity log failed (non-blocking)", e); }
 
-    return new Response(JSON.stringify({ path, signed_url: signed?.signedUrl ?? null }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      status: "ready",
+      path,
+      signed_url: signed?.signedUrl ?? null,
+      version: nextVersion,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("generate-submission-pack error", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("generate-submission-pack fatal", e);
+    if (submissionIdForStatus && adminForStatus) {
+      try {
+        await adminForStatus.from("candidate_submissions").update({
+          pack_status: "failed",
+          pack_error: e instanceof Error ? e.message : String(e),
+        }).eq("id", submissionIdForStatus);
+      } catch {}
+    }
+    return fail("Package generation temporarily failed. Please retry.", e);
   }
 });
