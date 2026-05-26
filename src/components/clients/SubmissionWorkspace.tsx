@@ -454,16 +454,10 @@ export function SubmissionWorkspace({
 
               <AccordionItem value="notes" className="border rounded-lg px-3">
                 <AccordionTrigger className="text-sm hover:no-underline">
-                  <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Recruiter notes</span>
+                  <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Recruiter screening notes</span>
                 </AccordionTrigger>
-                <AccordionContent className="space-y-2 pt-1">
-                  <Label className="text-xs">Screening notes (one per line — fed into the AI assessment)</Label>
-                  <Textarea rows={6}
-                    placeholder={"Notice period: 30 days\nSalary expectation: TBD after discussion\nOpen to relocation: UAE / Singapore\nStrong client-facing communication\nWorked with international stakeholders"}
-                    value={recruiterNotesText} onChange={(e) => setRecruiterNotesText(e.target.value)} />
-                  <p className="text-[11px] text-muted-foreground">
-                    These notes appear under the candidate name on the report and guide the AI's executive-search analysis. Rebuild the pack to regenerate.
-                  </p>
+                <AccordionContent className="pt-1">
+                  <StructuredRecruiterNotesForm value={structuredNotes} onChange={setStructuredNotes} />
                 </AccordionContent>
               </AccordionItem>
 
