@@ -583,17 +583,20 @@ serve(async (req) => {
       : [...baseWeak, ...baseRisks];
 
     if (strengths.length || considerations.length) {
-      ensure(28);
+      ensure(36);
       const gap = 18;
       const colWidth = (innerW - gap) / 2;
+      const barH = 18;
 
-      // Two-column headings
-      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN, y: cur.y, size: 9, font: sansB, color: NAVY });
-      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap, y: cur.y, size: 9, font: sansB, color: NAVY });
-      cur.y -= 8;
-      cur.page.drawLine({ start: { x: MARGIN, y: cur.y }, end: { x: MARGIN + colWidth, y: cur.y }, thickness: 0.4, color: HAIR });
-      cur.page.drawLine({ start: { x: MARGIN + colWidth + gap, y: cur.y }, end: { x: MARGIN + innerW, y: cur.y }, thickness: 0.4, color: HAIR });
-      cur.y -= 10;
+      // Two-column navy heading bars with gold accent
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
+      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+
+      cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
+      cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: 3, height: barH, color: GOLD });
+      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.y -= barH + 10;
 
       const bulletInto = (items: string[], x: number, width: number): number => {
         let y = cur.y;
