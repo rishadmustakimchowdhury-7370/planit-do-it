@@ -3,13 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Sparkles, FileText, CheckCircle2, Loader2, Download } from "lucide-react";
+import { Sparkles, FileText, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLatestValidation, useValidateCandidateFit } from "@/hooks/useCandidateValidation";
-import { useCreateSubmission, useGenerateSubmissionPack, getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
+import { useCreateSubmission } from "@/hooks/useSubmissionPack";
 import { AIValidationCard } from "@/components/clients/AIValidationCard";
+import { SubmissionWorkspace } from "@/components/clients/SubmissionWorkspace";
 import { toast } from "sonner";
 
 interface Props {
