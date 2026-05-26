@@ -181,13 +181,20 @@ serve(async (req) => {
       const hasMandate = Array.isArray((existing as any)?.mandate_match) && (existing as any).mandate_match.length > 0;
       // Invalidate cache if any cached fit label is inflated above the current canonical band
       const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
-      const ceil = canonical?.match_score == null ? 3
-                 : canonical.match_score < 50 ? 1
-                 : canonical.match_score < 75 ? 4 : 5;
+      const score = canonical?.match_score;
+      const ceil = score == null ? 3
+                 : score < 35 ? 1
+                 : score < 50 ? 2
+                 : score < 62 ? 4
+                 : score < 75 ? 4
+                 : 5;
       const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
-        Math.max(0, RANK.indexOf(String(m?.fit ?? "").toUpperCase())) > ceil
+        m && typeof m.fit === "string" &&
+        Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
-      if (existing && hasMandate && !inflated && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
+      // Also invalidate if the stored recommendation is still on the old 3-tier system.
+      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(String((existing as any)?.recommendation ?? ""));
+      if (existing && hasMandate && !inflated && !legacyRec && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
