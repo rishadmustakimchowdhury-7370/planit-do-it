@@ -9,6 +9,8 @@ import { ClientCandidateSlideOver } from '@/components/client/ClientCandidateSli
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeft, MapPin, Users } from 'lucide-react';
+import { recommendationMeta } from '@/lib/recommendation';
+
 
 export default function ClientJobDetailPage() {
   const { id } = useParams<{ id: string }>();
