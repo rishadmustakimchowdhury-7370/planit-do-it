@@ -150,7 +150,15 @@ serve(async (req) => {
         .eq("job_id", job_id).eq("candidate_id", candidate_id)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       const hasMandate = Array.isArray((existing as any)?.mandate_match) && (existing as any).mandate_match.length > 0;
-      if (existing && hasMandate && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
+      // Invalidate cache if any cached fit label is inflated above the current canonical band
+      const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
+      const ceil = canonical?.match_score == null ? 3
+                 : canonical.match_score < 50 ? 1
+                 : canonical.match_score < 75 ? 4 : 5;
+      const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
+        Math.max(0, RANK.indexOf(String(m?.fit ?? "").toUpperCase())) > ceil
+      );
+      if (existing && hasMandate && !inflated && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
