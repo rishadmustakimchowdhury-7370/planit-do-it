@@ -330,17 +330,16 @@ serve(async (req) => {
     };
 
     const sectionHeading = (label: string) => {
-      ensure(28);
-      cur.y -= 6;
-      cur.page.drawText(tracked(label), {
-        x: MARGIN, y: cur.y, size: 9, font: sansB, color: NAVY,
-      });
+      ensure(32);
       cur.y -= 8;
-      cur.page.drawLine({
-        start: { x: MARGIN, y: cur.y }, end: { x: MARGIN + innerW, y: cur.y },
-        thickness: 0.4, color: HAIR,
+      // Navy section bar with gold accent
+      const barH = 18;
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: innerW, height: barH, color: NAVY });
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
+      cur.page.drawText(tracked(label), {
+        x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE,
       });
-      cur.y -= 10;
+      cur.y -= barH + 10;
     };
 
     const paragraph = (text: string, size = 9.5, font: PDFFont = serif, color = INK, lh = 13) => {
@@ -352,39 +351,49 @@ serve(async (req) => {
       }
     };
 
-    // ===== Hero (candidate name) =====
+    // ===== Hero — premium navy candidate banner =====
     const name = candidate.full_name ?? "Candidate";
-    cur.page.drawText(name, { x: MARGIN, y: cur.y - 26, size: 26, font: serifB, color: NAVY });
-    cur.y -= 32;
-    const subParts = [
-      candidate.current_title,
-      candidate.current_company ? `**${candidate.current_company}**` : null,
-      candidate.location,
-    ].filter(Boolean) as string[];
-    if (subParts.length) {
-      // Render subline with bold company segment
-      let x = MARGIN;
-      const size = 10;
-      const drawSeg = (txt: string, bold = false) => {
-        const f = bold ? sansB : sans;
-        cur.page.drawText(txt, { x, y: cur.y - size, size, font: f, color: bold ? NAVY : NAVY_SOFT });
-        x += f.widthOfTextAtSize(txt, size);
-      };
-      subParts.forEach((p, i) => {
-        if (i > 0) drawSeg("  ·  ", false);
-        if (p.startsWith("**") && p.endsWith("**")) drawSeg(p.slice(2, -2), true);
-        else drawSeg(p, false);
-      });
-      cur.y -= 18;
-    }
-    // brand underline below hero
-    cur.page.drawLine({
-      start: { x: MARGIN, y: cur.y }, end: { x: MARGIN + 60, y: cur.y },
-      thickness: 1.4, color: brand,
-    });
-    cur.y -= 14;
+    {
+      const heroH = 92;
+      ensure(heroH + 6);
+      const heroTop = cur.y;
+      // Navy banner
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: heroH, color: NAVY });
+      // Deeper inner band on the left for editorial accent
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: 6, height: heroH, color: GOLD });
+      // Subtle royal accent strip at bottom
+      cur.page.drawRectangle({ x: MARGIN, y: heroTop - heroH, width: innerW, height: 3, color: ROYAL });
 
-    // ===== Top 4-up KPI grid (template-style) =====
+      // "Executive Candidate Profile" eyebrow
+      cur.page.drawText(tracked("Executive Candidate Profile"), {
+        x: MARGIN + 22, y: heroTop - 20, size: 7.5, font: sansB, color: GOLD,
+      });
+      // Candidate name
+      cur.page.drawText(name, {
+        x: MARGIN + 22, y: heroTop - 46, size: 24, font: serifB, color: WHITE,
+      });
+      // Target role line
+      const targetRole = job.title ? `Submitted for ${job.title}` : "";
+      if (targetRole) {
+        cur.page.drawText(targetRole, {
+          x: MARGIN + 22, y: heroTop - 64, size: 10, font: sansB, color: ON_NAVY_MUTED,
+        });
+      }
+      // Sub line: current title @ company · location
+      const subBits: string[] = [];
+      if (candidate.current_title) subBits.push(String(candidate.current_title));
+      if (candidate.current_company) subBits.push(String(candidate.current_company));
+      if (candidate.location) subBits.push(String(candidate.location));
+      if (subBits.length) {
+        cur.page.drawText(subBits.join("  ·  "), {
+          x: MARGIN + 22, y: heroTop - 80, size: 9, font: sans, color: ON_NAVY_MUTED,
+        });
+      }
+
+      cur.y -= heroH + 14;
+    }
+
+    // ===== Top KPI grid — white cards on light gray with navy labels =====
     const kpis: Array<{ label: string; value: string }> = [];
     kpis.push({
       label: "Comp Expectation",
@@ -403,45 +412,47 @@ serve(async (req) => {
       value: [candidate.current_title, candidate.current_company].filter(Boolean).join(" — ") || "—",
     });
 
-    const colW = innerW / kpis.length;
-    const kpiH = 56;
+    const cardGap = 8;
+    const cardW = (innerW - cardGap * (kpis.length - 1)) / kpis.length;
+    const kpiH = 60;
     ensure(kpiH + 6);
     const kpiTop = cur.y;
-    // Panel background
-    cur.page.drawRectangle({ x: MARGIN, y: kpiTop - kpiH, width: innerW, height: kpiH, color: PANEL, borderColor: PANEL_BORDER, borderWidth: 0.5 });
     kpis.forEach((k, i) => {
-      const x = MARGIN + i * colW;
-      if (i > 0) {
-        cur.page.drawLine({ start: { x, y: kpiTop - 8 }, end: { x, y: kpiTop - kpiH + 8 }, thickness: 0.4, color: PANEL_BORDER });
-      }
-      cur.page.drawText(tracked(k.label), { x: x + 10, y: kpiTop - 16, size: 7, font: sansB, color: MUTED });
-      const valLines = wrap(k.value, sansB, 9.5, colW - 20);
-      let vy = kpiTop - 30;
+      const x = MARGIN + i * (cardW + cardGap);
+      // White card
+      cur.page.drawRectangle({ x, y: kpiTop - kpiH, width: cardW, height: kpiH, color: WHITE, borderColor: PANEL_BORDER, borderWidth: 0.6 });
+      // Gold left accent stripe
+      cur.page.drawRectangle({ x, y: kpiTop - kpiH, width: 2.5, height: kpiH, color: GOLD });
+      cur.page.drawText(tracked(k.label), { x: x + 12, y: kpiTop - 16, size: 6.8, font: sansB, color: ROYAL });
+      const valLines = wrap(k.value, sansB, 9.5, cardW - 22);
+      let vy = kpiTop - 32;
       for (const ln of valLines.slice(0, 3)) {
-        cur.page.drawText(ln, { x: x + 10, y: vy, size: 9.5, font: sansB, color: NAVY });
+        cur.page.drawText(ln, { x: x + 12, y: vy, size: 9.5, font: sansB, color: NAVY });
         vy -= 12;
       }
     });
-    cur.y -= kpiH + 10;
+    cur.y -= kpiH + 14;
 
     // ===== Executive narrative paragraph =====
     const narrative = validation?.summary || canonical?.ai_summary || candidate.summary;
     if (narrative) {
+      sectionHeading("Executive Summary");
       paragraph(String(narrative), 9.5, serif, INK, 13);
       cur.y -= 4;
     }
 
-    // ===== Submitted For (compact strip) =====
+    // ===== Submitted For (compact navy strip with gold accent) =====
     {
       ensure(28);
-      const stripH = 22;
+      const stripH = 24;
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: innerW, height: stripH, color: NAVY });
-      const label = tracked("Submitted For");
-      cur.page.drawText(label, { x: MARGIN + 10, y: cur.y - 14, size: 7.5, font: sansB, color: rgb(0.75, 0.80, 0.92) });
+      cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: 3, height: stripH, color: GOLD });
+      const label = tracked("Mandate");
+      cur.page.drawText(label, { x: MARGIN + 12, y: cur.y - 15, size: 7.5, font: sansB, color: GOLD });
       const labelW = sansB.widthOfTextAtSize(label, 7.5);
       const jobBits = [job.title, job.experience_level, job.department, job.employment_type, job.location].filter(Boolean).join("  ·  ");
-      cur.page.drawText(jobBits, { x: MARGIN + 10 + labelW + 14, y: cur.y - 14, size: 9.5, font: sansB, color: rgb(1, 1, 1) });
-      cur.y -= stripH + 10;
+      cur.page.drawText(jobBits, { x: MARGIN + 12 + labelW + 14, y: cur.y - 15, size: 9.5, font: sansB, color: WHITE });
+      cur.y -= stripH + 12;
     }
 
     // ===== AI Fit Assessment — premium score block =====
