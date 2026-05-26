@@ -472,11 +472,15 @@ serve(async (req) => {
       cur.y -= 6;
     }
 
-    // ===== Two-column Strengths / Considerations =====
-    const strengths = (validation?.strengths as string[]) || (canonical?.strengths as string[]) || [];
-    const weaknesses = (validation?.weaknesses as string[]) || (canonical?.gaps as string[]) || [];
-    const risks = (validation?.risks as string[]) || [];
-    const considerations = [...weaknesses, ...risks];
+    // ===== Two-column Strengths / Considerations (recruiter overrides win) =====
+    const strengths = (submission.recruiter_strengths as string[] | null)?.length
+      ? (submission.recruiter_strengths as string[])
+      : ((validation?.strengths as string[]) || (canonical?.strengths as string[]) || []);
+    const baseWeak = (validation?.weaknesses as string[]) || (canonical?.gaps as string[]) || [];
+    const baseRisks = (validation?.risks as string[]) || [];
+    const considerations = (submission.recruiter_considerations as string[] | null)?.length
+      ? (submission.recruiter_considerations as string[])
+      : [...baseWeak, ...baseRisks];
 
     if (strengths.length || considerations.length) {
       ensure(28);
