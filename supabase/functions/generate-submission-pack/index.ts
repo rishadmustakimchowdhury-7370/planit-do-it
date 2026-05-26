@@ -92,24 +92,16 @@ async function fetchImageBytes(supa: any, url?: string | null) {
 
 interface Cursor { page: PDFPage; y: number; }
 
-// Map a normalized 0-1 sub-score to a fit label
-function fitLabel(score: number): { label: string; fg: any; bg: any } {
-  if (score >= 0.9) return { label: "EXCEEDS", fg: C_EXCEEDS, bg: C_EXCEEDS_BG };
-  if (score >= 0.7) return { label: "STRONG", fg: C_STRONG, bg: C_STRONG_BG };
-  if (score >= 0.5) return { label: "MODERATE", fg: C_MOD, bg: C_MOD_BG };
-  return { label: "PARTIAL", fg: C_PARTIAL, bg: C_PARTIAL_BG };
-}
-
-function recommendationLabel(score: number) {
-  if (score >= 90) return "Strongly Recommended";
-  if (score >= 75) return "Recommended";
-  if (score >= 60) return "Moderate Match";
-  return "Needs Review";
-}
-
-function confidenceLabel(c?: string | null) {
-  if (!c) return "—";
-  return c.charAt(0).toUpperCase() + c.slice(1) + " confidence";
+// Executive-search fit labels driven by AI mandate_match output
+function fitColors(label: string): { fg: any; bg: any } {
+  const L = (label || "").toUpperCase();
+  if (L === "EXCEEDS")     return { fg: C_EXCEEDS, bg: C_EXCEEDS_BG };
+  if (L === "STRONG")      return { fg: C_STRONG,  bg: C_STRONG_BG };
+  if (L === "GOOD")        return { fg: C_STRONG,  bg: C_STRONG_BG };
+  if (L === "PARTIAL")     return { fg: C_MOD,     bg: C_MOD_BG };
+  if (L === "WEAK")        return { fg: C_PARTIAL, bg: C_PARTIAL_BG };
+  if (L === "NOT MATCHED") return { fg: C_PARTIAL, bg: C_PARTIAL_BG };
+  return { fg: C_MOD, bg: C_MOD_BG };
 }
 
 // Always return 200 with { status:'failed', user_message } so the client never sees a raw "non-2xx"
@@ -160,7 +152,7 @@ serve(async (req) => {
     // Step 1: Verify the user has access to this submission (RLS-checked).
     const { data: submission, error: subErr } = await supabase
       .from("candidate_submissions")
-      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation")
+      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation, recruiter_notes")
       .eq("id", submission_id)
       .maybeSingle();
     if (subErr || !submission) {
@@ -176,7 +168,7 @@ serve(async (req) => {
     const [
       { data: candidate },
       { data: job },
-      { data: validation },
+      { data: validationRow },
       { data: canonical },
       { data: branding },
       { data: profile },
@@ -190,6 +182,8 @@ serve(async (req) => {
       admin.from("branding_settings").select("logo_url, company_name, primary_color, footer_text").eq("tenant_id", submission.tenant_id).maybeSingle(),
       admin.from("profiles").select("full_name, email, phone").eq("id", userId).maybeSingle(),
     ]);
+    let validation: any = validationRow;
+
 
     // Step 3: Detailed readiness diagnostics — surface the exact missing piece(s)
     // to the recruiter instead of a generic error.
@@ -222,10 +216,37 @@ serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Trigger AI executive-search validation if structured mandate_match is missing
+    // or recruiter notes exist (so the AI can incorporate them). Errors are non-fatal —
+    // we keep going with whatever validation data we already have.
+    const needsValidation =
+      !validation ||
+      !Array.isArray((validation as any).mandate_match) ||
+      ((validation as any).mandate_match?.length ?? 0) === 0 ||
+      ((submission.recruiter_notes as string[] | null)?.length ?? 0) > 0;
+    if (needsValidation) {
+      try {
+        const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/validate-candidate-fit`;
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: authHeader!, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: submission.job_id,
+            candidate_id: submission.candidate_id,
+            submission_id: submission.id,
+            force: ((submission.recruiter_notes as string[] | null)?.length ?? 0) > 0,
+          }),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          if (j?.validation) validation = j.validation as any;
+        }
+      } catch (e) { console.error("validate-fit invoke failed", e); }
+    }
+
     // Step 4: Safe fallbacks — missing AI validation / CV no longer blocks the pack.
-    // The AI Executive Report page is always rendered from whatever data IS available
-    // (canonical match score, narrative, candidate summary). Branded vs. original CV
-    // merge is best-effort and skipped silently if the file is missing.
+
+
 
     const brand = hexToRgb(branding?.primary_color);
     const companyName = branding?.company_name ?? "";
@@ -393,55 +414,7 @@ serve(async (req) => {
       cur.y -= heroH + 14;
     }
 
-    // ===== Top KPI grid — white cards on light gray with navy labels =====
-    const kpis: Array<{ label: string; value: string }> = [];
-    kpis.push({
-      label: "Comp Expectation",
-      value: candidate.expected_salary ? String(candidate.expected_salary) : "TBD — full package review",
-    });
-    kpis.push({
-      label: "Available",
-      value: candidate.availability ? String(candidate.availability) : "On request",
-    });
-    kpis.push({
-      label: "Base / Relocation",
-      value: [candidate.location, candidate.relocation ? `Open to ${candidate.relocation}` : null].filter(Boolean).join(" · ") || "—",
-    });
-    kpis.push({
-      label: "Current Role",
-      value: [candidate.current_title, candidate.current_company].filter(Boolean).join(" — ") || "—",
-    });
-
-    const cardGap = 8;
-    const cardW = (innerW - cardGap * (kpis.length - 1)) / kpis.length;
-    const kpiH = 60;
-    ensure(kpiH + 6);
-    const kpiTop = cur.y;
-    kpis.forEach((k, i) => {
-      const x = MARGIN + i * (cardW + cardGap);
-      // White card
-      cur.page.drawRectangle({ x, y: kpiTop - kpiH, width: cardW, height: kpiH, color: WHITE, borderColor: PANEL_BORDER, borderWidth: 0.6 });
-      // Gold left accent stripe
-      cur.page.drawRectangle({ x, y: kpiTop - kpiH, width: 2.5, height: kpiH, color: GOLD });
-      cur.page.drawText(tracked(k.label), { x: x + 12, y: kpiTop - 16, size: 6.8, font: sansB, color: ROYAL });
-      const valLines = wrap(k.value, sansB, 9.5, cardW - 22);
-      let vy = kpiTop - 32;
-      for (const ln of valLines.slice(0, 3)) {
-        cur.page.drawText(ln, { x: x + 12, y: vy, size: 9.5, font: sansB, color: NAVY });
-        vy -= 12;
-      }
-    });
-    cur.y -= kpiH + 14;
-
-    // ===== Executive narrative paragraph =====
-    const narrative = validation?.summary || canonical?.ai_summary || candidate.summary;
-    if (narrative) {
-      sectionHeading("Executive Summary");
-      paragraph(String(narrative), 9.5, serif, INK, 13);
-      cur.y -= 4;
-    }
-
-    // ===== Submitted For (compact navy strip with gold accent) =====
+    // ===== Mandate strip (compact navy band with role) =====
     {
       ensure(28);
       const stripH = 24;
@@ -455,122 +428,88 @@ serve(async (req) => {
       cur.y -= stripH + 12;
     }
 
-    // ===== AI Fit Assessment — premium navy score block =====
-    if (canonicalScore != null) {
-      sectionHeading("AI Fit Assessment");
-      ensure(96);
-      const blockH = 88;
-      const blockTop = cur.y;
-      // Navy block with gold accent
-      cur.page.drawRectangle({ x: MARGIN, y: blockTop - blockH, width: innerW, height: blockH, color: NAVY });
-      cur.page.drawRectangle({ x: MARGIN, y: blockTop - blockH, width: 4, height: blockH, color: GOLD });
-
-      // Circular score ring (left)
-      const cx = MARGIN + 56, cy = blockTop - blockH / 2, rOuter = 30, rInner = 22;
-      // outer ring (royal)
-      cur.page.drawCircle({ x: cx, y: cy, size: rOuter, color: ROYAL });
-      // inner navy fill
-      cur.page.drawCircle({ x: cx, y: cy, size: rInner, color: NAVY_DEEP });
-      // gold thin outline
-      cur.page.drawCircle({ x: cx, y: cy, size: rOuter + 0.6, borderColor: GOLD, borderWidth: 0.6 });
-      // Score number centered
-      const scoreTxt = `${canonicalScore}`;
-      const scoreW = serifB.widthOfTextAtSize(scoreTxt, 22);
-      cur.page.drawText(scoreTxt, { x: cx - scoreW / 2, y: cy - 6, size: 22, font: serifB, color: WHITE });
-      const ofTxt = "/ 100";
-      const ofW = sans.widthOfTextAtSize(ofTxt, 7);
-      cur.page.drawText(ofTxt, { x: cx - ofW / 2, y: cy - 16, size: 7, font: sans, color: GOLD });
-
-      // Right side: recommendation + meta + progress
-      const rx = MARGIN + 110;
-      cur.page.drawText(tracked("Recommendation"), { x: rx, y: blockTop - 18, size: 7, font: sansB, color: GOLD });
-      const reco = recommendationLabel(canonicalScore).toUpperCase();
-      cur.page.drawText(reco, { x: rx, y: blockTop - 36, size: 14, font: sansB, color: WHITE });
-
-      const meta = `${confidenceLabel(confidence)}  ·  Centralized scoring engine · ${modelVersion}`;
-      cur.page.drawText(meta, { x: rx, y: blockTop - 52, size: 8, font: sans, color: ON_NAVY_MUTED });
-
-      // Progress bar (gold fill on navy track)
-      const barX = rx, barY = blockTop - blockH + 16, barW = innerW - (rx - MARGIN) - 18;
-      cur.page.drawRectangle({ x: barX, y: barY, width: barW, height: 5, color: rgb(0.15, 0.22, 0.40) });
-      cur.page.drawRectangle({ x: barX, y: barY, width: barW * Math.min(1, Math.max(0, canonicalScore / 100)), height: 5, color: GOLD });
-
-      cur.y -= blockH + 12;
+    // ===== Recruiter Notes (recruiter-entered context, shown before AI analysis) =====
+    const recruiterNotes = (submission.recruiter_notes as string[] | null) ?? [];
+    if (recruiterNotes.length) {
+      sectionHeading("Recruiter Notes");
+      const dotW = 8;
+      for (const note of recruiterNotes.slice(0, 12)) {
+        const lines = wrap(String(note), serif, 9.5, innerW - dotW - 4);
+        ensure(13);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+        cur.y -= 13;
+        for (let i = 1; i < lines.length; i++) {
+          ensure(13);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
+          cur.y -= 13;
+        }
+      }
+      cur.y -= 4;
     }
 
-    // ===== Fit Assessment vs Job Description — table =====
-    const rows: Array<{ req: string; evidence: string; fit: number }> = [];
-    if (sub && Object.keys(sub).length) {
-      const techScore = (typeof sub.skills === "number" ? sub.skills : 0.5);
-      const matched: string[] = Array.isArray(canonical?.strengths) ? (canonical?.strengths as string[]) : [];
-      const evidenceSkills = matched.length
-        ? matched.slice(0, 3).join(", ")
-        : (Array.isArray(candidate.skills) ? (candidate.skills as string[]).slice(0, 5).join(", ") : "Skills overlap with JD");
-      rows.push({ req: "Technical / skills match", evidence: evidenceSkills, fit: techScore });
-
-      const roleScore = (typeof sub.role === "number" ? sub.role : 0.5);
-      const roleEv = candidate.current_title ? `Current role: ${candidate.current_title}` : (sub.candidate_family ?? "Role family aligned with JD");
-      rows.push({ req: "Role / function alignment", evidence: roleEv, fit: roleScore });
-
-      const seniorScore = (typeof sub.seniority === "number" ? sub.seniority : 0.5);
-      rows.push({ req: "Seniority level", evidence: candidate.current_title ?? (job.experience_level ?? "Level inferred from history"), fit: seniorScore });
-
-      const expScore = (typeof sub.experience === "number" ? sub.experience : 0.5);
-      rows.push({ req: "Years of experience", evidence: candidate.experience_years != null ? `${candidate.experience_years}+ years` : "Experience evaluated from CV", fit: expScore });
-
-      const locScore = (typeof sub.location === "number" ? sub.location : 0.5);
-      rows.push({ req: "Location / mobility", evidence: [candidate.location, candidate.relocation ? `open to ${candidate.relocation}` : null].filter(Boolean).join(" — ") || "—", fit: locScore });
-
-      const indScore = (typeof sub.industry === "number" ? sub.industry : 0.5);
-      rows.push({ req: "Industry / domain", evidence: candidate.current_company ? `Experience at ${candidate.current_company}` : "Domain evaluated from CV", fit: indScore });
+    // ===== Executive Summary =====
+    const narrative = validation?.summary || canonical?.ai_summary || candidate.summary;
+    if (narrative) {
+      sectionHeading("Executive Summary");
+      paragraph(String(narrative), 9.5, serif, INK, 13);
+      cur.y -= 4;
     }
 
-    if (rows.length) {
+    // ===== Fit Assessment vs Job Description (AI-derived mandate_match) =====
+    const mandateRows: Array<{ req: string; evidence: string; fit: string }> =
+      Array.isArray(validation?.mandate_match)
+        ? (validation.mandate_match as any[])
+            .filter((m) => m && m.requirement && m.evidence)
+            .map((m) => ({
+              req: String(m.requirement),
+              evidence: String(m.evidence),
+              fit: String(m.fit || "PARTIAL").toUpperCase(),
+            }))
+        : [];
+
+    if (mandateRows.length) {
       sectionHeading("Fit Assessment vs Job Description");
-      const cReq = 145, cFit = 70;
+      const cReq = 145, cFit = 76;
       const cEv = innerW - cReq - cFit;
-      // Header row
       ensure(22);
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - 18, width: innerW, height: 18, color: NAVY });
-      cur.page.drawText("Requirement", { x: MARGIN + 10, y: cur.y - 12, size: 8.5, font: sansB, color: rgb(1, 1, 1) });
-      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 10, y: cur.y - 12, size: 8.5, font: sansB, color: rgb(1, 1, 1) });
-      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 10, y: cur.y - 12, size: 8.5, font: sansB, color: rgb(1, 1, 1) });
+      cur.page.drawText("Requirement", { x: MARGIN + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.page.drawText("Candidate Evidence", { x: MARGIN + cReq + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.page.drawText("Fit", { x: MARGIN + cReq + cEv + 10, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
       cur.y -= 18;
 
       let rowIdx = 0;
-      for (const r of rows) {
+      for (const r of mandateRows) {
         const evLines = wrap(r.evidence, serif, 9, cEv - 20);
         const reqLines = wrap(r.req, sansB, 9, cReq - 20);
         const rowH = Math.max(28, Math.max(evLines.length, reqLines.length) * 12 + 12);
         ensure(rowH + 2);
-        // alternating row background
         if (rowIdx % 2 === 0) {
           cur.page.drawRectangle({ x: MARGIN, y: cur.y - rowH, width: innerW, height: rowH, color: PANEL });
         }
-        // requirement
         let ry = cur.y - 14;
         for (const ln of reqLines) {
           cur.page.drawText(ln, { x: MARGIN + 10, y: ry, size: 9, font: sansB, color: NAVY });
           ry -= 12;
         }
-        // evidence
         let ey = cur.y - 14;
         for (const ln of evLines) {
           cur.page.drawText(ln, { x: MARGIN + cReq + 10, y: ey, size: 9, font: serif, color: INK });
           ey -= 12;
         }
-        // fit pill
-        const f = fitLabel(r.fit);
-        const pillW = sansB.widthOfTextAtSize(f.label, 8) + 14;
+        const f = fitColors(r.fit);
+        const pillW = sansB.widthOfTextAtSize(r.fit, 8) + 14;
         const px = MARGIN + cReq + cEv + (cFit - pillW) / 2;
         const py = cur.y - rowH / 2 - 7;
         cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 14, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
-        cur.page.drawText(f.label, { x: px + 7, y: py + 4, size: 8, font: sansB, color: f.fg });
+        cur.page.drawText(r.fit, { x: px + 7, y: py + 4, size: 8, font: sansB, color: f.fg });
         cur.y -= rowH;
         rowIdx++;
       }
       cur.y -= 6;
     }
+
 
     // ===== Two-column Strengths / Considerations (recruiter overrides win) =====
     const strengths = (submission.recruiter_strengths as string[] | null)?.length
@@ -634,14 +573,13 @@ serve(async (req) => {
       cur.y = Math.min(leftEndY, rightEndY) - 4;
     }
 
-    // ===== Recruiter View (overrides win) =====
+    // ===== Recruiter View (manual override wins, otherwise AI recruiter_review) =====
     sectionHeading("Recruiter View");
     const recView = submission.recruiter_recommendation
       || submission.recruiter_summary
+      || (validation?.recruiter_review as string | null)
       || submission.submission_message
-      || (canonicalScore != null
-        ? `${candidate.full_name?.split(" ")[0] ?? "This candidate"} ${canonicalScore >= 75 ? "demonstrates strong" : canonicalScore >= 60 ? "shows reasonable" : "shows partial"} alignment with the ${job.title ?? "role"} requirements and is ${canonicalScore >= 75 ? "recommended for client screening" : canonicalScore >= 60 ? "worth a screening conversation" : "submitted for the client's review"}.`
-        : "Submitted for client review.");
+      || `${candidate.full_name?.split(" ")[0] ?? "This candidate"} has been submitted for the ${job.title ?? "role"} for the client's review.`;
     paragraph(recView, 9.5, serif, INK, 13);
 
     // Recruiter signature footer

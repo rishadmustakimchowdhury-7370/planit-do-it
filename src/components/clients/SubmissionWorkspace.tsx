@@ -43,6 +43,7 @@ interface SubmissionRow {
   recruiter_recommendation: string | null;
   recruiter_strengths: string[] | null;
   recruiter_considerations: string[] | null;
+  recruiter_notes: string[] | null;
   submission_message: string | null;
   branded_cv_url: string | null;
   original_cv_url: string | null;
@@ -67,6 +68,7 @@ export function SubmissionWorkspace({
   const [strengthsText, setStrengthsText] = useState("");
   const [considerationsText, setConsiderationsText] = useState("");
   const [recruiterMessage, setRecruiterMessage] = useState("");
+  const [recruiterNotesText, setRecruiterNotesText] = useState("");
 
   // Initial load + realtime
   useEffect(() => {
@@ -74,7 +76,7 @@ export function SubmissionWorkspace({
     const load = async () => {
       const { data } = await supabase
         .from("candidate_submissions")
-        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, submission_message, branded_cv_url, original_cv_url, status, sent_at")
+        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
         .eq("id", submissionId)
         .maybeSingle();
       if (!active || !data) return;
@@ -86,6 +88,7 @@ export function SubmissionWorkspace({
       setStrengthsText((r.recruiter_strengths ?? []).join("\n"));
       setConsiderationsText((r.recruiter_considerations ?? []).join("\n"));
       setRecruiterMessage(r.submission_message ?? "");
+      setRecruiterNotesText((r.recruiter_notes ?? []).join("\n"));
     };
     load();
 
@@ -140,14 +143,15 @@ export function SubmissionWorkspace({
         recruiter_summary: summary || null,
         recruiter_strengths: strengthsText.split("\n").map(s => s.trim()).filter(Boolean),
         recruiter_considerations: considerationsText.split("\n").map(s => s.trim()).filter(Boolean),
+        recruiter_notes: recruiterNotesText.split("\n").map(s => s.trim()).filter(Boolean),
         submission_message: recruiterMessage || null,
         pack_components: components,
-        draft_state: { recommendation, summary, strengthsText, considerationsText, recruiterMessage, components, savedAt: new Date().toISOString() },
+        draft_state: { recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, components, savedAt: new Date().toISOString() },
       }).eq("id", submissionId);
     }, 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recommendation, summary, strengthsText, considerationsText, recruiterMessage, JSON.stringify(components)]);
+  }, [recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, JSON.stringify(components)]);
 
   const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
   const [buildStage, setBuildStage] = useState<string>("Preparing…");
@@ -440,6 +444,21 @@ export function SubmissionWorkspace({
                   <Button size="sm" className="w-full" variant="outline" onClick={regenerate} disabled={isBuilding}>
                     <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isBuilding ? "animate-spin" : ""}`} /> Rebuild Pack
                   </Button>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="notes" className="border rounded-lg px-3">
+                <AccordionTrigger className="text-sm hover:no-underline">
+                  <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Recruiter notes</span>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-2 pt-1">
+                  <Label className="text-xs">Screening notes (one per line — fed into the AI assessment)</Label>
+                  <Textarea rows={6}
+                    placeholder={"Notice period: 30 days\nSalary expectation: TBD after discussion\nOpen to relocation: UAE / Singapore\nStrong client-facing communication\nWorked with international stakeholders"}
+                    value={recruiterNotesText} onChange={(e) => setRecruiterNotesText(e.target.value)} />
+                  <p className="text-[11px] text-muted-foreground">
+                    These notes appear under the candidate name on the report and guide the AI's executive-search analysis. Rebuild the pack to regenerate.
+                  </p>
                 </AccordionContent>
               </AccordionItem>
 

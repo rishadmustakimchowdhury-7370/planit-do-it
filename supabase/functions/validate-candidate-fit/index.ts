@@ -8,25 +8,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Validation enriches the centralized deterministic match score with recruiter-facing
-// narrative. It NEVER produces its own score — the score comes from the same engine
-// used by AI Talent Match (rediscover-candidates / hybrid_v1) so the same candidate
-// always shows the same number across the app.
-const SYSTEM_PROMPT = `You are a senior recruitment evaluator. You are given a job, a candidate, and a DETERMINISTIC fit score that has ALREADY been computed by the platform's centralized scoring engine.
+// Executive-search style validation. The AI must deeply compare the JD against
+// the candidate CV, taking recruiter notes into account, and produce:
+//   - executive summary (2–3 sentences, evidence-based)
+//   - mandate_match table (requirement / evidence / fit)
+//   - strengths bullets (concise, evidence-led)
+//   - considerations bullets (balanced, recruiter tone)
+//   - recruiter_review (1 paragraph, senior-consultant voice)
+// The fit_score itself is ALWAYS taken from the deterministic scoring engine.
+const SYSTEM_PROMPT = `You are a senior executive-search consultant preparing a retained-search candidate assessment for a client.
 
-Your job: produce a recruiter-facing narrative — strengths, considerations, risks, and a short executive summary — that EXPLAINS the score. Do NOT invent or override the score.
+You will receive: a JOB DESCRIPTION, a CANDIDATE CV/profile, and optional RECRUITER NOTES gathered from the recruiter's screening conversation. The recruiter notes (notice period, salary expectations, visa, relocation, motivation, communication, client-sensitive comments) MUST influence your analysis — incorporate them into stakeholder management, commercial suitability, and risk reasoning where relevant.
 
-Return ONLY valid JSON in this exact shape:
+Produce ONLY valid JSON in this exact shape:
 {
-  "summary": "<2-3 sentence executive summary that reflects the given fit_score>",
-  "strengths": ["...", "..."],
-  "weaknesses": ["...", "..."],
-  "risks": ["...", "..."]
+  "summary": "<2–3 sentence executive summary that reads like a retained-search consultant. Evidence-based, no fluff.>",
+  "mandate_match": [
+    {
+      "requirement": "<short JD requirement label, e.g. 'Post-fixture & voyage operations'>",
+      "evidence": "<specific evidence drawn from the candidate's CV/notes that addresses this requirement — quote roles, employers, years, achievements>",
+      "fit": "EXCEEDS" | "STRONG" | "GOOD" | "PARTIAL" | "WEAK" | "NOT MATCHED"
+    }
+  ],
+  "strengths": ["<short bold lead — evidence sentence>", "..."],
+  "considerations": ["<short bold lead — balanced consideration>", "..."],
+  "recruiter_review": "<one paragraph in senior recruiter voice, e.g. 'Candidate has strong alignment with the commercial shipping mandate, particularly in tanker operations and charter-party exposure. Main consideration remains relocation and bulk-carrier exposure.'>"
 }
 
-Rules:
-- 2-5 short bullets per list, specific to this candidate vs this JD.
-- The summary tone must match the given fit_score band (Strongly Recommended ≥90, Recommended 75-89, Moderate 60-74, Low <60).`;
+RULES:
+- Extract 5–8 of the JOB's most important requirements (technical, domain, leadership, language, location, regulatory, etc.) and assess each one against actual candidate evidence. Do NOT invent evidence.
+- "fit" must reflect real evidence: EXCEEDS = clearly beyond requirement, STRONG = solid match, GOOD = meets baseline, PARTIAL = some overlap with gaps, WEAK = limited evidence, NOT MATCHED = no evidence found.
+- 4–6 strengths and 3–5 considerations. Each should follow the pattern "Lead — explanatory sentence" (the lead becomes bold). Considerations must be balanced and constructive, not negative.
+- Recruiter notes about salary/notice/relocation/visa belong in considerations only if they are genuine concerns for this mandate.
+- The recruiter_review must sound human, commercial, executive-level — never templated.
+- Output JSON only, no markdown.`;
 
 function recommendationFromScore(score: number): "strongly_recommended" | "needs_review" | "not_recommended" {
   if (score >= 75) return "strongly_recommended";
@@ -48,18 +63,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const userId = userData.user.id;
 
-    const { job_id, candidate_id, force } = await req.json();
+    const { job_id, candidate_id, submission_id, recruiter_notes: notesOverride, force } = await req.json();
     if (!job_id || !candidate_id) {
       return new Response(JSON.stringify({ error: "job_id and candidate_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load job + candidate via RLS (user must have access)
     const [{ data: job, error: jobErr }, { data: candidate, error: candErr }] = await Promise.all([
       supabase.from("jobs").select("id, tenant_id, title, description, requirements, location, employment_type, experience_level, skills, jd_parsed_text").eq("id", job_id).maybeSingle(),
       supabase.from("candidates").select("id, full_name, current_title, current_company, location, experience_years, skills, summary, cv_parsed_data").eq("id", candidate_id).maybeSingle(),
@@ -72,11 +90,19 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Candidate not found or access denied" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // === SINGLE SOURCE OF TRUTH ===
-    // The authoritative fit score is the deterministic hybrid_v1 score produced
-    // by the centralized scoring engine (shared with AI Talent Match / rediscover-candidates).
-    // We read it from rediscovered_matches if present; otherwise we compute it inline
-    // with the SAME engine and persist it, so the score is consistent everywhere.
+    // Pull recruiter notes from the submission (if any) — these guide the AI
+    let recruiterNotes: string[] = Array.isArray(notesOverride) ? notesOverride : [];
+    if (!recruiterNotes.length && submission_id) {
+      const { data: subRow } = await admin
+        .from("candidate_submissions")
+        .select("recruiter_notes, submission_message")
+        .eq("id", submission_id)
+        .maybeSingle();
+      const n = (subRow as any)?.recruiter_notes;
+      if (Array.isArray(n)) recruiterNotes = n.filter(Boolean);
+    }
+
+    // Canonical deterministic score (single source of truth)
     let { data: canonical } = await supabase
       .from("rediscovered_matches")
       .select("match_score, sub_scores, confidence, model_version, ai_summary, strengths, gaps")
@@ -85,12 +111,10 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!canonical) {
-      // Compute deterministic score with the shared engine and upsert it.
       const r = computeMatchScore(job, candidate);
       const newRow = {
         job_id, candidate_id, tenant_id: job.tenant_id,
-        match_score: r.final, ai_score: r.final,
-        confidence: r.confidence,
+        match_score: r.final, ai_score: r.final, confidence: r.confidence,
         sub_scores: {
           role: r.sub.role, skills: r.sub.skills, industry: r.sub.industry,
           seniority: r.sub.seniority, experience: r.sub.experience, location: r.sub.location,
@@ -99,9 +123,7 @@ serve(async (req) => {
         model_version: r.model_version,
         strengths: r.matched.slice(0, 3).map((s) => `Has ${s}`),
         gaps: r.missing.slice(0, 3).map((s) => `Missing ${s}`),
-        insights: [],
-        dismissed: false,
-        updated_at: new Date().toISOString(),
+        insights: [], dismissed: false, updated_at: new Date().toISOString(),
       };
       const { data: inserted } = await supabase
         .from("rediscovered_matches")
@@ -115,19 +137,16 @@ serve(async (req) => {
       };
     }
 
-    // Reuse recent enrichment unless force=true
+    // Reuse recent enrichment only if it has a mandate_match populated AND no
+    // new recruiter notes have been supplied this turn.
     if (!force) {
       const { data: existing } = await supabase
         .from("ai_candidate_validations")
         .select("*")
-        .eq("job_id", job_id)
-        .eq("candidate_id", candidate_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      // Only reuse if the cached validation's fit_score matches the canonical score.
-      // If they diverge (e.g. score was re-computed), re-enrich.
-      if (existing && (!canonical || existing.fit_score === canonical.match_score)) {
+        .eq("job_id", job_id).eq("candidate_id", candidate_id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const hasMandate = Array.isArray((existing as any)?.mandate_match) && (existing as any).mandate_match.length > 0;
+      if (existing && hasMandate && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
@@ -144,10 +163,7 @@ serve(async (req) => {
     const confidence = canonical?.confidence ?? null;
     const scoringVersion = canonical?.model_version ?? "hybrid_v1";
 
-    const userPrompt = `CENTRALIZED SCORE (do NOT change): ${canonicalScore != null ? canonicalScore + "/100" : "not yet computed — produce an honest narrative without inventing a number"}
-${canonical?.sub_scores ? "Sub-scores: " + JSON.stringify(canonical.sub_scores) : ""}
-
-JOB
+    const userPrompt = `JOB DESCRIPTION
 Title: ${job.title}
 Seniority: ${job.experience_level ?? "n/a"}
 Location: ${job.location ?? "n/a"}
@@ -166,7 +182,14 @@ Experience: ${candidate.experience_years ?? "n/a"} years
 Skills: ${Array.isArray(candidate.skills) ? candidate.skills.join(", ") : candidate.skills ?? "n/a"}
 Summary: ${candidate.summary ?? ""}
 CV:
-${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSON.stringify(candidate.cv_parsed_data ?? "")).slice(0, 8000)}`;
+${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSON.stringify(candidate.cv_parsed_data ?? "")).slice(0, 9000)}
+
+RECRUITER NOTES (from screening — must influence your reasoning where relevant):
+${recruiterNotes.length ? recruiterNotes.map((n) => `- ${n}`).join("\n") : "(none provided)"}
+
+REFERENCE FIT BAND (deterministic engine, for tone calibration only — do NOT echo or argue with it): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
+
+Now produce the JSON assessment per the system spec.`;
 
     let parsed: any = {};
     try {
@@ -174,7 +197,7 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
         method: "POST",
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-4o",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userPrompt },
@@ -189,9 +212,8 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
         if (aiRes.status === 429) {
           return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        // Graceful fallback: if AI fails but we have a canonical score, return a minimal validation.
         if (canonicalScore != null) {
-          parsed = { summary: canonical?.ai_summary ?? null, strengths: canonical?.strengths ?? [], weaknesses: canonical?.gaps ?? [], risks: [] };
+          parsed = { summary: canonical?.ai_summary ?? null, mandate_match: [], strengths: (canonical?.strengths ?? []), considerations: (canonical?.gaps ?? []), recruiter_review: null };
         } else {
           return new Response(JSON.stringify({ error: "AI provider error" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
@@ -201,24 +223,35 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
       }
     } catch (e) {
       console.error("AI call failed", e);
-      parsed = { summary: canonical?.ai_summary ?? null, strengths: canonical?.strengths ?? [], weaknesses: canonical?.gaps ?? [], risks: [] };
+      parsed = { summary: canonical?.ai_summary ?? null, mandate_match: [], strengths: (canonical?.strengths ?? []), considerations: (canonical?.gaps ?? []), recruiter_review: null };
     }
 
-    // === AUTHORITATIVE SCORE — taken from centralized engine, never from AI ===
+    const ALLOWED_FITS = new Set(["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "NOT MATCHED"]);
+    const mandate_match = Array.isArray(parsed.mandate_match)
+      ? parsed.mandate_match
+          .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
+          .map((m: any) => ({
+            requirement: String(m.requirement).slice(0, 120),
+            evidence: String(m.evidence).slice(0, 600),
+            fit: ALLOWED_FITS.has(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL",
+          }))
+          .slice(0, 10)
+      : [];
+
     const fit_score = canonicalScore != null ? canonicalScore : 0;
     const recommendation = recommendationFromScore(fit_score);
 
     const insertRow = {
       tenant_id: job.tenant_id,
-      job_id,
-      candidate_id,
-      fit_score,
-      recommendation,
+      job_id, candidate_id,
+      fit_score, recommendation,
       summary: parsed.summary ?? null,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-      weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 8) : [],
+      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 8) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
       risks: Array.isArray(parsed.risks) ? parsed.risks : [],
-      model: "gpt-4o-mini",
+      mandate_match,
+      recruiter_review: parsed.recruiter_review ?? null,
+      model: "gpt-4o",
       generated_by: userId,
     };
 
