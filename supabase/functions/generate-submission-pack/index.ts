@@ -152,7 +152,7 @@ serve(async (req) => {
     // Step 1: Verify the user has access to this submission (RLS-checked).
     const { data: submission, error: subErr } = await supabase
       .from("candidate_submissions")
-      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation")
+      .select("id, tenant_id, job_id, candidate_id, ai_validation_id, submission_message, client_org_id, branded_cv_url, original_cv_url, pack_components, recruiter_summary, recruiter_strengths, recruiter_considerations, recruiter_recommendation, recruiter_notes")
       .eq("id", submission_id)
       .maybeSingle();
     if (subErr || !submission) {
