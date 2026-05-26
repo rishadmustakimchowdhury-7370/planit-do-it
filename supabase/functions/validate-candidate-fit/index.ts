@@ -268,33 +268,34 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       parsed = { summary: canonical?.ai_summary ?? null, mandate_match: [], strengths: (canonical?.strengths ?? []), considerations: (canonical?.gaps ?? []), recruiter_review: null };
     }
 
-    const ALLOWED_FITS = ["NOT MATCHED", "WEAK", "PARTIAL", "GOOD", "STRONG", "EXCEEDS"]; // ordered low→high
+    const ALLOWED_FITS = ["NOT MATCHED", "WEAK", "PARTIAL", "GOOD", "STRONG", "EXCEEDS"]; // low→high
     const fitRank = (f: string) => Math.max(0, ALLOWED_FITS.indexOf(f.toUpperCase()));
 
-    // Cap allowed fit ceiling by canonical band — single source of truth wins.
+    // Hard ceiling tied to canonical band — single source of truth.
     const fitCeiling = (score: number | null): number => {
-      if (score == null) return 3; // GOOD
-      if (score < 50) return 1;    // WEAK max (one GOOD allowed via override below)
-      if (score < 65) return 4;    // STRONG max
-      if (score < 75) return 4;    // STRONG max
-      if (score < 90) return 5;    // EXCEEDS allowed sparingly
+      if (score == null) return 3;       // GOOD
+      if (score < 35) return 1;          // WEAK
+      if (score < 50) return 2;          // PARTIAL
+      if (score < 62) return 4;          // STRONG cap (rare)
+      if (score < 75) return 4;          // STRONG
+      if (score < 88) return 5;          // EXCEEDS sparingly
       return 5;
     };
     const ceil = fitCeiling(canonicalScore);
     let strongUsed = 0;
-    const strongCap = canonicalScore != null && canonicalScore < 50 ? 0
-                    : canonicalScore != null && canonicalScore < 65 ? 1
-                    : canonicalScore != null && canonicalScore < 75 ? 2
-                    : 99;
+    const strongCap =
+      canonicalScore == null ? 99 :
+      canonicalScore < 35 ? 0 :
+      canonicalScore < 50 ? 0 :
+      canonicalScore < 62 ? 1 :
+      canonicalScore < 75 ? 2 : 99;
 
     const mandate_match = Array.isArray(parsed.mandate_match)
       ? parsed.mandate_match
           .filter((m: any) => m && typeof m.requirement === "string" && typeof m.evidence === "string")
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
-            // Hard cap to canonical band
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
-            // Limit STRONG count for low/mid bands
             if (f === "STRONG") {
               if (strongUsed >= strongCap) f = "GOOD";
               else strongUsed++;
@@ -309,7 +310,25 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       : [];
 
     const fit_score = canonicalScore != null ? canonicalScore : 0;
+    // Trust the deterministic band over whatever the AI claimed.
     const recommendation = recommendationFromScore(fit_score);
+
+    // Derive missing_requirements from the mandate_match table as a fallback,
+    // and merge anything the AI explicitly flagged.
+    const aiMissing = Array.isArray(parsed.missing_requirements) ? parsed.missing_requirements.map(String) : [];
+    const tableMissing = mandate_match
+      .filter((m: any) => m.fit === "NOT MATCHED" || m.fit === "WEAK")
+      .map((m: any) => m.requirement);
+    const missing_requirements = Array.from(new Set([...aiMissing, ...tableMissing])).slice(0, 8);
+
+    const recruiterNotesSummary = Array.isArray(parsed.recruiter_notes_summary)
+      ? parsed.recruiter_notes_summary.map(String).slice(0, 6) : [];
+
+    // We persist the recruiter-notes-summary and missing requirements inside
+    // `risks` jsonb as structured items so we don't need a schema migration.
+    // Consumers read `risks` as plain strings; we keep that shape but allow the
+    // payload to carry the structured details under a known shape too.
+    const risksOut = Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 6) : [];
 
     const insertRow = {
       tenant_id: job.tenant_id,
@@ -318,12 +337,18 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       summary: parsed.summary ?? null,
       strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 8) : [],
       weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 8) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
-      risks: Array.isArray(parsed.risks) ? parsed.risks : [],
-      mandate_match,
+      risks: risksOut,
+      mandate_match: [
+        ...mandate_match,
+        // Sidecar metadata row(s) — consumers can ignore unknown shapes.
+        ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
+        ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
+      ],
       recruiter_review: parsed.recruiter_review ?? null,
       model: "gpt-4o",
       generated_by: userId,
     };
+
 
     const { data: validation, error: insErr } = await supabase
       .from("ai_candidate_validations")
