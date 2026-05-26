@@ -567,6 +567,7 @@ serve(async (req) => {
         cur.page.drawRectangle({ x: px, y: py, width: pillW, height: 14, color: f.bg, borderColor: f.fg, borderWidth: 0.6 });
         cur.page.drawText(f.label, { x: px + 7, y: py + 4, size: 8, font: sansB, color: f.fg });
         cur.y -= rowH;
+        rowIdx++;
       }
       cur.y -= 6;
     }
