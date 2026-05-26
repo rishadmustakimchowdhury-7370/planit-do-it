@@ -7,24 +7,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are a senior recruitment evaluator. Given a job description and a candidate profile, produce a structured fit assessment.
+// Validation enriches the centralized deterministic match score with recruiter-facing
+// narrative. It NEVER produces its own score — the score comes from the same engine
+// used by AI Talent Match (rediscover-candidates / hybrid_v1) so the same candidate
+// always shows the same number across the app.
+const SYSTEM_PROMPT = `You are a senior recruitment evaluator. You are given a job, a candidate, and a DETERMINISTIC fit score that has ALREADY been computed by the platform's centralized scoring engine.
+
+Your job: produce a recruiter-facing narrative — strengths, considerations, risks, and a short executive summary — that EXPLAINS the score. Do NOT invent or override the score.
 
 Return ONLY valid JSON in this exact shape:
 {
-  "fit_score": <integer 0-100>,
-  "recommendation": "strongly_recommended" | "needs_review" | "not_recommended",
-  "summary": "<2-3 sentence executive summary>",
+  "summary": "<2-3 sentence executive summary that reflects the given fit_score>",
   "strengths": ["...", "..."],
   "weaknesses": ["...", "..."],
   "risks": ["...", "..."]
 }
 
 Rules:
-- fit_score reflects overall match (skills, experience, seniority, domain, location).
-- "strongly_recommended" only when fit_score >= 80.
-- "not_recommended" when fit_score < 50.
-- Otherwise "needs_review".
-- Each list: 2-5 short bullet items, concrete and specific to the candidate vs JD.`;
+- 2-5 short bullets per list, specific to this candidate vs this JD.
+- The summary tone must match the given fit_score band (Strongly Recommended ≥90, Recommended 75-89, Moderate 60-74, Low <60).`;
+
+function recommendationFromScore(score: number): "strongly_recommended" | "needs_review" | "not_recommended" {
+  if (score >= 75) return "strongly_recommended";
+  if (score >= 50) return "needs_review";
+  return "not_recommended";
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
