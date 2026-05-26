@@ -143,14 +143,15 @@ export function SubmissionWorkspace({
         recruiter_summary: summary || null,
         recruiter_strengths: strengthsText.split("\n").map(s => s.trim()).filter(Boolean),
         recruiter_considerations: considerationsText.split("\n").map(s => s.trim()).filter(Boolean),
+        recruiter_notes: recruiterNotesText.split("\n").map(s => s.trim()).filter(Boolean),
         submission_message: recruiterMessage || null,
         pack_components: components,
-        draft_state: { recommendation, summary, strengthsText, considerationsText, recruiterMessage, components, savedAt: new Date().toISOString() },
+        draft_state: { recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, components, savedAt: new Date().toISOString() },
       }).eq("id", submissionId);
     }, 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recommendation, summary, strengthsText, considerationsText, recruiterMessage, JSON.stringify(components)]);
+  }, [recommendation, summary, strengthsText, considerationsText, recruiterNotesText, recruiterMessage, JSON.stringify(components)]);
 
   const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
   const [buildStage, setBuildStage] = useState<string>("Preparing…");
