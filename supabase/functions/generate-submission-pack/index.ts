@@ -580,93 +580,90 @@ serve(async (req) => {
       : [...baseWeak, ...baseRisks];
 
     if (strengths.length || considerations.length) {
-      ensure(36);
-      const gap = 18;
+      ensure(28);
+      const gap = 14;
       const colWidth = (innerW - gap) / 2;
-      const barH = 18;
+      const barH = 14;
 
-      // Two-column navy heading bars with gold accent
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - barH, width: 3, height: barH, color: GOLD });
-      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.page.drawText(tracked("Key Strengths"), { x: MARGIN + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
 
       cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: colWidth, height: barH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN + colWidth + gap, y: cur.y - barH, width: 3, height: barH, color: GOLD });
-      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
-      cur.y -= barH + 10;
+      cur.page.drawText(tracked("Considerations"), { x: MARGIN + colWidth + gap + 10, y: cur.y - 10, size: 7.5, font: sansB, color: WHITE });
+      cur.y -= barH + 6;
 
       const bulletInto = (items: string[], x: number, width: number): number => {
         let y = cur.y;
-        const dotW = 8;
-        for (const item of items.slice(0, 6)) {
-          const m = String(item).match(/^([^—:\-]{2,40})\s*[—:\-]\s*(.+)$/);
+        const dotW = 7;
+        for (const item of items.slice(0, 5)) {
+          const m = String(item).match(/^\**([^*—:\-]{2,40})\**\s*[—:\-]\s*(.+)$/);
           const lead = m ? m[1].trim() : "";
-          const rest = m ? m[2] : String(item);
-          // Build lines: bold lead + rest
+          const rest = m ? m[2] : String(item).replace(/^\**|\**$/g, "");
           const restMax = width - dotW;
           const leadStr = lead ? `${lead} — ` : "";
-          const leadW = leadStr ? sansB.widthOfTextAtSize(leadStr, 9) : 0;
+          const leadW = leadStr ? sansB.widthOfTextAtSize(leadStr, 8) : 0;
           const firstLineMax = restMax - leadW;
-          const lines = wrap(rest, serif, 9, firstLineMax);
-          // bullet dot
-          if (y - 14 < FOOTER_H + 18) break;
-          cur.page.drawText("•", { x, y: y - 10, size: 10, font: sansB, color: GOLD });
-          if (leadStr) cur.page.drawText(leadStr, { x: x + dotW, y: y - 10, size: 9, font: sansB, color: NAVY });
-          if (lines[0]) cur.page.drawText(lines[0], { x: x + dotW + leadW, y: y - 10, size: 9, font: serif, color: INK });
-          y -= 12;
+          const lines = wrap(rest, serif, 8, firstLineMax);
+          if (y - 11 < FOOTER_H + 14) break;
+          cur.page.drawText("•", { x, y: y - 8, size: 9, font: sansB, color: GOLD });
+          if (leadStr) cur.page.drawText(leadStr, { x: x + dotW, y: y - 8, size: 8, font: sansB, color: NAVY });
+          if (lines[0]) cur.page.drawText(lines[0], { x: x + dotW + leadW, y: y - 8, size: 8, font: serif, color: INK });
+          y -= 10;
           for (let i = 1; i < lines.length; i++) {
-            if (y - 12 < FOOTER_H + 18) break;
-            cur.page.drawText(lines[i], { x: x + dotW, y: y - 10, size: 9, font: serif, color: INK });
-            y -= 12;
+            if (y - 10 < FOOTER_H + 14) break;
+            cur.page.drawText(lines[i], { x: x + dotW, y: y - 8, size: 8, font: serif, color: INK });
+            y -= 10;
           }
-          y -= 3;
+          y -= 2;
         }
         return y;
       };
 
       const startY = cur.y;
-      const leftEndY = bulletInto(strengths.length ? strengths : ["Strong alignment with role requirements"], MARGIN, colWidth);
+      const leftEndY = bulletInto(strengths.length ? strengths : ["Baseline alignment with role requirements"], MARGIN, colWidth);
       cur.y = startY;
       const rightEndY = bulletInto(considerations.length ? considerations : ["No material concerns identified"], MARGIN + colWidth + gap, colWidth);
-      cur.y = Math.min(leftEndY, rightEndY) - 4;
+      cur.y = Math.min(leftEndY, rightEndY) - 2;
     }
 
-    // ===== Missing Requirements (JD items without real CV evidence) =====
+    // ===== Missing Requirements =====
     if (sideMissing.length) {
       sectionHeading("Missing Requirements");
-      const dotW = 10;
+      const dotW = 9;
       for (const item of sideMissing.slice(0, 8)) {
-        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 11, width: 4, height: 4, color: recAccent });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+        const lines = wrap(String(item), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawRectangle({ x: MARGIN, y: cur.y - 9, width: 4, height: 4, color: recAccent });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
     // ===== How Recruiter Notes Influenced the View =====
     if (sideRecruiterSummary.length) {
       sectionHeading("Recruiter Insight Impact");
-      const dotW = 8;
-      for (const item of sideRecruiterSummary.slice(0, 6)) {
-        const lines = wrap(String(item), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+      const dotW = 7;
+      for (const item of sideRecruiterSummary.slice(0, 5)) {
+        const lines = wrap(String(item), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 9, size: 9, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
 
