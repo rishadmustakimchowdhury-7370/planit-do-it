@@ -191,9 +191,10 @@ ${(typeof candidate.cv_parsed_data === "string" ? candidate.cv_parsed_data : JSO
 RECRUITER NOTES (from screening — must influence your reasoning where relevant):
 ${recruiterNotes.length ? recruiterNotes.map((n) => `- ${n}`).join("\n") : "(none provided)"}
 
-REFERENCE FIT BAND (deterministic engine, for tone calibration only — do NOT echo or argue with it): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
+CANONICAL FIT SCORE (deterministic engine — single source of truth): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
+Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}
 
-Now produce the JSON assessment per the system spec.`;
+Now produce the JSON assessment per the system spec, calibrated to the canonical band.`;
 
     let parsed: any = {};
     try {
