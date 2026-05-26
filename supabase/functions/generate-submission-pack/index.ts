@@ -472,38 +472,38 @@ serve(async (req) => {
       cur.y -= heroH + 8;
     }
 
-    // ===== Mandate strip (compact navy band with role) =====
+    // ===== Mandate strip =====
     {
-      ensure(28);
-      const stripH = 24;
+      ensure(22);
+      const stripH = 18;
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: innerW, height: stripH, color: NAVY });
       cur.page.drawRectangle({ x: MARGIN, y: cur.y - stripH, width: 3, height: stripH, color: GOLD });
       const label = tracked("Mandate");
-      cur.page.drawText(label, { x: MARGIN + 12, y: cur.y - 15, size: 7.5, font: sansB, color: GOLD });
-      const labelW = sansB.widthOfTextAtSize(label, 7.5);
+      cur.page.drawText(label, { x: MARGIN + 10, y: cur.y - 12, size: 6.5, font: sansB, color: GOLD });
+      const labelW = sansB.widthOfTextAtSize(label, 6.5);
       const jobBits = [job.title, job.experience_level, job.department, job.employment_type, job.location].filter(Boolean).join("  ·  ");
-      cur.page.drawText(jobBits, { x: MARGIN + 12 + labelW + 14, y: cur.y - 15, size: 9.5, font: sansB, color: WHITE });
-      cur.y -= stripH + 12;
+      cur.page.drawText(jobBits, { x: MARGIN + 10 + labelW + 12, y: cur.y - 12, size: 8.5, font: sansB, color: WHITE });
+      cur.y -= stripH + 8;
     }
 
-    // ===== Recruiter Notes (recruiter-entered context, shown before AI analysis) =====
+    // ===== Recruiter Notes =====
     const recruiterNotes = (submission.recruiter_notes as string[] | null) ?? [];
     if (recruiterNotes.length) {
       sectionHeading("Recruiter Notes");
       const dotW = 8;
       for (const note of recruiterNotes.slice(0, 12)) {
-        const lines = wrap(String(note), serif, 9.5, innerW - dotW - 4);
-        ensure(13);
-        cur.page.drawText("•", { x: MARGIN, y: cur.y - 10, size: 10, font: sansB, color: GOLD });
-        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-        cur.y -= 13;
+        const lines = wrap(String(note), serif, 8.5, innerW - dotW - 4);
+        ensure(11);
+        cur.page.drawText("•", { x: MARGIN, y: cur.y - 9, size: 9, font: sansB, color: GOLD });
+        if (lines[0]) cur.page.drawText(lines[0], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+        cur.y -= 11;
         for (let i = 1; i < lines.length; i++) {
-          ensure(13);
-          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 10, size: 9.5, font: serif, color: INK });
-          cur.y -= 13;
+          ensure(11);
+          cur.page.drawText(lines[i], { x: MARGIN + dotW, y: cur.y - 9, size: 8.5, font: serif, color: INK });
+          cur.y -= 11;
         }
       }
-      cur.y -= 4;
+      cur.y -= 2;
     }
 
     // ===== Executive Summary =====
