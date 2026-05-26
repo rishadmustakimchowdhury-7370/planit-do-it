@@ -276,6 +276,53 @@ serve(async (req) => {
     const confidence = canonical?.confidence ?? null;
     const modelVersion = canonical?.model_version ?? "hybrid_v1";
 
+    // Recruiter-grade recommendation taxonomy — score is internal-only on the
+    // executive PDF; clients see the recruiter label.
+    type RecKey = "strong_match" | "recommended" | "moderate_fit" | "needs_review" | "limited_alignment" | "not_suitable";
+    const recFromScore = (s: number | null): RecKey => {
+      if (s == null) return "needs_review";
+      if (s >= 88) return "strong_match";
+      if (s >= 75) return "recommended";
+      if (s >= 62) return "moderate_fit";
+      if (s >= 50) return "needs_review";
+      if (s >= 35) return "limited_alignment";
+      return "not_suitable";
+    };
+    const recRaw = String(validation?.recommendation ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+    const VALID_RECS: RecKey[] = ["strong_match","recommended","moderate_fit","needs_review","limited_alignment","not_suitable"];
+    const recKey: RecKey = (VALID_RECS as string[]).includes(recRaw) ? (recRaw as RecKey) : recFromScore(canonicalScore);
+    const REC_LABEL: Record<RecKey, string> = {
+      strong_match: "Strong Match",
+      recommended: "Recommended",
+      moderate_fit: "Moderate Fit",
+      needs_review: "Needs Review",
+      limited_alignment: "Limited Alignment",
+      not_suitable: "Not Suitable",
+    };
+    const REC_ACCENT: Record<RecKey, any> = {
+      strong_match: rgb(0.04, 0.45, 0.30),
+      recommended: rgb(0.06, 0.40, 0.55),
+      moderate_fit: rgb(0.78, 0.63, 0.30),
+      needs_review: rgb(0.78, 0.48, 0.16),
+      limited_alignment: rgb(0.70, 0.30, 0.25),
+      not_suitable: rgb(0.60, 0.18, 0.18),
+    };
+    const recAccent = REC_ACCENT[recKey];
+    const recLabel = REC_LABEL[recKey];
+
+    // Sidecar metadata extracted from mandate_match (validate-candidate-fit packs
+    // missing_requirements and recruiter_notes_summary as __kind rows).
+    const mandateRaw: any[] = Array.isArray(validation?.mandate_match) ? validation.mandate_match : [];
+    const sideMissing: string[] = (() => {
+      const row = mandateRaw.find((r) => r && r.__kind === "missing");
+      return Array.isArray(row?.items) ? row.items.map(String) : [];
+    })();
+    const sideRecruiterSummary: string[] = (() => {
+      const row = mandateRaw.find((r) => r && r.__kind === "recruiter_notes_summary");
+      return Array.isArray(row?.items) ? row.items.map(String) : [];
+    })();
+
+
     const drawHeader = (page: PDFPage) => {
       const { width, height } = page.getSize();
       // Navy band
