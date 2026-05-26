@@ -342,7 +342,7 @@ export function SubmissionWorkspace({
               {isBuilding && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-background/70 backdrop-blur-sm">
                   <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <div className="text-sm font-medium">Composing your branded pack…</div>
+                  <div className="text-sm font-medium">{buildStage}</div>
                   <div className="text-xs text-muted-foreground">AI report · branded CV · original CV</div>
                 </div>
               )}
