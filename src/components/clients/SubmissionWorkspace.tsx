@@ -148,6 +148,8 @@ export function SubmissionWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recommendation, summary, strengthsText, considerationsText, recruiterMessage, JSON.stringify(components)]);
 
+  const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
+
   const regenerate = async () => {
     setRegenerating(true);
     try {
@@ -156,11 +158,11 @@ export function SubmissionWorkspace({
       });
       if (error) throw error;
       const result = data as any;
+      if (result?.readiness) setReadiness(result.readiness);
       if (result?.status === "failed") {
         toast.error(result.user_message || "Package generation temporarily failed. Please retry.");
         return;
       }
-      // status=ready will arrive via realtime too
       toast.success("Submission pack updated");
     } catch (e: any) {
       toast.error("Package generation temporarily failed. Please retry.");
