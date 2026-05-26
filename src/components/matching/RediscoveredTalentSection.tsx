@@ -164,23 +164,13 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                       className="pl-9 h-9"
                     />
                   </div>
-                  <Select value={minScore} onValueChange={setMinScore}>
-                    <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Min score" /></SelectTrigger>
+                  <Select value={minRec} onValueChange={setMinRec}>
+                    <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Min recommendation" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Show all (default)</SelectItem>
-                      <SelectItem value="50">≥ 50%</SelectItem>
-                      <SelectItem value="65">≥ 65%</SelectItem>
-                      <SelectItem value="75">≥ 75%</SelectItem>
-                      <SelectItem value="85">≥ 85%</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-                    <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Confidence" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All confidence</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="strong_match">Strong Match only</SelectItem>
+                      <SelectItem value="recommended">Recommended & above</SelectItem>
+                      <SelectItem value="moderate_fit">Moderate Fit & above (default)</SelectItem>
+                      <SelectItem value="needs_review">Include Needs Review</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
