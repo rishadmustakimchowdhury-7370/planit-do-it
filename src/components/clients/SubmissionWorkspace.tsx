@@ -150,6 +150,25 @@ export function SubmissionWorkspace({
   }, [recommendation, summary, strengthsText, considerationsText, recruiterMessage, JSON.stringify(components)]);
 
   const [readiness, setReadiness] = useState<{ candidate: boolean; job: boolean; ai_validation: boolean; cv: boolean; missing: string[] } | null>(null);
+  const [buildStage, setBuildStage] = useState<string>("Preparing…");
+
+  // Cycle through build stage messages while generating
+  useEffect(() => {
+    if (!regenerating && row?.pack_status !== "generating") return;
+    const stages = [
+      "Generating AI Executive Report…",
+      "Building branded CV…",
+      "Combining PDFs…",
+      "Rendering preview…",
+    ];
+    let i = 0;
+    setBuildStage(stages[0]);
+    const t = setInterval(() => {
+      i = (i + 1) % stages.length;
+      setBuildStage(stages[i]);
+    }, 1400);
+    return () => clearInterval(t);
+  }, [regenerating, row?.pack_status]);
 
   const regenerate = async () => {
     setRegenerating(true);
@@ -164,11 +183,38 @@ export function SubmissionWorkspace({
         toast.error(result.user_message || "Package generation temporarily failed. Please retry.");
         return;
       }
-      toast.success("Submission pack updated");
+      // Use response directly so preview shows immediately (don't wait on realtime)
+      if (result?.status === "ready" && result?.path) {
+        setRow(prev => prev ? { ...prev, pack_pdf_url: result.path, pack_status: "ready", pack_error: null } : prev);
+        if (result?.signed_url) setSignedUrl(result.signed_url);
+      }
+      toast.success("Submission pack ready");
     } catch (e: any) {
       toast.error("Package generation temporarily failed. Please retry.");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  // Upload a CV file (branded or original) into the documents bucket, save URL, then rebuild
+  const uploadCV = async (kind: "branded_cv_url" | "original_cv_url", file: File) => {
+    try {
+      const ext = file.name.split(".").pop() || "pdf";
+      const path = `${tenantId}/${submissionId}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file, {
+        contentType: file.type || "application/pdf", upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
+      const url = pub?.publicUrl || path;
+      const { error: updErr } = await supabase.from("candidate_submissions")
+        .update({ [kind]: url }).eq("id", submissionId);
+      if (updErr) throw updErr;
+      setRow(prev => prev ? { ...prev, [kind]: url } as any : prev);
+      toast.success(kind === "branded_cv_url" ? "Branded CV uploaded" : "Original CV uploaded");
+      regenerate();
+    } catch (e: any) {
+      toast.error(e?.message || "Upload failed");
     }
   };
 
