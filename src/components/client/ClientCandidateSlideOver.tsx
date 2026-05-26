@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { MapPin, Briefcase, CheckCircle2, XCircle, CalendarPlus, Download, FileText, Sparkles, MessageSquarePlus, Loader2 } from 'lucide-react';
 import { CandidateCollaborationPanel } from '@/components/clients/CandidateCollaborationPanel';
 import { RequestInterviewDialog } from '@/components/clients/RequestInterviewDialog';
+import { recommendationMeta } from '@/lib/recommendation';
+
 
 interface Props {
   shareId: string | null;
