@@ -407,21 +407,36 @@ export function SubmissionWorkspace({
                 </AccordionTrigger>
                 <AccordionContent className="space-y-3 pt-1">
                   {([
-                    { key: "ai_report", label: "AI Executive Report", desc: "Branded AI-powered candidate report" },
-                    { key: "branded_cv", label: "Branded CV", desc: row.branded_cv_url ? "Available" : "No branded CV uploaded" },
-                    { key: "original_cv", label: "Original CV", desc: row.original_cv_url ? "Available" : "No original CV uploaded" },
-                  ] as const).map((c) => (
-                    <div key={c.key} className="flex items-center justify-between">
-                      <div className="min-w-0 pr-3">
-                        <div className="text-sm font-medium">{c.label}</div>
-                        <div className="text-[11px] text-muted-foreground">{c.desc}</div>
+                    { key: "ai_report", label: "AI Executive Report", desc: "Branded AI-powered candidate report", uploadKey: null },
+                    { key: "branded_cv", label: "Branded CV", desc: row.branded_cv_url ? "Available" : "Not uploaded yet", uploadKey: "branded_cv_url" as const },
+                    { key: "original_cv", label: "Original CV", desc: row.original_cv_url ? "Available" : "Not uploaded yet", uploadKey: "original_cv_url" as const },
+                  ]).map((c) => {
+                    const hasFile = c.uploadKey ? !!(row as any)[c.uploadKey] : true;
+                    return (
+                      <div key={c.key} className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 pr-3 flex-1">
+                          <div className="text-sm font-medium">{c.label}</div>
+                          <div className="text-[11px] text-muted-foreground">{c.desc}</div>
+                        </div>
+                        {c.uploadKey && !hasFile && (
+                          <label className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer hover:bg-muted">
+                            <Upload className="h-3 w-3" /> Upload CV
+                            <input type="file" accept="application/pdf" className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) uploadCV(c.uploadKey!, f);
+                                e.currentTarget.value = "";
+                              }} />
+                          </label>
+                        )}
+                        <Switch
+                          checked={(components as any)[c.key]}
+                          disabled={c.uploadKey ? !hasFile : false}
+                          onCheckedChange={(v) => setComponents(prev => ({ ...prev, [c.key]: v }))}
+                        />
                       </div>
-                      <Switch
-                        checked={(components as any)[c.key]}
-                        onCheckedChange={(v) => setComponents(prev => ({ ...prev, [c.key]: v }))}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                   <Button size="sm" className="w-full" variant="outline" onClick={regenerate} disabled={isBuilding}>
                     <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isBuilding ? "animate-spin" : ""}`} /> Rebuild Pack
                   </Button>
