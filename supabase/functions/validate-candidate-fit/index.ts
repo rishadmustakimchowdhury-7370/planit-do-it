@@ -461,10 +461,52 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         `Recommend a screening conversation to explore production depth and ownership before progressing.`;
     }
 
+    // Extract new Executive Search fields from the AI output
+    const interviewProbability = (() => {
+      const n = Number(parsed.interview_probability);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(0, Math.min(100, Math.round(n)));
+    })();
+    const ecosystemSignals = Array.isArray(parsed.ecosystem_signals)
+      ? parsed.ecosystem_signals
+          .filter((s: any) => s && typeof s.company === "string")
+          .slice(0, 10)
+          .map((s: any) => ({
+            company: String(s.company).slice(0, 80),
+            ecosystem: String(s.ecosystem ?? "").slice(0, 80),
+            relevance: ["tier1","tier2","adjacent"].includes(String(s.relevance)) ? String(s.relevance) : "adjacent",
+          }))
+      : [];
+    const functionalOwnership = Array.isArray(parsed.functional_ownership)
+      ? parsed.functional_ownership.slice(0, 10).map((x: any) => String(x).slice(0, 120))
+      : [];
+    const matchClassification = recommendation; // post-cap final decision is the SoT
+
+    // Compute current JD signature so this row is tied to the JD revision it was validated against
+    const jdSignaturePayload = [
+      job.title, job.description, job.requirements, job.location,
+      job.employment_type, job.experience_level,
+      Array.isArray(job.skills) ? JSON.stringify(job.skills) : (job.skills ?? ""),
+      job.jd_parsed_text ?? "",
+    ].map((v) => v ?? "").join("|");
+    // Lightweight hash (FNV-1a) — sufficient to match the DB md5 only by length/equality semantics
+    let jdSig = "";
+    try {
+      const enc = new TextEncoder().encode(jdSignaturePayload);
+      const hash = await crypto.subtle.digest("MD5", enc).catch(() => null);
+      if (hash) jdSig = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch { /* leave empty */ }
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
       fit_score, recommendation,
+      match_classification: matchClassification,
+      interview_probability: interviewProbability,
+      ecosystem_signals: ecosystemSignals,
+      jd_signature: jdSig || null,
+      validation_stale: false,
+      engine_version: "exec_search_v1",
       summary: cleanedSummary,
       strengths: softenList(Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : []),
       weaknesses: softenList(Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [])),
@@ -475,6 +517,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
         ...(recruiterNotesImpact.length ? [{ __kind: "recruiter_notes_impact", items: recruiterNotesImpact }] : []),
+        ...(functionalOwnership.length ? [{ __kind: "functional_ownership", items: functionalOwnership }] : []),
       ],
       recruiter_review: null,
       model: "gpt-4o",
