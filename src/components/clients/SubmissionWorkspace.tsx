@@ -23,6 +23,13 @@ import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
 import { StructuredRecruiterNotesForm } from "./StructuredRecruiterNotesForm";
 import { OutcomeCaptureBar } from "./OutcomeCaptureBar";
 import { emptyStructuredNotes, structuredNotesToLines, type StructuredRecruiterNotes } from "@/lib/recruiterNotes";
+import { QuickActionsBar } from "@/components/recruiter/QuickActionsBar";
+import { AIInsightChip } from "@/components/recruiter/AIInsightChip";
+import { CalmModeToggle } from "@/components/recruiter/CalmModeToggle";
+import { CommunicationDrawer } from "@/components/recruiter/CommunicationDrawer";
+import { KeyboardShortcutsHelp } from "@/components/recruiter/KeyboardShortcutsHelp";
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts";
+import { useRecruiterIntelligenceToggle } from "@/hooks/useRecruiterIntelligenceToggle";
 
 interface Props {
   submissionId: string;
