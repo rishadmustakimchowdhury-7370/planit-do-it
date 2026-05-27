@@ -235,13 +235,8 @@ const JobDetailPage = () => {
         const existing = candidates.find(jc => jc.candidate_id === candidate.id);
         if (existing) continue;
 
-        const { data: matchData, error: matchError } = await supabase.functions.invoke('ai-match', {
-          body: {
-            jobDescription: job.description || '',
-            jobTitle: job.title,
-            candidateResume: candidate.summary || '',
-            candidateSkills: candidate.skills || []
-          }
+        const { data: matchData, error: matchError } = await supabase.functions.invoke('validate-candidate-fit', {
+          body: { job_id: job.id, candidate_id: candidate.id, force: true }
         });
 
         if (matchError) {
@@ -249,22 +244,26 @@ const JobDetailPage = () => {
           continue;
         }
 
+        const v = (matchData as any)?.validation ?? matchData;
+        if (!v) continue;
+
         const { error: insertError } = await supabase
           .from('job_candidates')
           .insert({
             job_id: job.id,
             candidate_id: candidate.id,
             tenant_id: tenantId,
-            match_score: matchData.score || 0,
-            match_strengths: matchData.strengths || [],
-            match_gaps: matchData.gaps || [],
-            match_explanation: matchData.explanation || '',
-            match_confidence: matchData.confidence || 0,
+            match_score: v.fit_score ?? 0,
+            match_strengths: Array.isArray(v.strengths) ? v.strengths : [],
+            match_gaps: Array.isArray(v.weaknesses) ? v.weaknesses : [],
+            match_explanation: v.summary ?? '',
+            match_confidence: null,
             matched_at: new Date().toISOString(),
             stage: 'applied'
           });
 
         if (!insertError) matchedCount++;
+
       }
 
       toast.success(`AI Match completed! ${matchedCount} new candidates matched.`);
