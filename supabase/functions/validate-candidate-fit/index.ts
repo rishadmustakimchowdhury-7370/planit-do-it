@@ -350,11 +350,14 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     const fit_score = canonicalScore != null ? canonicalScore : 0;
     const canonicalRec = recommendationFromScore(fit_score);
     const aiRec = normalizeRecLabel(parsed.recommendation);
-    const BAND_ORDER: RecLabel[] = ["not_suitable","limited_alignment","moderate_fit","recommended","strong_match"];
-    const canonicalIdx = BAND_ORDER.indexOf(canonicalRec === "needs_review" ? "limited_alignment" : canonicalRec);
+    const BAND_ORDER: RecLabel[] = ["reject","weak_match","needs_validation","transferable_match","recommended","strong_match"];
+    const normalizeLegacy = (r: RecLabel): RecLabel =>
+      r === "not_suitable" || r === "limited_alignment" ? "weak_match" :
+      r === "moderate_fit" || r === "needs_review" ? "needs_validation" : r;
+    const canonicalIdx = BAND_ORDER.indexOf(normalizeLegacy(canonicalRec));
     let chosenIdx = canonicalIdx;
-    if (aiRec && aiRec !== "needs_review") {
-      const aiIdx = BAND_ORDER.indexOf(aiRec);
+    if (aiRec) {
+      const aiIdx = BAND_ORDER.indexOf(normalizeLegacy(aiRec));
       if (aiIdx >= 0) {
         // Allow upgrade of at most 1 tier, capped at "recommended" unless canonical already says higher.
         const upgradeCap = Math.max(canonicalIdx, BAND_ORDER.indexOf("recommended"));
