@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeMatchScore, MODEL_VERSION } from "../_shared/match-scoring.ts";
 import { softenLanguage, softenList } from "../_shared/recruiter-language.ts";
 import { VALIDATION_SYSTEM_PROMPT } from "../_shared/validation-prompt.ts";
+import { loadRecruiterMemory, renderMemoryForPrompt } from "../_shared/recruiter-memory.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
