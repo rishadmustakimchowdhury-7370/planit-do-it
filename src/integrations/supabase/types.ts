@@ -74,6 +74,7 @@ export type Database = {
           match_classification: string | null
           model: string | null
           override_divergence: boolean | null
+          placement_calibration: Json | null
           recommendation: string | null
           recruiter_copilot: Json | null
           recruiter_override: Json | null
@@ -101,6 +102,7 @@ export type Database = {
           match_classification?: string | null
           model?: string | null
           override_divergence?: boolean | null
+          placement_calibration?: Json | null
           recommendation?: string | null
           recruiter_copilot?: Json | null
           recruiter_override?: Json | null
@@ -128,6 +130,7 @@ export type Database = {
           match_classification?: string | null
           model?: string | null
           override_divergence?: boolean | null
+          placement_calibration?: Json | null
           recommendation?: string | null
           recruiter_copilot?: Json | null
           recruiter_override?: Json | null
@@ -682,6 +685,8 @@ export type Database = {
           job_id: string
           last_activity_at: string
           original_cv_url: string | null
+          outcome_recorded_at: string | null
+          outcome_status: string | null
           pack_components: Json
           pack_error: string | null
           pack_pdf_url: string | null
@@ -713,6 +718,8 @@ export type Database = {
           job_id: string
           last_activity_at?: string
           original_cv_url?: string | null
+          outcome_recorded_at?: string | null
+          outcome_status?: string | null
           pack_components?: Json
           pack_error?: string | null
           pack_pdf_url?: string | null
@@ -744,6 +751,8 @@ export type Database = {
           job_id?: string
           last_activity_at?: string
           original_cv_url?: string | null
+          outcome_recorded_at?: string | null
+          outcome_status?: string | null
           pack_components?: Json
           pack_error?: string | null
           pack_pdf_url?: string | null
@@ -1400,6 +1409,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_preference_profile: {
+        Row: {
+          client_org_id: string
+          confidence: string
+          id: string
+          preferences: Json
+          refreshed_at: string
+          sample_size: number
+          tenant_id: string
+        }
+        Insert: {
+          client_org_id: string
+          confidence?: string
+          id?: string
+          preferences?: Json
+          refreshed_at?: string
+          sample_size?: number
+          tenant_id: string
+        }
+        Update: {
+          client_org_id?: string
+          confidence?: string
+          id?: string
+          preferences?: Json
+          refreshed_at?: string
+          sample_size?: number
+          tenant_id?: string
+        }
+        Relationships: []
       }
       client_user_permissions: {
         Row: {
@@ -3216,6 +3255,54 @@ export type Database = {
           },
         ]
       }
+      outcome_learning_signals: {
+        Row: {
+          client_org_id: string | null
+          confidence: string
+          human_basis: string | null
+          id: string
+          last_observed_at: string
+          recruiter_id: string | null
+          refreshed_at: string
+          sample_size: number
+          scope: string
+          signal_key: string
+          signal_type: string
+          tenant_id: string
+          weight: number
+        }
+        Insert: {
+          client_org_id?: string | null
+          confidence?: string
+          human_basis?: string | null
+          id?: string
+          last_observed_at?: string
+          recruiter_id?: string | null
+          refreshed_at?: string
+          sample_size?: number
+          scope: string
+          signal_key: string
+          signal_type: string
+          tenant_id: string
+          weight?: number
+        }
+        Update: {
+          client_org_id?: string | null
+          confidence?: string
+          human_basis?: string | null
+          id?: string
+          last_observed_at?: string
+          recruiter_id?: string | null
+          refreshed_at?: string
+          sample_size?: number
+          scope?: string
+          signal_key?: string
+          signal_type?: string
+          tenant_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number | null
@@ -3273,6 +3360,54 @@ export type Database = {
           status?: string | null
           stripe_session_id?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      placement_outcomes: {
+        Row: {
+          ai_validation_id: string | null
+          candidate_id: string
+          client_org_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          outcome_reason: string | null
+          outcome_reason_category: string | null
+          outcome_type: string
+          recorded_by: string | null
+          source: string
+          submission_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          ai_validation_id?: string | null
+          candidate_id: string
+          client_org_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          outcome_reason?: string | null
+          outcome_reason_category?: string | null
+          outcome_type: string
+          recorded_by?: string | null
+          source?: string
+          submission_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          ai_validation_id?: string | null
+          candidate_id?: string
+          client_org_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          outcome_reason?: string | null
+          outcome_reason_category?: string | null
+          outcome_type?: string
+          recorded_by?: string | null
+          source?: string
+          submission_id?: string | null
+          tenant_id?: string
         }
         Relationships: []
       }
@@ -5273,6 +5408,10 @@ export type Database = {
       promote_to_super_admin: {
         Args: { user_email: string }
         Returns: undefined
+      }
+      recruiter_intelligence_summary: {
+        Args: { _tenant_id: string }
+        Returns: Json
       }
       respond_to_submission: {
         Args: { _decision: string; _submission_id: string }
