@@ -63,15 +63,24 @@ serve(async (req) => {
       });
     }
 
-    // Forward to OpenAI Whisper (gpt-4o-mini-transcribe is recommended; fall back to whisper-1)
+    // Whisper supports 50+ languages with auto-detection.
+    // mode=transcribe → keep original language (use `language` hint to improve accuracy, e.g. "bn" for Bangla)
+    // mode=translate  → always returns English text (works from Bangla, Hindi, Spanish, Arabic, etc.)
+    const mode = String(form.get("mode") || "transcribe").trim().toLowerCase();
+    const language = String(form.get("language") || "").trim();
+
     const oaForm = new FormData();
     oaForm.append("file", file, file.name || "voice-note.webm");
     oaForm.append("model", "whisper-1");
     oaForm.append("response_format", "json");
-    const language = String(form.get("language") || "").trim();
-    if (language) oaForm.append("language", language);
 
-    const oaRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    const endpoint = mode === "translate"
+      ? "https://api.openai.com/v1/audio/translations"
+      : "https://api.openai.com/v1/audio/transcriptions";
+    // language hint only applies to transcriptions endpoint
+    if (mode !== "translate" && language) oaForm.append("language", language);
+
+    const oaRes = await fetch(endpoint, {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: oaForm,

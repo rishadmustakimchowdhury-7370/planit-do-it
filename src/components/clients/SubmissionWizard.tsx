@@ -9,6 +9,7 @@ import { useLatestValidation, useValidateCandidateFit } from "@/hooks/useCandida
 import { useCreateSubmission } from "@/hooks/useSubmissionPack";
 import { AIValidationCard } from "@/components/clients/AIValidationCard";
 import { SubmissionWorkspace } from "@/components/clients/SubmissionWorkspace";
+import { VoiceNoteRecorder } from "@/components/matching/workspace/VoiceNoteRecorder";
 import { toast } from "sonner";
 
 interface Props {
@@ -121,15 +122,25 @@ export function SubmissionWizard({
               )}
 
               {step === 3 && (
-                <div className="space-y-3">
-                  <Label>Recruiter Notes (optional)</Label>
-                  <Textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Why is this candidate a great fit? Anything the client should know…"
-                    rows={8}
-                  />
-                  <p className="text-xs text-muted-foreground">You'll be able to edit this and the AI content in the next step.</p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Recruiter Notes (optional)</Label>
+                    <Textarea
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Why is this candidate a great fit? Anything the client should know…"
+                      rows={8}
+                    />
+                    <p className="text-xs text-muted-foreground">You'll be able to edit this and the AI content in the next step.</p>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                    <Label className="text-xs">Voice input · 50+ languages</Label>
+                    <VoiceNoteRecorder
+                      onAddTranscript={(text) =>
+                        setMessage((prev) => (prev?.trim() ? `${prev.trim()}\n${text}` : text))
+                      }
+                    />
+                  </div>
                 </div>
               )}
             </div>
