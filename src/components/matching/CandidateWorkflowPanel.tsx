@@ -456,6 +456,15 @@ export function CandidateWorkflowPanel({
                     />
                   </div>
                 </div>
+
+                {candidateId && (
+                  <div className="border rounded-lg p-3 space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Outcome capture
+                    </div>
+                    <OutcomeCaptureBar jobId={jobId} candidateId={candidateId} compact />
+                  </div>
+                )}
               </TabsContent>
 
               {/* CV */}
