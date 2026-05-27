@@ -482,20 +482,13 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       : [];
     const matchClassification = recommendation; // post-cap final decision is the SoT
 
-    // Compute current JD signature so this row is tied to the JD revision it was validated against
-    const jdSignaturePayload = [
-      job.title, job.description, job.requirements, job.location,
-      job.employment_type, job.experience_level,
-      Array.isArray(job.skills) ? JSON.stringify(job.skills) : (job.skills ?? ""),
-      job.jd_parsed_text ?? "",
-    ].map((v) => v ?? "").join("|");
-    // Lightweight hash (FNV-1a) — sufficient to match the DB md5 only by length/equality semantics
-    let jdSig = "";
+    // Pull the authoritative jd_signature from the DB so it matches the
+    // value the jobs trigger maintains (md5 of material JD fields).
+    let jdSig: string | null = null;
     try {
-      const enc = new TextEncoder().encode(jdSignaturePayload);
-      const hash = await crypto.subtle.digest("MD5", enc).catch(() => null);
-      if (hash) jdSig = Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-    } catch { /* leave empty */ }
+      const { data: sigRow } = await admin.from("jobs").select("jd_signature").eq("id", job_id).maybeSingle();
+      jdSig = (sigRow as any)?.jd_signature ?? null;
+    } catch { /* ignore */ }
 
     const insertRow = {
       tenant_id: job.tenant_id,
