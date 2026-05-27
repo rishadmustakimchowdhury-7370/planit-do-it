@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { OutcomeCaptureBar } from '@/components/clients/OutcomeCaptureBar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
