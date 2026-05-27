@@ -448,7 +448,42 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         chosenIdx = Math.min(Math.max(canonicalIdx, Math.min(aiIdx, canonicalIdx + 1)), upgradeCap);
       }
     }
-    const recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
+    let recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
+
+    // MANDATORY-GAP HARD CAP (post-processing).
+    // Even if the canonical hybrid score or the AI tries to upgrade the band,
+    // transferable / adjacent experience must NEVER override missing mandatory
+    // evidence. Count mandatory rows whose fit is WEAK or NOT MATCHED.
+    const mandatoryRows = mandate_match.filter((m: any) => m.kind === "mandatory");
+    const mandatoryMissing = mandatoryRows.filter((m: any) => m.fit === "WEAK" || m.fit === "NOT MATCHED");
+    const mandatoryCount = mandatoryRows.length;
+    const missRatio = mandatoryCount > 0 ? mandatoryMissing.length / mandatoryCount : 0;
+
+    const regulatedDomains = new Set([
+      "commodities_trading","banking_finance","oil_gas","aviation",
+      "healthcare","cybersecurity","legal_compliance",
+    ]);
+    const industryDomain = String(jdClassification?.industry_domain ?? parsed?.jd_classification?.industry_domain ?? "").toLowerCase();
+    const isRegulated = regulatedDomains.has(industryDomain);
+
+    const capBand = (target: RecLabel) => {
+      const ti = BAND_ORDER.indexOf(target);
+      const ci = BAND_ORDER.indexOf(recommendation);
+      if (ci > ti) recommendation = BAND_ORDER[ti];
+    };
+
+    if (mandatoryCount > 0) {
+      if (missRatio >= 0.5) capBand("limited_alignment");
+      else if (missRatio >= 0.3) capBand("moderate_fit");
+      else if (mandatoryMissing.length >= 1) capBand("recommended");
+      // Regulated industry + missing core pillar → never above limited_alignment
+      // unless there is at least one mandatory row at GOOD or better (adjacent anchor).
+      if (isRegulated && mandatoryMissing.length >= 1) {
+        const anchored = mandatoryRows.some((m: any) => ["GOOD","STRONG","EXCEEDS"].includes(m.fit));
+        capBand(anchored ? "moderate_fit" : "limited_alignment");
+      }
+    }
+
 
     // Derive missing_requirements from the mandate_match table as a fallback,
     // and merge anything the AI explicitly flagged. Soften all wording.
