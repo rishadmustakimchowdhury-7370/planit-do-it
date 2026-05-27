@@ -31,6 +31,9 @@ export type AICandidateValidation = {
   } | null;
   confidence?: "low" | "medium" | "high" | null;
   scoring_version?: string | null;
+  recruiter_copilot?: any | null;
+  recruiter_override?: { classification?: string; note?: string | null; recruiter_id?: string; at?: string } | null;
+  override_divergence?: boolean | null;
 };
 
 export function useLatestValidation(jobId?: string | null, candidateId?: string | null) {

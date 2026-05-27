@@ -7,6 +7,8 @@ import { useLatestValidation, useValidateCandidateFit, useAutoRevalidate } from 
 import { RecommendationBadge } from "@/components/matching/RecommendationBadge";
 import { clientSafeMeta, clientSafeSummary, recommendationMeta } from "@/lib/recommendation";
 import { formatDistanceToNow } from "date-fns";
+import { CopilotIntelligenceSection } from "./CopilotIntelligenceSection";
+import { useAuth } from "@/lib/auth";
 
 interface Props {
   jobId: string;
@@ -15,9 +17,12 @@ interface Props {
   canRegenerate?: boolean;
   /** When true, hide recruiter-only fields (reject band, blunt evidence, internal scores). */
   clientSafe?: boolean;
+  /** Surface label for contextual copilot ordering. */
+  copilotContext?: "validation" | "matching" | "submission";
 }
 
-export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = true, clientSafe = false }: Props) {
+export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = true, clientSafe = false, copilotContext = "validation" }: Props) {
+  const { tenantId } = useAuth();
   const { data: validation, isLoading } = useLatestValidation(jobId, candidateId);
   const { run, loading } = useValidateCandidateFit();
   const { staleInProgress } = useAutoRevalidate(validation);
@@ -191,6 +196,19 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Recruiter Review</p>
             <p className="text-sm text-foreground/90 italic">{(validation as any).recruiter_review}</p>
           </div>
+        )}
+
+        {!clientSafe && tenantId && (
+          <CopilotIntelligenceSection
+            copilot={(validation as any).recruiter_copilot ?? null}
+            context={copilotContext}
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+            aiClassification={String(rec ?? "")}
+            recruiterOverride={(validation as any).recruiter_override ?? null}
+            overrideDivergence={!!(validation as any).override_divergence}
+          />
         )}
       </CardContent>
     </Card>
