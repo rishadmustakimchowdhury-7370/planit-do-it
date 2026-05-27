@@ -302,11 +302,6 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
   return { final, confidence, sub, matched: skillRes.matched, missing: skillRes.missing, jobFamily, candFamily, jobRank, candRank };
 }
 
-// -------------------- AI EXPLANATIONS (no score) --------------------
-
-async function explainBatch(job: any, scored: Array<{ candidate: any; result: ReturnType<typeof computeScore> }>): Promise<Record<string, { strengths: string[]; gaps: string[]; summary: string }>> {
-  if (scored.length === 0) return {};
-// -------------------- AI RECRUITER RE-RANKER --------------------
 
 interface DiscoveryAIResult {
   candidate_id: string;
