@@ -1,0 +1,2 @@
+ALTER TABLE public.ai_candidate_validations DROP CONSTRAINT IF EXISTS ai_candidate_validations_recommendation_check;
+ALTER TABLE public.ai_candidate_validations ADD CONSTRAINT ai_candidate_validations_recommendation_check CHECK (recommendation = ANY (ARRAY['strong_match'::text,'recommended'::text,'moderate_fit'::text,'limited_alignment'::text,'not_suitable'::text,'needs_review'::text,'strongly_recommended'::text,'not_recommended'::text,'highly_recommended'::text]));
