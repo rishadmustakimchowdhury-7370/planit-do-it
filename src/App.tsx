@@ -204,6 +204,8 @@ const AppRoutes = () => (
       <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />
       <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
       <Route path="/events/:id" element={<ProtectedRoute><EventDetailPage /></ProtectedRoute>} />
+      <Route path="/recruiter-intelligence" element={<ProtectedRoute><RecruiterIntelligencePage /></ProtectedRoute>} />
+      
       
       {/* Super Admin routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
