@@ -306,39 +306,61 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
 
 async function explainBatch(job: any, scored: Array<{ candidate: any; result: ReturnType<typeof computeScore> }>): Promise<Record<string, { strengths: string[]; gaps: string[]; summary: string }>> {
   if (scored.length === 0) return {};
-  const payload = scored.map(({ candidate: c, result: r }) => ({
+// -------------------- AI RECRUITER RE-RANKER --------------------
+
+interface DiscoveryAIResult {
+  candidate_id: string;
+  discovery_classification: DiscoveryClassification;
+  interview_probability: number;
+  summary: string;
+  why_ranked: string[];
+  functional_ownership: string[];
+  ecosystem_signals: { company: string; industry: string; tier: "tier1" | "tier2" }[];
+  strengths: string[];
+  gaps: string[];
+}
+
+async function rerankBatch(
+  job: any,
+  scored: Array<{ candidate: any; result: ReturnType<typeof computeScore>; detectedEcosystem: DetectedEcosystem[] }>,
+): Promise<Record<string, DiscoveryAIResult>> {
+  if (scored.length === 0) return {};
+
+  // Build rich payload — the AI needs real evidence, not just titles.
+  const payload = scored.map(({ candidate: c, result: r, detectedEcosystem }) => ({
     id: c.id,
     name: c.full_name,
-    title: c.current_title,
-    score: r.final,
-    matched_skills: r.matched.slice(0, 8),
-    missing_skills: r.missing.slice(0, 8),
-    role_family: r.candFamily,
-    job_family: r.jobFamily,
-    is_adjacent_family: !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
-      (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily)),
+    current_title: c.current_title,
+    location: c.location,
     experience_years: c.experience_years,
+    summary: (c.summary ?? "").slice(0, 1200),
+    skills: toArray(c.skills).slice(0, 25),
+    detected_ecosystem_employers: detectedEcosystem,
+    deterministic_score: r.final,
+    keyword_matched: r.matched.slice(0, 10),
+    keyword_missing: r.missing.slice(0, 10),
+    role_family: r.candFamily,
   }));
 
-  const system = `You write short, recruiter-grade match explanations. Be specific and proportional — like an experienced technical recruiter, NOT a binary ATS filter.
+  const user = `JOB
+Title: ${job.title}
+Industry/Domain hint: ${job.description?.slice(0, 200) ?? ""}
+Required skills: ${toArray(job.skills).slice(0, 15).join(", ")}
+Seniority hint: ${job.experience_level ?? "unspecified"}
+Location: ${job.location ?? "unspecified"}
+Description (truncated):
+${(job.description ?? "").slice(0, 2500)}
 
-LANGUAGE RULES (critical):
-- NEVER write "No matched skills", "No relevant skills", "Not qualified", or "Unrelated profile" unless role_family is set AND is_adjacent_family is false AND it's a clearly different domain (e.g. sales vs engineering).
-- For adjacent-family candidates (backend applying for fullstack, frontend applying for fullstack, devops for backend, etc.), describe gaps as transferable-but-unproven:
-    "Limited frontend evidence", "Partial alignment with full-stack scope",
-    "Backend-heavy profile", "Frontend production depth unclear",
-    "Advanced React ownership not evident", "Requires technical validation on UI depth".
-- For same-family candidates with thin skill overlap, use: "Stack overlap partial", "Specific tooling not evidenced", "Requires technical validation".
-- Strengths must reflect real evidence in the candidate's title / family / years; do not invent skills.
-- Summary: 1-2 sentences, proportional tone. A partially aligned engineer is "moderate fit", not "not suitable". Do not quote the score.
+Detected job family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}
 
-DO NOT change the score. Return ONLY through the provided tool.`;
-  const user = `JOB: ${job.title}\nRequired skills: ${toArray(job.skills).slice(0, 12).join(", ")}\nJob family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}\n\nCANDIDATES (with their deterministic scores):\n${JSON.stringify(payload)}`;
+CANDIDATES (prefiltered by deterministic engine; YOU re-rank by recruiter realism):
+${JSON.stringify(payload)}`;
 
   const tool = {
     type: "function",
     function: {
-      name: "write_explanations",
+      name: "rerank_shortlist",
+      description: "Return recruiter-grade discovery ranking for each candidate.",
       parameters: {
         type: "object",
         properties: {
@@ -348,11 +370,30 @@ DO NOT change the score. Return ONLY through the provided tool.`;
               type: "object",
               properties: {
                 candidate_id: { type: "string" },
-                summary: { type: "string", description: "1-2 sentence recruiter-facing summary, no score numbers" },
+                discovery_classification: {
+                  type: "string",
+                  enum: ["strong_shortlist","recommended_shortlist","transferable_shortlist","adjacent_ecosystem","needs_validation","low_relevance"],
+                },
+                interview_probability: { type: "integer", minimum: 0, maximum: 100 },
+                summary: { type: "string", description: "1-2 sentence recruiter summary, proportional tone, no score numbers." },
+                why_ranked: { type: "array", items: { type: "string" }, maxItems: 4, description: "Evidence-backed recruiter-trust bullets." },
+                functional_ownership: { type: "array", items: { type: "string" }, maxItems: 5 },
+                ecosystem_signals: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      company: { type: "string" },
+                      industry: { type: "string" },
+                      tier: { type: "string", enum: ["tier1","tier2"] },
+                    },
+                    required: ["company","industry","tier"],
+                  },
+                },
                 strengths: { type: "array", items: { type: "string" }, maxItems: 3 },
                 gaps: { type: "array", items: { type: "string" }, maxItems: 3 },
               },
-              required: ["candidate_id", "summary", "strengths", "gaps"],
+              required: ["candidate_id","discovery_classification","interview_probability","summary","why_ranked","functional_ownership","ecosystem_signals","strengths","gaps"],
             },
           },
         },
@@ -367,14 +408,17 @@ DO NOT change the score. Return ONLY through the provided tool.`;
     body: JSON.stringify({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      messages: [
+        { role: "system", content: DISCOVERY_SYSTEM_PROMPT },
+        { role: "user", content: user },
+      ],
       tools: [tool],
-      tool_choice: { type: "function", function: { name: "write_explanations" } },
+      tool_choice: { type: "function", function: { name: "rerank_shortlist" } },
     }),
   });
   if (!resp.ok) {
     const txt = await resp.text();
-    console.error("OpenAI explain error:", resp.status, txt);
+    console.error("OpenAI rerank error:", resp.status, txt);
     if (resp.status === 429) throw new Error("RATE_LIMIT");
     if (resp.status === 402) throw new Error("CREDITS_EXHAUSTED");
     return {};
@@ -384,14 +428,15 @@ DO NOT change the score. Return ONLY through the provided tool.`;
   if (!call) return {};
   try {
     const args = JSON.parse(call.function.arguments);
-    const map: Record<string, any> = {};
+    const map: Record<string, DiscoveryAIResult> = {};
     for (const r of (args.results ?? [])) map[r.candidate_id] = r;
     return map;
   } catch (e) {
-    console.error("Failed to parse explain args:", e);
+    console.error("Failed to parse rerank args:", e);
     return {};
   }
 }
+
 
 // -------------------- EMBEDDINGS (prefilter only) --------------------
 
