@@ -18,9 +18,12 @@ import { cn } from '@/lib/utils';
 import {
   Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin,
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
+  Building2, Target, TrendingUp,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
+import { DISCOVERY_META, discoveryMeta } from '@/lib/discovery';
+import type { DiscoveryClassification } from '@/hooks/useRediscoveredMatches';
 
 interface RediscoveredTalentSectionProps {
   jobId: string;
@@ -29,6 +32,7 @@ interface RediscoveredTalentSectionProps {
 }
 
 import { scoreToRecommendation } from '@/lib/recommendation';
+
 
 // Recommendation rank for filtering — higher = stronger
 const REC_RANK: Record<string, number> = {
