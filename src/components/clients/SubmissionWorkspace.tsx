@@ -38,6 +38,9 @@ type PackStatus = "idle" | "generating" | "ready" | "failed";
 
 interface SubmissionRow {
   id: string;
+  job_id: string | null;
+  candidate_id: string | null;
+  ai_validation_id: string | null;
   pack_pdf_url: string | null;
   pack_status: PackStatus;
   pack_error: string | null;
