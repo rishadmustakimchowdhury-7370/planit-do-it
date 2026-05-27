@@ -278,14 +278,8 @@ export function JobAIMatchSection({
         if (insertError) throw insertError;
       }
 
-      // Update local state
-      setMatchResult({
-        match_score: matchData.match_score,
-        match_strengths: matchData.match_strengths,
-        match_gaps: matchData.match_gaps,
-        match_explanation: matchData.match_explanation,
-        match_confidence: matchData.match_confidence
-      });
+      // Update local state with unified validation result (includes recommendation)
+      setMatchResult(localResult);
 
       // Log activity for usage tracking
       await logActivity({
