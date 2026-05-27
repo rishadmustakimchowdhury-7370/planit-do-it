@@ -442,7 +442,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       /\bsolid alignment\b/i, /\bgood suitability\b/i, /\bdeep experience\b/i,
       /\bextensive experience\b/i,
     ];
-    const LOW_BANDS = new Set(["limited_alignment", "not_suitable"]);
+    const LOW_BANDS = new Set(["weak_match", "reject", "limited_alignment", "not_suitable"]);
     let cleanedSummary: string | null = parsed.summary ? softenLanguage(String(parsed.summary).trim()) : null;
     if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
       const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
