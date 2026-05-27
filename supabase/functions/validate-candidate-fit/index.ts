@@ -232,8 +232,12 @@ serve(async (req) => {
         m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
-      // Also invalidate if the stored recommendation is still on the old 3-tier system.
-      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(String((existing as any)?.recommendation ?? ""));
+      // Also invalidate if the stored row is missing the new five-band taxonomy
+      // or jd_classification sidecar (older rows from before this engine update).
+      const recStr = String((existing as any)?.recommendation ?? "");
+      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(recStr);
+      const hasJdClassification = hasMandate && (existing as any).mandate_match.some((m: any) => m?.__kind === "jd_classification");
+      const needsRefresh = legacyRec || !hasJdClassification;
       if (existing && hasMandate && !inflated && !legacyRec && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
