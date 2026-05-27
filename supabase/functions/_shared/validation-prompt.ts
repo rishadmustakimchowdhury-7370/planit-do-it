@@ -67,7 +67,26 @@ EVIDENCE CLASSIFICATION (three tiers):
   • MEDIUM EVIDENCE — adjacent/transferable exposure, partial workflow overlap, supporting involvement, transferable domain knowledge. MEDIUM caps at GOOD.
   • LOW EVIDENCE — keyword-only mention, generic summary, tool listed without ownership, buzzword without execution. LOW caps at PARTIAL — usually WEAK.
 
-MATCH TAXONOMY for every mandatory requirement: Direct Match | Adjacent Match | Transferable Match | Unrelated Profile. Examples: Backend → Full Stack = Adjacent; Trader → Compliance = Transferable only; Risk → Compliance = Partial adjacent; Chef → DevOps = Unrelated.
+HIGH-VALUE COMPLIANCE EVIDENCE AUTO-MAP (MANDATORY). When the CV explicitly contains ANY of: "AML", "AML-KYC", "KYC", "CDD", "Customer Due Diligence", "EDD", "Enhanced Due Diligence", "Transaction Monitoring", "Suspicious Transaction Report", "STR", "SAR", "Sanctions Screening", "Financial Crime", "Regulatory Compliance", "FATF", "OFAC", "MLRO", "Compliance Monitoring", "Regulatory Reporting" — the corresponding AML / KYC / CTF / Financial Crime / Regulatory Compliance requirement MUST be rated at minimum GOOD (HIGH evidence when ownership verbs are present: "performed", "led", "managed", "investigated", "reviewed", "owned", "executed"; otherwise GOOD). It MUST NEVER be rated WEAK or NOT MATCHED. This applies regardless of target industry — compliance ownership is portable across regulated industries.
+
+EDUCATION NORMALIZATION (MANDATORY — never mark education WEAK due to title-string mismatch). Map CV degrees to JD requirement families:
+  • B.Com / Bachelor of Commerce → Business + Finance + Commerce degree (satisfies "Business / Finance / Economics / Commerce / Accounting" JD requirements).
+  • BBA / Bachelor of Business Administration → Business degree.
+  • MBA → Business / Management degree.
+  • B.A. Economics / B.Sc Economics / M.A. Economics → Economics degree.
+  • B.Com Accounting / CA / CPA / ACCA → Finance / Accounting degree.
+  • B.Com Finance / M.Com Finance / MSc Finance → Finance degree.
+  • LLB / JD / LLM → Law degree.
+  • B.Eng / B.Tech / BSc Engineering → Engineering degree.
+  • B.Sc Computer Science / BCA / MCA → Computer Science / IT degree.
+If the JD asks for "Bachelor's in Law, Finance, Economics, Business or related field" and the CV shows B.Com / BBA / MBA / Economics / Commerce / Accounting / Finance / Law → mark STRONG (HIGH evidence). Never output "No clear evidence found in CV" for a degree that is present under a normalized synonym.
+
+INDUSTRY EXPOSURE vs FUNCTIONAL OWNERSHIP — SEPARATE THESE. Always distinguish:
+  • Functional ownership of the discipline (e.g., compliance, AML, KYC, risk, audit, treasury) — portable across regulated industries.
+  • Industry-specific exposure (e.g., commodities trading, maritime, oil & gas, aviation) — requires direct sector experience.
+A candidate with strong functional ownership in a DIFFERENT regulated industry is a "transferable regulated-industry professional", NOT a "weak compliance profile". Phrase accordingly: "Transferable compliance professional with adjacent regulated-industry experience, but limited direct <target-industry> exposure." For such profiles in strict industries the band lands at MODERATE_FIT or RECOMMENDED (one band lower than direct-industry equivalent), NEVER limited_alignment or not_suitable solely because the sector differs.
+
+MATCH TAXONOMY for every mandatory requirement: Direct Match | Adjacent Match | Transferable Match | Unrelated Profile. Examples: Backend → Full Stack = Adjacent; Banking-AML compliance → Commodities-AML compliance = Transferable (regulated-industry portable); Risk → Compliance = Partial adjacent; Chef → DevOps = Unrelated.
 
 STRICT-INDUSTRY LOGIC. The following industries require DIRECT evidence and transferable exposure ALONE must NEVER generate "highly_recommended", "recommended" or any "strong match" framing:
 Compliance · AML / KYC · Legal · Cybersecurity · Quant · Aviation Safety · Government Security · Medicine · Nuclear · Regulatory Risk · Aviation Maintenance (CAMO/EASA/FAA) · Maritime Class Surveys · Pharma Regulatory.
