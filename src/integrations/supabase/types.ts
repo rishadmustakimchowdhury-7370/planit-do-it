@@ -3595,10 +3595,14 @@ export type Database = {
           candidate_id: string
           confidence: string
           created_at: string
+          discovery_classification: string | null
           dismissed: boolean
+          ecosystem_signals: Json | null
+          functional_ownership: Json | null
           gaps: Json
           id: string
           insights: Json
+          interview_probability: number | null
           job_id: string
           match_score: number
           model_version: string
@@ -3607,6 +3611,7 @@ export type Database = {
           sub_scores: Json
           tenant_id: string
           updated_at: string
+          why_ranked: Json | null
         }
         Insert: {
           ai_score?: number | null
@@ -3614,10 +3619,14 @@ export type Database = {
           candidate_id: string
           confidence?: string
           created_at?: string
+          discovery_classification?: string | null
           dismissed?: boolean
+          ecosystem_signals?: Json | null
+          functional_ownership?: Json | null
           gaps?: Json
           id?: string
           insights?: Json
+          interview_probability?: number | null
           job_id: string
           match_score?: number
           model_version?: string
@@ -3626,6 +3635,7 @@ export type Database = {
           sub_scores?: Json
           tenant_id: string
           updated_at?: string
+          why_ranked?: Json | null
         }
         Update: {
           ai_score?: number | null
@@ -3633,10 +3643,14 @@ export type Database = {
           candidate_id?: string
           confidence?: string
           created_at?: string
+          discovery_classification?: string | null
           dismissed?: boolean
+          ecosystem_signals?: Json | null
+          functional_ownership?: Json | null
           gaps?: Json
           id?: string
           insights?: Json
+          interview_probability?: number | null
           job_id?: string
           match_score?: number
           model_version?: string
@@ -3645,6 +3659,7 @@ export type Database = {
           sub_scores?: Json
           tenant_id?: string
           updated_at?: string
+          why_ranked?: Json | null
         }
         Relationships: [
           {
