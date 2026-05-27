@@ -1,103 +1,92 @@
-# Submission Operating Workflow — Redesign Plan
 
-Goal: Replace the current "Done" dead-end with a full **Submission Review & Delivery Workspace** that lets the recruiter preview, customize, combine, invite, and send — all without leaving the flow. Errors must never leak to the user.
+# Unified Recruiter-Grade AI Validation Engine
 
----
-
-## Phase 1 — Database & Storage (migration)
-
-New columns on `candidate_submissions`:
-- `recruiter_summary text`, `recruiter_strengths text[]`, `recruiter_considerations text[]`, `recruiter_recommendation text` — recruiter-edited overrides for AI content (PDF prefers these when present).
-- `pack_components jsonb` — `{ ai_report: bool, branded_cv: bool, original_cv: bool, attachments: [{path,name}] }`.
-- `pack_status text` default `'idle'` — `idle | generating | ready | failed`.
-- `pack_error text` (internal only, never shown).
-- `draft_state jsonb` — autosave snapshot.
-- `sent_at timestamptz`.
-
-New table `submission_pack_versions` (id, submission_id, version int, path, components jsonb, created_at, created_by) — every regenerate creates a new version; latest is shown.
-
-Storage: ensure `submission-packs` bucket exists (private) + `submission-attachments` bucket for extra recruiter uploads.
-
-RLS: tenant-scoped read/write for owner/manager/recruiter; client recipients read-only via existing `submission_recipients` join.
+Goal: one brain (`validate-candidate-fit`) feeds every AI surface — AI Match page, candidate cards, validation modal, submission pack, executive PDF, client portal. Same candidate → same recommendation, same wording, every screen.
 
 ---
 
-## Phase 2 — Edge function hardening (`generate-submission-pack`)
+## Phase 1 — JD Classification (Step 1 of PRD)
 
-- Wrap entire handler in try/catch → always return `{ status: 'failed', user_message }` with **200** so the client never sees "non-2xx".
-- Set `pack_status='generating'` immediately, return early with job id, then continue work (background-style). On finish, update `pack_status='ready'` + insert into `submission_pack_versions`.
-- Accept `components` payload → only merges selected docs (AI report PDF + branded CV PDF + original CV PDF using `pdf-lib` merge).
-- Use recruiter overrides if set, fall back to AI fields. Pull authoritative score from `rediscovered_matches` (already wired).
-- Idempotent: if called twice, return latest ready version.
+Extend `validate-candidate-fit` so the AI first emits a structured JD breakdown before scoring:
 
-New edge function `merge-submission-pack` (optional thin wrapper) for re-combining without regenerating the AI report.
+- `mandatory_requirements[]` — blocking core skills (e.g. React, REST, SQL).
+- `preferred_requirements[]` — nice-to-have (Docker, AWS, CI/CD). Missing → light penalty only.
+- `transferable_families[]` — adjacency map (Backend↔Fullstack, Java↔Python, DevOps↔Backend).
+- `seniority_target` — junior / mid / senior / lead.
 
----
+Cache the JD breakdown per `job_id` in a new `job_jd_analysis` table so it's reused across candidates and consumers (no re-parsing per call).
 
-## Phase 3 — Frontend: rewrite `SubmissionWizard.tsx`
+## Phase 2 — Evidence-Led Candidate Analysis (Step 2)
 
-Keep steps 1–3 (Client / Validation / Notes). Replace step 4 with **`SubmissionWorkspace`** (full-screen dialog, split layout).
+Tighten the system prompt + scoring shared module:
 
-### Left pane — Live Preview
-- Tabs: `AI Report` · `Branded CV` · `Original CV` · `Combined Pack`.
-- `<iframe>` of signed URL for each artifact (PDF.js native preview gives zoom/scroll/page nav for free).
-- Skeleton + spinner while `pack_status='generating'`. Poll `candidate_submissions` row every 2s via Supabase realtime/subscription.
-- Toolbar: Download, Open in new tab, Regenerate.
+- Classify every requirement as HIGH / MEDIUM / LOW evidence using the existing hierarchy, but driven explicitly by mandatory vs preferred.
+- Reward production ownership, architecture, deployments, measurable impact, years on stack.
+- Demote pure keyword lists / generic summaries.
+- Apply transferable-family bonus only to *adjacent* mandatory gaps, never to fabricate STRONG.
 
-### Right pane — Controls (accordion sections)
-1. **Pack Composition** — 3 toggles (AI Report / Branded CV / Original CV) + "Rebuild Pack" button (calls merge function, updates preview).
-2. **Edit AI Content** — inline editors for recommendation, summary, strengths (chip list), considerations (chip list). "Save & Regenerate" rebuilds the AI Report PDF only.
-3. **Recruiter Message** — textarea (autosaves to `draft_state`).
-4. **Client Recipients** — multi-select existing client users for this `client_org_id` + "Invite new contact" inline form (name/email/role) → reuses existing `invite-client-user` function, attaches as recipient on success.
-5. **Portal Access** — per-recipient visibility toggle (job / candidate / submission scope), persisted to `submission_recipients`.
-6. **Send Submission** — primary CTA at bottom. Disabled until ≥1 recipient + pack ready.
+## Phase 3 — Recruiter Notes Weighting (Step 3)
 
-### Confirmation screen
-On send success → replace workspace content with branded confirmation: submission ID, recipient list with avatars, sent timestamp, package summary (which docs included, # pages), and 2 CTAs: "Open Client Portal Preview" / "Track Submission".
+Notes already flow into the engine; formalize their effect:
 
----
+- AI must produce a `recruiter_notes_impact[]` array (what shifted, in which direction, by how much).
+- Allowed to upgrade band by at most one tier when notes provide concrete off-CV evidence (e.g. "frontend exposure outside CV", "currently leading team").
+- Never upgrade past `recommended` purely from notes without CV anchor.
 
-## Phase 4 — Resilience & UX polish
+## Phase 4 — Recommendation Engine (Step 4) — Single Taxonomy
 
-- **Autosave**: every form change → debounced upsert to `candidate_submissions.draft_state`. On reopen, hydrate from draft.
-- **Error handling**: all `supabase.functions.invoke` calls wrapped → toast shows friendly copy ("Package generation temporarily failed. Retry?") with a Retry button. Never surface raw error strings.
-- **Background generation**: workspace opens immediately with skeleton; generation runs server-side; UI subscribes to status.
-- **Activity logging**: every meaningful action (pack generated, recruiter edited content, CV attached, client invited, submission sent, viewed by client) inserts into `submission_activities` with the correct `actor_type` (now safe after the constraint fix).
+Lock the platform to five bands, no numeric % anywhere user-facing:
 
----
+`highly_recommended | recommended | moderate_fit | limited_alignment | not_suitable`
 
-## Phase 5 — Client notification & portal touch-ups
+Migrate `strong_match` → `highly_recommended`, remove `needs_review` from UI (kept only as internal fallback when AI fails). Update `src/lib/recommendation.ts` + `RecommendationBadge` + all filters/sorts/labels.
 
-- On Send: invoke existing transactional email pipeline with a new template `submission-shared` (premium branded, candidate summary, recruiter note, secure review button → signed portal URL).
-- Client portal already exists (`ClientSubmissionsPage`) — add the new tabs (AI Report / Branded CV / Original CV / Combined) mirroring recruiter preview, plus engagement actions (already partially present: approve / interview / reject) and view/download tracking insert into `submission_activities`.
+## Phase 5 — Executive-Search Language Layer (Step 5)
 
----
+Add a post-processing language guardrail in the edge function:
 
-## Phase 6 — Engagement tracking
+- Banned phrases regex: "lacks", "weak candidate", "not qualified", "missing experience", "no matched skills".
+- Replacement bank: "may benefit from technical validation", "appears limited in the provided CV", "additional discussion recommended", "production ownership should be explored during interview".
+- Applied to `summary`, `considerations`, `risks`, `missing_requirements`, `recruiter_review` before persisting.
 
-Recipient events already partially logged. Add:
-- `viewed_at`, `downloaded_at`, `last_action_at` on `submission_recipients` (migration).
-- Realtime subscription on workspace right pane → live "Activity" mini-feed under recipients (e.g. "Sarah viewed · 2m ago", "Downloaded Combined Pack").
+## Phase 6 — One-Brain Wiring (Most Important Rule)
 
----
+Audit every consumer and force them to render from the same `ai_candidate_validations` row:
 
-## Phase 7 — QA checklist
+- `AIValidationCard`, `RediscoveredTalentSection`, `JobAIMatchSection`, `AIMatchPage` (already migrated) — confirmed reading recommendation only.
+- `generate-submission-pack` + `brand-cv` + executive PDF — pull recommendation, summary, mandate_match, strengths, considerations from the same row instead of re-prompting.
+- `ClientCandidateSlideOver`, `SubmissionWorkspace`, `PublicCandidateSharePage` — same source.
+- Delete or hard-deprecate the old `ai-match` edge function (frontend already migrated last turn) so no future surface can call it.
 
-- Generate pack → preview renders in <5s, recruiter edits summary, regenerates, sees update.
-- Toggle off Original CV → Combined Pack rebuilds without it.
-- Invite brand-new client contact → appears in recipients list → email sent.
-- Close & reopen wizard → draft restored.
-- Force edge function failure → user sees friendly retry, no red error.
-- Send → confirmation screen → client receives email → opens portal → recruiter sees "viewed" event live.
+## Phase 7 — Executive PDF Polish
+
+One-page, dark navy, premium layout sections in this fixed order:
+
+1. Recommendation pill + 2–3 sentence executive summary.
+2. JD Alignment table (mandatory rows first, preferred rows after, fit chips).
+3. Transferable Strengths (lead — evidence).
+4. Interview Focus Areas (replaces "Gaps"/"Considerations").
+5. Recruiter Observations (notes impact + closing paragraph).
+
+Reuse the same component data already returned by `validate-candidate-fit`; no separate AI call.
 
 ---
 
-## Technical notes (for the agent)
+## Technical Notes
 
-- Use `pdf-lib` (already in `generate-submission-pack`) `PDFDocument.copyPages` for merging.
-- Preview uses native browser PDF viewer in `<iframe src={signedUrl}>` — no extra deps.
-- Realtime: `supabase.channel('submission:'+id).on('postgres_changes', ...)` on `candidate_submissions` row.
-- Split layout: `ResizablePanelGroup` (already in ui kit).
-- All new UI uses semantic tokens from `index.css` — no hardcoded colors.
+- **DB**: new `job_jd_analysis` table (job_id PK, mandatory jsonb, preferred jsonb, transferable jsonb, seniority text, model_version text, created_at). Migration + GRANTs + RLS via tenant scope.
+- **Schema additions to `ai_candidate_validations`**: `jd_classification jsonb`, `recruiter_notes_impact jsonb`, `language_sanitized boolean`.
+- **Edge functions touched**: `validate-candidate-fit` (engine), new `analyze-job-requirements` (JD step, callable on demand + on job create/edit), `generate-submission-pack` (consume row only), `brand-cv` (consume row only). Delete `ai-match`.
+- **Frontend touched**: `src/lib/recommendation.ts`, `RecommendationBadge`, `AIValidationCard`, `RediscoveredTalentSection`, `JobAIMatchSection`, `AIMatchPage`, submission/exec PDF components, client portal candidate views.
+- **Language guardrail**: shared helper `_shared/recruiter-language.ts` used by validation + submission pack.
+- **Caching**: keep canonical `match_score` (internal) for hard ceilings; never surface it.
 
-No new secrets required. No new third-party packages required.
+## Out of Scope (Confirm Before Building)
+
+- Re-training or fine-tuning models.
+- Changing scoring math in `_shared/match-scoring.ts` (recalibrated last turn).
+- Client-portal redesign beyond label/wording alignment.
+
+---
+
+Reply **approve** to proceed phase-by-phase, or tell me which phases to cut/reorder.
