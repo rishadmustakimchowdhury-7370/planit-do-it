@@ -530,6 +530,22 @@ export function SubmissionWorkspace({
                   <SubmissionActivityTimeline submissionId={submissionId} />
                 </AccordionContent>
               </AccordionItem>
+
+              {row?.job_id && row?.candidate_id && (
+                <div className="border rounded-lg px-3 py-3">
+                  <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Outcome capture
+                  </div>
+                  <OutcomeCaptureBar
+                    jobId={row.job_id}
+                    candidateId={row.candidate_id}
+                    clientOrgId={clientOrgId}
+                    aiValidationId={row.ai_validation_id ?? null}
+                    submissionId={submissionId}
+                    compact
+                  />
+                </div>
+              )}
             </Accordion>
           </div>
         </ResizablePanel>
