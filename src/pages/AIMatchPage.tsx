@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RoleGate } from '@/components/auth/RoleGate';
 import { Permission } from '@/hooks/usePermissions';
