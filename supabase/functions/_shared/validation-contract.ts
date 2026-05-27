@@ -1,7 +1,8 @@
 // Canonical contract for the Executive Search Operating System.
 // Every surface (AI Match, Validation, Submission Pack, Executive PDF,
-// Client Portal, Recruiter Dashboard) consumes this exact shape. No surface
-// may re-derive scores or recommendations independently.
+// Client Portal, Recruiter Dashboard, Recruiter Copilot) consumes this exact
+// shape. No surface may re-derive scores, recommendations, or copilot output
+// independently.
 
 export type MatchClassification =
   | "strong_match"            // direct ownership across all mandates
@@ -52,6 +53,65 @@ export interface EcosystemSignal {
   relevance: "tier1" | "tier2" | "adjacent";
 }
 
+// =========================================================================
+// Recruiter Copilot — Phase 1 of Placement Intelligence
+// Every copilot consumer reads exactly this shape; the validation engine is
+// the single producer. Recruiter-only fields are NEVER surfaced in clientSafe
+// renderings.
+// =========================================================================
+
+export type InterviewQuestionCategory =
+  | "technical" | "leadership" | "operational_ownership"
+  | "compliance" | "behavioral" | "risk" | "ecosystem";
+
+export interface InterviewQuestion {
+  category: InterviewQuestionCategory;
+  question: string;
+  intent: string;             // why we are asking — recruiter-only
+  targets_requirement?: string | null;
+}
+
+export interface PredictedObjection {
+  concern: string;            // recruiter-safe phrasing
+  requirement_at_risk?: string | null;
+  severity: "low" | "medium" | "high";
+  suggested_response: string; // how the recruiter should rebut/handle
+}
+
+export interface PositioningAngle {
+  angle: string;              // one-line narrative bullet
+  evidence: string;           // anchor from the CV
+  audience: "client" | "internal";
+}
+
+export type SubmissionStrategy =
+  | "submit_now"
+  | "screen_further"
+  | "position_as_adjacent"
+  | "emphasize_leadership"
+  | "highlight_ecosystem"
+  | "hold";
+
+export interface PlacementProbability {
+  shortlist_pct: number;          // 0–100
+  interview_pct: number;          // 0–100
+  placement_pct: number;          // 0–100
+  client_acceptance_risk: "low" | "medium" | "high";
+  rationale: string;              // recruiter-only, concise
+}
+
+export interface RecruiterCopilot {
+  interview_guide: InterviewQuestion[];
+  client_objections: PredictedObjection[];
+  positioning_angles: PositioningAngle[];
+  submission_strategy: {
+    recommendation: SubmissionStrategy;
+    rationale: string;
+    talking_points: string[];
+  };
+  placement_probability: PlacementProbability;
+}
+
 export interface ValidationOutput {
   engine_version: string;
   match_classification: MatchClassification;
@@ -69,14 +129,15 @@ export interface ValidationOutput {
     operational_ownership: string[];
   };
   requirement_matches: EvidenceItem[];
-  functional_ownership: string[];         // verbs/areas the candidate truly owns
-  ecosystem_signals: EcosystemSignal[];   // companies/orgs that carry weight
+  functional_ownership: string[];
+  ecosystem_signals: EcosystemSignal[];
   strengths: string[];
-  considerations: string[];               // interview focus areas (never "lacks")
+  considerations: string[];
   risks: string[];
   missing_requirements: string[];
   recruiter_notes_summary: string[];
   recruiter_notes_impact: { note: string; effect: string }[];
+  recruiter_copilot?: RecruiterCopilot | null;
 }
 
 // Translate the strict recruiter band → a polite, commercially safe surface.
