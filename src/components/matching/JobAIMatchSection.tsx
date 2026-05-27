@@ -24,7 +24,7 @@ interface MatchResult {
   match_gaps: string[] | null;
   match_explanation: string | null;
   match_confidence: number | null;
-  recommendation: AnyRecommendation;
+  recommendation?: AnyRecommendation;
 }
 
 interface JobAIMatchSectionProps {
