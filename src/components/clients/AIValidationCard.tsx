@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, RefreshCw } from "lucide-react";
-import { useLatestValidation, useValidateCandidateFit } from "@/hooks/useCandidateValidation";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, RefreshCw, AlertTriangle, Loader2, Target, Building2 } from "lucide-react";
+import { useLatestValidation, useValidateCandidateFit, useAutoRevalidate } from "@/hooks/useCandidateValidation";
 import { RecommendationBadge } from "@/components/matching/RecommendationBadge";
+import { clientSafeMeta, clientSafeSummary, recommendationMeta } from "@/lib/recommendation";
 import { formatDistanceToNow } from "date-fns";
 
 interface Props {
@@ -11,11 +13,14 @@ interface Props {
   candidateId: string;
   compact?: boolean;
   canRegenerate?: boolean;
+  /** When true, hide recruiter-only fields (reject band, blunt evidence, internal scores). */
+  clientSafe?: boolean;
 }
 
-export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = true }: Props) {
+export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = true, clientSafe = false }: Props) {
   const { data: validation, isLoading } = useLatestValidation(jobId, candidateId);
   const { run, loading } = useValidateCandidateFit();
+  const { staleInProgress } = useAutoRevalidate(validation);
 
   const generate = (force = false) => run(jobId, candidateId, { force });
 
@@ -54,54 +59,108 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
   const visibleMandate = mandate.filter((m: any) => m && !m.__kind && typeof m.requirement === "string");
   const missingSidecar = mandate.find((m: any) => m?.__kind === "missing");
   const missing = Array.isArray(missingSidecar?.items) ? missingSidecar.items : [];
+  const ownershipSidecar = mandate.find((m: any) => m?.__kind === "functional_ownership");
+  const ownership: string[] = Array.isArray(ownershipSidecar?.items) ? ownershipSidecar.items : [];
+  const ecosystem = (validation.ecosystem_signals ?? []) as Array<{ company: string; ecosystem: string; relevance: string }>;
+  const ip = validation.interview_probability;
+  const rec = (validation as any).match_classification ?? validation.recommendation;
+  const meta = clientSafe ? clientSafeMeta(rec, validation.fit_score) : recommendationMeta(rec, validation.fit_score);
+  const summaryText = clientSafe ? (clientSafeSummary(rec, validation.summary) || validation.summary) : validation.summary;
+
+  // Filter out raw "reject" / missing requirements from client view
+  const safeVisibleMandate = clientSafe
+    ? visibleMandate.filter((m: any) => m.fit !== "NOT MATCHED")
+    : visibleMandate;
+  const safeMissing = clientSafe ? [] : missing;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div className="space-y-1">
           <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" /> Recruiter Assessment
+            <Sparkles className="h-4 w-4 text-primary" /> {clientSafe ? "Candidate Assessment" : "Recruiter Assessment"}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Evidence-based AI validation · Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
-            {confidence ? ` · ${confidence} confidence` : ""}
+            {clientSafe ? "AI-validated against role requirements" : "Evidence-based AI validation"} · Generated {formatDistanceToNow(new Date(validation.created_at), { addSuffix: true })}
+            {confidence && !clientSafe ? ` · ${confidence} confidence` : ""}
           </p>
         </div>
-        {canRegenerate && (
-          <Button size="sm" variant="ghost" onClick={() => generate(true)} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+        {canRegenerate && !clientSafe && (
+          <Button size="sm" variant="ghost" onClick={() => generate(true)} disabled={loading || staleInProgress}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${(loading || staleInProgress) ? "animate-spin" : ""}`} />
             Re-run
           </Button>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <RecommendationBadge
-            recommendation={validation.recommendation}
-            score={validation.fit_score}
-            size="lg"
-          />
+        {(validation.validation_stale || staleInProgress) && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            {staleInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+            JD updated — re-validation in progress. Current assessment may be outdated.
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className={`inline-flex items-center rounded-full border font-medium leading-none text-sm px-3 py-1.5 gap-2 ${meta.badgeClass}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
+            {meta.label}
+          </span>
+          {ip != null && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Target className="h-3.5 w-3.5 text-primary" />
+              Interview probability <strong className="text-foreground">{ip}%</strong>
+            </span>
+          )}
         </div>
 
+        {summaryText && (
+          <p className="text-sm text-foreground/90 leading-relaxed">{summaryText}</p>
+        )}
 
-        {validation.summary && (
-          <p className="text-sm text-foreground/90 leading-relaxed">{validation.summary}</p>
+        {!clientSafe && ownership.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Functional Ownership Detected</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ownership.map((o, i) => (
+                <Badge key={i} variant="secondary" className="text-[11px]">{o}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {ecosystem.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              <Building2 className="h-3 w-3" /> Ecosystem Signals
+            </p>
+            <ul className="flex flex-wrap gap-1.5">
+              {ecosystem.slice(0, 6).map((s, i) => (
+                <li key={i} className={`text-[11px] rounded-full border px-2 py-0.5 ${
+                  s.relevance === "tier1" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" :
+                  s.relevance === "tier2" ? "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300" :
+                  "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                }`}>
+                  {s.company} · {s.ecosystem}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {!compact && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ValidationList title="Strengths" items={validation.strengths} tone="positive" />
-            <ValidationList title="Considerations" items={validation.weaknesses} tone="warning" />
+            <ValidationList title={clientSafe ? "Interview Focus Areas" : "Considerations"} items={validation.weaknesses} tone="warning" />
           </div>
         )}
 
-        {!compact && visibleMandate.length > 0 && (
+        {!compact && safeVisibleMandate.length > 0 && (
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Fit Assessment vs Job Requirements
             </p>
             <ul className="space-y-2">
-              {visibleMandate.slice(0, 8).map((m: any, i: number) => (
+              {safeVisibleMandate.slice(0, 8).map((m: any, i: number) => (
                 <li key={i} className="text-xs grid grid-cols-[1fr_auto] gap-2 items-start">
                   <div>
                     <div className="font-medium text-foreground">{m.requirement}</div>
@@ -114,11 +173,11 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
           </div>
         )}
 
-        {!compact && missing.length > 0 && (
+        {!compact && safeMissing.length > 0 && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Missing Requirements</p>
             <ul className="flex flex-wrap gap-1.5">
-              {missing.map((m: string, i: number) => (
+              {safeMissing.map((m: string, i: number) => (
                 <li key={i} className="text-[11px] rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 px-2 py-0.5">
                   {m}
                 </li>
@@ -127,7 +186,7 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
           </div>
         )}
 
-        {!compact && (validation as any).recruiter_review && (
+        {!compact && !clientSafe && (validation as any).recruiter_review && (
           <div className="rounded-lg border-l-2 border-primary pl-3 py-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Recruiter Review</p>
             <p className="text-sm text-foreground/90 italic">{(validation as any).recruiter_review}</p>

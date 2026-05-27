@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,6 +10,12 @@ export type AICandidateValidation = {
   candidate_id: string;
   fit_score: number | null;
   recommendation: string | null;
+  match_classification: string | null;
+  interview_probability: number | null;
+  ecosystem_signals: Array<{ company: string; ecosystem: string; relevance: string }> | null;
+  validation_stale: boolean | null;
+  engine_version: string | null;
+  jd_signature: string | null;
   summary: string | null;
   strengths: string[];
   weaknesses: string[];
@@ -18,7 +24,6 @@ export type AICandidateValidation = {
   generated_by: string | null;
   created_at: string;
   updated_at: string;
-  // Centralized engine enrichment (joined from rediscovered_matches)
   sub_scores?: {
     role?: number; skills?: number; industry?: number; seniority?: number;
     experience?: number; location?: number; penalty?: number;
@@ -43,7 +48,6 @@ export function useLatestValidation(jobId?: string | null, candidateId?: string 
       ]);
       if (error) throw error;
       if (!validation) return null;
-      // Override fit_score with canonical (single source of truth) if present
       const merged: AICandidateValidation = {
         ...(validation as any),
         fit_score: canonical?.match_score ?? (validation as any).fit_score,
@@ -60,7 +64,7 @@ export function useValidateCandidateFit() {
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
 
-  async function run(jobId: string, candidateId: string, opts?: { force?: boolean }) {
+  async function run(jobId: string, candidateId: string, opts?: { force?: boolean; silent?: boolean }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("validate-candidate-fit", {
@@ -71,7 +75,7 @@ export function useValidateCandidateFit() {
       await qc.invalidateQueries({ queryKey: ["ai-validation", jobId, candidateId] });
       return (data as any).validation as AICandidateValidation;
     } catch (e: any) {
-      toast.error(e?.message ?? "Validation failed");
+      if (!opts?.silent) toast.error(e?.message ?? "Validation failed");
       throw e;
     } finally {
       setLoading(false);
@@ -79,4 +83,25 @@ export function useValidateCandidateFit() {
   }
 
   return { run, loading };
+}
+
+// Auto-revalidate when the JD changes (validation_stale = true). Runs once per
+// stale row per session and never blocks the UI. Returns {staleInProgress}.
+export function useAutoRevalidate(validation: AICandidateValidation | null | undefined) {
+  const [staleInProgress, setStaleInProgress] = useState(false);
+  const fired = useRef<Set<string>>(new Set());
+  const { run } = useValidateCandidateFit();
+
+  useEffect(() => {
+    if (!validation?.validation_stale) return;
+    const key = `${validation.job_id}:${validation.candidate_id}`;
+    if (fired.current.has(key)) return;
+    fired.current.add(key);
+    setStaleInProgress(true);
+    run(validation.job_id, validation.candidate_id, { force: true, silent: true })
+      .catch(() => { /* keep silent; user can click Re-run */ })
+      .finally(() => setStaleInProgress(false));
+  }, [validation?.validation_stale, validation?.job_id, validation?.candidate_id, run]);
+
+  return { staleInProgress };
 }
