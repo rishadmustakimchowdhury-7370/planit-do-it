@@ -238,7 +238,7 @@ serve(async (req) => {
       const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(recStr);
       const hasJdClassification = hasMandate && (existing as any).mandate_match.some((m: any) => m?.__kind === "jd_classification");
       const needsRefresh = legacyRec || !hasJdClassification;
-      if (existing && hasMandate && !inflated && !legacyRec && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
+      if (existing && hasMandate && !inflated && !needsRefresh && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
