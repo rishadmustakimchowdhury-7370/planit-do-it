@@ -73,7 +73,10 @@ export type Database = {
           mandate_match: Json | null
           match_classification: string | null
           model: string | null
+          override_divergence: boolean | null
           recommendation: string | null
+          recruiter_copilot: Json | null
+          recruiter_override: Json | null
           recruiter_review: string | null
           risks: Json
           strengths: Json
@@ -97,7 +100,10 @@ export type Database = {
           mandate_match?: Json | null
           match_classification?: string | null
           model?: string | null
+          override_divergence?: boolean | null
           recommendation?: string | null
+          recruiter_copilot?: Json | null
+          recruiter_override?: Json | null
           recruiter_review?: string | null
           risks?: Json
           strengths?: Json
@@ -121,7 +127,10 @@ export type Database = {
           mandate_match?: Json | null
           match_classification?: string | null
           model?: string | null
+          override_divergence?: boolean | null
           recommendation?: string | null
+          recruiter_copilot?: Json | null
+          recruiter_override?: Json | null
           recruiter_review?: string | null
           risks?: Json
           strengths?: Json
@@ -1193,6 +1202,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_feedback_log: {
+        Row: {
+          candidate_id: string
+          client_org_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          metadata: Json
+          outcome: string | null
+          reason: string | null
+          recorded_by: string
+          submission_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          candidate_id: string
+          client_org_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          metadata?: Json
+          outcome?: string | null
+          reason?: string | null
+          recorded_by: string
+          submission_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          candidate_id?: string
+          client_org_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          metadata?: Json
+          outcome?: string | null
+          reason?: string | null
+          recorded_by?: string
+          submission_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
       }
       client_invitations: {
         Row: {
@@ -3587,6 +3638,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recruiter_feedback: {
+        Row: {
+          action: string
+          ai_classification: string | null
+          candidate_id: string
+          confidence: number | null
+          created_at: string
+          id: string
+          job_id: string
+          metadata: Json
+          note: string | null
+          recruiter_classification: string | null
+          recruiter_id: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          ai_classification?: string | null
+          candidate_id: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          job_id: string
+          metadata?: Json
+          note?: string | null
+          recruiter_classification?: string | null
+          recruiter_id: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          ai_classification?: string | null
+          candidate_id?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          metadata?: Json
+          note?: string | null
+          recruiter_classification?: string | null
+          recruiter_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      recruiter_memory_signals: {
+        Row: {
+          client_org_id: string | null
+          created_at: string
+          evidence_count: number
+          id: string
+          last_observed_at: string
+          metadata: Json
+          recruiter_id: string | null
+          scope: string
+          signal_type: string
+          signal_value: string
+          tenant_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          client_org_id?: string | null
+          created_at?: string
+          evidence_count?: number
+          id?: string
+          last_observed_at?: string
+          metadata?: Json
+          recruiter_id?: string | null
+          scope: string
+          signal_type: string
+          signal_value: string
+          tenant_id: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          client_org_id?: string | null
+          created_at?: string
+          evidence_count?: number
+          id?: string
+          last_observed_at?: string
+          metadata?: Json
+          recruiter_id?: string | null
+          scope?: string
+          signal_type?: string
+          signal_value?: string
+          tenant_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
       }
       rediscovered_matches: {
         Row: {
