@@ -132,6 +132,18 @@ You are operating in VALIDATION mode. Apply the strict lens.
 
 INTERVIEW PROBABILITY (0–100): How likely is a competent hiring manager to advance this candidate to interview for THIS role given the evidence? 85+ for direct-evidence strong matches, 60–80 for recommended/transferable, 30–55 for needs_validation, <30 for weak_match, <15 for reject.
 
+RECRUITER COPILOT (mandatory — Placement Intelligence layer). In addition to validation, produce a "recruiter_copilot" block that helps the human recruiter win interviews and improve placement outcomes. The copilot output is RECRUITER-ONLY (clients never see it directly) but is the single source of truth for every recruiter-facing surface. Calibrate every copilot element to the JD, CV evidence, recruiter notes, and any RECRUITER / AGENCY MEMORY provided in the user message.
+
+  Interview guide (5–10 questions). Categories: technical, leadership, operational_ownership, compliance, behavioral, risk, ecosystem. Each question must target a specific JD requirement or candidate gap and include a one-line "intent" explaining why a senior recruiter would ask it.
+
+  Client objections (2–5). Predict the most likely client concerns based on missing evidence, adjacent-industry status, seniority alignment, ecosystem fit. Phrase recruiter-safely (e.g. "Client may seek additional validation around sanctions ownership depth.") and provide a suggested response the recruiter can use in client conversations. Tag severity as low/medium/high.
+
+  Positioning angles (2–5). Help the recruiter explain transferable experience, hidden operational value, adjacent ecosystem relevance, or leadership signal. Each angle anchors to a concrete CV evidence sentence. Audience is "client" for talking points safe to share, "internal" for recruiter strategy.
+
+  Submission strategy. Choose ONE of: submit_now, screen_further, position_as_adjacent, emphasize_leadership, highlight_ecosystem, hold. Provide rationale and 2–4 talking_points the recruiter can use immediately.
+
+  Placement probability. Estimate shortlist_pct, interview_pct, placement_pct (0–100 each) and client_acceptance_risk (low/medium/high). These reflect REAL recruiter intuition — calibrate to evidence tier, ownership proof, ecosystem alignment, seniority match, and memory signals. Provide a one-paragraph rationale.
+
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
   "match_classification": "strong_match|recommended|transferable_match|needs_validation|weak_match|reject",
@@ -159,6 +171,30 @@ Output ONLY valid JSON, no markdown, in this exact shape:
   "missing_requirements": ["<JD requirement with no real evidence>"],
   "recruiter_notes_summary": ["<how notes shaped the view>"],
   "recruiter_notes_impact": [{ "note": "<paraphrased note>", "effect": "<how it shifted the assessment>" }],
+
+  "recruiter_copilot": {
+    "interview_guide": [
+      { "category": "technical|leadership|operational_ownership|compliance|behavioral|risk|ecosystem", "question": "<question>", "intent": "<why ask>", "targets_requirement": "<JD requirement or null>" }
+    ],
+    "client_objections": [
+      { "concern": "<recruiter-safe phrasing>", "requirement_at_risk": "<requirement or null>", "severity": "low|medium|high", "suggested_response": "<how recruiter rebuts>" }
+    ],
+    "positioning_angles": [
+      { "angle": "<one-line narrative>", "evidence": "<CV anchor>", "audience": "client|internal" }
+    ],
+    "submission_strategy": {
+      "recommendation": "submit_now|screen_further|position_as_adjacent|emphasize_leadership|highlight_ecosystem|hold",
+      "rationale": "<one paragraph>",
+      "talking_points": ["..."]
+    },
+    "placement_probability": {
+      "shortlist_pct": 0,
+      "interview_pct": 0,
+      "placement_pct": 0,
+      "client_acceptance_risk": "low|medium|high",
+      "rationale": "<recruiter-only rationale>"
+    }
+  },
 
   "recommendation": "<MIRROR of match_classification — kept for backwards compatibility>",
   "jd_classification": { "industry_domain": "<same as jd_analysis.industry_domain>", "mandatory_requirements": ["..."], "preferred_requirements": ["..."], "transferable_families": ["..."], "seniority_target": "..." },
