@@ -28,6 +28,10 @@ interface Props {
   aiClassification: string;
   recruiterOverride?: { classification?: string; note?: string | null } | null;
   overrideDivergence?: boolean;
+  /** Contextual surface — controls default tab so each surface opens on the
+   *  most useful intelligence (validation→interview, matching→interview,
+   *  submission→positioning). */
+  context?: "validation" | "matching" | "submission";
 }
 
 const SEV_STYLE: Record<string, string> = {
@@ -39,7 +43,9 @@ const SEV_STYLE: Record<string, string> = {
 export function RecruiterCopilotPanel({
   copilot, jobId, candidateId, tenantId,
   aiClassification, recruiterOverride, overrideDivergence,
+  context = "validation",
 }: Props) {
+  const defaultTab = context === "submission" ? "positioning" : "interview";
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideBand, setOverrideBand] = useState<string>(recruiterOverride?.classification ?? aiClassification);
   const [overrideNote, setOverrideNote] = useState<string>(recruiterOverride?.note ?? "");
@@ -60,8 +66,8 @@ export function RecruiterCopilotPanel({
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
-            <div className="font-medium">AI recommendation differs from recruiter override after updated validation.</div>
-            <div className="opacity-80 mt-0.5">Your override stays in force — review whether the new evidence changes your decision.</div>
+            <div className="font-medium">Updated AI validation differs from your previous assessment due to new evidence or JD changes.</div>
+            <div className="opacity-80 mt-0.5">Your decision remains authoritative — review the updated evidence and adjust only if it changes your judgment.</div>
           </div>
         </div>
       )}
@@ -99,7 +105,7 @@ export function RecruiterCopilotPanel({
         </div>
       </div>
 
-      <Tabs defaultValue="interview">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="interview"><MessageCircleQuestion className="h-3.5 w-3.5 mr-1.5" />Interview</TabsTrigger>
           <TabsTrigger value="objections"><ShieldAlert className="h-3.5 w-3.5 mr-1.5" />Objections</TabsTrigger>
