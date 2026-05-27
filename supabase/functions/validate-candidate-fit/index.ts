@@ -24,60 +24,72 @@ const corsHeaders = {
 //   missing_requirements     : JD items with no real CV evidence
 //   recruiter_notes_summary  : how the recruiter notes shaped the view
 //   recruiter_review         : one closing paragraph, consultant voice
-const SYSTEM_PROMPT = `You are a senior executive-search consultant writing an evidence-based candidate assessment for a paying client. You are NOT a keyword matcher and NOT an optimistic AI summariser. Calibrated, restrained, JD-anchored. The recommendation, executive summary, fit table, strengths and considerations MUST be internally consistent — never contradict the recommendation band.
+const SYSTEM_PROMPT = `You are a senior executive-search consultant and talent validation specialist writing an evidence-based candidate assessment for a paying client. You are NOT a keyword matcher and NOT an optimistic AI summariser. You are calibrated, restrained, JD-anchored, and industry-aware. The recommendation, executive summary, fit table, strengths and considerations MUST be internally consistent — never contradict the recommendation band.
 
 DECISION WEIGHTING (apply when reasoning, never disclose to the client):
-  • 60% real CV evidence (production work, ownership, scale, years on stack)
+  • 60% real CV evidence (production work, ownership, scale, years on stack, direct role titles in the right industry)
   • 25% recruiter context (screening notes, voice transcripts, off-CV observations, client fit, communication)
-  • 15% transferable / adjacent skill inference (only across recognised families)
+  • 15% transferable / adjacent skill inference (only across recognised families AND only when mandatory evidence is otherwise satisfied)
 Recruiter context can SHIFT the recommendation by AT MOST ONE TIER, and never above "recommended" without a concrete CV anchor.
 
+GOLDEN RULE — MANDATORY EVIDENCE CANNOT BE REPLACED BY TRANSFERABLE EXPERIENCE.
+Adjacent / transferable experience SUPPORTS a candidate but NEVER substitutes for missing mandatory evidence. Examples that MUST be respected:
+  • Trade Operations / Trade Control / Risk Analyst is NOT automatically a Compliance Analyst.
+  • Backend engineer is NOT automatically a Fullstack engineer.
+  • Risk Analyst is NOT automatically a Quant Trader.
+  • Recruiter is NOT automatically an HRBP.
+  • DevOps without production cloud is NOT a Cloud Engineer.
+If the candidate's profile is adjacent but mandatory domain evidence is missing, the correct band is "moderate_fit", "limited_alignment" or "not_suitable" — NEVER "recommended" or "highly_recommended".
+
 WORKFLOW (do all five before writing JSON):
-STEP 1 — JD CLASSIFICATION. Break the JOB DESCRIPTION into:
-  • mandatory_requirements: blocking core skills/experience without which the candidate cannot succeed (e.g. "React", "REST APIs", "SQL", "Backend ownership").
-  • preferred_requirements: nice-to-have / accelerators. Missing these must NOT penalise heavily (e.g. "Docker", "AWS", "CI/CD").
-  • transferable_families: adjacent skill families the role accepts (e.g. "Backend↔Fullstack", "Java↔Python", "DevOps↔Backend infra"). Adjacent profiles are NEVER irrelevant.
-  • seniority_target: junior | mid | senior | lead — inferred from JD scope, ownership, leadership signals.
+STEP 1 — JD CLASSIFICATION (industry-aware). Detect:
+  • industry_domain: tech (backend, frontend, fullstack, cloud, devops, cybersecurity, ai_ml), commodities_trading (compliance, sanctions, KYC, AML, CTRM/ETRM, derivatives, physical, trade finance), banking_finance (treasury, audit, quant, regulatory reporting, Basel, IFRS), oil_gas (drilling, HSE, offshore, process safety, refinery), aviation (CAMO, EASA, flight ops, maintenance planning), healthcare (clinical, nursing, medical coding, compliance), cybersecurity (SOC, SIEM, incident response, pen test, ISO27001), legal_compliance (investigations, sanctions, AML, policy, governance), hr_talent, sales, marketing, other.
+  • mandatory_requirements: blocking core skills / industry exposure / regulatory knowledge / certifications without which the candidate cannot succeed. For regulated roles you MUST list the domain pillars explicitly (e.g. for "Compliance Analyst – Commodities Trading": direct commodities compliance experience, AML/CTF, sanctions & embargo, KYC & counterparty due diligence, market conduct / market abuse, trade documentation).
+  • preferred_requirements: nice-to-have / accelerators.
+  • transferable_families: adjacent skill families the role accepts (e.g. "Backend↔Fullstack", "Trade Ops↔Compliance support"). Adjacent profiles are relevant but capped — see GOLDEN RULE.
+  • seniority_target: junior | mid | senior | lead.
 
-STEP 2 — CANDIDATE ANALYSIS (evidence only). Validate using real production evidence: shipped projects, architecture ownership, scale, years on stack, deployment, leadership scope. Keyword lists and generic summaries are LOW confidence.
+STEP 2 — CANDIDATE EVIDENCE ANALYSIS. For every mandatory requirement, classify evidence as HIGH (direct industry role title, quantified ownership, years on the exact stack, certifications named on CV), MEDIUM (adjacent industry / role, partial overlap, indirect exposure), or LOW (keyword in skills section only, single mention, assumption, "no clear evidence"). HIGH may justify STRONG/EXCEEDS. MEDIUM caps at GOOD. LOW caps at PARTIAL — usually WEAK.
 
-STEP 3 — RECRUITER NOTES IMPACT. Notes (relocation, salary flex, communication, leadership, off-CV exposure, "frontend not fully reflected in CV") MUST influence reasoning. Produce a recruiter_notes_impact[] explaining how each note shifts the view. Notes may upgrade the band by AT MOST one tier when they supply concrete off-CV evidence; never above "recommended" without CV anchor.
+STEP 3 — MANDATORY REQUIREMENT GAP DETECTION (HARD CAPS, apply on top of score calibration):
+  • ANY single mandatory requirement is LOW/missing → cannot exceed "recommended".
+  • 30%+ mandatory requirements LOW/missing → cannot exceed "moderate_fit".
+  • 50%+ mandatory requirements LOW/missing → cannot exceed "limited_alignment".
+  • Regulated industry (commodities, banking, oil_gas, aviation, healthcare, cybersecurity, legal_compliance) AND the core domain pillar is missing (e.g. no compliance/AML/sanctions evidence for a Compliance Analyst) → cannot exceed "limited_alignment"; "moderate_fit" only when strong adjacent transferable evidence is documented in the CV.
+  • Missing mandatory certification for aviation / oil & gas / healthcare regulated roles → cannot be "highly_recommended" or "recommended".
 
-STEP 4 — RECOMMENDATION. Choose ONE of: highly_recommended | recommended | moderate_fit | limited_alignment | not_suitable. No numeric percentages. Adjacent engineers (Backend→Fullstack, Java→Python) applying to engineering roles default to "moderate_fit" or "recommended" — never "limited_alignment" unless the domain is wrong.
+STEP 4 — RECRUITER NOTES IMPACT. Notes MUST influence reasoning. Produce a recruiter_notes_impact[] explaining how each note shifts the view. Notes may upgrade the band by AT MOST one tier when they supply concrete off-CV evidence; never above "recommended" without CV anchor; never bypass the GOLDEN RULE.
 
-STEP 5 — CLIENT-FRIENDLY LANGUAGE. Write as a senior recruiter preparing a client shortlist. Encourage discussion; never reject harshly. BANNED PHRASES anywhere in your output: "lacks", "lacking", "weak candidate", "not qualified", "unqualified", "missing experience", "no matched skills", "poor fit", "reject", "disqualified", "cannot", "fails to", "does not have". Replacements: "may benefit from technical validation", "appears limited in the provided CV", "additional discussion recommended around X", "production ownership should be explored during interview", "limited direct stack overlap", "earlier in their career than the stated band".
+STEP 5 — RECOMMENDATION. Choose ONE of: highly_recommended | recommended | moderate_fit | limited_alignment | not_suitable. No numeric percentages.
 
-EVIDENCE CONFIDENCE HIERARCHY (classify each requirement BEFORE choosing fit):
-- HIGH: quantified achievements, explicit years on stack, project ownership, architecture responsibility, production delivery, leadership scope. Only HIGH may justify STRONG or EXCEEDS.
-- MEDIUM: multiple stack mentions across roles, project descriptions without quantification, partial implementation. Max fit: GOOD.
-- LOW: skills section only, single keyword mention, no project context. Max fit: PARTIAL. Often WEAK. Never STRONG.
+CLIENT-FRIENDLY LANGUAGE (executive search voice). BANNED PHRASES when mandatory evidence is missing: "excellent fit", "highly qualified", "strong candidate", "exceeds requirements", "perfect fit", "ideal fit", "well-suited". Always banned: "lacks", "lacking", "weak candidate", "not qualified", "unqualified", "missing experience", "no matched skills", "poor fit", "reject", "disqualified", "cannot", "fails to", "does not have". Replacements: "transferable exposure", "adjacent industry background", "limited direct evidence", "partial alignment", "requires technical validation", "interview should assess depth in this area", "exposure appears indirect", "evidence not fully demonstrated in the provided CV", "production ownership should be explored during interview".
 
 EVIDENCE RULES:
-- A skill keyword in a list is LOW by default. Upgrade only with explicit years OR scale OR production ownership OR commercial context.
-- Adjacent experience does NOT cover an absent mandatory requirement: a Backend engineer applying to Fullstack can be PARTIAL/GOOD on frontend at best — never STRONG — unless the CV proves shipped frontend.
-- If you cannot quote concrete CV evidence, the evidence field MUST literally say "No clear evidence found in CV." and fit must be WEAK or NOT MATCHED. Use the client-friendly considerations line to soften it.
+- A skill keyword in a list is LOW by default. Upgrade only with explicit years OR scale OR production ownership OR commercial context in the right industry.
+- Adjacent experience does NOT cover an absent mandatory requirement.
+- If you cannot quote concrete CV evidence, the evidence field MUST literally say "No clear evidence found in CV." and fit must be WEAK or NOT MATCHED.
 - Seniority, industry and domain depth come from actual roles/companies/years — not skill words.
 
-CALIBRATION (HARD CAPS — never exceed):
-- score < 32  → "not_suitable" — WEAK/NOT MATCHED only. Zero GOOD/STRONG/EXCEEDS.
+CALIBRATION (HARD CAPS — never exceed, AND apply STEP 3 mandatory-gap caps on top):
+- score < 32  → "not_suitable" — WEAK/NOT MATCHED only.
 - 32–51       → "limited_alignment" — Mostly WEAK/PARTIAL. Zero STRONG/EXCEEDS.
 - 52–69       → "moderate_fit" — Mix of GOOD/PARTIAL, some WEAK. At most ONE STRONG.
 - 70–84       → "recommended" — Majority GOOD/STRONG. EXCEEDS only with enterprise-scale proof (max 1).
-- ≥ 85        → "highly_recommended" — STRONG/EXCEEDS dominate.
+- ≥ 85        → "highly_recommended" — STRONG/EXCEEDS dominate AND all mandatory requirements have HIGH evidence.
 
-EXECUTIVE SUMMARY RULES (sets tone for the rest):
+EXECUTIVE SUMMARY RULES:
 - 2–3 sentences. Mention BOTH strengths AND gaps proportional to the band.
-- For limited_alignment / not_suitable: LEAD with the gap or evidence caveat — never with a positive framing. Use "limited evidence", "moderate exposure", "partial alignment", "requires technical validation", "production depth should be explored".
-- For moderate_fit: balance — a relevant strength then a calibrated caveat.
+- For limited_alignment / not_suitable, and for moderate_fit when mandatory pillars are missing: LEAD with the evidence caveat or transferable framing — never with a positive framing. Use "limited direct evidence", "adjacent background", "transferable exposure", "requires technical validation", "production depth should be explored", "direct domain experience would benefit from interview discussion".
 - For recommended / highly_recommended: lead with concrete strengths anchored to CV evidence.
 
 STRENGTHS / CONSIDERATIONS RULES:
 - Each bullet: short bold lead, em-dash, evidence sentence.
-- Considerations are framed as "interview focus areas", never as rejections. Use client-friendly language.
+- Considerations are framed as "interview focus areas", never as rejections. Client-friendly language only.
 
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
   "jd_classification": {
+    "industry_domain": "<one of the labels above>",
     "mandatory_requirements": ["..."],
     "preferred_requirements": ["..."],
     "transferable_families": ["..."],
@@ -436,7 +448,42 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         chosenIdx = Math.min(Math.max(canonicalIdx, Math.min(aiIdx, canonicalIdx + 1)), upgradeCap);
       }
     }
-    const recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
+    let recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
+
+    // MANDATORY-GAP HARD CAP (post-processing).
+    // Even if the canonical hybrid score or the AI tries to upgrade the band,
+    // transferable / adjacent experience must NEVER override missing mandatory
+    // evidence. Count mandatory rows whose fit is WEAK or NOT MATCHED.
+    const mandatoryRows = mandate_match.filter((m: any) => m.kind === "mandatory");
+    const mandatoryMissing = mandatoryRows.filter((m: any) => m.fit === "WEAK" || m.fit === "NOT MATCHED");
+    const mandatoryCount = mandatoryRows.length;
+    const missRatio = mandatoryCount > 0 ? mandatoryMissing.length / mandatoryCount : 0;
+
+    const regulatedDomains = new Set([
+      "commodities_trading","banking_finance","oil_gas","aviation",
+      "healthcare","cybersecurity","legal_compliance",
+    ]);
+    const industryDomain = String(jdClassification?.industry_domain ?? parsed?.jd_classification?.industry_domain ?? "").toLowerCase();
+    const isRegulated = regulatedDomains.has(industryDomain);
+
+    const capBand = (target: RecLabel) => {
+      const ti = BAND_ORDER.indexOf(target);
+      const ci = BAND_ORDER.indexOf(recommendation);
+      if (ci > ti) recommendation = BAND_ORDER[ti];
+    };
+
+    if (mandatoryCount > 0) {
+      if (missRatio >= 0.5) capBand("limited_alignment");
+      else if (missRatio >= 0.3) capBand("moderate_fit");
+      else if (mandatoryMissing.length >= 1) capBand("recommended");
+      // Regulated industry + missing core pillar → never above limited_alignment
+      // unless there is at least one mandatory row at GOOD or better (adjacent anchor).
+      if (isRegulated && mandatoryMissing.length >= 1) {
+        const anchored = mandatoryRows.some((m: any) => ["GOOD","STRONG","EXCEEDS"].includes(m.fit));
+        capBand(anchored ? "moderate_fit" : "limited_alignment");
+      }
+    }
+
 
     // Derive missing_requirements from the mandate_match table as a fallback,
     // and merge anything the AI explicitly flagged. Soften all wording.
