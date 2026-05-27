@@ -177,14 +177,16 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                     />
                   </div>
                   <Select value={minRec} onValueChange={setMinRec}>
-                    <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Min recommendation" /></SelectTrigger>
+                    <SelectTrigger className="w-[240px] h-9"><SelectValue placeholder="Min shortlist tier" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="strong_match">Strong Match only</SelectItem>
-                      <SelectItem value="recommended">Recommended & above</SelectItem>
-                      <SelectItem value="moderate_fit">Moderate Fit & above (default)</SelectItem>
-                      <SelectItem value="needs_review">Include Needs Review</SelectItem>
+                      <SelectItem value="strong_shortlist">Strong Shortlist only</SelectItem>
+                      <SelectItem value="recommended_shortlist">Recommended & above</SelectItem>
+                      <SelectItem value="transferable_shortlist">Transferable & above (default)</SelectItem>
+                      <SelectItem value="adjacent_ecosystem">Include Adjacent Ecosystem</SelectItem>
+                      <SelectItem value="needs_validation">Include Needs Validation</SelectItem>
                     </SelectContent>
                   </Select>
+
                 </div>
 
                 {/* Bulk bar */}
