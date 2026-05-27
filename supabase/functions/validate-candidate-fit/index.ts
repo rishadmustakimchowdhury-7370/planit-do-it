@@ -203,7 +203,12 @@ serve(async (req) => {
       recruiter_id: userId,
       client_org_id: clientOrgIdForMemory,
     });
-    const memoryBlock = renderMemoryForPrompt(memory);
+    const outcomeMem = await loadOutcomeMemory(admin, {
+      tenant_id: job.tenant_id,
+      recruiter_id: userId,
+      client_org_id: clientOrgIdForMemory,
+    });
+    const memoryBlock = renderMemoryForPrompt(memory) + renderOutcomeMemoryForPrompt(outcomeMem);
 
     const userPrompt = `JOB DESCRIPTION
 Title: ${job.title}
