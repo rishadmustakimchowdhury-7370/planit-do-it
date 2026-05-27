@@ -21,6 +21,7 @@ import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
 import { SubmissionRecipientsManager } from "./SubmissionRecipientsManager";
 import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
 import { StructuredRecruiterNotesForm } from "./StructuredRecruiterNotesForm";
+import { OutcomeCaptureBar } from "./OutcomeCaptureBar";
 import { emptyStructuredNotes, structuredNotesToLines, type StructuredRecruiterNotes } from "@/lib/recruiterNotes";
 
 interface Props {
