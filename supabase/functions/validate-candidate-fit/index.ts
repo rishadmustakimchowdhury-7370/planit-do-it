@@ -96,18 +96,30 @@ type RecLabel =
   | "strong_match" | "recommended" | "moderate_fit"
   | "needs_review" | "limited_alignment" | "not_suitable";
 
+// AI emits "highly_recommended"; the platform stores the canonical key
+// "strong_match" (label is rendered as "Highly Recommended" everywhere).
+function normalizeRecLabel(input: any): RecLabel | null {
+  const k = String(input ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+  if (k === "highly_recommended" || k === "strongly_recommended" || k === "strong_match") return "strong_match";
+  if (k === "recommended") return "recommended";
+  if (k === "moderate_fit") return "moderate_fit";
+  if (k === "limited_alignment") return "limited_alignment";
+  if (k === "not_suitable" || k === "not_recommended") return "not_suitable";
+  if (k === "needs_review") return "needs_review";
+  return null;
+}
+
 function recommendationFromScore(score: number): RecLabel {
-  if (score >= 88) return "strong_match";
-  if (score >= 75) return "recommended";
-  if (score >= 62) return "moderate_fit";
-  if (score >= 50) return "needs_review";
-  if (score >= 35) return "limited_alignment";
+  if (score >= 85) return "strong_match";        // Highly Recommended
+  if (score >= 70) return "recommended";
+  if (score >= 52) return "moderate_fit";
+  if (score >= 32) return "limited_alignment";
   return "not_suitable";
 }
 
 const REC_ALLOWED: RecLabel[] = [
   "strong_match", "recommended", "moderate_fit",
-  "needs_review", "limited_alignment", "not_suitable",
+  "limited_alignment", "not_suitable",
 ];
 
 serve(async (req) => {
