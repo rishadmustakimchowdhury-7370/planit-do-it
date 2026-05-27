@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MatchScoreCircle } from './MatchScoreCircle';
-import { Sparkles, CheckCircle, XCircle, Loader2, RefreshCw, Briefcase } from 'lucide-react';
+import { Sparkles, CheckCircle, AlertTriangle, Loader2, RefreshCw, Briefcase } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { RecommendationBadge } from '@/components/matching/RecommendationBadge';
+import { AnyRecommendation } from '@/lib/recommendation';
 
 interface Job {
   id: string;
@@ -23,6 +24,7 @@ interface MatchResult {
   match_gaps: string[] | null;
   match_explanation: string | null;
   match_confidence: number | null;
+  recommendation: AnyRecommendation;
 }
 
 interface JobAIMatchSectionProps {
