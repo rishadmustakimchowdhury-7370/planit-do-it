@@ -18,33 +18,39 @@ const SYSTEM_PROMPT = VALIDATION_SYSTEM_PROMPT;
 
 
 type RecLabel =
-  | "strong_match" | "recommended" | "moderate_fit"
-  | "needs_review" | "limited_alignment" | "not_suitable";
+  // New 6-band Executive Search taxonomy
+  | "strong_match" | "recommended" | "transferable_match"
+  | "needs_validation" | "weak_match" | "reject"
+  // Retained for backward compatibility with older surfaces
+  | "moderate_fit" | "needs_review" | "limited_alignment" | "not_suitable";
 
-// AI emits "highly_recommended"; the platform stores the canonical key
-// "strong_match" (label is rendered as "Highly Recommended" everywhere).
 function normalizeRecLabel(input: any): RecLabel | null {
   const k = String(input ?? "").toLowerCase().replace(/[\s-]+/g, "_");
   if (k === "highly_recommended" || k === "strongly_recommended" || k === "strong_match") return "strong_match";
   if (k === "recommended") return "recommended";
-  if (k === "moderate_fit") return "moderate_fit";
-  if (k === "limited_alignment") return "limited_alignment";
-  if (k === "not_suitable" || k === "not_recommended") return "not_suitable";
-  if (k === "needs_review") return "needs_review";
+  if (k === "transferable_match") return "transferable_match";
+  if (k === "needs_validation") return "needs_validation";
+  if (k === "weak_match") return "weak_match";
+  if (k === "reject" || k === "not_recommended" || k === "not_suitable") return "reject";
+  // Legacy → new
+  if (k === "moderate_fit") return "needs_validation";
+  if (k === "limited_alignment") return "weak_match";
+  if (k === "needs_review") return "needs_validation";
   return null;
 }
 
 function recommendationFromScore(score: number): RecLabel {
-  if (score >= 85) return "strong_match";        // Highly Recommended
+  if (score >= 85) return "strong_match";
   if (score >= 70) return "recommended";
-  if (score >= 52) return "moderate_fit";
-  if (score >= 32) return "limited_alignment";
-  return "not_suitable";
+  if (score >= 55) return "transferable_match";
+  if (score >= 40) return "needs_validation";
+  if (score >= 25) return "weak_match";
+  return "reject";
 }
 
 const REC_ALLOWED: RecLabel[] = [
-  "strong_match", "recommended", "moderate_fit",
-  "limited_alignment", "not_suitable",
+  "strong_match", "recommended", "transferable_match",
+  "needs_validation", "weak_match", "reject",
 ];
 
 serve(async (req) => {
