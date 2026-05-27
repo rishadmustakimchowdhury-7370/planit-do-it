@@ -566,6 +566,26 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       },
     } : null;
 
+    // ---- Placement Outcome Calibration (bounded ±15pp, tenant-isolated) ----
+    if (recruiter_copilot?.placement_probability) {
+      const prior = {
+        shortlist_pct: recruiter_copilot.placement_probability.shortlist_pct,
+        interview_pct: recruiter_copilot.placement_probability.interview_pct,
+        placement_pct: recruiter_copilot.placement_probability.placement_pct,
+      };
+      const cal = calibratePlacementProbability(prior, outcomeMem, {
+        ecosystem_signals: ecosystemSignals,
+        match_classification: matchClassification,
+      });
+      (recruiter_copilot.placement_probability as any).prior_pct = prior;
+      recruiter_copilot.placement_probability.shortlist_pct = cal.calibrated.shortlist_pct;
+      recruiter_copilot.placement_probability.interview_pct = cal.calibrated.interview_pct;
+      recruiter_copilot.placement_probability.placement_pct = cal.calibrated.placement_pct;
+      (recruiter_copilot.placement_probability as any).calibration_basis = cal.calibration_basis;
+      (recruiter_copilot.placement_probability as any).calibration_delta_pp = cal.delta_pp;
+      (recruiter_copilot.placement_probability as any).applied_signals = cal.applied_signals;
+    }
+
     // ---- Override divergence: did the AI shift away from recruiter override? -
     let recruiter_override: any = null;
     let override_divergence = false;
