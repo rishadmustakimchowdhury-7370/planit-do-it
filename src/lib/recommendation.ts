@@ -25,10 +25,13 @@ export interface RecommendationMeta {
   dotClass: string;
 }
 
+// Five recruiter-grade bands surfaced everywhere. `needs_review` is kept as a
+// legacy fallback for older rows only — new generations should map to
+// limited_alignment instead.
 const META: Record<RecommendationKey, RecommendationMeta> = {
   strong_match: {
     key: "strong_match",
-    label: "Strong Match",
+    label: "Highly Recommended",
     tone: "positive",
     badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     dotClass: "bg-emerald-500",
@@ -71,24 +74,25 @@ const META: Record<RecommendationKey, RecommendationMeta> = {
 };
 
 export function scoreToRecommendation(score: number | null | undefined): RecommendationMeta {
-  if (score == null) return META.needs_review;
-  if (score >= 85) return META.strong_match;
-  if (score >= 72) return META.recommended;
-  if (score >= 55) return META.moderate_fit;
-  if (score >= 42) return META.needs_review;
-  if (score >= 28) return META.limited_alignment;
+  if (score == null) return META.limited_alignment;
+  if (score >= 85) return META.strong_match;       // Highly Recommended
+  if (score >= 70) return META.recommended;
+  if (score >= 52) return META.moderate_fit;
+  if (score >= 32) return META.limited_alignment;
   return META.not_suitable;
 }
 
 export function recommendationMeta(rec: AnyRecommendation, fallbackScore?: number | null): RecommendationMeta {
   if (!rec) return scoreToRecommendation(fallbackScore ?? null);
   const k = String(rec).toLowerCase().replace(/[\s-]+/g, "_");
-  if ((META as any)[k]) return (META as any)[k] as RecommendationMeta;
-  // Legacy mapping
-  if (k === "strongly_recommended") return META.strong_match;
+  // Legacy mappings — pre-five-band rows still in the DB
+  if (k === "strongly_recommended" || k === "highly_recommended") return META.strong_match;
   if (k === "not_recommended") return META.not_suitable;
-  if (k === "needs_review") return META.needs_review;
+  if ((META as any)[k]) return (META as any)[k] as RecommendationMeta;
   return scoreToRecommendation(fallbackScore ?? null);
 }
 
-export const ALL_RECOMMENDATIONS = Object.values(META);
+// Public-facing list (excludes the legacy needs_review band so filters/menus
+// only ever show the five canonical recruiter bands).
+export const ALL_RECOMMENDATIONS = (Object.values(META) as RecommendationMeta[])
+  .filter((m) => m.key !== "needs_review");

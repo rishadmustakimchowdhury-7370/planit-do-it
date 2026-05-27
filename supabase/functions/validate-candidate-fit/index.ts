@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeMatchScore, MODEL_VERSION } from "../_shared/match-scoring.ts";
+import { softenLanguage, softenList } from "../_shared/recruiter-language.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,72 +26,100 @@ const corsHeaders = {
 //   recruiter_review         : one closing paragraph, consultant voice
 const SYSTEM_PROMPT = `You are a senior executive-search consultant writing an evidence-based candidate assessment for a paying client. You are NOT a keyword matcher and NOT an optimistic AI summariser. Calibrated, restrained, JD-anchored. The recommendation, executive summary, fit table, strengths and considerations MUST be internally consistent — never contradict the recommendation band.
 
-INPUT: JOB DESCRIPTION, CANDIDATE CV/profile, optional RECRUITER NOTES, and a CANONICAL FIT SCORE (0–100) from the firm's deterministic engine. The canonical score is the single source of truth. NEVER inflate beyond the band.
+WORKFLOW (do all five before writing JSON):
+STEP 1 — JD CLASSIFICATION. Break the JOB DESCRIPTION into:
+  • mandatory_requirements: blocking core skills/experience without which the candidate cannot succeed (e.g. "React", "REST APIs", "SQL", "Backend ownership").
+  • preferred_requirements: nice-to-have / accelerators. Missing these must NOT penalise heavily (e.g. "Docker", "AWS", "CI/CD").
+  • transferable_families: adjacent skill families the role accepts (e.g. "Backend↔Fullstack", "Java↔Python", "DevOps↔Backend infra"). Adjacent profiles are NEVER irrelevant.
+  • seniority_target: junior | mid | senior | lead — inferred from JD scope, ownership, leadership signals.
 
-EVIDENCE CONFIDENCE HIERARCHY (classify each requirement's evidence BEFORE choosing a fit label):
-- HIGH confidence: quantified achievements, explicit years of direct experience, project ownership, architecture responsibility, production delivery, leadership scope, commercial implementation, repeated proven usage across roles. ONLY this tier may justify STRONG or EXCEEDS.
-- MEDIUM confidence: multiple stack mentions across roles, project descriptions without quantification, partial implementation evidence, indirect exposure through adjacent work. Maximum fit: GOOD or PARTIAL.
-- LOW confidence: skills section only, single-line keyword mention, no project context, no delivery proof, no years attached, vague self-description. HARD CEILING: PARTIAL (often WEAK or NOT MATCHED). NEVER STRONG. NEVER EXCEEDS.
+STEP 2 — CANDIDATE ANALYSIS (evidence only). Validate using real production evidence: shipped projects, architecture ownership, scale, years on stack, deployment, leadership scope. Keyword lists and generic summaries are LOW confidence.
 
-EVIDENCE RULES (violating these makes the report worthless):
-- A skill keyword in a list (e.g. "React", "Python", "AWS", "Docker") is LOW confidence by default and is NEVER enough for STRONG/EXCEEDS. To upgrade, the CV must show explicit years OR scale OR production ownership OR architecture decisions OR commercial/enterprise context for THAT specific skill.
-- Adjacent experience does NOT cover an absent requirement. If the JD asks "enterprise React architecture" and the CV only lists "React" in a skills section, fit is PARTIAL at best — often WEAK.
-- "Has 4+ years of web app experience" is GENERIC. Without specific company, product scale, or shipped feature evidence it is PARTIAL, never STRONG.
-- If you cannot quote or paraphrase concrete CV evidence for a requirement, the evidence field MUST literally say "No clear evidence found in CV." and the fit MUST be WEAK or NOT MATCHED.
-- Seniority, industry and domain depth come from actual roles/companies/years — not inferred from skill words.
-- If the evidence sentence reads like a list of keywords or "lists X in skills" / "mentions X" / "skills section includes X", treat as LOW confidence and cap at PARTIAL.
+STEP 3 — RECRUITER NOTES IMPACT. Notes (relocation, salary flex, communication, leadership, off-CV exposure, "frontend not fully reflected in CV") MUST influence reasoning. Produce a recruiter_notes_impact[] explaining how each note shifts the view. Notes may upgrade the band by AT MOST one tier when they supply concrete off-CV evidence; never above "recommended" without CV anchor.
+
+STEP 4 — RECOMMENDATION. Choose ONE of: highly_recommended | recommended | moderate_fit | limited_alignment | not_suitable. No numeric percentages. Adjacent engineers (Backend→Fullstack, Java→Python) applying to engineering roles default to "moderate_fit" or "recommended" — never "limited_alignment" unless the domain is wrong.
+
+STEP 5 — CLIENT-FRIENDLY LANGUAGE. Write as a senior recruiter preparing a client shortlist. Encourage discussion; never reject harshly. BANNED PHRASES anywhere in your output: "lacks", "lacking", "weak candidate", "not qualified", "unqualified", "missing experience", "no matched skills", "poor fit", "reject", "disqualified", "cannot", "fails to", "does not have". Replacements: "may benefit from technical validation", "appears limited in the provided CV", "additional discussion recommended around X", "production ownership should be explored during interview", "limited direct stack overlap", "earlier in their career than the stated band".
+
+EVIDENCE CONFIDENCE HIERARCHY (classify each requirement BEFORE choosing fit):
+- HIGH: quantified achievements, explicit years on stack, project ownership, architecture responsibility, production delivery, leadership scope. Only HIGH may justify STRONG or EXCEEDS.
+- MEDIUM: multiple stack mentions across roles, project descriptions without quantification, partial implementation. Max fit: GOOD.
+- LOW: skills section only, single keyword mention, no project context. Max fit: PARTIAL. Often WEAK. Never STRONG.
+
+EVIDENCE RULES:
+- A skill keyword in a list is LOW by default. Upgrade only with explicit years OR scale OR production ownership OR commercial context.
+- Adjacent experience does NOT cover an absent mandatory requirement: a Backend engineer applying to Fullstack can be PARTIAL/GOOD on frontend at best — never STRONG — unless the CV proves shipped frontend.
+- If you cannot quote concrete CV evidence, the evidence field MUST literally say "No clear evidence found in CV." and fit must be WEAK or NOT MATCHED. Use the client-friendly considerations line to soften it.
+- Seniority, industry and domain depth come from actual roles/companies/years — not skill words.
 
 CALIBRATION (HARD CAPS — never exceed):
-- score < 35  → "not_suitable". Fits: WEAK / NOT MATCHED only. Zero GOOD/STRONG/EXCEEDS.
-- 35–49       → "limited_alignment". Mostly WEAK / PARTIAL / NOT MATCHED. Zero GOOD/STRONG/EXCEEDS.
-- 50–61       → "needs_review". Majority PARTIAL with some WEAK. At most ONE GOOD across the whole table. ZERO STRONG. ZERO EXCEEDS.
-- 62–74       → "moderate_fit". Mix of GOOD and PARTIAL, some WEAK. At most ONE STRONG. ZERO EXCEEDS.
-- 75–87       → "recommended". Majority GOOD/STRONG. EXCEEDS only with concrete enterprise-scale proof (max 1).
-- ≥ 88        → "strong_match". STRONG/EXCEEDS dominate.
+- score < 32  → "not_suitable" — WEAK/NOT MATCHED only. Zero GOOD/STRONG/EXCEEDS.
+- 32–51       → "limited_alignment" — Mostly WEAK/PARTIAL. Zero STRONG/EXCEEDS.
+- 52–69       → "moderate_fit" — Mix of GOOD/PARTIAL, some WEAK. At most ONE STRONG.
+- 70–84       → "recommended" — Majority GOOD/STRONG. EXCEEDS only with enterprise-scale proof (max 1).
+- ≥ 85        → "highly_recommended" — STRONG/EXCEEDS dominate.
 
-EXECUTIVE SUMMARY RULES (the summary sets tone for everything that follows):
-- 2–3 sentences. Must explicitly mention BOTH strengths AND gaps proportional to the band.
-- For needs_review / limited_alignment / not_suitable: LEAD with the gap, uncertainty or evidence caveat — never with a positive framing. Use language like "limited evidence", "moderate exposure", "partial alignment", "requires technical validation", "unclear production depth".
-  Banned phrases in these bands: "strong candidate", "strong profile", "excellent fit", "highly qualified", "ideal", "perfect match", "well-suited", "great fit", "good suitability", "solid alignment", "positions him/her/them well", "positions him/her/them as a strong candidate", "results-driven".
-- GOOD example (needs_review): "Candidate demonstrates relevant backend engineering exposure in PHP and Python, though evidence of advanced frontend architecture ownership and large-scale SaaS delivery is limited. Suitable for a screening call to probe production scale and seniority."
-- BAD example: "Strong candidate for the full-stack role with excellent experience."
+EXECUTIVE SUMMARY RULES (sets tone for the rest):
+- 2–3 sentences. Mention BOTH strengths AND gaps proportional to the band.
+- For limited_alignment / not_suitable: LEAD with the gap or evidence caveat — never with a positive framing. Use "limited evidence", "moderate exposure", "partial alignment", "requires technical validation", "production depth should be explored".
+- For moderate_fit: balance — a relevant strength then a calibrated caveat.
+- For recommended / highly_recommended: lead with concrete strengths anchored to CV evidence.
 
 STRENGTHS / CONSIDERATIONS RULES:
-- Each bullet starts with a short bold lead, then an em-dash, then the evidence sentence.
-- For needs_review or weaker: considerations MUST be specific concerns (depth, scale, ownership, seniority, location, salary, notice), not generic platitudes. Strengths in these bands must be hedged ("baseline exposure", "some commercial use") — not "strong" / "deep" / "extensive".
+- Each bullet: short bold lead, em-dash, evidence sentence.
+- Considerations are framed as "interview focus areas", never as rejections. Use client-friendly language.
 
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
-  "recommendation": "strong_match|recommended|moderate_fit|needs_review|limited_alignment|not_suitable",
-  "summary": "<2–3 sentence executive summary, JD-specific, respects band tone>",
+  "jd_classification": {
+    "mandatory_requirements": ["..."],
+    "preferred_requirements": ["..."],
+    "transferable_families": ["..."],
+    "seniority_target": "junior|mid|senior|lead"
+  },
+  "recommendation": "highly_recommended|recommended|moderate_fit|limited_alignment|not_suitable",
+  "summary": "<2–3 sentence executive summary, JD-specific, respects band tone, client-friendly>",
   "mandate_match": [
-    { "requirement": "<short JD requirement label>", "evidence": "<specific CV evidence or 'No clear evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" }
+    { "requirement": "<short JD requirement label>", "kind": "mandatory|preferred", "evidence": "<specific CV evidence or 'No clear evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" }
   ],
   "strengths": ["<lead — evidence sentence>", "..."],
-  "considerations": ["<lead — specific concern>", "..."],
-  "risks": ["<hiring risk if applicable>"],
-  "missing_requirements": ["<JD requirement with no real evidence>"],
-  "recruiter_notes_summary": ["<how the recruiter note shaped this view>"]
+  "considerations": ["<lead — interview focus area, client-friendly>", "..."],
+  "risks": ["<hiring risk if applicable, soft phrasing>"],
+  "missing_requirements": ["<JD requirement with no real evidence, soft phrasing>"],
+  "recruiter_notes_summary": ["<how the recruiter note shaped this view>"],
+  "recruiter_notes_impact": [{ "note": "<paraphrased recruiter note>", "effect": "<how it shifted the assessment>" }]
 }
 
-Extract 5–8 of the JOB's most important requirements. 3–5 strengths, 3–5 considerations. Output JSON only.`;
+Extract 5–8 of the JOB's most important requirements (mandatory first, preferred after). 3–5 strengths, 3–5 considerations. Output JSON only.`;
 
 type RecLabel =
   | "strong_match" | "recommended" | "moderate_fit"
   | "needs_review" | "limited_alignment" | "not_suitable";
 
+// AI emits "highly_recommended"; the platform stores the canonical key
+// "strong_match" (label is rendered as "Highly Recommended" everywhere).
+function normalizeRecLabel(input: any): RecLabel | null {
+  const k = String(input ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+  if (k === "highly_recommended" || k === "strongly_recommended" || k === "strong_match") return "strong_match";
+  if (k === "recommended") return "recommended";
+  if (k === "moderate_fit") return "moderate_fit";
+  if (k === "limited_alignment") return "limited_alignment";
+  if (k === "not_suitable" || k === "not_recommended") return "not_suitable";
+  if (k === "needs_review") return "needs_review";
+  return null;
+}
+
 function recommendationFromScore(score: number): RecLabel {
-  if (score >= 88) return "strong_match";
-  if (score >= 75) return "recommended";
-  if (score >= 62) return "moderate_fit";
-  if (score >= 50) return "needs_review";
-  if (score >= 35) return "limited_alignment";
+  if (score >= 85) return "strong_match";        // Highly Recommended
+  if (score >= 70) return "recommended";
+  if (score >= 52) return "moderate_fit";
+  if (score >= 32) return "limited_alignment";
   return "not_suitable";
 }
 
 const REC_ALLOWED: RecLabel[] = [
   "strong_match", "recommended", "moderate_fit",
-  "needs_review", "limited_alignment", "not_suitable",
+  "limited_alignment", "not_suitable",
 ];
 
 serve(async (req) => {
@@ -194,19 +223,22 @@ serve(async (req) => {
       const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
       const score = canonical?.match_score;
       const ceil = score == null ? 2
-                 : score < 35 ? 1
-                 : score < 50 ? 2
-                 : score < 62 ? 3
-                 : score < 75 ? 4
-                 : score < 88 ? 4
+                 : score < 32 ? 1
+                 : score < 52 ? 2
+                 : score < 70 ? 3
+                 : score < 85 ? 4
                  : 5;
       const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
         m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
-      // Also invalidate if the stored recommendation is still on the old 3-tier system.
-      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(String((existing as any)?.recommendation ?? ""));
-      if (existing && hasMandate && !inflated && !legacyRec && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
+      // Also invalidate if the stored row is missing the new five-band taxonomy
+      // or jd_classification sidecar (older rows from before this engine update).
+      const recStr = String((existing as any)?.recommendation ?? "");
+      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(recStr);
+      const hasJdClassification = hasMandate && (existing as any).mandate_match.some((m: any) => m?.__kind === "jd_classification");
+      const needsRefresh = legacyRec || !hasJdClassification;
+      if (existing && hasMandate && !inflated && !needsRefresh && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
           cached: true,
@@ -292,32 +324,32 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
 
     // Hard ceiling tied to canonical band — single source of truth.
     // Rank: 0=NOT MATCHED 1=WEAK 2=PARTIAL 3=GOOD 4=STRONG 5=EXCEEDS
+    // Five-band thresholds: <32 not_suitable, <52 limited_alignment,
+    // <70 moderate_fit, <85 recommended, ≥85 highly_recommended.
     const fitCeiling = (score: number | null): number => {
       if (score == null) return 2;       // PARTIAL
-      if (score < 35) return 1;          // WEAK
-      if (score < 50) return 2;          // PARTIAL
-      if (score < 62) return 3;          // up to GOOD (rare)
-      if (score < 75) return 4;          // STRONG (rare)
-      if (score < 88) return 4;          // STRONG
+      if (score < 32) return 1;          // WEAK
+      if (score < 52) return 2;          // PARTIAL
+      if (score < 70) return 3;          // GOOD
+      if (score < 85) return 4;          // STRONG
       return 5;                          // EXCEEDS
     };
     const ceil = fitCeiling(canonicalScore);
     let goodUsed = 0, strongUsed = 0, exceedsUsed = 0;
     const goodCap =
       canonicalScore == null ? 99 :
-      canonicalScore < 35 ? 0 :
-      canonicalScore < 50 ? 0 :
-      canonicalScore < 62 ? 1 :   // needs_review: max ONE GOOD
+      canonicalScore < 32 ? 0 :
+      canonicalScore < 52 ? 1 :        // limited_alignment: max ONE GOOD
       99;
     const strongCap =
       canonicalScore == null ? 99 :
-      canonicalScore < 62 ? 0 :   // needs_review and below: ZERO STRONG
-      canonicalScore < 75 ? 1 :   // moderate_fit: max ONE STRONG
+      canonicalScore < 52 ? 0 :        // limited_alignment & below: ZERO STRONG
+      canonicalScore < 70 ? 1 :        // moderate_fit: max ONE STRONG
       99;
     const exceedsCap =
       canonicalScore == null ? 0 :
-      canonicalScore < 75 ? 0 :
-      canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
+      canonicalScore < 70 ? 0 :
+      canonicalScore < 85 ? 1 :        // recommended: max ONE EXCEEDS
       99;
 
     // Evidence-quality classifier: detect LOW-confidence evidence text and cap fit at PARTIAL.
@@ -352,10 +384,9 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
-            // Evidence-quality guard: shallow evidence cannot earn STRONG/EXCEEDS; medium caps at GOOD.
             const q = evidenceQuality(m.evidence);
-            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";       // PARTIAL ceiling
-            else if (q === "med" && fitRank(f) > 3) f = "GOOD";     // GOOD ceiling
+            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";
+            else if (q === "med" && fitRank(f) > 3) f = "GOOD";
             if (f === "EXCEEDS") {
               if (exceedsUsed >= exceedsCap) f = "STRONG";
               else exceedsUsed++;
@@ -368,39 +399,75 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
               if (goodUsed >= goodCap) f = "PARTIAL";
               else goodUsed++;
             }
+            const kind = String(m.kind ?? "").toLowerCase() === "preferred" ? "preferred" : "mandatory";
             return {
               requirement: String(m.requirement).slice(0, 120),
-              evidence: String(m.evidence).slice(0, 600),
+              kind,
+              evidence: softenLanguage(String(m.evidence).slice(0, 600)),
               fit: f,
             };
           })
+          // Sort mandatory first, preferred after — drives PDF/UI ordering.
+          .sort((a: any, b: any) => (a.kind === "mandatory" ? -1 : 1) - (b.kind === "mandatory" ? -1 : 1))
           .slice(0, 10)
       : [];
 
+    // Recommendation: prefer the canonical deterministic band, but allow the AI
+    // (recruiter brain + notes_impact) to upgrade by AT MOST one tier when it
+    // explicitly chose a higher band. Never inflate above "recommended" via
+    // notes alone. Never downgrade arbitrarily — canonical is the floor.
     const fit_score = canonicalScore != null ? canonicalScore : 0;
-    // Trust the deterministic band over whatever the AI claimed.
-    const recommendation = recommendationFromScore(fit_score);
+    const canonicalRec = recommendationFromScore(fit_score);
+    const aiRec = normalizeRecLabel(parsed.recommendation);
+    const BAND_ORDER: RecLabel[] = ["not_suitable","limited_alignment","moderate_fit","recommended","strong_match"];
+    const canonicalIdx = BAND_ORDER.indexOf(canonicalRec === "needs_review" ? "limited_alignment" : canonicalRec);
+    let chosenIdx = canonicalIdx;
+    if (aiRec && aiRec !== "needs_review") {
+      const aiIdx = BAND_ORDER.indexOf(aiRec);
+      if (aiIdx >= 0) {
+        // Allow upgrade of at most 1 tier, capped at "recommended" unless canonical already says higher.
+        const upgradeCap = Math.max(canonicalIdx, BAND_ORDER.indexOf("recommended"));
+        chosenIdx = Math.min(Math.max(canonicalIdx, Math.min(aiIdx, canonicalIdx + 1)), upgradeCap);
+      }
+    }
+    const recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
 
     // Derive missing_requirements from the mandate_match table as a fallback,
-    // and merge anything the AI explicitly flagged.
+    // and merge anything the AI explicitly flagged. Soften all wording.
     const aiMissing = Array.isArray(parsed.missing_requirements) ? parsed.missing_requirements.map(String) : [];
     const tableMissing = mandate_match
       .filter((m: any) => m.fit === "NOT MATCHED" || m.fit === "WEAK")
       .map((m: any) => m.requirement);
-    const missing_requirements = Array.from(new Set([...aiMissing, ...tableMissing])).slice(0, 8);
+    const missing_requirements = softenList(Array.from(new Set([...aiMissing, ...tableMissing])).slice(0, 8));
 
-    const recruiterNotesSummary = Array.isArray(parsed.recruiter_notes_summary)
-      ? parsed.recruiter_notes_summary.map(String).slice(0, 6) : [];
+    const recruiterNotesSummary = softenList(
+      Array.isArray(parsed.recruiter_notes_summary) ? parsed.recruiter_notes_summary.slice(0, 6) : []
+    );
+    const recruiterNotesImpact = Array.isArray(parsed.recruiter_notes_impact)
+      ? parsed.recruiter_notes_impact
+          .filter((x: any) => x && (x.note || x.effect))
+          .slice(0, 6)
+          .map((x: any) => ({
+            note: softenLanguage(String(x.note ?? "")).slice(0, 240),
+            effect: softenLanguage(String(x.effect ?? "")).slice(0, 240),
+          }))
+      : [];
 
-    // We persist the recruiter-notes-summary and missing requirements inside
-    // `risks` jsonb as structured items so we don't need a schema migration.
-    // Consumers read `risks` as plain strings; we keep that shape but allow the
-    // payload to carry the structured details under a known shape too.
-    const risksOut = Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 6) : [];
+    const jdClassification = parsed.jd_classification && typeof parsed.jd_classification === "object" ? {
+      mandatory_requirements: Array.isArray(parsed.jd_classification.mandatory_requirements)
+        ? parsed.jd_classification.mandatory_requirements.map(String).slice(0, 12) : [],
+      preferred_requirements: Array.isArray(parsed.jd_classification.preferred_requirements)
+        ? parsed.jd_classification.preferred_requirements.map(String).slice(0, 12) : [],
+      transferable_families: Array.isArray(parsed.jd_classification.transferable_families)
+        ? parsed.jd_classification.transferable_families.map(String).slice(0, 8) : [],
+      seniority_target: ["junior","mid","senior","lead"].includes(String(parsed.jd_classification.seniority_target ?? "").toLowerCase())
+        ? String(parsed.jd_classification.seniority_target).toLowerCase()
+        : null,
+    } : null;
 
-    // Band-aware summary sanitization: if the recommendation is needs_review or
-    // lower but the AI used inflated language, rewrite the summary with a
-    // calibrated, evidence-based fallback so the report tone matches the band.
+    const risksOut = softenList(Array.isArray(parsed.risks) ? parsed.risks.slice(0, 6) : []);
+
+    // Band-aware summary sanitisation: low bands cannot use inflated language.
     const BANNED = [
       /\bstrong (candidate|profile|fit)\b/i, /\bexcellent (fit|candidate|experience|profile)\b/i,
       /\bhighly qualified\b/i, /\bideal (fit|candidate)\b/i, /\bperfect (fit|match)\b/i,
@@ -409,8 +476,8 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       /\bsolid alignment\b/i, /\bgood suitability\b/i, /\bdeep experience\b/i,
       /\bextensive experience\b/i,
     ];
-    const LOW_BANDS = new Set(["needs_review", "limited_alignment", "not_suitable"]);
-    let cleanedSummary: string | null = parsed.summary ? String(parsed.summary).trim() : null;
+    const LOW_BANDS = new Set(["limited_alignment", "not_suitable"]);
+    let cleanedSummary: string | null = parsed.summary ? softenLanguage(String(parsed.summary).trim()) : null;
     if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
       const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
       const role = job.title ?? "this role";
@@ -423,9 +490,9 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         (mandate_match.find((m: any) => m.fit === "GOOD" || m.fit === "STRONG")?.requirement) ||
         "relevant baseline experience";
       cleanedSummary =
-        `${firstName} shows ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
-        `but evidence is limited around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()}. ` +
-        `Recommend a screening call to validate commercial depth and production ownership before progressing.`;
+        `${firstName} brings ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
+        `with evidence around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} that would benefit from validation at interview. ` +
+        `Recommend a screening conversation to explore production depth and ownership before progressing.`;
     }
 
     const insertRow = {
@@ -433,15 +500,16 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       job_id, candidate_id,
       fit_score, recommendation,
       summary: cleanedSummary,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
-      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
+      strengths: softenList(Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : []),
+      weaknesses: softenList(Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [])),
       risks: risksOut,
       mandate_match: [
         ...mandate_match,
+        ...(jdClassification ? [{ __kind: "jd_classification", ...jdClassification }] : []),
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
+        ...(recruiterNotesImpact.length ? [{ __kind: "recruiter_notes_impact", items: recruiterNotesImpact }] : []),
       ],
-      // recruiter_review intentionally dropped — the executive summary owns the closing voice.
       recruiter_review: null,
       model: "gpt-4o",
       generated_by: userId,

@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MatchScoreCircle } from './MatchScoreCircle';
-import { Sparkles, CheckCircle, XCircle, Loader2, RefreshCw, Briefcase } from 'lucide-react';
+import { Sparkles, CheckCircle, AlertTriangle, Loader2, RefreshCw, Briefcase } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { RecommendationBadge } from '@/components/matching/RecommendationBadge';
+import { AnyRecommendation } from '@/lib/recommendation';
 
 interface Job {
   id: string;
@@ -23,6 +24,7 @@ interface MatchResult {
   match_gaps: string[] | null;
   match_explanation: string | null;
   match_confidence: number | null;
+  recommendation?: AnyRecommendation;
 }
 
 interface JobAIMatchSectionProps {
@@ -217,28 +219,23 @@ export function JobAIMatchSection({
 
       const fullResume = resumeParts.join('\n');
 
-      // Call AI match function
-      const { data, error } = await supabase.functions.invoke('ai-match', {
-        body: {
-          jobDescription: selectedJob.description || selectedJob.title,
-          jobTitle: selectedJob.title,
-          candidateResume: fullResume,
-          candidateSkills: skills || []
-        }
+      // Unified recruiter-grade engine — same brain as Talent Match, validation
+      // modal, submission pack, executive PDF and client portal.
+      const { data, error } = await supabase.functions.invoke('validate-candidate-fit', {
+        body: { job_id: selectedJobId, candidate_id: candidateId, force: true },
       });
 
       if (error) throw error;
-
-      if (data.error) {
-        if (data.error.includes('Rate limit')) {
-          toast.error('AI rate limit exceeded. Please try again later.');
-        } else if (data.error.includes('credits')) {
-          toast.error('AI credits exhausted. Please add more credits.');
-        } else {
-          toast.error(data.error);
-        }
+      if ((data as any)?.error) {
+        const msg = String((data as any).error);
+        if (msg.toLowerCase().includes('rate')) toast.error('AI rate limit exceeded. Please try again later.');
+        else if (msg.toLowerCase().includes('credit')) toast.error('AI credits exhausted. Please add more credits.');
+        else toast.error(msg);
         return;
       }
+
+      const v = (data as any)?.validation ?? data;
+      if (!v) throw new Error('No assessment returned');
 
       // Check if job_candidate record exists
       const { data: existingRecord } = await supabase
@@ -249,13 +246,14 @@ export function JobAIMatchSection({
         .maybeSingle();
 
       const matchData = {
-        match_score: data.score || 0,
-        match_confidence: data.confidence || null,
-        match_strengths: data.strengths || [],
-        match_gaps: data.gaps || [],
-        match_explanation: data.explanation || null,
-        matched_at: new Date().toISOString()
+        match_score: v.fit_score ?? 0,
+        match_confidence: null,
+        match_strengths: Array.isArray(v.strengths) ? v.strengths : [],
+        match_gaps: Array.isArray(v.weaknesses) ? v.weaknesses : [],
+        match_explanation: v.summary ?? null,
+        matched_at: new Date().toISOString(),
       };
+      const localResult: MatchResult = { ...matchData, recommendation: v.recommendation };
 
       if (existingRecord) {
         // Update existing record
@@ -280,14 +278,8 @@ export function JobAIMatchSection({
         if (insertError) throw insertError;
       }
 
-      // Update local state
-      setMatchResult({
-        match_score: matchData.match_score,
-        match_strengths: matchData.match_strengths,
-        match_gaps: matchData.match_gaps,
-        match_explanation: matchData.match_explanation,
-        match_confidence: matchData.match_confidence
-      });
+      // Update local state with unified validation result (includes recommendation)
+      setMatchResult(localResult);
 
       // Log activity for usage tracking
       await logActivity({
@@ -406,13 +398,12 @@ export function JobAIMatchSection({
                 </p>
               )}
               <div className="flex justify-center mb-4">
-                <MatchScoreCircle score={matchResult.match_score} size="lg" />
+                <RecommendationBadge
+                  recommendation={matchResult.recommendation}
+                  score={matchResult.match_score}
+                  size="lg"
+                />
               </div>
-              {matchResult.match_confidence && (
-                <p className="text-xs text-muted-foreground">
-                  Confidence: {matchResult.match_confidence}%
-                </p>
-              )}
             </div>
 
             {/* Details */}
@@ -453,7 +444,7 @@ export function JobAIMatchSection({
               {/* Skill Gaps */}
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                  <XCircle className="w-5 h-5 text-destructive" />
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
                   Skill Gaps
                 </h3>
                 {matchResult.match_gaps && matchResult.match_gaps.length > 0 ? (
