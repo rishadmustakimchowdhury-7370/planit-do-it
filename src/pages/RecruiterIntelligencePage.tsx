@@ -16,7 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function RecruiterIntelligencePage() {
   return (
-    <RoleGate allow={["owner", "manager", "recruiter", "super_admin"]}>
+    <RoleGate allowedRoles={["owner", "manager", "recruiter", "super_admin"]}>
       <AppLayout>
         <RecruiterIntelligenceContent />
       </AppLayout>
