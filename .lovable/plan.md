@@ -1,92 +1,90 @@
+# Talent Intelligence Workspace — Plan
 
-# Unified Recruiter-Grade AI Validation Engine
-
-Goal: one brain (`validate-candidate-fit`) feeds every AI surface — AI Match page, candidate cards, validation modal, submission pack, executive PDF, client portal. Same candidate → same recommendation, same wording, every screen.
-
----
-
-## Phase 1 — JD Classification (Step 1 of PRD)
-
-Extend `validate-candidate-fit` so the AI first emits a structured JD breakdown before scoring:
-
-- `mandatory_requirements[]` — blocking core skills (e.g. React, REST, SQL).
-- `preferred_requirements[]` — nice-to-have (Docker, AWS, CI/CD). Missing → light penalty only.
-- `transferable_families[]` — adjacency map (Backend↔Fullstack, Java↔Python, DevOps↔Backend).
-- `seniority_target` — junior / mid / senior / lead.
-
-Cache the JD breakdown per `job_id` in a new `job_jd_analysis` table so it's reused across candidates and consumers (no re-parsing per call).
-
-## Phase 2 — Evidence-Led Candidate Analysis (Step 2)
-
-Tighten the system prompt + scoring shared module:
-
-- Classify every requirement as HIGH / MEDIUM / LOW evidence using the existing hierarchy, but driven explicitly by mandatory vs preferred.
-- Reward production ownership, architecture, deployments, measurable impact, years on stack.
-- Demote pure keyword lists / generic summaries.
-- Apply transferable-family bonus only to *adjacent* mandatory gaps, never to fabricate STRONG.
-
-## Phase 3 — Recruiter Notes Weighting (Step 3)
-
-Notes already flow into the engine; formalize their effect:
-
-- AI must produce a `recruiter_notes_impact[]` array (what shifted, in which direction, by how much).
-- Allowed to upgrade band by at most one tier when notes provide concrete off-CV evidence (e.g. "frontend exposure outside CV", "currently leading team").
-- Never upgrade past `recommended` purely from notes without CV anchor.
-
-## Phase 4 — Recommendation Engine (Step 4) — Single Taxonomy
-
-Lock the platform to five bands, no numeric % anywhere user-facing:
-
-`highly_recommended | recommended | moderate_fit | limited_alignment | not_suitable`
-
-Migrate `strong_match` → `highly_recommended`, remove `needs_review` from UI (kept only as internal fallback when AI fails). Update `src/lib/recommendation.ts` + `RecommendationBadge` + all filters/sorts/labels.
-
-## Phase 5 — Executive-Search Language Layer (Step 5)
-
-Add a post-processing language guardrail in the edge function:
-
-- Banned phrases regex: "lacks", "weak candidate", "not qualified", "missing experience", "no matched skills".
-- Replacement bank: "may benefit from technical validation", "appears limited in the provided CV", "additional discussion recommended", "production ownership should be explored during interview".
-- Applied to `summary`, `considerations`, `risks`, `missing_requirements`, `recruiter_review` before persisting.
-
-## Phase 6 — One-Brain Wiring (Most Important Rule)
-
-Audit every consumer and force them to render from the same `ai_candidate_validations` row:
-
-- `AIValidationCard`, `RediscoveredTalentSection`, `JobAIMatchSection`, `AIMatchPage` (already migrated) — confirmed reading recommendation only.
-- `generate-submission-pack` + `brand-cv` + executive PDF — pull recommendation, summary, mandate_match, strengths, considerations from the same row instead of re-prompting.
-- `ClientCandidateSlideOver`, `SubmissionWorkspace`, `PublicCandidateSharePage` — same source.
-- Delete or hard-deprecate the old `ai-match` edge function (frontend already migrated last turn) so no future surface can call it.
-
-## Phase 7 — Executive PDF Polish
-
-One-page, dark navy, premium layout sections in this fixed order:
-
-1. Recommendation pill + 2–3 sentence executive summary.
-2. JD Alignment table (mandatory rows first, preferred rows after, fit chips).
-3. Transferable Strengths (lead — evidence).
-4. Interview Focus Areas (replaces "Gaps"/"Considerations").
-5. Recruiter Observations (notes impact + closing paragraph).
-
-Reuse the same component data already returned by `validate-candidate-fit`; no separate AI call.
+Goal: turn the standalone AI Matching page into a recruiter copilot workspace that shares ONE validation engine with AI Validation, candidate cards, submission packs, executive PDF and client portal. Recruiter written + voice notes influence (but don't override) the AI decision, and validation reruns live.
 
 ---
 
-## Technical Notes
+## Phase 1 — Voice transcription backend
 
-- **DB**: new `job_jd_analysis` table (job_id PK, mandatory jsonb, preferred jsonb, transferable jsonb, seniority text, model_version text, created_at). Migration + GRANTs + RLS via tenant scope.
-- **Schema additions to `ai_candidate_validations`**: `jd_classification jsonb`, `recruiter_notes_impact jsonb`, `language_sanitized boolean`.
-- **Edge functions touched**: `validate-candidate-fit` (engine), new `analyze-job-requirements` (JD step, callable on demand + on job create/edit), `generate-submission-pack` (consume row only), `brand-cv` (consume row only). Delete `ai-match`.
-- **Frontend touched**: `src/lib/recommendation.ts`, `RecommendationBadge`, `AIValidationCard`, `RediscoveredTalentSection`, `JobAIMatchSection`, `AIMatchPage`, submission/exec PDF components, client portal candidate views.
-- **Language guardrail**: shared helper `_shared/recruiter-language.ts` used by validation + submission pack.
-- **Caching**: keep canonical `match_score` (internal) for hard ceilings; never surface it.
+- New edge function `transcribe-voice-note` (Deno) that accepts a base64/audio Blob upload and returns text using **OpenAI `gpt-4o-mini-transcribe`** (re-uses existing `OPENAI_API_KEY`, no Lovable AI Gateway, per project memory).
+- Validates auth (JWT in code), tenant binding, file-size cap (≤ 25 MB), mime allow-list (`audio/webm`, `audio/mp4`, `audio/mpeg`, `audio/wav`).
+- Returns `{ text, language, duration_ms }`. Frontend keeps transcript editable before save.
 
-## Out of Scope (Confirm Before Building)
+## Phase 2 — Persist recruiter context (one source of truth)
 
-- Re-training or fine-tuning models.
-- Changing scoring math in `_shared/match-scoring.ts` (recalibrated last turn).
-- Client-portal redesign beyond label/wording alignment.
+Reuse existing structured recruiter notes table (`recruiter_notes` / `candidate_notes` already feeding the engine). Add:
+
+- `voice_note_url` (optional, storage) and `voice_transcript` text column on the same row.
+- Storage bucket `recruiter-voice-notes` (private, tenant-scoped RLS, recruiter-only read/write).
+
+Single migration covers: column adds, bucket create, RLS, GRANTs.
+
+## Phase 3 — Engine weighting (60 / 25 / 15)
+
+Update `supabase/functions/validate-candidate-fit/index.ts` prompt + scoring contract:
+
+- Explicit weighting block: 60% CV evidence, 25% recruiter context, 15% transferable inference.
+- Recruiter notes can move the band by at most **one tier** (already enforced) — keep the guardrail; document the 25% influence in the system prompt.
+- Continue passing `recruiter_notes_impact[]` sidecar so the UI can show which note moved the recommendation.
+- Run all output strings through `softenLanguage` (already exists).
+
+No change to `_shared/match-scoring.ts` (out of scope per prior plan).
+
+## Phase 4 — Live re-validation hook
+
+- Extend `useValidateCandidateFit` with a debounced `runDebounced(jobId, candidateId, { force:true })` (700 ms) wired to recruiter-notes and transcript edits.
+- Invalidate React Query keys: `ai-validation`, `recruiter-notes`, `rediscovered-matches` so all surfaces (validation card, candidate card, submission preview) refresh together.
+
+## Phase 5 — New `AIMatchPage` Talent Intelligence Workspace
+
+Replace the current 2-column layout with a responsive 3-panel workspace (stacks on < lg).
+
+```text
+┌─────────────┬──────────────────────────┬────────────────┐
+│ LEFT        │ CENTER                   │ RIGHT          │
+│ Job select  │ Recommendation badge     │ Generate Exec  │
+│ Cand select │ Executive Summary        │   Report (PDF) │
+│ Recruiter   │ JD Alignment table       │ Generate       │
+│  Notes      │ Transferable Strengths   │   Submission   │
+│  (structured│ Interview Focus Areas    │   Pack         │
+│   + free)   │ Considerations / Risks   │ Share w/Client │
+│ Voice Notes │ Recruiter-impact chips   │ Save Insight   │
+│  recorder + │ (which note shifted band)│ Re-run button  │
+│  transcript │                          │                │
+│ AI Memory   │                          │                │
+│  (history)  │                          │                │
+└─────────────┴──────────────────────────┴────────────────┘
+```
+
+Components (new, in `src/components/matching/workspace/`):
+
+- `JobCandidatePicker.tsx`
+- `RecruiterNotesPanel.tsx` (wraps existing `StructuredRecruiterNotesForm`)
+- `VoiceNoteRecorder.tsx` (MediaRecorder → upload → transcribe → editable textarea)
+- `AIContextMemory.tsx` (lists prior validations, recruiter-notes versions, transcripts)
+- `ValidationCenter.tsx` (renders existing `RecommendationBadge`, mandate table, strengths/considerations from `useLatestValidation`)
+- `WorkspaceActions.tsx` (re-uses existing submission-pack and exec-PDF generators — no new logic)
+
+`AIMatchPage.tsx` becomes a thin composition + state container.
+
+## Phase 6 — Wording + consistency sweep
+
+- Replace any remaining "STRONG/EXCEEDS" badge labels in the new workspace with the 5-band taxonomy from `src/lib/recommendation.ts`.
+- Every recruiter-facing string passes through the engine (already softens). UI hardcoded labels reviewed for: "lacks", "weak", "not qualified".
+
+## Phase 7 — QA
+
+- Manual: record voice → transcript appears → edit → save → recommendation re-runs within ~1 s.
+- Sanity: same candidate now renders identical recommendation in AI Matching, AI Validation card, Talent Match list, submission pack header, executive PDF.
 
 ---
 
-Reply **approve** to proceed phase-by-phase, or tell me which phases to cut/reorder.
+## Technical notes
+
+- **Edge functions:** new `transcribe-voice-note`; edits to `validate-candidate-fit` (weighting prompt only).
+- **DB migration (single):** add `voice_note_url`, `voice_transcript` to existing recruiter-notes row; create private storage bucket + RLS; required GRANTs.
+- **Secrets:** uses existing `OPENAI_API_KEY` — no new secret prompt.
+- **Out of scope:** changing scoring math in `_shared/match-scoring.ts`, client-portal redesign, multi-language transcript translation, real-time streaming STT (we transcribe on stop — simpler and cheaper).
+- **Risk:** MediaRecorder mime support varies across browsers — we feature-detect and fall back to `audio/webm;codecs=opus` → `audio/mp4`.
+
+Awaiting your approval before any code is written.
