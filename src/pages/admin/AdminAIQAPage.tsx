@@ -38,13 +38,13 @@ const recColor = (r?: string) => {
 };
 
 export default function AdminAIQAPage() {
-  const { isSuperAdmin, loading: authLoading } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<QAResult[]>([]);
   const [summary, setSummary] = useState<QASummary | null>(null);
   const [runs, setRuns] = useState<number>(2);
 
-  if (!authLoading && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
 
   const run = async () => {
     setRunning(true);
@@ -74,7 +74,7 @@ export default function AdminAIQAPage() {
   );
 
   return (
-    <AdminLayout>
+    <AdminLayout title="AI Validation QA">
       <div className="space-y-6 max-w-7xl">
         <div className="flex items-start justify-between">
           <div>
