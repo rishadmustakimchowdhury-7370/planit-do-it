@@ -163,12 +163,15 @@ serve(async (req) => {
         m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
-      // Also invalidate if the stored row is missing the new five-band taxonomy
-      // or jd_classification sidecar (older rows from before this engine update).
+      // Also invalidate if the stored row is missing the new taxonomy / engine
+      // version, OR if the JD changed (validation_stale = true), OR if it
+      // predates the Executive Search OS engine.
       const recStr = String((existing as any)?.recommendation ?? "");
-      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(recStr);
+      const legacyRec = ["strongly_recommended","needs_review","not_recommended","moderate_fit","limited_alignment","not_suitable"].includes(recStr);
       const hasJdClassification = hasMandate && (existing as any).mandate_match.some((m: any) => m?.__kind === "jd_classification");
-      const needsRefresh = legacyRec || !hasJdClassification;
+      const isStale = (existing as any)?.validation_stale === true;
+      const oldEngine = (existing as any)?.engine_version !== "exec_search_v1";
+      const needsRefresh = legacyRec || !hasJdClassification || isStale || oldEngine;
       if (existing && hasMandate && !inflated && !needsRefresh && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
