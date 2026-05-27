@@ -74,6 +74,9 @@ export function SubmissionWorkspace({
   const [regenerating, setRegenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [sentScreen, setSentScreen] = useState(false);
+  const [commsOpen, setCommsOpen] = useState(false);
+  const [copilot, setCopilot] = useState<any | null>(null);
+  const { on: intelOn, toggle: toggleIntel } = useRecruiterIntelligenceToggle();
 
   // Editable controls (autosaved)
   const [components, setComponents] = useState({ ai_report: true, branded_cv: true, original_cv: true });
