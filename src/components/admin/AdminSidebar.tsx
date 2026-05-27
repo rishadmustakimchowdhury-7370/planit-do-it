@@ -50,6 +50,7 @@ const adminNavItems = [
   { title: 'Events', url: '/events', icon: Calendar },
   { title: 'Live Chat', url: '/admin/chat', icon: MessageSquare },
   { title: 'Audit Logs', url: '/admin/logs', icon: ScrollText },
+  { title: 'AI Validation QA', url: '/admin/ai-qa', icon: Shield },
   { title: 'Settings', url: '/admin/settings', icon: Settings },
 ];
 
