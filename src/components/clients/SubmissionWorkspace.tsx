@@ -324,6 +324,11 @@ export function SubmissionWorkspace({
     return angles.slice(0, 4).map(a => a.angle).filter(Boolean);
   }, [copilot]);
 
+  // Derived flags — also referenced by keyboard shortcuts below.
+  const isReady = !!(row && row.pack_status === "ready" && signedUrl);
+  const isBuilding = !!(row && (row.pack_status === "generating" || regenerating));
+  const isFailed = !!(row && row.pack_status === "failed");
+
   // Keyboard shortcuts — registered once per workspace.
   const shortcuts: Shortcut[] = useMemo(() => [
     { key: "r", group: "Submission", description: "Rebuild pack", handler: () => { if (!isBuilding) regenerate(); } },
