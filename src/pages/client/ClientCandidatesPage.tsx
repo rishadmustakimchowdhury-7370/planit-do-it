@@ -9,7 +9,7 @@ import { ClientCandidateSlideOver } from '@/components/client/ClientCandidateSli
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Users } from 'lucide-react';
-import { recommendationMeta } from '@/lib/recommendation';
+import { clientSafeMeta } from '@/lib/recommendation';
 
 
 export default function ClientCandidatesPage() {
@@ -76,7 +76,7 @@ export default function ClientCandidatesPage() {
                       {(() => {
                         const snap = s.ai_insights_snapshot || {};
                         if (!snap.recommendation && !snap.match_score) return null;
-                        const meta = recommendationMeta(snap.recommendation, snap.match_score);
+                        const meta = clientSafeMeta(snap.recommendation, snap.match_score);
                         return <Badge variant="outline" className={`shrink-0 ${meta.badgeClass}`}>{meta.label}</Badge>;
                       })()}
 

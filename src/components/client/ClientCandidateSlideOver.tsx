@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { MapPin, Briefcase, CheckCircle2, XCircle, CalendarPlus, Download, FileText, Sparkles, MessageSquarePlus, Loader2 } from 'lucide-react';
 import { CandidateCollaborationPanel } from '@/components/clients/CandidateCollaborationPanel';
 import { RequestInterviewDialog } from '@/components/clients/RequestInterviewDialog';
-import { recommendationMeta } from '@/lib/recommendation';
+import { clientSafeMeta } from '@/lib/recommendation';
 
 
 interface Props {
@@ -120,7 +120,7 @@ export function ClientCandidateSlideOver({ shareId, open, onOpenChange }: Props)
                   </div>
                 </div>
                 {(insights.recommendation || insights.match_score) && (() => {
-                  const meta = recommendationMeta(insights.recommendation, insights.match_score);
+                  const meta = clientSafeMeta(insights.recommendation, insights.match_score);
                   return (
                     <div className="text-right shrink-0">
                       <Badge variant="outline" className={`text-xs font-semibold ${meta.badgeClass}`}>{meta.label}</Badge>

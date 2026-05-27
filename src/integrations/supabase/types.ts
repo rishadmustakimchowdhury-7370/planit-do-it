@@ -62,11 +62,16 @@ export type Database = {
         Row: {
           candidate_id: string
           created_at: string
+          ecosystem_signals: Json | null
+          engine_version: string | null
           fit_score: number | null
           generated_by: string | null
           id: string
+          interview_probability: number | null
+          jd_signature: string | null
           job_id: string
           mandate_match: Json | null
+          match_classification: string | null
           model: string | null
           recommendation: string | null
           recruiter_review: string | null
@@ -75,16 +80,22 @@ export type Database = {
           summary: string | null
           tenant_id: string
           updated_at: string
+          validation_stale: boolean
           weaknesses: Json
         }
         Insert: {
           candidate_id: string
           created_at?: string
+          ecosystem_signals?: Json | null
+          engine_version?: string | null
           fit_score?: number | null
           generated_by?: string | null
           id?: string
+          interview_probability?: number | null
+          jd_signature?: string | null
           job_id: string
           mandate_match?: Json | null
+          match_classification?: string | null
           model?: string | null
           recommendation?: string | null
           recruiter_review?: string | null
@@ -93,16 +104,22 @@ export type Database = {
           summary?: string | null
           tenant_id: string
           updated_at?: string
+          validation_stale?: boolean
           weaknesses?: Json
         }
         Update: {
           candidate_id?: string
           created_at?: string
+          ecosystem_signals?: Json | null
+          engine_version?: string | null
           fit_score?: number | null
           generated_by?: string | null
           id?: string
+          interview_probability?: number | null
+          jd_signature?: string | null
           job_id?: string
           mandate_match?: Json | null
+          match_classification?: string | null
           model?: string | null
           recommendation?: string | null
           recruiter_review?: string | null
@@ -111,6 +128,7 @@ export type Database = {
           summary?: string | null
           tenant_id?: string
           updated_at?: string
+          validation_stale?: boolean
           weaknesses?: Json
         }
         Relationships: []
@@ -2480,6 +2498,7 @@ export type Database = {
           is_remote: boolean | null
           jd_file_url: string | null
           jd_parsed_text: string | null
+          jd_signature: string | null
           location: string | null
           openings: number | null
           published_at: string | null
@@ -2506,6 +2525,7 @@ export type Database = {
           is_remote?: boolean | null
           jd_file_url?: string | null
           jd_parsed_text?: string | null
+          jd_signature?: string | null
           location?: string | null
           openings?: number | null
           published_at?: string | null
@@ -2532,6 +2552,7 @@ export type Database = {
           is_remote?: boolean | null
           jd_file_url?: string | null
           jd_parsed_text?: string | null
+          jd_signature?: string | null
           location?: string | null
           openings?: number | null
           published_at?: string | null
@@ -4944,6 +4965,19 @@ export type Database = {
         Returns: undefined
       }
       client_tenant_for_user: { Args: { _user_id: string }; Returns: string }
+      compute_jd_signature: {
+        Args: {
+          _description: string
+          _employment_type: string
+          _experience_level: string
+          _jd_parsed: string
+          _location: string
+          _requirements: string
+          _skills: Json
+          _title: string
+        }
+        Returns: string
+      }
       create_chat_conversation: {
         Args: {
           p_visitor_email?: string

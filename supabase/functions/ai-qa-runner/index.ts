@@ -14,7 +14,23 @@ const corsHeaders = {
 
 type Band = "highly_recommended" | "recommended" | "moderate_fit" | "limited_alignment" | "not_suitable";
 const BAND_ORDER: Band[] = ["not_suitable", "limited_alignment", "moderate_fit", "recommended", "highly_recommended"];
-const bandIdx = (b: string) => Math.max(0, BAND_ORDER.indexOf(b as Band));
+// Map new Executive Search OS bands → legacy band slots used by scenario expectations.
+const BAND_ALIAS: Record<string, Band> = {
+  strong_match: "highly_recommended",
+  highly_recommended: "highly_recommended",
+  recommended: "recommended",
+  transferable_match: "moderate_fit",
+  needs_validation: "moderate_fit",
+  moderate_fit: "moderate_fit",
+  weak_match: "limited_alignment",
+  limited_alignment: "limited_alignment",
+  reject: "not_suitable",
+  not_suitable: "not_suitable",
+};
+const bandIdx = (b: string) => {
+  const normalized = BAND_ALIAS[String(b).toLowerCase()] ?? (b as Band);
+  return Math.max(0, BAND_ORDER.indexOf(normalized));
+};
 
 type Scenario = {
   id: string;

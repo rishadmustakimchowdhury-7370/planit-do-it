@@ -18,33 +18,39 @@ const SYSTEM_PROMPT = VALIDATION_SYSTEM_PROMPT;
 
 
 type RecLabel =
-  | "strong_match" | "recommended" | "moderate_fit"
-  | "needs_review" | "limited_alignment" | "not_suitable";
+  // New 6-band Executive Search taxonomy
+  | "strong_match" | "recommended" | "transferable_match"
+  | "needs_validation" | "weak_match" | "reject"
+  // Retained for backward compatibility with older surfaces
+  | "moderate_fit" | "needs_review" | "limited_alignment" | "not_suitable";
 
-// AI emits "highly_recommended"; the platform stores the canonical key
-// "strong_match" (label is rendered as "Highly Recommended" everywhere).
 function normalizeRecLabel(input: any): RecLabel | null {
   const k = String(input ?? "").toLowerCase().replace(/[\s-]+/g, "_");
   if (k === "highly_recommended" || k === "strongly_recommended" || k === "strong_match") return "strong_match";
   if (k === "recommended") return "recommended";
-  if (k === "moderate_fit") return "moderate_fit";
-  if (k === "limited_alignment") return "limited_alignment";
-  if (k === "not_suitable" || k === "not_recommended") return "not_suitable";
-  if (k === "needs_review") return "needs_review";
+  if (k === "transferable_match") return "transferable_match";
+  if (k === "needs_validation") return "needs_validation";
+  if (k === "weak_match") return "weak_match";
+  if (k === "reject" || k === "not_recommended" || k === "not_suitable") return "reject";
+  // Legacy → new
+  if (k === "moderate_fit") return "needs_validation";
+  if (k === "limited_alignment") return "weak_match";
+  if (k === "needs_review") return "needs_validation";
   return null;
 }
 
 function recommendationFromScore(score: number): RecLabel {
-  if (score >= 85) return "strong_match";        // Highly Recommended
+  if (score >= 85) return "strong_match";
   if (score >= 70) return "recommended";
-  if (score >= 52) return "moderate_fit";
-  if (score >= 32) return "limited_alignment";
-  return "not_suitable";
+  if (score >= 55) return "transferable_match";
+  if (score >= 40) return "needs_validation";
+  if (score >= 25) return "weak_match";
+  return "reject";
 }
 
 const REC_ALLOWED: RecLabel[] = [
-  "strong_match", "recommended", "moderate_fit",
-  "limited_alignment", "not_suitable",
+  "strong_match", "recommended", "transferable_match",
+  "needs_validation", "weak_match", "reject",
 ];
 
 serve(async (req) => {
@@ -157,12 +163,15 @@ serve(async (req) => {
         m && typeof m.fit === "string" && !m.__kind &&
         Math.max(0, RANK.indexOf(String(m.fit).toUpperCase())) > ceil
       );
-      // Also invalidate if the stored row is missing the new five-band taxonomy
-      // or jd_classification sidecar (older rows from before this engine update).
+      // Also invalidate if the stored row is missing the new taxonomy / engine
+      // version, OR if the JD changed (validation_stale = true), OR if it
+      // predates the Executive Search OS engine.
       const recStr = String((existing as any)?.recommendation ?? "");
-      const legacyRec = ["strongly_recommended","needs_review","not_recommended"].includes(recStr);
+      const legacyRec = ["strongly_recommended","needs_review","not_recommended","moderate_fit","limited_alignment","not_suitable"].includes(recStr);
       const hasJdClassification = hasMandate && (existing as any).mandate_match.some((m: any) => m?.__kind === "jd_classification");
-      const needsRefresh = legacyRec || !hasJdClassification;
+      const isStale = (existing as any)?.validation_stale === true;
+      const oldEngine = (existing as any)?.engine_version !== "exec_search_v1";
+      const needsRefresh = legacyRec || !hasJdClassification || isStale || oldEngine;
       if (existing && hasMandate && !inflated && !needsRefresh && (!canonical || existing.fit_score === canonical.match_score) && !recruiterNotes.length) {
         return new Response(JSON.stringify({
           validation: { ...existing, sub_scores: canonical?.sub_scores ?? null, confidence: canonical?.confidence ?? null, scoring_version: canonical?.model_version ?? "hybrid_v1" },
@@ -344,11 +353,14 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     const fit_score = canonicalScore != null ? canonicalScore : 0;
     const canonicalRec = recommendationFromScore(fit_score);
     const aiRec = normalizeRecLabel(parsed.recommendation);
-    const BAND_ORDER: RecLabel[] = ["not_suitable","limited_alignment","moderate_fit","recommended","strong_match"];
-    const canonicalIdx = BAND_ORDER.indexOf(canonicalRec === "needs_review" ? "limited_alignment" : canonicalRec);
+    const BAND_ORDER: RecLabel[] = ["reject","weak_match","needs_validation","transferable_match","recommended","strong_match"];
+    const normalizeLegacy = (r: RecLabel): RecLabel =>
+      r === "not_suitable" || r === "limited_alignment" ? "weak_match" :
+      r === "moderate_fit" || r === "needs_review" ? "needs_validation" : r;
+    const canonicalIdx = BAND_ORDER.indexOf(normalizeLegacy(canonicalRec));
     let chosenIdx = canonicalIdx;
-    if (aiRec && aiRec !== "needs_review") {
-      const aiIdx = BAND_ORDER.indexOf(aiRec);
+    if (aiRec) {
+      const aiIdx = BAND_ORDER.indexOf(normalizeLegacy(aiRec));
       if (aiIdx >= 0) {
         // Allow upgrade of at most 1 tier, capped at "recommended" unless canonical already says higher.
         const upgradeCap = Math.max(canonicalIdx, BAND_ORDER.indexOf("recommended"));
@@ -392,12 +404,12 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     };
 
     if (mandatoryCount > 0) {
-      if (missRatio >= 0.5) capBand("limited_alignment");
-      else if (missRatio >= 0.3) capBand("moderate_fit");
+      if (missRatio >= 0.5) capBand("weak_match");
+      else if (missRatio >= 0.3) capBand("needs_validation");
       else if (mandatoryMissing.length >= 1) capBand("recommended");
       if (isRegulated && mandatoryMissing.length >= 1) {
         const anchored = mandatoryRows.some((m: any) => ["GOOD","STRONG","EXCEEDS"].includes(m.fit));
-        capBand(anchored ? "moderate_fit" : "limited_alignment");
+        capBand(anchored ? "needs_validation" : "weak_match");
       }
     }
 
@@ -433,7 +445,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       /\bsolid alignment\b/i, /\bgood suitability\b/i, /\bdeep experience\b/i,
       /\bextensive experience\b/i,
     ];
-    const LOW_BANDS = new Set(["limited_alignment", "not_suitable"]);
+    const LOW_BANDS = new Set(["weak_match", "reject", "limited_alignment", "not_suitable"]);
     let cleanedSummary: string | null = parsed.summary ? softenLanguage(String(parsed.summary).trim()) : null;
     if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
       const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
@@ -452,10 +464,45 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         `Recommend a screening conversation to explore production depth and ownership before progressing.`;
     }
 
+    // Extract new Executive Search fields from the AI output
+    const interviewProbability = (() => {
+      const n = Number(parsed.interview_probability);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(0, Math.min(100, Math.round(n)));
+    })();
+    const ecosystemSignals = Array.isArray(parsed.ecosystem_signals)
+      ? parsed.ecosystem_signals
+          .filter((s: any) => s && typeof s.company === "string")
+          .slice(0, 10)
+          .map((s: any) => ({
+            company: String(s.company).slice(0, 80),
+            ecosystem: String(s.ecosystem ?? "").slice(0, 80),
+            relevance: ["tier1","tier2","adjacent"].includes(String(s.relevance)) ? String(s.relevance) : "adjacent",
+          }))
+      : [];
+    const functionalOwnership = Array.isArray(parsed.functional_ownership)
+      ? parsed.functional_ownership.slice(0, 10).map((x: any) => String(x).slice(0, 120))
+      : [];
+    const matchClassification = recommendation; // post-cap final decision is the SoT
+
+    // Pull the authoritative jd_signature from the DB so it matches the
+    // value the jobs trigger maintains (md5 of material JD fields).
+    let jdSig: string | null = null;
+    try {
+      const { data: sigRow } = await admin.from("jobs").select("jd_signature").eq("id", job_id).maybeSingle();
+      jdSig = (sigRow as any)?.jd_signature ?? null;
+    } catch { /* ignore */ }
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
       fit_score, recommendation,
+      match_classification: matchClassification,
+      interview_probability: interviewProbability,
+      ecosystem_signals: ecosystemSignals,
+      jd_signature: jdSig || null,
+      validation_stale: false,
+      engine_version: "exec_search_v1",
       summary: cleanedSummary,
       strengths: softenList(Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : []),
       weaknesses: softenList(Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [])),
@@ -466,6 +513,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
         ...(recruiterNotesImpact.length ? [{ __kind: "recruiter_notes_impact", items: recruiterNotesImpact }] : []),
+        ...(functionalOwnership.length ? [{ __kind: "functional_ownership", items: functionalOwnership }] : []),
       ],
       recruiter_review: null,
       model: "gpt-4o",
