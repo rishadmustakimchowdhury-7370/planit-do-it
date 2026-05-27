@@ -510,6 +510,69 @@ function scoreScenario(scenario: Scenario, result: any) {
   // Anti-inflation: penalise inflation heavily
   const antiInflation = inflation === 0 ? 1 : Math.max(0, 1 - inflation * 0.5);
 
+  // ─────── Phase 7: Recruiter Copilot quality ───────
+  const copilot = result?.recruiter_copilot ?? null;
+  const ig: any[] = Array.isArray(copilot?.interview_guide) ? copilot.interview_guide : [];
+  const obj: any[] = Array.isArray(copilot?.client_objections) ? copilot.client_objections : [];
+  const pos: any[] = Array.isArray(copilot?.positioning_angles) ? copilot.positioning_angles : [];
+  const strat = copilot?.submission_strategy ?? null;
+  const prob = copilot?.placement_probability ?? null;
+
+  // Interview guide quality: at least one question, categories diverse, intent provided
+  const igCats = new Set(ig.map((q) => String(q?.category ?? "").toLowerCase()).filter(Boolean));
+  const igIntentRatio = ig.length ? ig.filter((q) => String(q?.intent ?? "").trim().length > 8).length / ig.length : 0;
+  const interviewGuideQuality = +(
+    Math.min(1, ig.length / 4) * 0.4 +
+    Math.min(1, igCats.size / 3) * 0.3 +
+    igIntentRatio * 0.3
+  ).toFixed(2);
+
+  // Objection realism: in adjacent/weak scenarios we expect ≥1 objection. In
+  // direct_fit we expect ≤2 (overflagging = hallucinated concern).
+  let objectionRealism = 1;
+  if (scenario.scenario_type === "direct_fit" && obj.length > 2) objectionRealism = 0.4;
+  if (scenario.scenario_type !== "direct_fit" && obj.length === 0) objectionRealism = 0.3;
+  const objResponsesRatio = obj.length ? obj.filter((o) => String(o?.suggested_response ?? "").trim().length > 15).length / obj.length : 1;
+  objectionRealism = +(objectionRealism * 0.6 + objResponsesRatio * 0.4).toFixed(2);
+
+  // Positioning quality: angles must carry evidence anchors (not vibes).
+  const positioningQuality = pos.length
+    ? +(pos.filter((p) => String(p?.evidence ?? "").trim().length > 10).length / pos.length).toFixed(2)
+    : (scenario.scenario_type === "direct_fit" ? 0.5 : 0.7); // fewer angles ok on weak fits
+
+  // Overinflated positioning: positioning_angles claiming "client-safe" on
+  // weak/unrelated scenarios should be ≤1.
+  const clientAngles = pos.filter((p) => String(p?.audience ?? "").toLowerCase() === "client").length;
+  const overinflatedPositioning = (scenario.scenario_type === "weak" || scenario.scenario_type === "unrelated") && clientAngles > 1;
+
+  // Placement probability realism: must align with recommendation band.
+  const placementPct = Number(prob?.placement_pct ?? -1);
+  let placementProbabilityRealism = 0.5;
+  if (placementPct >= 0 && placementPct <= 100) {
+    if (got >= bandIdx("recommended") && placementPct < 35) placementProbabilityRealism = 0.3;
+    else if (got <= bandIdx("limited_alignment") && placementPct > 50) placementProbabilityRealism = 0.2;
+    else placementProbabilityRealism = 1;
+  }
+
+  // Recruiter-safe communication: objection responses and positioning must NOT
+  // contain blunt rejection language.
+  const BLUNT_RE = /\b(rejected?|not\s+qualified|unfit|incompetent|weak\s+candidate)\b/i;
+  const bluntHits = [
+    ...obj.map((o) => o?.suggested_response ?? ""),
+    ...pos.map((p) => p?.angle ?? ""),
+  ].filter((s) => BLUNT_RE.test(String(s))).length;
+  const recruiterSafeCommunication = bluntHits === 0 ? 1 : Math.max(0, 1 - bluntHits * 0.4);
+
+  // Submission strategy sensibility: weak/unrelated scenarios should NOT
+  // recommend submit_now.
+  const reco = String(strat?.recommendation ?? "").toLowerCase();
+  const strategySensible =
+    (scenario.scenario_type === "direct_fit" && reco === "submit_now") ? 1 :
+    (scenario.scenario_type !== "direct_fit" && reco === "submit_now") ? 0 :
+    reco ? 1 : 0.5;
+
+  const copilotPresent = !!copilot;
+
   return {
     recommendation: rec,
     within,
@@ -523,6 +586,15 @@ function scoreScenario(scenario: Scenario, result: any) {
       transferabilityDiscipline: +transferabilityDiscipline.toFixed(2),
       industryAlignment: +industryAlignment.toFixed(2),
       antiInflation: +antiInflation.toFixed(2),
+      // Copilot QA
+      copilotPresent: copilotPresent ? 1 : 0,
+      interviewGuideQuality,
+      objectionRealism,
+      positioningQuality,
+      placementProbabilityRealism,
+      recruiterSafeCommunication,
+      strategySensible,
+      overinflatedPositioning: overinflatedPositioning ? 1 : 0,
     },
     summary: String(result?.summary ?? "").slice(0, 400),
     industryDetected: detected || null,
@@ -619,6 +691,15 @@ serve(async (req) => {
       avgTransferabilityDiscipline: avg("transferabilityDiscipline"),
       avgIndustryAlignment: avg("industryAlignment"),
       avgAntiInflation: avg("antiInflation"),
+      // Copilot QA aggregates
+      avgCopilotPresent: avg("copilotPresent"),
+      avgInterviewGuideQuality: avg("interviewGuideQuality"),
+      avgObjectionRealism: avg("objectionRealism"),
+      avgPositioningQuality: avg("positioningQuality"),
+      avgPlacementProbabilityRealism: avg("placementProbabilityRealism"),
+      avgRecruiterSafeCommunication: avg("recruiterSafeCommunication"),
+      avgStrategySensible: avg("strategySensible"),
+      overinflatedPositioningCount: results.filter((r) => r?.qa?.overinflatedPositioning).length,
       generatedAt: new Date().toISOString(),
     };
 
