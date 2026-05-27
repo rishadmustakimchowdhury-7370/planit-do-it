@@ -112,14 +112,16 @@ export function useRecordRecruiterFeedback() {
 
       // Memory signal: recruiter-scoped pattern (e.g. recruiter overrides toward adjacent)
       if (args.action === "override" || args.action === "endorse") {
-        await supabase.from("recruiter_memory_signals").insert({
-          tenant_id: args.tenantId,
-          scope: "recruiter",
-          recruiter_id: recruiterId,
-          signal_type: args.action === "override" ? "override_pattern" : "endorse_pattern",
-          signal_value: `${args.aiClassification ?? "unknown"}→${args.recruiterClassification ?? args.aiClassification ?? "endorsed"}`,
-          weight: 1,
-        }).then(() => undefined).catch(() => undefined);
+        try {
+          await supabase.from("recruiter_memory_signals").insert({
+            tenant_id: args.tenantId,
+            scope: "recruiter",
+            recruiter_id: recruiterId,
+            signal_type: args.action === "override" ? "override_pattern" : "endorse_pattern",
+            signal_value: `${args.aiClassification ?? "unknown"}→${args.recruiterClassification ?? args.aiClassification ?? "endorsed"}`,
+            weight: 1,
+          });
+        } catch { /* memory write is best-effort */ }
       }
     },
     onSuccess: (_data, vars) => {
