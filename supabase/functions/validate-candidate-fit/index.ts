@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeMatchScore, MODEL_VERSION } from "../_shared/match-scoring.ts";
 import { softenLanguage, softenList } from "../_shared/recruiter-language.ts";
 import { VALIDATION_SYSTEM_PROMPT } from "../_shared/validation-prompt.ts";
+import { loadRecruiterMemory, renderMemoryForPrompt } from "../_shared/recruiter-memory.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -189,6 +190,20 @@ serve(async (req) => {
     const confidence = canonical?.confidence ?? null;
     const scoringVersion = canonical?.model_version ?? "hybrid_v1";
 
+    // Load recruiter + tenant + client memory to feed the copilot reasoning
+    let clientOrgIdForMemory: string | null = null;
+    if (submission_id) {
+      const { data: subOrg } = await admin
+        .from("candidate_submissions").select("client_org_id").eq("id", submission_id).maybeSingle();
+      clientOrgIdForMemory = (subOrg as any)?.client_org_id ?? null;
+    }
+    const memory = await loadRecruiterMemory(admin, {
+      tenant_id: job.tenant_id,
+      recruiter_id: userId,
+      client_org_id: clientOrgIdForMemory,
+    });
+    const memoryBlock = renderMemoryForPrompt(memory);
+
     const userPrompt = `JOB DESCRIPTION
 Title: ${job.title}
 Seniority: ${job.experience_level ?? "n/a"}
@@ -214,9 +229,9 @@ RECRUITER NOTES (from screening — must influence your reasoning where relevant
 ${recruiterNotes.length ? recruiterNotes.map((n) => `- ${n}`).join("\n") : "(none provided)"}
 
 CANONICAL FIT SCORE (deterministic engine — single source of truth): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
-Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}
+Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}${memoryBlock}
 
-Now produce the JSON assessment per the system spec, calibrated to the canonical band.`;
+Now produce the JSON assessment per the system spec, calibrated to the canonical band, and include the full recruiter_copilot block.`;
 
     let parsed: any = {};
     try {
@@ -493,6 +508,74 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       jdSig = (sigRow as any)?.jd_signature ?? null;
     } catch { /* ignore */ }
 
+    // ---- Recruiter Copilot sanitisation (Phase 1 — Placement Intelligence) --
+    const ALLOWED_CATS = new Set(["technical","leadership","operational_ownership","compliance","behavioral","risk","ecosystem"]);
+    const ALLOWED_STRATS = new Set(["submit_now","screen_further","position_as_adjacent","emphasize_leadership","highlight_ecosystem","hold"]);
+    const ALLOWED_SEV = new Set(["low","medium","high"]);
+    const clamp = (n: any, min: number, max: number, fallback = 0) => {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return fallback;
+      return Math.max(min, Math.min(max, Math.round(v)));
+    };
+    const cp = parsed.recruiter_copilot && typeof parsed.recruiter_copilot === "object" ? parsed.recruiter_copilot : null;
+    const recruiter_copilot = cp ? {
+      interview_guide: Array.isArray(cp.interview_guide) ? cp.interview_guide.slice(0, 10).map((q: any) => ({
+        category: ALLOWED_CATS.has(String(q?.category)) ? String(q.category) : "behavioral",
+        question: softenLanguage(String(q?.question ?? "").slice(0, 400)),
+        intent: softenLanguage(String(q?.intent ?? "").slice(0, 240)),
+        targets_requirement: q?.targets_requirement ? String(q.targets_requirement).slice(0, 160) : null,
+      })).filter((q: any) => q.question) : [],
+      client_objections: Array.isArray(cp.client_objections) ? cp.client_objections.slice(0, 6).map((o: any) => ({
+        concern: softenLanguage(String(o?.concern ?? "").slice(0, 360)),
+        requirement_at_risk: o?.requirement_at_risk ? String(o.requirement_at_risk).slice(0, 160) : null,
+        severity: ALLOWED_SEV.has(String(o?.severity)) ? String(o.severity) : "medium",
+        suggested_response: softenLanguage(String(o?.suggested_response ?? "").slice(0, 400)),
+      })).filter((o: any) => o.concern) : [],
+      positioning_angles: Array.isArray(cp.positioning_angles) ? cp.positioning_angles.slice(0, 6).map((p: any) => ({
+        angle: softenLanguage(String(p?.angle ?? "").slice(0, 280)),
+        evidence: softenLanguage(String(p?.evidence ?? "").slice(0, 360)),
+        audience: p?.audience === "client" ? "client" : "internal",
+      })).filter((p: any) => p.angle) : [],
+      submission_strategy: {
+        recommendation: ALLOWED_STRATS.has(String(cp.submission_strategy?.recommendation))
+          ? String(cp.submission_strategy.recommendation)
+          : (recommendation === "weak_match" || recommendation === "reject" ? "hold"
+             : recommendation === "needs_validation" ? "screen_further"
+             : recommendation === "transferable_match" ? "position_as_adjacent"
+             : "submit_now"),
+        rationale: softenLanguage(String(cp.submission_strategy?.rationale ?? "").slice(0, 600)),
+        talking_points: Array.isArray(cp.submission_strategy?.talking_points)
+          ? cp.submission_strategy.talking_points.slice(0, 6).map((t: any) => softenLanguage(String(t).slice(0, 280))).filter(Boolean)
+          : [],
+      },
+      placement_probability: {
+        shortlist_pct: clamp(cp.placement_probability?.shortlist_pct, 0, 100, interviewProbability ?? 0),
+        interview_pct: clamp(cp.placement_probability?.interview_pct, 0, 100, interviewProbability ?? 0),
+        placement_pct: clamp(cp.placement_probability?.placement_pct, 0, 100, Math.max(0, (interviewProbability ?? 0) - 15)),
+        client_acceptance_risk: ALLOWED_SEV.has(String(cp.placement_probability?.client_acceptance_risk))
+          ? String(cp.placement_probability.client_acceptance_risk)
+          : (recommendation === "weak_match" || recommendation === "reject" ? "high"
+             : recommendation === "needs_validation" || recommendation === "transferable_match" ? "medium" : "low"),
+        rationale: softenLanguage(String(cp.placement_probability?.rationale ?? "").slice(0, 600)),
+      },
+    } : null;
+
+    // ---- Override divergence: did the AI shift away from recruiter override? -
+    let recruiter_override: any = null;
+    let override_divergence = false;
+    try {
+      const { data: prev } = await admin
+        .from("ai_candidate_validations")
+        .select("recruiter_override")
+        .eq("job_id", job_id).eq("candidate_id", candidate_id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const ov = (prev as any)?.recruiter_override;
+      if (ov && typeof ov === "object" && ov.classification) {
+        recruiter_override = ov;
+        override_divergence = String(ov.classification) !== String(matchClassification);
+      }
+    } catch { /* ignore */ }
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
@@ -516,6 +599,9 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         ...(functionalOwnership.length ? [{ __kind: "functional_ownership", items: functionalOwnership }] : []),
       ],
       recruiter_review: null,
+      recruiter_copilot,
+      recruiter_override,
+      override_divergence,
       model: "gpt-4o",
       generated_by: userId,
     };
