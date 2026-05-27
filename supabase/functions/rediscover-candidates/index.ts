@@ -1,13 +1,23 @@
-// AI Talent Match — unified scoring engine (hybrid_v1)
-// Deterministic hybrid score = role(40) + skills(25) + industry(10) + seniority(10) + experience(10) + location(5) − penalties
-// AI (gpt-4o-mini) is used ONLY for natural-language explanations, never to alter the score.
-// This guarantees the same candidate shows the same score everywhere in the app.
+// AI Talent Match — recruiter-grade Discovery Engine (discovery_v1).
+// Architecture:
+//   Stage 1: Deterministic prefilter (cheap, fast) → narrows candidate pool.
+//   Stage 2: OpenAI recruiter-grade re-ranker → classification, interview probability,
+//            why-ranked evidence, functional ownership, ecosystem signals.
+// Discovery ≠ Validation. Discovery = broad shortlist intelligence.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  DISCOVERY_ENGINE_VERSION,
+  DISCOVERY_SYSTEM_PROMPT,
+  CLASSIFICATION_RANK,
+  detectEcosystemSignals,
+  type DiscoveryClassification,
+  type DetectedEcosystem,
+} from "../_shared/discovery-engine.ts";
 
-const MODEL_VERSION = "hybrid_v1";
+const MODEL_VERSION = "hybrid_v1+discovery_v1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +28,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+
 
 // -------------------- NORMALIZATION --------------------
 
@@ -291,43 +302,60 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
   return { final, confidence, sub, matched: skillRes.matched, missing: skillRes.missing, jobFamily, candFamily, jobRank, candRank };
 }
 
-// -------------------- AI EXPLANATIONS (no score) --------------------
 
-async function explainBatch(job: any, scored: Array<{ candidate: any; result: ReturnType<typeof computeScore> }>): Promise<Record<string, { strengths: string[]; gaps: string[]; summary: string }>> {
+interface DiscoveryAIResult {
+  candidate_id: string;
+  discovery_classification: DiscoveryClassification;
+  interview_probability: number;
+  summary: string;
+  why_ranked: string[];
+  functional_ownership: string[];
+  ecosystem_signals: { company: string; industry: string; tier: "tier1" | "tier2" }[];
+  strengths: string[];
+  gaps: string[];
+}
+
+async function rerankBatch(
+  job: any,
+  scored: Array<{ candidate: any; result: ReturnType<typeof computeScore>; detectedEcosystem: DetectedEcosystem[] }>,
+): Promise<Record<string, DiscoveryAIResult>> {
   if (scored.length === 0) return {};
-  const payload = scored.map(({ candidate: c, result: r }) => ({
+
+  // Build rich payload — the AI needs real evidence, not just titles.
+  const payload = scored.map(({ candidate: c, result: r, detectedEcosystem }) => ({
     id: c.id,
     name: c.full_name,
-    title: c.current_title,
-    score: r.final,
-    matched_skills: r.matched.slice(0, 8),
-    missing_skills: r.missing.slice(0, 8),
-    role_family: r.candFamily,
-    job_family: r.jobFamily,
-    is_adjacent_family: !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
-      (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily)),
+    current_title: c.current_title,
+    location: c.location,
     experience_years: c.experience_years,
+    summary: (c.summary ?? "").slice(0, 1200),
+    skills: toArray(c.skills).slice(0, 25),
+    detected_ecosystem_employers: detectedEcosystem,
+    deterministic_score: r.final,
+    keyword_matched: r.matched.slice(0, 10),
+    keyword_missing: r.missing.slice(0, 10),
+    role_family: r.candFamily,
   }));
 
-  const system = `You write short, recruiter-grade match explanations. Be specific and proportional — like an experienced technical recruiter, NOT a binary ATS filter.
+  const user = `JOB
+Title: ${job.title}
+Industry/Domain hint: ${job.description?.slice(0, 200) ?? ""}
+Required skills: ${toArray(job.skills).slice(0, 15).join(", ")}
+Seniority hint: ${job.experience_level ?? "unspecified"}
+Location: ${job.location ?? "unspecified"}
+Description (truncated):
+${(job.description ?? "").slice(0, 2500)}
 
-LANGUAGE RULES (critical):
-- NEVER write "No matched skills", "No relevant skills", "Not qualified", or "Unrelated profile" unless role_family is set AND is_adjacent_family is false AND it's a clearly different domain (e.g. sales vs engineering).
-- For adjacent-family candidates (backend applying for fullstack, frontend applying for fullstack, devops for backend, etc.), describe gaps as transferable-but-unproven:
-    "Limited frontend evidence", "Partial alignment with full-stack scope",
-    "Backend-heavy profile", "Frontend production depth unclear",
-    "Advanced React ownership not evident", "Requires technical validation on UI depth".
-- For same-family candidates with thin skill overlap, use: "Stack overlap partial", "Specific tooling not evidenced", "Requires technical validation".
-- Strengths must reflect real evidence in the candidate's title / family / years; do not invent skills.
-- Summary: 1-2 sentences, proportional tone. A partially aligned engineer is "moderate fit", not "not suitable". Do not quote the score.
+Detected job family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}
 
-DO NOT change the score. Return ONLY through the provided tool.`;
-  const user = `JOB: ${job.title}\nRequired skills: ${toArray(job.skills).slice(0, 12).join(", ")}\nJob family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}\n\nCANDIDATES (with their deterministic scores):\n${JSON.stringify(payload)}`;
+CANDIDATES (prefiltered by deterministic engine; YOU re-rank by recruiter realism):
+${JSON.stringify(payload)}`;
 
   const tool = {
     type: "function",
     function: {
-      name: "write_explanations",
+      name: "rerank_shortlist",
+      description: "Return recruiter-grade discovery ranking for each candidate.",
       parameters: {
         type: "object",
         properties: {
@@ -337,11 +365,30 @@ DO NOT change the score. Return ONLY through the provided tool.`;
               type: "object",
               properties: {
                 candidate_id: { type: "string" },
-                summary: { type: "string", description: "1-2 sentence recruiter-facing summary, no score numbers" },
+                discovery_classification: {
+                  type: "string",
+                  enum: ["strong_shortlist","recommended_shortlist","transferable_shortlist","adjacent_ecosystem","needs_validation","low_relevance"],
+                },
+                interview_probability: { type: "integer", minimum: 0, maximum: 100 },
+                summary: { type: "string", description: "1-2 sentence recruiter summary, proportional tone, no score numbers." },
+                why_ranked: { type: "array", items: { type: "string" }, maxItems: 4, description: "Evidence-backed recruiter-trust bullets." },
+                functional_ownership: { type: "array", items: { type: "string" }, maxItems: 5 },
+                ecosystem_signals: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      company: { type: "string" },
+                      industry: { type: "string" },
+                      tier: { type: "string", enum: ["tier1","tier2"] },
+                    },
+                    required: ["company","industry","tier"],
+                  },
+                },
                 strengths: { type: "array", items: { type: "string" }, maxItems: 3 },
                 gaps: { type: "array", items: { type: "string" }, maxItems: 3 },
               },
-              required: ["candidate_id", "summary", "strengths", "gaps"],
+              required: ["candidate_id","discovery_classification","interview_probability","summary","why_ranked","functional_ownership","ecosystem_signals","strengths","gaps"],
             },
           },
         },
@@ -356,14 +403,17 @@ DO NOT change the score. Return ONLY through the provided tool.`;
     body: JSON.stringify({
       model: "gpt-4o-mini",
       temperature: 0.2,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      messages: [
+        { role: "system", content: DISCOVERY_SYSTEM_PROMPT },
+        { role: "user", content: user },
+      ],
       tools: [tool],
-      tool_choice: { type: "function", function: { name: "write_explanations" } },
+      tool_choice: { type: "function", function: { name: "rerank_shortlist" } },
     }),
   });
   if (!resp.ok) {
     const txt = await resp.text();
-    console.error("OpenAI explain error:", resp.status, txt);
+    console.error("OpenAI rerank error:", resp.status, txt);
     if (resp.status === 429) throw new Error("RATE_LIMIT");
     if (resp.status === 402) throw new Error("CREDITS_EXHAUSTED");
     return {};
@@ -373,14 +423,15 @@ DO NOT change the score. Return ONLY through the provided tool.`;
   if (!call) return {};
   try {
     const args = JSON.parse(call.function.arguments);
-    const map: Record<string, any> = {};
+    const map: Record<string, DiscoveryAIResult> = {};
     for (const r of (args.results ?? [])) map[r.candidate_id] = r;
     return map;
   } catch (e) {
-    console.error("Failed to parse explain args:", e);
+    console.error("Failed to parse rerank args:", e);
     return {};
   }
 }
+
 
 // -------------------- EMBEDDINGS (prefilter only) --------------------
 
@@ -498,123 +549,98 @@ serve(async (req) => {
         .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
         .in("id", eligibleIds);
 
-      // 5. Deterministic hybrid scoring + blend with semantic similarity for differentiation
+      // 5. STAGE 1: Deterministic prefilter + ecosystem signal detection.
       const similarityMap = new Map((prefilter ?? []).map((m: any) => [m.candidate_id, Number(m.similarity ?? 0)]));
       const scored = (candidates ?? []).map((c: any) => {
         const result = computeScore(job, c);
-        const sim = similarityMap.get(c.id) ?? 0; // 0..1
-        // Blend semantic similarity (10% weight) so different jobs differentiate even when keyword detection is weak
+        const sim = similarityMap.get(c.id) ?? 0;
         const blended = Math.min(100, Math.round(result.final * 0.9 + sim * 100 * 0.1));
-        return { candidate: c, result: { ...result, final: blended } };
+        const cvHaystack = [c.current_title, c.summary, JSON.stringify(c.skills ?? [])].join(" ");
+        const detectedEcosystem = detectEcosystemSignals(cvHaystack);
+        return { candidate: c, result: { ...result, final: blended }, detectedEcosystem };
       });
 
-      // 6. Strict recruiter-grade filtering — only A+ / A / B+ relevant candidates.
-      //    Irrelevant role families (e.g. Middle Office Analyst for a Software Engineer
-      //    role) MUST be hidden completely, not just ranked lower. We never show
-      //    candidates whose family is unrelated to the job family.
+      // 6. Cast a WIDER prefilter net for the AI re-ranker — recruiters care about
+      // ecosystem-relevant profiles even when keyword score is thin. The AI will
+      // demote noise via discovery_classification="low_relevance".
       const sorted = scored.sort((a, b) => b.result.final - a.result.final);
-      const isRelevant = (s: typeof sorted[number]) => {
-        const r = s.result;
-        // If we couldn't detect a job family, fall back to score threshold only.
-        if (!r.jobFamily) return r.final >= 55;
-        // If we detected a candidate family that is unrelated AND not adjacent → drop.
-        if (r.candFamily && r.candFamily !== r.jobFamily) {
-          const adj = ROLE_FAMILIES[r.jobFamily]?.adjacent ?? [];
-          if (!adj.includes(r.candFamily)) return false;
-        }
-        // Recruiter-grade floor: must clear "moderate fit" to be shown.
-        // (corresponds to recommendation >= moderate_fit; below this is noise.)
-        return r.final >= 55;
-      };
-      const qualified = sorted.filter(isRelevant);
+      const prefilterPool = sorted.filter((s) => {
+        // Pass to AI re-ranker if: decent score OR detected Tier-1 ecosystem employer
+        if (s.detectedEcosystem.some((e) => e.tier === "tier1")) return true;
+        if (!s.result.jobFamily) return s.result.final >= 40;
+        return s.result.final >= 45;
+      });
 
-      // 7. AI explanations for the qualified set (cap at 15 to control cost)
-      let explainMap: Record<string, { strengths: string[]; gaps: string[]; summary: string }> = {};
-      if (qualified.length > 0) {
+      // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 20 to control cost).
+      let aiMap: Record<string, DiscoveryAIResult> = {};
+      const rerankInput = prefilterPool.slice(0, 20);
+      if (rerankInput.length > 0) {
         try {
-          explainMap = await explainBatch(job, qualified.slice(0, 15));
+          aiMap = await rerankBatch(job, rerankInput);
         } catch (e: any) {
           if (e?.message === "RATE_LIMIT" || e?.message === "CREDITS_EXHAUSTED") {
             await supabase.from("rediscovery_runs").update({ status: "failed", error: e.message, completed_at: new Date().toISOString() }).eq("id", run.id);
             return new Response(JSON.stringify({ error: e.message }), { status: e.message === "RATE_LIMIT" ? 429 : 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
-          // explanations are non-fatal — continue with empty
-          console.error("Explain failure (continuing):", e);
+          console.error("Rerank failure (continuing with deterministic only):", e);
         }
       }
 
-      // 8. Build rows
-      // similarityMap already built above
-      const { data: recentEmails } = await supabase.from("candidate_emails").select("candidate_id").in("candidate_id", qualified.map((s) => s.candidate.id));
+      // 8. Build rows — DROP low_relevance entries (recruiter would not surface them).
+      const { data: recentEmails } = await supabase.from("candidate_emails")
+        .select("candidate_id").in("candidate_id", rerankInput.map((s) => s.candidate.id));
       const contacted = new Set((recentEmails ?? []).map((r: any) => r.candidate_id));
 
-      const rows = qualified.map(({ candidate: c, result: r }) => {
-        const explain = explainMap[c.id] ?? { strengths: [], gaps: [], summary: "" };
-        const insights: string[] = [];
-        if (c.updated_at && Date.now() - new Date(c.updated_at).getTime() < 30 * 86400 * 1000) insights.push("Recently active");
-        if (contacted.has(c.id)) insights.push("Previously contacted");
+      const rows = rerankInput
+        .map(({ candidate: c, result: r, detectedEcosystem }) => {
+          const ai = aiMap[c.id];
+          // No AI verdict → fallback to "needs_validation" so we surface but flag.
+          const cls: DiscoveryClassification = ai?.discovery_classification ?? "needs_validation";
+          if (cls === "low_relevance") return null;
 
-        // Strengths/gaps fallback from deterministic data if AI returned nothing
-        const isAdjacent = !!(r.jobFamily && r.candFamily && r.jobFamily !== r.candFamily &&
-          (ROLE_FAMILIES[r.jobFamily]?.adjacent ?? []).includes(r.candFamily));
-        const isSameFamily = !!(r.jobFamily && r.candFamily && r.jobFamily === r.candFamily);
-        const isUnrelated = !!(r.jobFamily && r.candFamily && !isAdjacent && !isSameFamily);
+          const insights: string[] = [];
+          if (c.updated_at && Date.now() - new Date(c.updated_at).getTime() < 30 * 86400 * 1000) insights.push("Recently active");
+          if (contacted.has(c.id)) insights.push("Previously contacted");
+          if (detectedEcosystem.some((e) => e.tier === "tier1")) insights.push("Tier-1 ecosystem employer");
 
-        const strengths = explain.strengths.length > 0
-          ? explain.strengths
-          : (r.matched.length > 0
-              ? r.matched.slice(0, 3).map((s) => `Has ${s}`)
-              : (isSameFamily || isAdjacent ? [`Relevant ${r.candFamily ?? "engineering"} background`] : []));
+          return {
+            job_id,
+            candidate_id: c.id,
+            tenant_id: job.tenant_id,
+            match_score: r.final,
+            semantic_score: similarityMap.get(c.id) ?? null,
+            ai_score: ai?.interview_probability ?? r.final,
+            ai_summary: ai?.summary ?? null,
+            strengths: ai?.strengths ?? [],
+            gaps: ai?.gaps ?? [],
+            confidence: r.confidence,
+            insights,
+            discovery_classification: cls,
+            interview_probability: ai?.interview_probability ?? null,
+            ecosystem_signals: (ai?.ecosystem_signals?.length ? ai.ecosystem_signals : detectedEcosystem),
+            why_ranked: ai?.why_ranked ?? [],
+            functional_ownership: ai?.functional_ownership ?? [],
+            dismissed: false,
+            sub_scores: {
+              role: r.sub.role, skills: r.sub.skills, industry: r.sub.industry,
+              seniority: r.sub.seniority, experience: r.sub.experience, location: r.sub.location,
+              penalty: r.sub.penalty, job_family: r.jobFamily, candidate_family: r.candFamily,
+            },
+            model_version: MODEL_VERSION,
+            updated_at: new Date().toISOString(),
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        // Final ordering: by AI classification rank, then interview probability, then deterministic score.
+        .sort((a, b) => {
+          const ra = CLASSIFICATION_RANK[a.discovery_classification as DiscoveryClassification] ?? 0;
+          const rb = CLASSIFICATION_RANK[b.discovery_classification as DiscoveryClassification] ?? 0;
+          if (ra !== rb) return rb - ra;
+          const pa = a.interview_probability ?? a.match_score;
+          const pb = b.interview_probability ?? b.match_score;
+          return pb - pa;
+        });
 
-        // Recruiter-grade gap phrasing — never say "No matched skills" for adjacent/same-family candidates.
-        const fallbackGap = (s: string) => {
-          if (isAdjacent) return `Limited evidence of ${s}`;
-          if (isSameFamily) return `${s} not evidenced`;
-          return `Missing ${s}`;
-        };
-        let gaps = explain.gaps.length > 0 ? explain.gaps : r.missing.slice(0, 2).map(fallbackGap);
-        // Sanitize harsh phrasing for adjacent/same-family
-        if (!isUnrelated) {
-          const BAN = /no\s+(matched|relevant|matching)\s+skills|unrelated\s+profile|not\s+qualified|no\s+overlap/i;
-          gaps = gaps.map((g) => {
-            if (!BAN.test(g)) return g;
-            if (r.jobFamily === "fullstack" && r.candFamily === "backend") return "Limited frontend evidence — full-stack depth unclear";
-            if (r.jobFamily === "fullstack" && r.candFamily === "frontend") return "Limited backend evidence — full-stack depth unclear";
-            return "Partial alignment with role requirements";
-          });
-          if (gaps.length === 0 && r.missing.length === 0 && isAdjacent) {
-            gaps = ["Partial alignment with role requirements"];
-          }
-        }
-
-        return {
-          job_id,
-          candidate_id: c.id,
-          tenant_id: job.tenant_id,
-          match_score: r.final,
-          semantic_score: similarityMap.get(c.id) ?? null,
-          ai_score: r.final, // kept for backwards compat with existing readers
-          ai_summary: explain.summary || null,
-          strengths,
-          gaps,
-          confidence: r.confidence,
-          insights,
-          dismissed: false,
-          sub_scores: {
-            role: r.sub.role,
-            skills: r.sub.skills,
-            industry: r.sub.industry,
-            seniority: r.sub.seniority,
-            experience: r.sub.experience,
-            location: r.sub.location,
-            penalty: r.sub.penalty,
-            job_family: r.jobFamily,
-            candidate_family: r.candFamily,
-          },
-          model_version: MODEL_VERSION,
-          updated_at: new Date().toISOString(),
-        };
-      });
 
       // 9. Replace prior matches for this job (so removed candidates disappear)
       await supabase.from("rediscovered_matches").delete().eq("job_id", job_id).eq("dismissed", false);

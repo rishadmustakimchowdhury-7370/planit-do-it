@@ -3,6 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 
+export type DiscoveryClassification =
+  | 'strong_shortlist' | 'recommended_shortlist' | 'transferable_shortlist'
+  | 'adjacent_ecosystem' | 'needs_validation' | 'low_relevance';
+
+export interface EcosystemSignal {
+  company: string;
+  industry: string;
+  tier: 'tier1' | 'tier2';
+}
+
 export interface RediscoveredMatch {
   id: string;
   job_id: string;
@@ -18,16 +28,15 @@ export interface RediscoveredMatch {
   dismissed: boolean;
   created_at: string;
   updated_at: string;
+  discovery_classification: DiscoveryClassification | null;
+  interview_probability: number | null;
+  ecosystem_signals: EcosystemSignal[];
+  why_ranked: string[];
+  functional_ownership: string[];
   sub_scores: {
-    role?: number;
-    skills?: number;
-    industry?: number;
-    seniority?: number;
-    experience?: number;
-    location?: number;
-    penalty?: number;
-    job_family?: string | null;
-    candidate_family?: string | null;
+    role?: number; skills?: number; industry?: number;
+    seniority?: number; experience?: number; location?: number;
+    penalty?: number; job_family?: string | null; candidate_family?: string | null;
   } | null;
   model_version: string | null;
   candidate: {
@@ -42,6 +51,7 @@ export interface RediscoveredMatch {
     updated_at: string | null;
   };
 }
+
 
 export interface RediscoveryRun {
   id: string;
@@ -73,9 +83,23 @@ export function useRediscoveredMatches(jobId: string | undefined) {
         .eq('dismissed', false)
         .order('match_score', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as RediscoveredMatch[];
+      const rows = (data ?? []) as unknown as RediscoveredMatch[];
+      // Re-order client-side by Discovery classification rank, then interview probability.
+      const RANK: Record<string, number> = {
+        strong_shortlist: 6, recommended_shortlist: 5, transferable_shortlist: 4,
+        adjacent_ecosystem: 3, needs_validation: 2, low_relevance: 1,
+      };
+      return rows.sort((a, b) => {
+        const ra = RANK[a.discovery_classification ?? 'needs_validation'] ?? 0;
+        const rb = RANK[b.discovery_classification ?? 'needs_validation'] ?? 0;
+        if (ra !== rb) return rb - ra;
+        const pa = a.interview_probability ?? a.match_score ?? 0;
+        const pb = b.interview_probability ?? b.match_score ?? 0;
+        return pb - pa;
+      });
     },
   });
+
 
   const lastRunQuery = useQuery({
     queryKey: ['rediscovery-runs', jobId],

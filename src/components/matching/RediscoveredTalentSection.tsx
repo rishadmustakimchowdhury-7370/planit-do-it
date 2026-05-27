@@ -18,9 +18,12 @@ import { cn } from '@/lib/utils';
 import {
   Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin,
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
+  Building2, Target, TrendingUp,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
+import { DISCOVERY_META, discoveryMeta } from '@/lib/discovery';
+import type { DiscoveryClassification } from '@/hooks/useRediscoveredMatches';
 
 interface RediscoveredTalentSectionProps {
   jobId: string;
@@ -30,17 +33,13 @@ interface RediscoveredTalentSectionProps {
 
 import { scoreToRecommendation } from '@/lib/recommendation';
 
-// Recommendation rank for filtering — higher = stronger
-const REC_RANK: Record<string, number> = {
-  strong_match: 5, recommended: 4, moderate_fit: 3,
-  needs_review: 2, limited_alignment: 1, not_suitable: 0,
-};
 
 export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }: RediscoveredTalentSectionProps) {
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minRec, setMinRec] = useState<string>('moderate_fit');
+  // Discovery filter: minimum classification rank to display.
+  const [minRec, setMinRec] = useState<string>('transferable_shortlist');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -48,7 +47,6 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
   const autoRescanRef = useRef(false);
 
-  // Auto re-scan once on mount if last scan is older than 10 minutes (clears stale calibration results)
   useEffect(() => {
     if (autoRescanRef.current) return;
     if (isLoading || isScanning) return;
@@ -61,11 +59,11 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   }, [lastRun?.completed_at, isLoading, isScanning, runScan]);
 
   const filtered = useMemo(() => {
-    const floor = REC_RANK[minRec] ?? 3;
+    const floorRank = DISCOVERY_META[minRec as DiscoveryClassification]?.rank ?? 4;
     const q = search.trim().toLowerCase();
     return matches.filter(x => {
-      const recKey = scoreToRecommendation(x.match_score ?? 0).key;
-      if ((REC_RANK[recKey] ?? 0) < floor) return false;
+      const cls = (x.discovery_classification ?? 'needs_validation') as DiscoveryClassification;
+      if ((DISCOVERY_META[cls]?.rank ?? 0) < floorRank) return false;
       if (q) {
         const haystack = [
           x.candidate?.full_name, x.candidate?.current_title, x.candidate?.location,
@@ -75,6 +73,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
       return true;
     });
   }, [matches, minRec, search]);
+
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -178,14 +177,16 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                     />
                   </div>
                   <Select value={minRec} onValueChange={setMinRec}>
-                    <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Min recommendation" /></SelectTrigger>
+                    <SelectTrigger className="w-[240px] h-9"><SelectValue placeholder="Min shortlist tier" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="strong_match">Strong Match only</SelectItem>
-                      <SelectItem value="recommended">Recommended & above</SelectItem>
-                      <SelectItem value="moderate_fit">Moderate Fit & above (default)</SelectItem>
-                      <SelectItem value="needs_review">Include Needs Review</SelectItem>
+                      <SelectItem value="strong_shortlist">Strong Shortlist only</SelectItem>
+                      <SelectItem value="recommended_shortlist">Recommended & above</SelectItem>
+                      <SelectItem value="transferable_shortlist">Transferable & above (default)</SelectItem>
+                      <SelectItem value="adjacent_ecosystem">Include Adjacent Ecosystem</SelectItem>
+                      <SelectItem value="needs_validation">Include Needs Validation</SelectItem>
                     </SelectContent>
                   </Select>
+
                 </div>
 
                 {/* Bulk bar */}
@@ -309,13 +310,18 @@ interface CardProps {
 
 function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onDismiss, onAdd, onEmail, onOpen, isAdding }: CardProps) {
   const c = match.candidate;
-  const recMeta = scoreToRecommendation(match.match_score);
-  const isTop = index < 3 && (recMeta.key === 'strong_match' || recMeta.key === 'recommended');
+  const dMeta = discoveryMeta(match.discovery_classification);
+  const isTop = index < 3 && (match.discovery_classification === 'strong_shortlist' || match.discovery_classification === 'recommended_shortlist');
   const fullName = c?.full_name || 'Unknown candidate';
   const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2) || '?';
   const strengths = Array.isArray(match.strengths) ? match.strengths : [];
   const gaps = Array.isArray(match.gaps) ? match.gaps : [];
   const insights = Array.isArray(match.insights) ? match.insights : [];
+  const whyRanked = Array.isArray(match.why_ranked) ? match.why_ranked : [];
+  const ecosystem = Array.isArray(match.ecosystem_signals) ? match.ecosystem_signals : [];
+  const ownership = Array.isArray(match.functional_ownership) ? match.functional_ownership : [];
+  const interviewProb = match.interview_probability;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -345,9 +351,7 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
       <div className="flex items-start gap-3 pl-8">
         <Avatar className="w-12 h-12">
           <AvatarImage src={c.avatar_url || undefined} />
-          <AvatarFallback className="bg-accent/10 text-accent">
-            {initials}
-          </AvatarFallback>
+          <AvatarFallback className="bg-accent/10 text-accent">{initials}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-foreground truncate">{fullName}</div>
@@ -355,16 +359,21 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground">
             {c.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.location}</span>}
             {c.experience_years != null && <span>{c.experience_years}y exp</span>}
+            {interviewProb != null && (
+              <span className="flex items-center gap-1 text-foreground/70">
+                <TrendingUp className="w-3 h-3" />{interviewProb}% interview
+              </span>
+            )}
           </div>
         </div>
         <span
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-full border font-medium leading-none text-[11px] px-2.5 py-1',
-            recMeta.badgeClass,
+            'inline-flex items-center gap-1.5 rounded-full border font-medium leading-none text-[11px] px-2.5 py-1 whitespace-nowrap',
+            dMeta.badgeClass,
           )}
         >
-          <span className={cn('h-1.5 w-1.5 rounded-full', recMeta.dotClass)} />
-          {recMeta.label}
+          <span className={cn('h-1.5 w-1.5 rounded-full', dMeta.dotClass)} />
+          {dMeta.label}
         </span>
       </div>
 
@@ -374,10 +383,55 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </p>
       )}
 
+      {whyRanked.length > 0 && (
+        <div className="mt-3 rounded-lg bg-accent/[0.04] border border-accent/15 p-2.5">
+          <div className="text-[10px] uppercase tracking-wide text-accent font-semibold mb-1.5 flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Why this candidate ranked
+          </div>
+          <ul className="space-y-0.5">
+            {whyRanked.slice(0, 3).map((w, i) => (
+              <li key={i} className="text-[11px] text-foreground/80 flex gap-1.5 leading-snug">
+                <span className="text-accent mt-1 flex-shrink-0">•</span>
+                <span>{w}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {ecosystem.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {ecosystem.slice(0, 3).map((e, i) => (
+            <Badge
+              key={`eco-${i}`}
+              variant="outline"
+              className={cn(
+                'text-[10px] gap-1 capitalize',
+                e.tier === 'tier1'
+                  ? 'bg-violet-500/10 text-violet-700 border-violet-500/30'
+                  : 'bg-violet-500/5 text-violet-600 border-violet-500/20',
+              )}
+            >
+              <Building2 className="w-2.5 h-2.5" />
+              {e.company} · {e.industry}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {ownership.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {ownership.slice(0, 4).map((o, i) => (
+            <Badge key={`o-${i}`} variant="outline" className="text-[10px] gap-1 bg-sky-500/5 text-sky-700 border-sky-500/20">
+              <Target className="w-2.5 h-2.5" />{o}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {(strengths.length > 0 || gaps.length > 0) && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {strengths.slice(0, 3).map((s, i) => (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {strengths.slice(0, 2).map((s, i) => (
             <Badge key={`s-${i}`} variant="outline" className="text-[10px] gap-1 bg-emerald-500/5 text-emerald-700 border-emerald-500/20">
               <CheckCircle2 className="w-2.5 h-2.5" />{s}
             </Badge>
@@ -409,6 +463,7 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
       </div>
     </motion.div>
   );
+
 }
 
 const FACTOR_LABELS: Record<string, string> = {
