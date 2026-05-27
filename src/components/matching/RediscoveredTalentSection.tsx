@@ -34,17 +34,12 @@ interface RediscoveredTalentSectionProps {
 import { scoreToRecommendation } from '@/lib/recommendation';
 
 
-// Recommendation rank for filtering — higher = stronger
-const REC_RANK: Record<string, number> = {
-  strong_match: 5, recommended: 4, moderate_fit: 3,
-  needs_review: 2, limited_alignment: 1, not_suitable: 0,
-};
-
 export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }: RediscoveredTalentSectionProps) {
   const { tenantId } = useAuth();
   const { matches, lastRun, isLoading, isScanning, runScan, dismiss } = useRediscoveredMatches(jobId);
   const [expanded, setExpanded] = useState(true);
-  const [minRec, setMinRec] = useState<string>('moderate_fit');
+  // Discovery filter: minimum classification rank to display.
+  const [minRec, setMinRec] = useState<string>('transferable_shortlist');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -52,7 +47,6 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   const [panelTarget, setPanelTarget] = useState<RediscoveredMatch | null>(null);
   const autoRescanRef = useRef(false);
 
-  // Auto re-scan once on mount if last scan is older than 10 minutes (clears stale calibration results)
   useEffect(() => {
     if (autoRescanRef.current) return;
     if (isLoading || isScanning) return;
@@ -65,11 +59,11 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
   }, [lastRun?.completed_at, isLoading, isScanning, runScan]);
 
   const filtered = useMemo(() => {
-    const floor = REC_RANK[minRec] ?? 3;
+    const floorRank = DISCOVERY_META[minRec as DiscoveryClassification]?.rank ?? 4;
     const q = search.trim().toLowerCase();
     return matches.filter(x => {
-      const recKey = scoreToRecommendation(x.match_score ?? 0).key;
-      if ((REC_RANK[recKey] ?? 0) < floor) return false;
+      const cls = (x.discovery_classification ?? 'needs_validation') as DiscoveryClassification;
+      if ((DISCOVERY_META[cls]?.rank ?? 0) < floorRank) return false;
       if (q) {
         const haystack = [
           x.candidate?.full_name, x.candidate?.current_title, x.candidate?.location,
@@ -79,6 +73,7 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
       return true;
     });
   }, [matches, minRec, search]);
+
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
