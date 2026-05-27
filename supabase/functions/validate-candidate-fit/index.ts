@@ -369,6 +369,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     const regulatedDomains = new Set([
       "commodities_trading","banking_finance","oil_gas","aviation",
       "healthcare","cybersecurity","legal_compliance",
+      "maritime","energy","government","manufacturing",
     ]);
     const industryDomain = String(jdClassification?.industry_domain ?? parsed?.jd_classification?.industry_domain ?? "").toLowerCase();
     const isRegulated = regulatedDomains.has(industryDomain);
