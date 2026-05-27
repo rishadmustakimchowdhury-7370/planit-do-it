@@ -401,12 +401,12 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     };
 
     if (mandatoryCount > 0) {
-      if (missRatio >= 0.5) capBand("limited_alignment");
-      else if (missRatio >= 0.3) capBand("moderate_fit");
+      if (missRatio >= 0.5) capBand("weak_match");
+      else if (missRatio >= 0.3) capBand("needs_validation");
       else if (mandatoryMissing.length >= 1) capBand("recommended");
       if (isRegulated && mandatoryMissing.length >= 1) {
         const anchored = mandatoryRows.some((m: any) => ["GOOD","STRONG","EXCEEDS"].includes(m.fit));
-        capBand(anchored ? "moderate_fit" : "limited_alignment");
+        capBand(anchored ? "needs_validation" : "weak_match");
       }
     }
 
