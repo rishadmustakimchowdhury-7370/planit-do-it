@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
+import { OutcomeCaptureBar } from '@/components/clients/OutcomeCaptureBar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
@@ -456,6 +457,15 @@ export function CandidateWorkflowPanel({
                     />
                   </div>
                 </div>
+
+                {candidateId && (
+                  <div className="border rounded-lg p-3 space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" /> Outcome capture
+                    </div>
+                    <OutcomeCaptureBar jobId={jobId} candidateId={candidateId} compact />
+                  </div>
+                )}
               </TabsContent>
 
               {/* CV */}

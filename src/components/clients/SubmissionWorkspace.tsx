@@ -21,6 +21,7 @@ import { getSubmissionPackUrl } from "@/hooks/useSubmissionPack";
 import { SubmissionRecipientsManager } from "./SubmissionRecipientsManager";
 import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
 import { StructuredRecruiterNotesForm } from "./StructuredRecruiterNotesForm";
+import { OutcomeCaptureBar } from "./OutcomeCaptureBar";
 import { emptyStructuredNotes, structuredNotesToLines, type StructuredRecruiterNotes } from "@/lib/recruiterNotes";
 
 interface Props {
@@ -37,6 +38,9 @@ type PackStatus = "idle" | "generating" | "ready" | "failed";
 
 interface SubmissionRow {
   id: string;
+  job_id: string | null;
+  candidate_id: string | null;
+  ai_validation_id: string | null;
   pack_pdf_url: string | null;
   pack_status: PackStatus;
   pack_error: string | null;
@@ -79,7 +83,7 @@ export function SubmissionWorkspace({
     const load = async () => {
       const { data } = await supabase
         .from("candidate_submissions")
-        .select("id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, structured_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
+        .select("id, job_id, candidate_id, ai_validation_id, pack_pdf_url, pack_status, pack_error, pack_components, recruiter_summary, recruiter_recommendation, recruiter_strengths, recruiter_considerations, recruiter_notes, structured_notes, submission_message, branded_cv_url, original_cv_url, status, sent_at")
         .eq("id", submissionId)
         .maybeSingle();
       if (!active || !data) return;
@@ -526,6 +530,22 @@ export function SubmissionWorkspace({
                   <SubmissionActivityTimeline submissionId={submissionId} />
                 </AccordionContent>
               </AccordionItem>
+
+              {row?.job_id && row?.candidate_id && (
+                <div className="border rounded-lg px-3 py-3">
+                  <div className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Outcome capture
+                  </div>
+                  <OutcomeCaptureBar
+                    jobId={row.job_id}
+                    candidateId={row.candidate_id}
+                    clientOrgId={clientOrgId}
+                    aiValidationId={row.ai_validation_id ?? null}
+                    submissionId={submissionId}
+                    compact
+                  />
+                </div>
+              )}
             </Accordion>
           </div>
         </ResizablePanel>

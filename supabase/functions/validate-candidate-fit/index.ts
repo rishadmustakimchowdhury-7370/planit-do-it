@@ -5,6 +5,7 @@ import { computeMatchScore, MODEL_VERSION } from "../_shared/match-scoring.ts";
 import { softenLanguage, softenList } from "../_shared/recruiter-language.ts";
 import { VALIDATION_SYSTEM_PROMPT } from "../_shared/validation-prompt.ts";
 import { loadRecruiterMemory, renderMemoryForPrompt } from "../_shared/recruiter-memory.ts";
+import { loadOutcomeMemory, renderOutcomeMemoryForPrompt, calibratePlacementProbability } from "../_shared/outcome-memory.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -202,7 +203,12 @@ serve(async (req) => {
       recruiter_id: userId,
       client_org_id: clientOrgIdForMemory,
     });
-    const memoryBlock = renderMemoryForPrompt(memory);
+    const outcomeMem = await loadOutcomeMemory(admin, {
+      tenant_id: job.tenant_id,
+      recruiter_id: userId,
+      client_org_id: clientOrgIdForMemory,
+    });
+    const memoryBlock = renderMemoryForPrompt(memory) + renderOutcomeMemoryForPrompt(outcomeMem);
 
     const userPrompt = `JOB DESCRIPTION
 Title: ${job.title}
@@ -559,6 +565,26 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         rationale: softenLanguage(String(cp.placement_probability?.rationale ?? "").slice(0, 600)),
       },
     } : null;
+
+    // ---- Placement Outcome Calibration (bounded ±15pp, tenant-isolated) ----
+    if (recruiter_copilot?.placement_probability) {
+      const prior = {
+        shortlist_pct: recruiter_copilot.placement_probability.shortlist_pct,
+        interview_pct: recruiter_copilot.placement_probability.interview_pct,
+        placement_pct: recruiter_copilot.placement_probability.placement_pct,
+      };
+      const cal = calibratePlacementProbability(prior, outcomeMem, {
+        ecosystem_signals: ecosystemSignals,
+        match_classification: matchClassification,
+      });
+      (recruiter_copilot.placement_probability as any).prior_pct = prior;
+      recruiter_copilot.placement_probability.shortlist_pct = cal.calibrated.shortlist_pct;
+      recruiter_copilot.placement_probability.interview_pct = cal.calibrated.interview_pct;
+      recruiter_copilot.placement_probability.placement_pct = cal.calibrated.placement_pct;
+      (recruiter_copilot.placement_probability as any).calibration_basis = cal.calibration_basis;
+      (recruiter_copilot.placement_probability as any).calibration_delta_pp = cal.delta_pp;
+      (recruiter_copilot.placement_probability as any).applied_signals = cal.applied_signals;
+    }
 
     // ---- Override divergence: did the AI shift away from recruiter override? -
     let recruiter_override: any = null;
