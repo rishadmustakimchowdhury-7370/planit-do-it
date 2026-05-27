@@ -154,7 +154,7 @@ function ClientSubmissionView({ submissionId, open, onOpenChange, onChanged }: {
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-4 space-y-4">
-                <AIValidationCard jobId={data.job_id} candidateId={data.candidate_id} canRegenerate={false} />
+                <AIValidationCard jobId={data.job_id} candidateId={data.candidate_id} canRegenerate={false} clientSafe />
                 {data.submission_message && (
                   <div className="rounded-lg border bg-muted/30 p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">From the recruiter</div>
