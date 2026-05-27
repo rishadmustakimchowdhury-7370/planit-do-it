@@ -219,28 +219,23 @@ export function JobAIMatchSection({
 
       const fullResume = resumeParts.join('\n');
 
-      // Call AI match function
-      const { data, error } = await supabase.functions.invoke('ai-match', {
-        body: {
-          jobDescription: selectedJob.description || selectedJob.title,
-          jobTitle: selectedJob.title,
-          candidateResume: fullResume,
-          candidateSkills: skills || []
-        }
+      // Unified recruiter-grade engine — same brain as Talent Match, validation
+      // modal, submission pack, executive PDF and client portal.
+      const { data, error } = await supabase.functions.invoke('validate-candidate-fit', {
+        body: { job_id: selectedJobId, candidate_id: candidateId, force: true },
       });
 
       if (error) throw error;
-
-      if (data.error) {
-        if (data.error.includes('Rate limit')) {
-          toast.error('AI rate limit exceeded. Please try again later.');
-        } else if (data.error.includes('credits')) {
-          toast.error('AI credits exhausted. Please add more credits.');
-        } else {
-          toast.error(data.error);
-        }
+      if ((data as any)?.error) {
+        const msg = String((data as any).error);
+        if (msg.toLowerCase().includes('rate')) toast.error('AI rate limit exceeded. Please try again later.');
+        else if (msg.toLowerCase().includes('credit')) toast.error('AI credits exhausted. Please add more credits.');
+        else toast.error(msg);
         return;
       }
+
+      const v = (data as any)?.validation ?? data;
+      if (!v) throw new Error('No assessment returned');
 
       // Check if job_candidate record exists
       const { data: existingRecord } = await supabase
@@ -251,13 +246,14 @@ export function JobAIMatchSection({
         .maybeSingle();
 
       const matchData = {
-        match_score: data.score || 0,
-        match_confidence: data.confidence || null,
-        match_strengths: data.strengths || [],
-        match_gaps: data.gaps || [],
-        match_explanation: data.explanation || null,
-        matched_at: new Date().toISOString()
+        match_score: v.fit_score ?? 0,
+        match_confidence: null,
+        match_strengths: Array.isArray(v.strengths) ? v.strengths : [],
+        match_gaps: Array.isArray(v.weaknesses) ? v.weaknesses : [],
+        match_explanation: v.summary ?? null,
+        matched_at: new Date().toISOString(),
       };
+      const localResult: MatchResult = { ...matchData, recommendation: v.recommendation };
 
       if (existingRecord) {
         // Update existing record
