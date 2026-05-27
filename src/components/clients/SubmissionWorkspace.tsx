@@ -23,6 +23,13 @@ import { SubmissionActivityTimeline } from "./SubmissionActivityTimeline";
 import { StructuredRecruiterNotesForm } from "./StructuredRecruiterNotesForm";
 import { OutcomeCaptureBar } from "./OutcomeCaptureBar";
 import { emptyStructuredNotes, structuredNotesToLines, type StructuredRecruiterNotes } from "@/lib/recruiterNotes";
+import { QuickActionsBar } from "@/components/recruiter/QuickActionsBar";
+import { AIInsightChip } from "@/components/recruiter/AIInsightChip";
+import { CalmModeToggle } from "@/components/recruiter/CalmModeToggle";
+import { CommunicationDrawer } from "@/components/recruiter/CommunicationDrawer";
+import { KeyboardShortcutsHelp } from "@/components/recruiter/KeyboardShortcutsHelp";
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts";
+import { useRecruiterIntelligenceToggle } from "@/hooks/useRecruiterIntelligenceToggle";
 
 interface Props {
   submissionId: string;
@@ -67,6 +74,9 @@ export function SubmissionWorkspace({
   const [regenerating, setRegenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [sentScreen, setSentScreen] = useState(false);
+  const [commsOpen, setCommsOpen] = useState(false);
+  const [copilot, setCopilot] = useState<any | null>(null);
+  const { on: intelOn, toggle: toggleIntel } = useRecruiterIntelligenceToggle();
 
   // Editable controls (autosaved)
   const [components, setComponents] = useState({ ai_report: true, branded_cv: true, original_cv: true });
@@ -286,6 +296,51 @@ export function SubmissionWorkspace({
     return <Badge variant="outline">Idle</Badge>;
   }, [row, regenerating]);
 
+  // Load copilot intelligence (lazy — only when validation id is present).
+  useEffect(() => {
+    let active = true;
+    if (!row?.ai_validation_id) { setCopilot(null); return; }
+    supabase
+      .from("ai_candidate_validations")
+      .select("recruiter_copilot")
+      .eq("id", row.ai_validation_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setCopilot((data as any)?.recruiter_copilot ?? null);
+      });
+    return () => { active = false; };
+  }, [row?.ai_validation_id]);
+
+  const placementScore: number | null = useMemo(() => {
+    const p = copilot?.placement_probability;
+    if (!p) return null;
+    const v = p.placement_pct ?? p.shortlist_pct ?? null;
+    return typeof v === "number" ? v : null;
+  }, [copilot]);
+
+  const insightSignals: string[] = useMemo(() => {
+    const angles = (copilot?.positioning_angles ?? []) as Array<{ angle: string }>;
+    return angles.slice(0, 4).map(a => a.angle).filter(Boolean);
+  }, [copilot]);
+
+  // Derived flags — also referenced by keyboard shortcuts below.
+  const isReady = !!(row && row.pack_status === "ready" && signedUrl);
+  const isBuilding = !!(row && (row.pack_status === "generating" || regenerating));
+  const isFailed = !!(row && row.pack_status === "failed");
+
+  // Keyboard shortcuts — registered once per workspace.
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "r", group: "Submission", description: "Rebuild pack", handler: () => { if (!isBuilding) regenerate(); } },
+    { key: "u", group: "Submission", description: "Send submission", handler: () => { if (!sending && isReady && recipientCount > 0) sendSubmission(); } },
+    { key: "m", group: "Communication", description: "Open communication drawer", handler: () => setCommsOpen(true) },
+    { key: "i", group: "View", description: "Toggle recruiter intelligence", handler: () => toggleIntel() },
+    { key: "Escape", group: "View", description: "Close workspace", handler: onClose },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [isBuilding, isReady, sending, recipientCount]);
+
+  useKeyboardShortcuts(shortcuts);
+
   if (sentScreen) {
     return (
       <div className="flex flex-col items-center text-center py-10 px-6 gap-4">
@@ -319,12 +374,36 @@ export function SubmissionWorkspace({
     return <div className="p-6 space-y-3"><Skeleton className="h-8 w-64" /><Skeleton className="h-[400px] w-full" /></div>;
   }
 
-  const isReady = row.pack_status === "ready" && signedUrl;
-  const isBuilding = row.pack_status === "generating" || regenerating;
-  const isFailed = row.pack_status === "failed";
-
   return (
     <div className="flex flex-col h-[78vh]">
+      {/* ===== Recruiter mission-control toolbar ===== */}
+      <div className="flex flex-wrap items-center gap-2 border-b bg-background/60 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">{candidateName}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{jobTitle}</div>
+        </div>
+        {(placementScore != null || insightSignals.length > 0) && (
+          <AIInsightChip
+            score={placementScore}
+            signals={insightSignals}
+            detail={copilot?.submission_strategy?.rationale}
+          />
+        )}
+        <QuickActionsBar
+          size="sm"
+          onSubmit={isReady && recipientCount > 0 ? sendSubmission : undefined}
+          onMessage={() => setCommsOpen(true)}
+          pending={{ submit: sending }}
+        />
+        <div className="flex items-center gap-2 pl-1 border-l ml-1">
+          <div className="inline-flex items-center gap-2">
+            <Switch id="intel" checked={intelOn} onCheckedChange={(v) => toggleIntel(!!v)} />
+            <Label htmlFor="intel" className="text-xs text-muted-foreground cursor-pointer">Intelligence</Label>
+          </div>
+          <CalmModeToggle />
+        </div>
+      </div>
+      <KeyboardShortcutsHelp shortcuts={shortcuts} />
       <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
         {/* ===== LEFT: PDF preview ===== */}
         <ResizablePanel defaultSize={62} minSize={40}>
@@ -569,6 +648,14 @@ export function SubmissionWorkspace({
           </Button>
         </div>
       </div>
+
+      <CommunicationDrawer
+        open={commsOpen}
+        onOpenChange={setCommsOpen}
+        jobId={row.job_id ?? ""}
+        candidateId={row.candidate_id ?? ""}
+        candidateName={candidateName}
+      />
     </div>
   );
 }
