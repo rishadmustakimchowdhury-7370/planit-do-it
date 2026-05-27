@@ -1,13 +1,23 @@
-// AI Talent Match — unified scoring engine (hybrid_v1)
-// Deterministic hybrid score = role(40) + skills(25) + industry(10) + seniority(10) + experience(10) + location(5) − penalties
-// AI (gpt-4o-mini) is used ONLY for natural-language explanations, never to alter the score.
-// This guarantees the same candidate shows the same score everywhere in the app.
+// AI Talent Match — recruiter-grade Discovery Engine (discovery_v1).
+// Architecture:
+//   Stage 1: Deterministic prefilter (cheap, fast) → narrows candidate pool.
+//   Stage 2: OpenAI recruiter-grade re-ranker → classification, interview probability,
+//            why-ranked evidence, functional ownership, ecosystem signals.
+// Discovery ≠ Validation. Discovery = broad shortlist intelligence.
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  DISCOVERY_ENGINE_VERSION,
+  DISCOVERY_SYSTEM_PROMPT,
+  CLASSIFICATION_RANK,
+  detectEcosystemSignals,
+  type DiscoveryClassification,
+  type DetectedEcosystem,
+} from "../_shared/discovery-engine.ts";
 
-const MODEL_VERSION = "hybrid_v1";
+const MODEL_VERSION = "hybrid_v1+discovery_v1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +28,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
+
 
 // -------------------- NORMALIZATION --------------------
 
