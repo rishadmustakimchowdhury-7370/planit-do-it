@@ -190,6 +190,20 @@ serve(async (req) => {
     const confidence = canonical?.confidence ?? null;
     const scoringVersion = canonical?.model_version ?? "hybrid_v1";
 
+    // Load recruiter + tenant + client memory to feed the copilot reasoning
+    let clientOrgIdForMemory: string | null = null;
+    if (submission_id) {
+      const { data: subOrg } = await admin
+        .from("candidate_submissions").select("client_org_id").eq("id", submission_id).maybeSingle();
+      clientOrgIdForMemory = (subOrg as any)?.client_org_id ?? null;
+    }
+    const memory = await loadRecruiterMemory(admin, {
+      tenant_id: job.tenant_id,
+      recruiter_id: userId,
+      client_org_id: clientOrgIdForMemory,
+    });
+    const memoryBlock = renderMemoryForPrompt(memory);
+
     const userPrompt = `JOB DESCRIPTION
 Title: ${job.title}
 Seniority: ${job.experience_level ?? "n/a"}
@@ -215,9 +229,9 @@ RECRUITER NOTES (from screening — must influence your reasoning where relevant
 ${recruiterNotes.length ? recruiterNotes.map((n) => `- ${n}`).join("\n") : "(none provided)"}
 
 CANONICAL FIT SCORE (deterministic engine — single source of truth): ${canonicalScore != null ? canonicalScore + "/100" : "n/a"}
-Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}
+Confidence: ${confidence ?? "n/a"} · Scoring version: ${scoringVersion}${memoryBlock}
 
-Now produce the JSON assessment per the system spec, calibrated to the canonical band.`;
+Now produce the JSON assessment per the system spec, calibrated to the canonical band, and include the full recruiter_copilot block.`;
 
     let parsed: any = {};
     try {
