@@ -9,6 +9,7 @@ import { useLatestValidation, useValidateCandidateFit } from "@/hooks/useCandida
 import { useCreateSubmission } from "@/hooks/useSubmissionPack";
 import { AIValidationCard } from "@/components/clients/AIValidationCard";
 import { SubmissionWorkspace } from "@/components/clients/SubmissionWorkspace";
+import { VoiceNoteRecorder } from "@/components/matching/workspace/VoiceNoteRecorder";
 import { toast } from "sonner";
 
 interface Props {
