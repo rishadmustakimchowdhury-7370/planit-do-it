@@ -296,6 +296,46 @@ export function SubmissionWorkspace({
     return <Badge variant="outline">Idle</Badge>;
   }, [row, regenerating]);
 
+  // Load copilot intelligence (lazy — only when validation id is present).
+  useEffect(() => {
+    let active = true;
+    if (!row?.ai_validation_id) { setCopilot(null); return; }
+    supabase
+      .from("ai_candidate_validations")
+      .select("recruiter_copilot")
+      .eq("id", row.ai_validation_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        setCopilot((data as any)?.recruiter_copilot ?? null);
+      });
+    return () => { active = false; };
+  }, [row?.ai_validation_id]);
+
+  const placementScore: number | null = useMemo(() => {
+    const p = copilot?.placement_probability;
+    if (!p) return null;
+    const v = p.placement_pct ?? p.shortlist_pct ?? null;
+    return typeof v === "number" ? v : null;
+  }, [copilot]);
+
+  const insightSignals: string[] = useMemo(() => {
+    const angles = (copilot?.positioning_angles ?? []) as Array<{ angle: string }>;
+    return angles.slice(0, 4).map(a => a.angle).filter(Boolean);
+  }, [copilot]);
+
+  // Keyboard shortcuts — registered once per workspace.
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "r", group: "Submission", description: "Rebuild pack", handler: () => { if (!isBuilding) regenerate(); } },
+    { key: "u", group: "Submission", description: "Send submission", handler: () => { if (!sending && isReady && recipientCount > 0) sendSubmission(); } },
+    { key: "m", group: "Communication", description: "Open communication drawer", handler: () => setCommsOpen(true) },
+    { key: "i", group: "View", description: "Toggle recruiter intelligence", handler: () => toggleIntel() },
+    { key: "Escape", group: "View", description: "Close workspace", handler: onClose },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [isBuilding, isReady, sending, recipientCount]);
+
+  useKeyboardShortcuts(shortcuts);
+
   if (sentScreen) {
     return (
       <div className="flex flex-col items-center text-center py-10 px-6 gap-4">
