@@ -454,7 +454,7 @@ export function JobAIMatchSection({
               {/* Skill Gaps */}
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                  <XCircle className="w-5 h-5 text-destructive" />
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
                   Skill Gaps
                 </h3>
                 {matchResult.match_gaps && matchResult.match_gaps.length > 0 ? (
