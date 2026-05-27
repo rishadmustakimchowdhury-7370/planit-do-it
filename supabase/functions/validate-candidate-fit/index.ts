@@ -223,11 +223,10 @@ serve(async (req) => {
       const RANK = ["NOT MATCHED","WEAK","PARTIAL","GOOD","STRONG","EXCEEDS"];
       const score = canonical?.match_score;
       const ceil = score == null ? 2
-                 : score < 35 ? 1
-                 : score < 50 ? 2
-                 : score < 62 ? 3
-                 : score < 75 ? 4
-                 : score < 88 ? 4
+                 : score < 32 ? 1
+                 : score < 52 ? 2
+                 : score < 70 ? 3
+                 : score < 85 ? 4
                  : 5;
       const inflated = hasMandate && (existing as any).mandate_match.some((m: any) =>
         m && typeof m.fit === "string" && !m.__kind &&
