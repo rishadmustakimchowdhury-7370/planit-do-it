@@ -374,12 +374,36 @@ export function SubmissionWorkspace({
     return <div className="p-6 space-y-3"><Skeleton className="h-8 w-64" /><Skeleton className="h-[400px] w-full" /></div>;
   }
 
-  const isReady = row.pack_status === "ready" && signedUrl;
-  const isBuilding = row.pack_status === "generating" || regenerating;
-  const isFailed = row.pack_status === "failed";
-
   return (
     <div className="flex flex-col h-[78vh]">
+      {/* ===== Recruiter mission-control toolbar ===== */}
+      <div className="flex flex-wrap items-center gap-2 border-b bg-background/60 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">{candidateName}</div>
+          <div className="text-[11px] text-muted-foreground truncate">{jobTitle}</div>
+        </div>
+        {(placementScore != null || insightSignals.length > 0) && (
+          <AIInsightChip
+            score={placementScore}
+            signals={insightSignals}
+            detail={copilot?.submission_strategy?.rationale}
+          />
+        )}
+        <QuickActionsBar
+          size="sm"
+          onSubmit={isReady && recipientCount > 0 ? sendSubmission : undefined}
+          onMessage={() => setCommsOpen(true)}
+          pending={{ submit: sending }}
+        />
+        <div className="flex items-center gap-2 pl-1 border-l ml-1">
+          <div className="inline-flex items-center gap-2">
+            <Switch id="intel" checked={intelOn} onCheckedChange={(v) => toggleIntel(!!v)} />
+            <Label htmlFor="intel" className="text-xs text-muted-foreground cursor-pointer">Intelligence</Label>
+          </div>
+          <CalmModeToggle />
+        </div>
+      </div>
+      <KeyboardShortcutsHelp shortcuts={shortcuts} />
       <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
         {/* ===== LEFT: PDF preview ===== */}
         <ResizablePanel defaultSize={62} minSize={40}>
