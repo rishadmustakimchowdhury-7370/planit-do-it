@@ -648,6 +648,14 @@ export function SubmissionWorkspace({
           </Button>
         </div>
       </div>
+
+      <CommunicationDrawer
+        open={commsOpen}
+        onOpenChange={setCommsOpen}
+        jobId={row.job_id ?? ""}
+        candidateId={row.candidate_id ?? ""}
+        candidateName={candidateName}
+      />
     </div>
   );
 }
