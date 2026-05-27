@@ -44,6 +44,7 @@ const EmailAnalyticsPage = lazy(() => import("./pages/EmailAnalyticsPage"));
 const EmailAccountsPage = lazy(() => import("./pages/EmailAccountsPage"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
 const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
+const RecruiterIntelligencePage = lazy(() => import("./pages/RecruiterIntelligencePage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const CheckoutSuccessPage = lazy(() => import("./pages/CheckoutSuccessPage"));
 const CheckoutCancelPage = lazy(() => import("./pages/CheckoutCancelPage"));
