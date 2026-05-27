@@ -408,13 +408,12 @@ export function JobAIMatchSection({
                 </p>
               )}
               <div className="flex justify-center mb-4">
-                <MatchScoreCircle score={matchResult.match_score} size="lg" />
+                <RecommendationBadge
+                  recommendation={matchResult.recommendation}
+                  score={matchResult.match_score}
+                  size="lg"
+                />
               </div>
-              {matchResult.match_confidence && (
-                <p className="text-xs text-muted-foreground">
-                  Confidence: {matchResult.match_confidence}%
-                </p>
-              )}
             </div>
 
             {/* Details */}
