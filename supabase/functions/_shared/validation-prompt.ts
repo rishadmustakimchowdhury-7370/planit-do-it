@@ -114,27 +114,55 @@ EXECUTIVE SUMMARY RULES — 2–3 sentences, JD-specific, proportional to band. 
 
 CONSISTENCY RULE — the same JD + CV + notes must always produce the same recommendation, reasoning and language across AI Match, AI Validation, Submission Pack, Executive PDF, Client Portal and Recruiter Dashboard. No conflicting outputs allowed.
 
+ECOSYSTEM INTELLIGENCE (apply when scoring industry alignment — recognise tier-1 employers as strong signals):
+  • Commodities Trading — Glencore, Trafigura, Vitol, Mercuria, Gunvor, Shell Trading, BP Trading, Cargill, ADM, Bunge, Louis Dreyfus, Koch, Rio Tinto, Anglo American.
+  • Investment Banking — Goldman Sachs, Morgan Stanley, JP Morgan, Citi, Barclays, UBS, Credit Suisse, Deutsche Bank, HSBC, BNP Paribas, SocGen.
+  • Big Tech — Google, Meta, Amazon, Microsoft, Apple, Netflix, Stripe, Uber, Airbnb, Shopify, Datadog, Snowflake, Databricks.
+  • Maritime — Maersk, MSC, CMA CGM, Hapag-Lloyd, Wallenius Wilhelmsen, Stolt-Nielsen, Frontline, Euronav, Teekay.
+  • Oil & Gas — Shell, BP, ExxonMobil, Chevron, TotalEnergies, Equinor, Aramco, ADNOC, QatarEnergy, Schlumberger, Halliburton, Baker Hughes.
+  • Aviation — Boeing, Airbus, Lockheed Martin, Rolls-Royce, GE Aviation, Emirates, Lufthansa Technik, IATA, EASA, FAA.
+  • Big4 / Consulting — Deloitte, PwC, KPMG, EY, McKinsey, BCG, Bain, Accenture.
+  • Strategy/Cybersecurity — Palo Alto, CrowdStrike, Mandiant, Fortinet, Check Point.
+A candidate from a tier-1 ecosystem employer for the target industry carries direct-ownership weight even when the precise title differs.
+
+DISCOVERY vs VALIDATION SEPARATION:
+  • Discovery intelligence = "is this person plausibly relevant?" — broad sourcing lens, ecosystem signals, transferable families. Discovery alone NEVER produces final recommendations.
+  • Validation intelligence = "is the evidence real, mandatory-complete and ownership-proven?" — strict recruiter-grade evidence audit. Only validation may set the final match_classification.
+You are operating in VALIDATION mode. Apply the strict lens.
+
+INTERVIEW PROBABILITY (0–100): How likely is a competent hiring manager to advance this candidate to interview for THIS role given the evidence? 85+ for direct-evidence strong matches, 60–80 for recommended/transferable, 30–55 for needs_validation, <30 for weak_match, <15 for reject.
+
 Output ONLY valid JSON, no markdown, in this exact shape:
 {
-  "jd_classification": {
-    "industry_domain": "<one of: tech, banking_finance, commodities_trading, oil_gas, maritime, aviation, healthcare, legal_compliance, cybersecurity, sales_marketing, hr_talent, supply_chain, energy, manufacturing, government, other>",
+  "match_classification": "strong_match|recommended|transferable_match|needs_validation|weak_match|reject",
+  "interview_probability": 0,
+  "summary": "<2–3 sentence executive summary, client-safe>",
+  "jd_analysis": {
+    "industry_domain": "<tech|banking_finance|commodities_trading|oil_gas|maritime|aviation|healthcare|legal_compliance|cybersecurity|sales_marketing|hr_talent|supply_chain|energy|manufacturing|government|other>",
+    "seniority_target": "intern|graduate|junior|mid|senior|lead|principal|head|director|vp|c_level",
+    "employment_lens": "permanent|contract|freelance|consultant|remote|hybrid|onsite|temporary|project",
     "mandatory_requirements": ["..."],
     "preferred_requirements": ["..."],
+    "bonus_requirements": ["..."],
     "transferable_families": ["..."],
-    "seniority_target": "intern|graduate|junior|mid|senior|lead|principal|head|director|vp|c_level",
-    "employment_lens": "permanent|contract|freelance|consultant|remote|hybrid|onsite|temporary|project"
+    "certifications": ["..."],
+    "operational_ownership": ["..."]
   },
-  "recommendation": "highly_recommended|recommended|moderate_fit|limited_alignment|not_suitable",
-  "summary": "<2–3 sentence executive summary, client-safe>",
-  "mandate_match": [
-    { "requirement": "<JD requirement>", "kind": "mandatory|preferred", "match_type": "direct|adjacent|transferable|unrelated", "evidence_tier": "HIGH|MEDIUM|LOW", "evidence": "<CV evidence or 'No clear evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" }
+  "requirement_matches": [
+    { "requirement": "<JD requirement>", "kind": "mandatory|preferred|bonus", "match_type": "direct|adjacent|transferable|unrelated", "evidence_tier": "HIGH|MEDIUM|LOW", "evidence": "<CV evidence or 'No clear evidence found in CV.'>", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED", "ownership_verb": "<verb from CV or null>" }
   ],
+  "functional_ownership": ["<area the candidate truly owns end-to-end>"],
+  "ecosystem_signals": [{ "company": "<employer from CV>", "ecosystem": "<named ecosystem>", "relevance": "tier1|tier2|adjacent" }],
   "strengths": ["<lead — evidence sentence>"],
   "considerations": ["<lead — interview focus area>"],
   "risks": ["<hiring risk, soft phrasing>"],
   "missing_requirements": ["<JD requirement with no real evidence>"],
   "recruiter_notes_summary": ["<how notes shaped the view>"],
-  "recruiter_notes_impact": [{ "note": "<paraphrased note>", "effect": "<how it shifted the assessment>" }]
+  "recruiter_notes_impact": [{ "note": "<paraphrased note>", "effect": "<how it shifted the assessment>" }],
+
+  "recommendation": "<MIRROR of match_classification — kept for backwards compatibility>",
+  "jd_classification": { "industry_domain": "<same as jd_analysis.industry_domain>", "mandatory_requirements": ["..."], "preferred_requirements": ["..."], "transferable_families": ["..."], "seniority_target": "..." },
+  "mandate_match": [ { "requirement": "...", "kind": "mandatory|preferred", "match_type": "direct|adjacent|transferable|unrelated", "evidence_tier": "HIGH|MEDIUM|LOW", "evidence": "...", "fit": "EXCEEDS|STRONG|GOOD|PARTIAL|WEAK|NOT MATCHED" } ]
 }
 
-Extract 5–8 of the JOB's most important requirements (mandatory first). 3–5 strengths, 3–5 considerations. Output JSON only.`;
+Both "recommendation" and "match_classification" MUST agree. Both "jd_analysis" and "jd_classification" MUST agree. Both "requirement_matches" and "mandate_match" MUST agree. Extract 5–8 of the JOB's most important requirements (mandatory first). 3–5 strengths, 3–5 considerations. Output JSON only.`;
