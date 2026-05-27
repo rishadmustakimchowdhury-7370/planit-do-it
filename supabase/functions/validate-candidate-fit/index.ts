@@ -357,10 +357,21 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
     }
     let recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
 
+    // Build jdClassification early so downstream regulated-industry logic can use it.
+    const jdClassification = parsed.jd_classification && typeof parsed.jd_classification === "object" ? {
+      industry_domain: String(parsed.jd_classification.industry_domain ?? "").toLowerCase() || null,
+      mandatory_requirements: Array.isArray(parsed.jd_classification.mandatory_requirements)
+        ? parsed.jd_classification.mandatory_requirements.map(String).slice(0, 12) : [],
+      preferred_requirements: Array.isArray(parsed.jd_classification.preferred_requirements)
+        ? parsed.jd_classification.preferred_requirements.map(String).slice(0, 12) : [],
+      transferable_families: Array.isArray(parsed.jd_classification.transferable_families)
+        ? parsed.jd_classification.transferable_families.map(String).slice(0, 8) : [],
+      seniority_target: ["junior","mid","senior","lead"].includes(String(parsed.jd_classification.seniority_target ?? "").toLowerCase())
+        ? String(parsed.jd_classification.seniority_target).toLowerCase()
+        : null,
+    } : null;
+
     // MANDATORY-GAP HARD CAP (post-processing).
-    // Even if the canonical hybrid score or the AI tries to upgrade the band,
-    // transferable / adjacent experience must NEVER override missing mandatory
-    // evidence. Count mandatory rows whose fit is WEAK or NOT MATCHED.
     const mandatoryRows = mandate_match.filter((m: any) => m.kind === "mandatory");
     const mandatoryMissing = mandatoryRows.filter((m: any) => m.fit === "WEAK" || m.fit === "NOT MATCHED");
     const mandatoryCount = mandatoryRows.length;
@@ -384,17 +395,13 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       if (missRatio >= 0.5) capBand("limited_alignment");
       else if (missRatio >= 0.3) capBand("moderate_fit");
       else if (mandatoryMissing.length >= 1) capBand("recommended");
-      // Regulated industry + missing core pillar → never above limited_alignment
-      // unless there is at least one mandatory row at GOOD or better (adjacent anchor).
       if (isRegulated && mandatoryMissing.length >= 1) {
         const anchored = mandatoryRows.some((m: any) => ["GOOD","STRONG","EXCEEDS"].includes(m.fit));
         capBand(anchored ? "moderate_fit" : "limited_alignment");
       }
     }
 
-
-    // Derive missing_requirements from the mandate_match table as a fallback,
-    // and merge anything the AI explicitly flagged. Soften all wording.
+    // Derive missing_requirements
     const aiMissing = Array.isArray(parsed.missing_requirements) ? parsed.missing_requirements.map(String) : [];
     const tableMissing = mandate_match
       .filter((m: any) => m.fit === "NOT MATCHED" || m.fit === "WEAK")
@@ -414,17 +421,6 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           }))
       : [];
 
-    const jdClassification = parsed.jd_classification && typeof parsed.jd_classification === "object" ? {
-      mandatory_requirements: Array.isArray(parsed.jd_classification.mandatory_requirements)
-        ? parsed.jd_classification.mandatory_requirements.map(String).slice(0, 12) : [],
-      preferred_requirements: Array.isArray(parsed.jd_classification.preferred_requirements)
-        ? parsed.jd_classification.preferred_requirements.map(String).slice(0, 12) : [],
-      transferable_families: Array.isArray(parsed.jd_classification.transferable_families)
-        ? parsed.jd_classification.transferable_families.map(String).slice(0, 8) : [],
-      seniority_target: ["junior","mid","senior","lead"].includes(String(parsed.jd_classification.seniority_target ?? "").toLowerCase())
-        ? String(parsed.jd_classification.seniority_target).toLowerCase()
-        : null,
-    } : null;
 
     const risksOut = softenList(Array.isArray(parsed.risks) ? parsed.risks.slice(0, 6) : []);
 
