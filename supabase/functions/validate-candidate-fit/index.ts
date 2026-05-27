@@ -324,32 +324,32 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
 
     // Hard ceiling tied to canonical band — single source of truth.
     // Rank: 0=NOT MATCHED 1=WEAK 2=PARTIAL 3=GOOD 4=STRONG 5=EXCEEDS
+    // Five-band thresholds: <32 not_suitable, <52 limited_alignment,
+    // <70 moderate_fit, <85 recommended, ≥85 highly_recommended.
     const fitCeiling = (score: number | null): number => {
       if (score == null) return 2;       // PARTIAL
-      if (score < 35) return 1;          // WEAK
-      if (score < 50) return 2;          // PARTIAL
-      if (score < 62) return 3;          // up to GOOD (rare)
-      if (score < 75) return 4;          // STRONG (rare)
-      if (score < 88) return 4;          // STRONG
+      if (score < 32) return 1;          // WEAK
+      if (score < 52) return 2;          // PARTIAL
+      if (score < 70) return 3;          // GOOD
+      if (score < 85) return 4;          // STRONG
       return 5;                          // EXCEEDS
     };
     const ceil = fitCeiling(canonicalScore);
     let goodUsed = 0, strongUsed = 0, exceedsUsed = 0;
     const goodCap =
       canonicalScore == null ? 99 :
-      canonicalScore < 35 ? 0 :
-      canonicalScore < 50 ? 0 :
-      canonicalScore < 62 ? 1 :   // needs_review: max ONE GOOD
+      canonicalScore < 32 ? 0 :
+      canonicalScore < 52 ? 1 :        // limited_alignment: max ONE GOOD
       99;
     const strongCap =
       canonicalScore == null ? 99 :
-      canonicalScore < 62 ? 0 :   // needs_review and below: ZERO STRONG
-      canonicalScore < 75 ? 1 :   // moderate_fit: max ONE STRONG
+      canonicalScore < 52 ? 0 :        // limited_alignment & below: ZERO STRONG
+      canonicalScore < 70 ? 1 :        // moderate_fit: max ONE STRONG
       99;
     const exceedsCap =
       canonicalScore == null ? 0 :
-      canonicalScore < 75 ? 0 :
-      canonicalScore < 88 ? 1 :   // recommended: max ONE EXCEEDS
+      canonicalScore < 70 ? 0 :
+      canonicalScore < 85 ? 1 :        // recommended: max ONE EXCEEDS
       99;
 
     // Evidence-quality classifier: detect LOW-confidence evidence text and cap fit at PARTIAL.
@@ -384,10 +384,9 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           .map((m: any) => {
             let f = ALLOWED_FITS.includes(String(m.fit).toUpperCase()) ? String(m.fit).toUpperCase() : "PARTIAL";
             if (fitRank(f) > ceil) f = ALLOWED_FITS[ceil];
-            // Evidence-quality guard: shallow evidence cannot earn STRONG/EXCEEDS; medium caps at GOOD.
             const q = evidenceQuality(m.evidence);
-            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";       // PARTIAL ceiling
-            else if (q === "med" && fitRank(f) > 3) f = "GOOD";     // GOOD ceiling
+            if (q === "low" && fitRank(f) > 2) f = "PARTIAL";
+            else if (q === "med" && fitRank(f) > 3) f = "GOOD";
             if (f === "EXCEEDS") {
               if (exceedsUsed >= exceedsCap) f = "STRONG";
               else exceedsUsed++;
@@ -400,39 +399,75 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
               if (goodUsed >= goodCap) f = "PARTIAL";
               else goodUsed++;
             }
+            const kind = String(m.kind ?? "").toLowerCase() === "preferred" ? "preferred" : "mandatory";
             return {
               requirement: String(m.requirement).slice(0, 120),
-              evidence: String(m.evidence).slice(0, 600),
+              kind,
+              evidence: softenLanguage(String(m.evidence).slice(0, 600)),
               fit: f,
             };
           })
+          // Sort mandatory first, preferred after — drives PDF/UI ordering.
+          .sort((a: any, b: any) => (a.kind === "mandatory" ? -1 : 1) - (b.kind === "mandatory" ? -1 : 1))
           .slice(0, 10)
       : [];
 
+    // Recommendation: prefer the canonical deterministic band, but allow the AI
+    // (recruiter brain + notes_impact) to upgrade by AT MOST one tier when it
+    // explicitly chose a higher band. Never inflate above "recommended" via
+    // notes alone. Never downgrade arbitrarily — canonical is the floor.
     const fit_score = canonicalScore != null ? canonicalScore : 0;
-    // Trust the deterministic band over whatever the AI claimed.
-    const recommendation = recommendationFromScore(fit_score);
+    const canonicalRec = recommendationFromScore(fit_score);
+    const aiRec = normalizeRecLabel(parsed.recommendation);
+    const BAND_ORDER: RecLabel[] = ["not_suitable","limited_alignment","moderate_fit","recommended","strong_match"];
+    const canonicalIdx = BAND_ORDER.indexOf(canonicalRec === "needs_review" ? "limited_alignment" : canonicalRec);
+    let chosenIdx = canonicalIdx;
+    if (aiRec && aiRec !== "needs_review") {
+      const aiIdx = BAND_ORDER.indexOf(aiRec);
+      if (aiIdx >= 0) {
+        // Allow upgrade of at most 1 tier, capped at "recommended" unless canonical already says higher.
+        const upgradeCap = Math.max(canonicalIdx, BAND_ORDER.indexOf("recommended"));
+        chosenIdx = Math.min(Math.max(canonicalIdx, Math.min(aiIdx, canonicalIdx + 1)), upgradeCap);
+      }
+    }
+    const recommendation: RecLabel = BAND_ORDER[chosenIdx] ?? canonicalRec;
 
     // Derive missing_requirements from the mandate_match table as a fallback,
-    // and merge anything the AI explicitly flagged.
+    // and merge anything the AI explicitly flagged. Soften all wording.
     const aiMissing = Array.isArray(parsed.missing_requirements) ? parsed.missing_requirements.map(String) : [];
     const tableMissing = mandate_match
       .filter((m: any) => m.fit === "NOT MATCHED" || m.fit === "WEAK")
       .map((m: any) => m.requirement);
-    const missing_requirements = Array.from(new Set([...aiMissing, ...tableMissing])).slice(0, 8);
+    const missing_requirements = softenList(Array.from(new Set([...aiMissing, ...tableMissing])).slice(0, 8));
 
-    const recruiterNotesSummary = Array.isArray(parsed.recruiter_notes_summary)
-      ? parsed.recruiter_notes_summary.map(String).slice(0, 6) : [];
+    const recruiterNotesSummary = softenList(
+      Array.isArray(parsed.recruiter_notes_summary) ? parsed.recruiter_notes_summary.slice(0, 6) : []
+    );
+    const recruiterNotesImpact = Array.isArray(parsed.recruiter_notes_impact)
+      ? parsed.recruiter_notes_impact
+          .filter((x: any) => x && (x.note || x.effect))
+          .slice(0, 6)
+          .map((x: any) => ({
+            note: softenLanguage(String(x.note ?? "")).slice(0, 240),
+            effect: softenLanguage(String(x.effect ?? "")).slice(0, 240),
+          }))
+      : [];
 
-    // We persist the recruiter-notes-summary and missing requirements inside
-    // `risks` jsonb as structured items so we don't need a schema migration.
-    // Consumers read `risks` as plain strings; we keep that shape but allow the
-    // payload to carry the structured details under a known shape too.
-    const risksOut = Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 6) : [];
+    const jdClassification = parsed.jd_classification && typeof parsed.jd_classification === "object" ? {
+      mandatory_requirements: Array.isArray(parsed.jd_classification.mandatory_requirements)
+        ? parsed.jd_classification.mandatory_requirements.map(String).slice(0, 12) : [],
+      preferred_requirements: Array.isArray(parsed.jd_classification.preferred_requirements)
+        ? parsed.jd_classification.preferred_requirements.map(String).slice(0, 12) : [],
+      transferable_families: Array.isArray(parsed.jd_classification.transferable_families)
+        ? parsed.jd_classification.transferable_families.map(String).slice(0, 8) : [],
+      seniority_target: ["junior","mid","senior","lead"].includes(String(parsed.jd_classification.seniority_target ?? "").toLowerCase())
+        ? String(parsed.jd_classification.seniority_target).toLowerCase()
+        : null,
+    } : null;
 
-    // Band-aware summary sanitization: if the recommendation is needs_review or
-    // lower but the AI used inflated language, rewrite the summary with a
-    // calibrated, evidence-based fallback so the report tone matches the band.
+    const risksOut = softenList(Array.isArray(parsed.risks) ? parsed.risks.slice(0, 6) : []);
+
+    // Band-aware summary sanitisation: low bands cannot use inflated language.
     const BANNED = [
       /\bstrong (candidate|profile|fit)\b/i, /\bexcellent (fit|candidate|experience|profile)\b/i,
       /\bhighly qualified\b/i, /\bideal (fit|candidate)\b/i, /\bperfect (fit|match)\b/i,
@@ -441,8 +476,8 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       /\bsolid alignment\b/i, /\bgood suitability\b/i, /\bdeep experience\b/i,
       /\bextensive experience\b/i,
     ];
-    const LOW_BANDS = new Set(["needs_review", "limited_alignment", "not_suitable"]);
-    let cleanedSummary: string | null = parsed.summary ? String(parsed.summary).trim() : null;
+    const LOW_BANDS = new Set(["limited_alignment", "not_suitable"]);
+    let cleanedSummary: string | null = parsed.summary ? softenLanguage(String(parsed.summary).trim()) : null;
     if (cleanedSummary && LOW_BANDS.has(recommendation) && BANNED.some((re) => re.test(cleanedSummary!))) {
       const firstName = String(candidate.full_name ?? "The candidate").split(" ")[0] || "The candidate";
       const role = job.title ?? "this role";
@@ -455,9 +490,9 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
         (mandate_match.find((m: any) => m.fit === "GOOD" || m.fit === "STRONG")?.requirement) ||
         "relevant baseline experience";
       cleanedSummary =
-        `${firstName} shows ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
-        `but evidence is limited around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()}. ` +
-        `Recommend a screening call to validate commercial depth and production ownership before progressing.`;
+        `${firstName} brings ${String(topStrength).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} relevant to ${role}, ` +
+        `with evidence around ${String(topGap).replace(/^\*+|\*+$/g, "").replace(/\s*[—:\-].*$/, "").toLowerCase()} that would benefit from validation at interview. ` +
+        `Recommend a screening conversation to explore production depth and ownership before progressing.`;
     }
 
     const insertRow = {
@@ -465,15 +500,16 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       job_id, candidate_id,
       fit_score, recommendation,
       summary: cleanedSummary,
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
-      weaknesses: Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : []),
+      strengths: softenList(Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : []),
+      weaknesses: softenList(Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [])),
       risks: risksOut,
       mandate_match: [
         ...mandate_match,
+        ...(jdClassification ? [{ __kind: "jd_classification", ...jdClassification }] : []),
         ...(missing_requirements.length ? [{ __kind: "missing", items: missing_requirements }] : []),
         ...(recruiterNotesSummary.length ? [{ __kind: "recruiter_notes_summary", items: recruiterNotesSummary }] : []),
+        ...(recruiterNotesImpact.length ? [{ __kind: "recruiter_notes_impact", items: recruiterNotesImpact }] : []),
       ],
-      // recruiter_review intentionally dropped — the executive summary owns the closing voice.
       recruiter_review: null,
       model: "gpt-4o",
       generated_by: userId,
