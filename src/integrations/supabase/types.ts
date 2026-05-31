@@ -64,6 +64,8 @@ export type Database = {
           created_at: string
           ecosystem_signals: Json | null
           engine_version: string | null
+          explanation: string | null
+          final_score: number | null
           fit_score: number | null
           generated_by: string | null
           id: string
@@ -71,11 +73,16 @@ export type Database = {
           jd_signature: string | null
           job_id: string
           mandate_match: Json | null
+          mandatory_skills_matched: Json | null
           match_classification: string | null
+          missing_requirements: Json | null
           model: string | null
           override_divergence: boolean | null
           placement_calibration: Json | null
+          preferred_skills_matched: Json | null
+          prefilter_score: number | null
           recommendation: string | null
+          recommendation_tier: string | null
           recruiter_copilot: Json | null
           recruiter_override: Json | null
           recruiter_review: string | null
@@ -86,12 +93,15 @@ export type Database = {
           updated_at: string
           validation_stale: boolean
           weaknesses: Json
+          weights_profile_id: string | null
         }
         Insert: {
           candidate_id: string
           created_at?: string
           ecosystem_signals?: Json | null
           engine_version?: string | null
+          explanation?: string | null
+          final_score?: number | null
           fit_score?: number | null
           generated_by?: string | null
           id?: string
@@ -99,11 +109,16 @@ export type Database = {
           jd_signature?: string | null
           job_id: string
           mandate_match?: Json | null
+          mandatory_skills_matched?: Json | null
           match_classification?: string | null
+          missing_requirements?: Json | null
           model?: string | null
           override_divergence?: boolean | null
           placement_calibration?: Json | null
+          preferred_skills_matched?: Json | null
+          prefilter_score?: number | null
           recommendation?: string | null
+          recommendation_tier?: string | null
           recruiter_copilot?: Json | null
           recruiter_override?: Json | null
           recruiter_review?: string | null
@@ -114,12 +129,15 @@ export type Database = {
           updated_at?: string
           validation_stale?: boolean
           weaknesses?: Json
+          weights_profile_id?: string | null
         }
         Update: {
           candidate_id?: string
           created_at?: string
           ecosystem_signals?: Json | null
           engine_version?: string | null
+          explanation?: string | null
+          final_score?: number | null
           fit_score?: number | null
           generated_by?: string | null
           id?: string
@@ -127,11 +145,16 @@ export type Database = {
           jd_signature?: string | null
           job_id?: string
           mandate_match?: Json | null
+          mandatory_skills_matched?: Json | null
           match_classification?: string | null
+          missing_requirements?: Json | null
           model?: string | null
           override_divergence?: boolean | null
           placement_calibration?: Json | null
+          preferred_skills_matched?: Json | null
+          prefilter_score?: number | null
           recommendation?: string | null
+          recommendation_tier?: string | null
           recruiter_copilot?: Json | null
           recruiter_override?: Json | null
           recruiter_review?: string | null
@@ -142,6 +165,7 @@ export type Database = {
           updated_at?: string
           validation_stale?: boolean
           weaknesses?: Json
+          weights_profile_id?: string | null
         }
         Relationships: []
       }
@@ -805,6 +829,9 @@ export type Database = {
           skills: Json | null
           source: string | null
           status: Database["public"]["Enums"]["candidate_status"] | null
+          structured_profile: Json | null
+          structured_profile_at: string | null
+          structured_profile_version: string | null
           summary: string | null
           tags: Json | null
           tenant_id: string
@@ -833,6 +860,9 @@ export type Database = {
           skills?: Json | null
           source?: string | null
           status?: Database["public"]["Enums"]["candidate_status"] | null
+          structured_profile?: Json | null
+          structured_profile_at?: string | null
+          structured_profile_version?: string | null
           summary?: string | null
           tags?: Json | null
           tenant_id: string
@@ -861,6 +891,9 @@ export type Database = {
           skills?: Json | null
           source?: string | null
           status?: Database["public"]["Enums"]["candidate_status"] | null
+          structured_profile?: Json | null
+          structured_profile_at?: string | null
+          structured_profile_version?: string | null
           summary?: string | null
           tags?: Json | null
           tenant_id?: string
@@ -2598,6 +2631,9 @@ export type Database = {
           salary_min: number | null
           skills: Json | null
           status: Database["public"]["Enums"]["job_status"] | null
+          structured_jd: Json | null
+          structured_jd_at: string | null
+          structured_jd_version: string | null
           tenant_id: string
           title: string
           updated_at: string | null
@@ -2625,6 +2661,9 @@ export type Database = {
           salary_min?: number | null
           skills?: Json | null
           status?: Database["public"]["Enums"]["job_status"] | null
+          structured_jd?: Json | null
+          structured_jd_at?: string | null
+          structured_jd_version?: string | null
           tenant_id: string
           title: string
           updated_at?: string | null
@@ -2652,6 +2691,9 @@ export type Database = {
           salary_min?: number | null
           skills?: Json | null
           status?: Database["public"]["Enums"]["job_status"] | null
+          structured_jd?: Json | null
+          structured_jd_at?: string | null
+          structured_jd_version?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string | null
@@ -3871,12 +3913,14 @@ export type Database = {
         Row: {
           ai_score: number | null
           ai_summary: string | null
+          ai_validation_id: string | null
           candidate_id: string
           confidence: string
           created_at: string
           discovery_classification: string | null
           dismissed: boolean
           ecosystem_signals: Json | null
+          final_score: number | null
           functional_ownership: Json | null
           gaps: Json
           id: string
@@ -3885,6 +3929,7 @@ export type Database = {
           job_id: string
           match_score: number
           model_version: string
+          recommendation_tier: string | null
           semantic_score: number | null
           strengths: Json
           sub_scores: Json
@@ -3895,12 +3940,14 @@ export type Database = {
         Insert: {
           ai_score?: number | null
           ai_summary?: string | null
+          ai_validation_id?: string | null
           candidate_id: string
           confidence?: string
           created_at?: string
           discovery_classification?: string | null
           dismissed?: boolean
           ecosystem_signals?: Json | null
+          final_score?: number | null
           functional_ownership?: Json | null
           gaps?: Json
           id?: string
@@ -3909,6 +3956,7 @@ export type Database = {
           job_id: string
           match_score?: number
           model_version?: string
+          recommendation_tier?: string | null
           semantic_score?: number | null
           strengths?: Json
           sub_scores?: Json
@@ -3919,12 +3967,14 @@ export type Database = {
         Update: {
           ai_score?: number | null
           ai_summary?: string | null
+          ai_validation_id?: string | null
           candidate_id?: string
           confidence?: string
           created_at?: string
           discovery_classification?: string | null
           dismissed?: boolean
           ecosystem_signals?: Json | null
+          final_score?: number | null
           functional_ownership?: Json | null
           gaps?: Json
           id?: string
@@ -3933,6 +3983,7 @@ export type Database = {
           job_id?: string
           match_score?: number
           model_version?: string
+          recommendation_tier?: string | null
           semantic_score?: number | null
           strengths?: Json
           sub_scores?: Json
@@ -4050,6 +4101,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scoring_weights_profiles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          domain: number
+          education: number
+          experience: number
+          id: string
+          industry: number
+          is_default: boolean
+          location: number
+          mandatory_skills: number
+          name: string
+          tenant_id: string
+          tier_consider: number
+          tier_highly_recommended: number
+          tier_recommended: number
+          title: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          domain?: number
+          education?: number
+          experience?: number
+          id?: string
+          industry?: number
+          is_default?: boolean
+          location?: number
+          mandatory_skills?: number
+          name: string
+          tenant_id: string
+          tier_consider?: number
+          tier_highly_recommended?: number
+          tier_recommended?: number
+          title?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          domain?: number
+          education?: number
+          experience?: number
+          id?: string
+          industry?: number
+          is_default?: boolean
+          location?: number
+          mandatory_skills?: number
+          name?: string
+          tenant_id?: string
+          tier_consider?: number
+          tier_highly_recommended?: number
+          tier_recommended?: number
+          title?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       site_branding: {
         Row: {
@@ -4935,6 +5046,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      validation_queue: {
+        Row: {
+          attempts: number
+          candidate_id: string
+          enqueued_at: string
+          id: string
+          job_id: string
+          last_error: string | null
+          priority: number
+          processed_at: string | null
+          started_at: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          attempts?: number
+          candidate_id: string
+          enqueued_at?: string
+          id?: string
+          job_id: string
+          last_error?: string | null
+          priority?: number
+          processed_at?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          attempts?: number
+          candidate_id?: string
+          enqueued_at?: string
+          id?: string
+          job_id?: string
+          last_error?: string | null
+          priority?: number
+          processed_at?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: []
       }
       videos: {
         Row: {
