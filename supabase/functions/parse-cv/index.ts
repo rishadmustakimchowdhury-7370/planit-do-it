@@ -471,9 +471,31 @@ ${cvText}`
       }
     }
 
-    console.log('CV parsing complete, result:', JSON.stringify(parsedCV));
+    console.log('CV parsing complete, generating structured profile...');
 
-    return new Response(JSON.stringify(parsedCV), {
+    let structured_profile: StructuredCandidateProfile | null = null;
+    if (!skip_structured) {
+      structured_profile = await buildStructuredProfile(parsedCV, OPENAI_API_KEY, linkedinUrl);
+    }
+
+    // Optional direct write to candidates row when caller passes a candidate_id.
+    if (candidate_id && structured_profile) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        );
+        await supabase.from('candidates').update({
+          structured_profile: structured_profile as any,
+          structured_profile_version: STRUCTURED_SCHEMA_VERSION,
+          structured_profile_at: new Date().toISOString(),
+        }).eq('id', candidate_id);
+      } catch (e) {
+        console.error('Failed to persist structured_profile:', e);
+      }
+    }
+
+    return new Response(JSON.stringify({ ...parsedCV, structured_profile }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
