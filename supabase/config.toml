@@ -144,3 +144,7 @@ verify_jwt = true
 
 [functions.transcribe-voice-note]
 verify_jwt = true
+
+[functions.structure-jd]
+verify_jwt = true
+

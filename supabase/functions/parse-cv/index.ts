@@ -1,10 +1,80 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  CANDIDATE_STRUCTURED_TOOL,
+  CANDIDATE_STRUCTURED_SYSTEM,
+  STRUCTURED_SCHEMA_VERSION,
+  type StructuredCandidateProfile,
+} from "../_shared/structured-schema.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+async function buildStructuredProfile(
+  parsedCV: any,
+  apiKey: string,
+  linkedinUrl?: string,
+): Promise<StructuredCandidateProfile | null> {
+  try {
+    const sourceJson = JSON.stringify(parsedCV, null, 2);
+    const sourceText = `Legacy parsed CV (use as the primary source of truth):\n${sourceJson}${
+      linkedinUrl ? `\n\nLinkedIn URL: ${linkedinUrl}` : ""
+    }`;
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: CANDIDATE_STRUCTURED_SYSTEM },
+          { role: "user", content: sourceText },
+        ],
+        tools: [CANDIDATE_STRUCTURED_TOOL],
+        tool_choice: { type: "function", function: { name: CANDIDATE_STRUCTURED_TOOL.function.name } },
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("structured profile call failed:", res.status, body);
+      return null;
+    }
+    const data = await res.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) return null;
+    const parsed = JSON.parse(toolCall.function.arguments);
+    return {
+      schema_version: STRUCTURED_SCHEMA_VERSION,
+      full_name: parsed.full_name ?? parsedCV.full_name ?? null,
+      current_title: parsed.current_title ?? parsedCV.current_title ?? null,
+      current_company: parsed.current_company ?? parsedCV.current_company ?? null,
+      seniority: parsed.seniority ?? null,
+      industries: parsed.industries ?? [],
+      domain_expertise: parsed.domain_expertise ?? [],
+      skills: parsed.skills ?? [],
+      certifications: parsed.certifications ?? [],
+      education: parsed.education ?? [],
+      languages: parsed.languages ?? [],
+      location: parsed.location ?? {},
+      years_experience: parsed.years_experience ?? parsedCV.experience_years ?? null,
+      career_progression: parsed.career_progression ?? {
+        total_years_experience: parsedCV.experience_years ?? null,
+        current_seniority: parsed.seniority ?? null,
+        trajectory: null,
+      },
+      work_history: parsed.work_history ?? [],
+      summary: parsed.summary ?? parsedCV.summary ?? null,
+    };
+  } catch (e) {
+    console.error("buildStructuredProfile error:", e);
+    return null;
+  }
+}
 
 // Extract meaningful data from LinkedIn URL
 function extractFromLinkedInUrl(linkedinUrl: string): { username: string; inferredName: string } {
@@ -149,7 +219,7 @@ serve(async (req) => {
   }
 
   try {
-    const { cvText, cvBase64, mimeType, linkedinUrl } = await req.json();
+    const { cvText, cvBase64, mimeType, linkedinUrl, candidate_id, skip_structured } = await req.json();
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
@@ -401,9 +471,31 @@ ${cvText}`
       }
     }
 
-    console.log('CV parsing complete, result:', JSON.stringify(parsedCV));
+    console.log('CV parsing complete, generating structured profile...');
 
-    return new Response(JSON.stringify(parsedCV), {
+    let structured_profile: StructuredCandidateProfile | null = null;
+    if (!skip_structured) {
+      structured_profile = await buildStructuredProfile(parsedCV, OPENAI_API_KEY, linkedinUrl);
+    }
+
+    // Optional direct write to candidates row when caller passes a candidate_id.
+    if (candidate_id && structured_profile) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        );
+        await supabase.from('candidates').update({
+          structured_profile: structured_profile as any,
+          structured_profile_version: STRUCTURED_SCHEMA_VERSION,
+          structured_profile_at: new Date().toISOString(),
+        }).eq('id', candidate_id);
+      } catch (e) {
+        console.error('Failed to persist structured_profile:', e);
+      }
+    }
+
+    return new Response(JSON.stringify({ ...parsedCV, structured_profile }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
