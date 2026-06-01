@@ -219,7 +219,7 @@ serve(async (req) => {
   }
 
   try {
-    const { cvText, cvBase64, mimeType, linkedinUrl } = await req.json();
+    const { cvText, cvBase64, mimeType, linkedinUrl, candidate_id, skip_structured } = await req.json();
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
