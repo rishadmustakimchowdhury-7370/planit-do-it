@@ -148,3 +148,7 @@ verify_jwt = true
 [functions.structure-jd]
 verify_jwt = true
 
+[functions.validate-candidate-fit-v2]
+verify_jwt = true
+
+
