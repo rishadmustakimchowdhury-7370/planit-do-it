@@ -1,16 +1,23 @@
 // =========================================================================
 // Canonical structured schema for candidates and jobs.
 // Consumed by:
-//   - parse-cv         → writes candidates.structured_profile
-//   - structure-jd     → writes jobs.structured_jd
-//   - validate-candidate-fit (Stage 3) → reads both as primary inputs
+//   - parse-cv                   → writes candidates.structured_profile
+//   - structure-jd               → writes jobs.structured_jd
+//   - validate-candidate-fit-v2  → reads both as primary inputs
 //
 // Identical normalized vocabulary on both sides → enables explainable,
 // dimension-by-dimension matching (skills, industry, domain, seniority,
 // location, education, languages, certifications, career progression).
+//
+// SEMANTIC NORMALIZATION (v2):
+// We do NOT hardcode title / skill / industry relationships. Instead the
+// model is asked to emit, alongside the canonical value, the list of
+// aliases (synonyms) and related variants. The validator then compares
+// canonical ∪ aliases ∪ related on each side to detect direct, adjacent
+// and transferable matches in any industry, in any geography.
 // =========================================================================
 
-export const STRUCTURED_SCHEMA_VERSION = 1;
+export const STRUCTURED_SCHEMA_VERSION = 2;
 
 export type SeniorityLevel =
   | "intern"
@@ -27,35 +34,53 @@ export type SeniorityLevel =
 export type EmploymentType =
   | "full_time" | "part_time" | "contract" | "temporary" | "internship" | "freelance";
 
+// ---- Normalized building blocks ----------------------------------------
+
+export interface NormalizedTitle {
+  canonical: string;              // e.g. "Market Risk Analyst"
+  aliases: string[];              // synonyms: "Risk Analyst – Market", "Market Risk Specialist"
+  related: string[];              // adjacent roles: "Credit Risk Analyst", "Risk Manager"
+  seniority?: SeniorityLevel | null;
+}
+
 export interface NormalizedSkill {
-  name: string;                 // canonical skill, e.g. "TypeScript"
-  category?: string | null;     // e.g. "language", "framework", "tool", "domain"
+  name: string;                   // canonical: "Microsoft Excel"
+  aliases?: string[];             // ["MS Excel", "Excel", "Advanced Excel"]
+  category?: string | null;       // "language" | "framework" | "tool" | "domain"
   level?: "basic" | "working" | "proficient" | "expert" | null;
   years?: number | null;
 }
 
+export interface NormalizedIndustry {
+  canonical: string;              // "Banking & Finance"
+  aliases?: string[];             // ["Financial Services", "FS"]
+  adjacent?: string[];            // ["Fintech", "Payments", "Asset Management"]
+  transferable?: string[];        // ["Insurance", "Wealth Management"]
+}
+
 export interface NormalizedCertification {
   name: string;
+  aliases?: string[];
   issuer?: string | null;
   year?: string | null;
 }
 
 export interface NormalizedEducation {
-  degree: string | null;        // e.g. "BSc Computer Science"
-  field?: string | null;        // e.g. "Computer Science"
+  degree: string | null;
+  field?: string | null;
   institution?: string | null;
   level?: "high_school" | "associate" | "bachelor" | "master" | "mba" | "phd" | "other" | null;
   year?: string | null;
 }
 
 export interface NormalizedLanguage {
-  language: string;             // e.g. "English"
+  language: string;
   proficiency?: "basic" | "conversational" | "professional" | "fluent" | "native" | null;
 }
 
 export interface NormalizedLocation {
   city?: string | null;
-  region?: string | null;       // state / county / province
+  region?: string | null;
   country?: string | null;
   remote_preference?: "onsite" | "hybrid" | "remote" | "open" | null;
   willing_to_relocate?: boolean | null;
@@ -63,13 +88,16 @@ export interface NormalizedLocation {
 
 export interface NormalizedRole {
   title: string;
-  normalized_title?: string | null;   // canonicalised (e.g. "Software Engineer")
+  normalized_title?: string | null;
+  title_aliases?: string[];
+  related_titles?: string[];
   seniority?: SeniorityLevel | null;
   company?: string | null;
   industry?: string | null;
-  domain?: string | null;             // e.g. "Payments", "Talent Acquisition"
-  start_date?: string | null;         // ISO-ish, may be partial "YYYY" or "YYYY-MM"
-  end_date?: string | null;           // null if current
+  industry_aliases?: string[];
+  domain?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   is_current?: boolean | null;
   duration_months?: number | null;
   achievements?: string[];
@@ -89,11 +117,11 @@ export interface CareerProgression {
 export interface StructuredCandidateProfile {
   schema_version: number;
   full_name: string | null;
-  current_title: string | null;
+  current_title: NormalizedTitle | null;
   current_company: string | null;
   seniority: SeniorityLevel | null;
-  industries: string[];               // ordered most → least relevant
-  domain_expertise: string[];         // functional/subject domains
+  industries: NormalizedIndustry[];           // ordered most → least relevant
+  domain_expertise: string[];
   skills: NormalizedSkill[];
   certifications: NormalizedCertification[];
   education: NormalizedEducation[];
@@ -102,18 +130,17 @@ export interface StructuredCandidateProfile {
   years_experience: number | null;
   career_progression: CareerProgression;
   work_history: NormalizedRole[];
-  summary: string | null;             // 1–3 sentence professional summary
+  summary: string | null;
 }
 
 // ---- Job ---------------------------------------------------------------
 export interface StructuredJobDescription {
   schema_version: number;
-  title: string | null;
-  normalized_title: string | null;
+  title: NormalizedTitle | null;
   seniority: SeniorityLevel | null;
   employment_type: EmploymentType | null;
-  industry: string | null;
-  industries_acceptable: string[];    // adjacent / transferable industries
+  industry: NormalizedIndustry | null;
+  industries_acceptable: NormalizedIndustry[];   // explicit transferable industries
   domain_expertise: string[];
   mandatory_skills: NormalizedSkill[];
   preferred_skills: NormalizedSkill[];
@@ -137,9 +164,8 @@ export interface StructuredJobDescription {
 }
 
 // =========================================================================
-// OpenAI tool schemas (function-calling JSON Schema) — keep aligned with the
-// TypeScript types above. We use tool calling instead of asking the model to
-// "return JSON" so we get strict, validated structure.
+// OpenAI tool schemas (function-calling JSON Schema) — keep aligned with
+// the TypeScript types above.
 // =========================================================================
 
 const seniorityEnum = [
@@ -151,10 +177,23 @@ const employmentTypeEnum = [
   "full_time", "part_time", "contract", "temporary", "internship", "freelance",
 ];
 
+const titleObj = {
+  type: "object",
+  properties: {
+    canonical: { type: "string" },
+    aliases: { type: "array", items: { type: "string" } },
+    related: { type: "array", items: { type: "string" } },
+    seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
+  },
+  required: ["canonical", "aliases", "related"],
+  additionalProperties: false,
+} as const;
+
 const skillItem = {
   type: "object",
   properties: {
     name: { type: "string" },
+    aliases: { type: "array", items: { type: "string" } },
     category: { type: ["string", "null"] },
     level: { type: ["string", "null"], enum: ["basic", "working", "proficient", "expert", null] },
     years: { type: ["number", "null"] },
@@ -163,10 +202,23 @@ const skillItem = {
   additionalProperties: false,
 } as const;
 
+const industryObj = {
+  type: "object",
+  properties: {
+    canonical: { type: "string" },
+    aliases: { type: "array", items: { type: "string" } },
+    adjacent: { type: "array", items: { type: "string" } },
+    transferable: { type: "array", items: { type: "string" } },
+  },
+  required: ["canonical"],
+  additionalProperties: false,
+} as const;
+
 const certItem = {
   type: "object",
   properties: {
     name: { type: "string" },
+    aliases: { type: "array", items: { type: "string" } },
     issuer: { type: ["string", "null"] },
     year: { type: ["string", "null"] },
   },
@@ -223,9 +275,12 @@ const roleItem = {
   properties: {
     title: { type: "string" },
     normalized_title: { type: ["string", "null"] },
+    title_aliases: { type: "array", items: { type: "string" } },
+    related_titles: { type: "array", items: { type: "string" } },
     seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
     company: { type: ["string", "null"] },
     industry: { type: ["string", "null"] },
+    industry_aliases: { type: "array", items: { type: "string" } },
     domain: { type: ["string", "null"] },
     start_date: { type: ["string", "null"] },
     end_date: { type: ["string", "null"] },
@@ -269,15 +324,15 @@ export const CANDIDATE_STRUCTURED_TOOL = {
   type: "function",
   function: {
     name: "emit_structured_candidate_profile",
-    description: "Emit a normalized, explainable candidate profile suitable for semantic matching and dimension-by-dimension scoring.",
+    description: "Emit a normalized, explainable candidate profile suitable for semantic matching and dimension-by-dimension scoring. Include aliases and related variants for titles, skills, and industries to enable transferable-experience detection across any industry worldwide.",
     parameters: {
       type: "object",
       properties: {
         full_name: { type: ["string", "null"] },
-        current_title: { type: ["string", "null"] },
+        current_title: { anyOf: [titleObj, { type: "null" }] },
         current_company: { type: ["string", "null"] },
         seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
-        industries: { type: "array", items: { type: "string" } },
+        industries: { type: "array", items: industryObj },
         domain_expertise: { type: "array", items: { type: "string" } },
         skills: { type: "array", items: skillItem },
         certifications: { type: "array", items: certItem },
@@ -304,16 +359,15 @@ export const JOB_STRUCTURED_TOOL = {
   type: "function",
   function: {
     name: "emit_structured_job_description",
-    description: "Emit a normalized, explainable job description suitable for semantic matching and dimension-by-dimension scoring.",
+    description: "Emit a normalized, explainable job description suitable for semantic matching and dimension-by-dimension scoring. Include aliases and related variants for the title, skills, and industry, plus explicit acceptable adjacent / transferable industries, to enable explainable matching in any country and any sector.",
     parameters: {
       type: "object",
       properties: {
-        title: { type: ["string", "null"] },
-        normalized_title: { type: ["string", "null"] },
+        title: { anyOf: [titleObj, { type: "null" }] },
         seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
         employment_type: { type: ["string", "null"], enum: [...employmentTypeEnum, null] },
-        industry: { type: ["string", "null"] },
-        industries_acceptable: { type: "array", items: { type: "string" } },
+        industry: { anyOf: [industryObj, { type: "null" }] },
+        industries_acceptable: { type: "array", items: industryObj },
         domain_expertise: { type: "array", items: { type: "string" } },
         mandatory_skills: { type: "array", items: skillItem },
         preferred_skills: { type: "array", items: skillItem },
@@ -350,24 +404,33 @@ export const JOB_STRUCTURED_TOOL = {
   },
 } as const;
 
-export const CANDIDATE_STRUCTURED_SYSTEM = `You are a senior talent intelligence analyst. Convert a CV / LinkedIn profile into a normalized, explainable candidate profile.
+export const CANDIDATE_STRUCTURED_SYSTEM = `You are a senior global talent intelligence analyst. Convert a CV / LinkedIn profile into a normalized, explainable candidate profile suitable for cross-industry semantic matching.
 
-Rules:
-- Use canonical industry and domain names (e.g. "Financial Services", "SaaS", "Healthcare", "Payments", "Talent Acquisition").
-- Map raw titles to normalized titles (e.g. "Sr. SWE II" → "Senior Software Engineer") and assign a seniority level from the enum.
+SEMANTIC NORMALIZATION RULES (mandatory):
+- For every job title, output: canonical (the cleanest industry-standard form), aliases (other ways the same role is named: "Sr. SWE II" → "Senior Software Engineer", "Cyber Security Analyst" → "SOC Analyst"), and related (adjacent roles a hiring manager would consider — e.g. for "Market Risk Analyst" → ["Credit Risk Analyst", "Risk Specialist", "Quantitative Risk Analyst"]).
+- For every skill, output canonical name plus aliases ("MS Excel" → ["Microsoft Excel", "Excel"], "AWS" → ["Amazon Web Services"], "SOC" → ["Security Operations Center"]). Do NOT collapse different skills.
+- For every industry, output canonical name, aliases ("Financial Services" → ["Banking & Finance", "FS"]), adjacent industries (close sectors recruiters routinely consider) and transferable industries (regulated / structurally similar sectors).
+- These taxonomies are GENERATED PER PROFILE, not pulled from a hardcoded list. Cover any industry worldwide.
+
+GENERAL RULES:
+- Map raw titles to canonical titles and assign a seniority level from the enum.
 - Calculate total years of experience from work history; never invent dates.
 - Detect trajectory (ascending / lateral / mixed / descending / early_career) from title and seniority changes.
 - Capture every skill, certification, language and educational qualification you can defend from the source.
 - If information is missing, return null or an empty array. Never hallucinate.
 - Return your answer ONLY by calling the tool emit_structured_candidate_profile.`;
 
-export const JOB_STRUCTURED_SYSTEM = `You are a senior executive search analyst. Convert a job description into a normalized, explainable job specification.
+export const JOB_STRUCTURED_SYSTEM = `You are a senior executive search analyst. Convert a job description into a normalized, explainable job specification suitable for cross-industry semantic matching.
 
-Rules:
-- Separate mandatory vs preferred skills strictly — if it's framed as "must have", "required", "essential" → mandatory; otherwise preferred.
-- Use canonical industry and domain names matching the candidate vocabulary (e.g. "Financial Services", "Payments", "Talent Acquisition").
-- Map the role title to a normalized_title and assign a seniority from the enum.
-- Extract years-of-experience as a numeric range when stated; if only a minimum is given, set years_experience_max to null.
+SEMANTIC NORMALIZATION RULES (mandatory):
+- For the title, output: canonical (the standard market name), aliases (other names the same role is advertised under), and related (titles a recruiter would also consider sourcing — e.g. for "SOC Analyst" → ["Cyber Security Analyst", "Security Operations Analyst", "Threat Detection Analyst"]).
+- For every skill, output canonical plus aliases. Separate mandatory vs preferred strictly — "must have", "required", "essential" → mandatory; otherwise preferred.
+- For the industry, output canonical, aliases, adjacent (close sectors), and transferable (regulated or structurally similar sectors that a hiring manager would accept on the right candidate). Also populate industries_acceptable with any explicit "open to candidates from X" sectors mentioned.
+- These taxonomies are GENERATED PER JOB, not pulled from a hardcoded list. Cover any industry, country, and seniority.
+
+GENERAL RULES:
+- Map the role title to a canonical title and assign a seniority from the enum.
+- Extract years-of-experience as a numeric range; if only a minimum is given, set max to null.
 - Identify deal_breakers explicitly (e.g. "must have active Series 7", "must be eligible to work in UK without sponsorship").
 - Capture leadership / people-management expectations into career_progression_expected.
 - If information is missing, return null or an empty array. Never invent requirements.
