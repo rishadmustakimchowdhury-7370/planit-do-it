@@ -649,13 +649,38 @@ serve(async (req) => {
         if (upErr) throw upErr;
       }
 
+      // 9b. Validator v2 fan-out — enqueue top-N for asynchronous validation.
+      // The process-validation-queue worker (cron) drains these and writes
+      // final_score / recommendation_tier back through the single authority.
+      let enqueuedForValidation = 0;
+      try {
+        const TOP_N = 25;
+        const top = rows.slice(0, TOP_N).map((r) => ({
+          tenant_id: r.tenant_id,
+          job_id: r.job_id,
+          candidate_id: r.candidate_id,
+          status: "pending",
+          priority: 10,
+        }));
+        if (top.length) {
+          const { error: qErr, count } = await supabase
+            .from("validation_queue")
+            .upsert(top, { onConflict: "tenant_id,job_id,candidate_id,status", ignoreDuplicates: true, count: "exact" });
+          if (qErr) console.warn("validation_queue enqueue failed", qErr);
+          else enqueuedForValidation = count ?? top.length;
+        }
+      } catch (e) {
+        console.warn("fan-out enqueue failed (non-fatal)", e);
+      }
+
       await supabase.from("rediscovery_runs").update({
         status: "success", candidates_scanned: scanned, matches_found: rows.length, completed_at: new Date().toISOString(),
       }).eq("id", run.id);
 
-      return new Response(JSON.stringify({ ok: true, matches: rows.length, embedded, scanned, model_version: MODEL_VERSION }), {
+      return new Response(JSON.stringify({ ok: true, matches: rows.length, embedded, scanned, model_version: MODEL_VERSION, enqueued_for_validation: enqueuedForValidation }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
     } catch (innerErr: any) {
       console.error("ai-talent-match inner error:", innerErr);
       await supabase.from("rediscovery_runs").update({
