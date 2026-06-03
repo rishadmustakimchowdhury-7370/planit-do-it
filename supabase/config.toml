@@ -151,4 +151,8 @@ verify_jwt = true
 [functions.validate-candidate-fit-v2]
 verify_jwt = true
 
+[functions.process-validation-queue]
+verify_jwt = false
+
+
 

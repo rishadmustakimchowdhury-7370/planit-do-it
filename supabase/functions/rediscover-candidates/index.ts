@@ -649,13 +649,47 @@ serve(async (req) => {
         if (upErr) throw upErr;
       }
 
+      // 9b. Validator v2 fan-out — enqueue top-N for asynchronous validation.
+      // The process-validation-queue worker (cron) drains these and writes
+      // final_score / recommendation_tier back through the single authority.
+      let enqueuedForValidation = 0;
+      try {
+        const TOP_N = 25;
+        const top = rows.slice(0, TOP_N);
+        if (top.length) {
+          const ids = top.map((r) => r.candidate_id);
+          const { data: existing } = await supabase
+            .from("validation_queue")
+            .select("candidate_id")
+            .eq("job_id", job_id)
+            .in("candidate_id", ids)
+            .in("status", ["pending", "in_progress"]);
+          const skip = new Set((existing ?? []).map((e: any) => e.candidate_id));
+          const toInsert = top
+            .filter((r) => !skip.has(r.candidate_id))
+            .map((r) => ({
+              tenant_id: r.tenant_id, job_id: r.job_id, candidate_id: r.candidate_id,
+              status: "pending", priority: 10,
+            }));
+          if (toInsert.length) {
+            const { error: qErr } = await supabase.from("validation_queue").insert(toInsert);
+            if (qErr) console.warn("validation_queue enqueue failed", qErr);
+            else enqueuedForValidation = toInsert.length;
+          }
+        }
+      } catch (e) {
+        console.warn("fan-out enqueue failed (non-fatal)", e);
+      }
+
+
       await supabase.from("rediscovery_runs").update({
         status: "success", candidates_scanned: scanned, matches_found: rows.length, completed_at: new Date().toISOString(),
       }).eq("id", run.id);
 
-      return new Response(JSON.stringify({ ok: true, matches: rows.length, embedded, scanned, model_version: MODEL_VERSION }), {
+      return new Response(JSON.stringify({ ok: true, matches: rows.length, embedded, scanned, model_version: MODEL_VERSION, enqueued_for_validation: enqueuedForValidation }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
     } catch (innerErr: any) {
       console.error("ai-talent-match inner error:", innerErr);
       await supabase.from("rediscovery_runs").update({

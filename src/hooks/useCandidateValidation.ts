@@ -34,6 +34,19 @@ export type AICandidateValidation = {
   recruiter_copilot?: any | null;
   recruiter_override?: { classification?: string; note?: string | null; recruiter_id?: string; at?: string } | null;
   override_divergence?: boolean | null;
+  // ---- Validator v2 fields (single scoring authority) ----
+  final_score?: number | null;
+  prefilter_score?: number | null;
+  recommendation_tier?:
+    | "strong_match" | "recommended" | "transferable_match"
+    | "needs_validation" | "weak_match" | "reject" | null;
+  explanation?: string | null;
+  mandatory_skills_matched?: any[] | null;
+  preferred_skills_matched?: any[] | null;
+  missing_requirements?: string[] | null;
+  weights_profile_id?: string | null;
+  // Convenience derived field — single number all UI surfaces should read.
+  display_score?: number | null;
 };
 
 export function useLatestValidation(jobId?: string | null, candidateId?: string | null) {
@@ -41,27 +54,27 @@ export function useLatestValidation(jobId?: string | null, candidateId?: string 
     queryKey: ["ai-validation", jobId, candidateId],
     enabled: !!jobId && !!candidateId,
     queryFn: async () => {
-      const [{ data: validation, error }, { data: canonical }] = await Promise.all([
-        supabase.from("ai_candidate_validations").select("*")
-          .eq("job_id", jobId!).eq("candidate_id", candidateId!)
-          .order("created_at", { ascending: false }).limit(1).maybeSingle(),
-        supabase.from("rediscovered_matches")
-          .select("match_score, sub_scores, confidence, model_version")
-          .eq("job_id", jobId!).eq("candidate_id", candidateId!).maybeSingle(),
-      ]);
+      // Validator v2: ai_candidate_validations is the SINGLE authoritative
+      // source. We no longer overwrite fit_score with the deprecated hybrid
+      // canonical from rediscovered_matches.
+      const { data: validation, error } = await supabase
+        .from("ai_candidate_validations").select("*")
+        .eq("job_id", jobId!).eq("candidate_id", candidateId!)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
       if (!validation) return null;
+      const v: any = validation;
+      const display = v.final_score ?? v.fit_score ?? null;
       const merged: AICandidateValidation = {
-        ...(validation as any),
-        fit_score: canonical?.match_score ?? (validation as any).fit_score,
-        sub_scores: (canonical?.sub_scores as any) ?? null,
-        confidence: (canonical?.confidence as any) ?? null,
-        scoring_version: canonical?.model_version ?? "hybrid_v1",
+        ...v,
+        display_score: display,
+        scoring_version: v.engine_version ?? v.scoring_version ?? null,
       };
       return merged;
     },
   });
 }
+
 
 export function useValidateCandidateFit() {
   const [loading, setLoading] = useState(false);
