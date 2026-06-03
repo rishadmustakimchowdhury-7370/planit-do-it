@@ -6,6 +6,30 @@ import { softenLanguage, softenList } from "../_shared/recruiter-language.ts";
 import { VALIDATION_SYSTEM_PROMPT } from "../_shared/validation-prompt.ts";
 import { loadRecruiterMemory, renderMemoryForPrompt } from "../_shared/recruiter-memory.ts";
 import { loadOutcomeMemory, renderOutcomeMemoryForPrompt, calibratePlacementProbability } from "../_shared/outcome-memory.ts";
+import {
+  scoreStructured,
+  DEFAULT_WEIGHTS,
+  DEFAULT_THRESHOLDS,
+  type ScoringWeights,
+  type TierThresholds,
+} from "../_shared/structured-scoring.ts";
+import {
+  STRUCTURED_SCHEMA_VERSION,
+  type StructuredCandidateProfile,
+  type StructuredJobDescription,
+} from "../_shared/structured-schema.ts";
+
+// Best-effort sibling-function invocation.
+async function invokeSibling(name: string, body: any, authHeader: string): Promise<void> {
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${name}`, {
+      method: "POST",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) { console.error(`invoke ${name} failed`, e); }
+}
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
