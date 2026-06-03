@@ -626,16 +626,98 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       }
     } catch { /* ignore */ }
 
+    // -----------------------------------------------------------------------
+    // ENTERPRISE VALIDATION v2 — single scoring authority.
+    // We re-load job/candidate to access structured fields, ensure structured
+    // data is fresh, then compute the explainable final_score via scoreStructured.
+    // The legacy `fit_score` field is overwritten with v2 final_score so the
+    // recruiter UI, dashboards, queue worker and submission engine all read
+    // the same number from the same column.
+    // -----------------------------------------------------------------------
+    let v2_final_score: number | null = null;
+    let v2_recommendation_tier: string | null = null;
+    let v2_explanation: any = null;
+    let v2_prefilter_score: number | null = null;
+    let v2_mandatory_matched: any = null;
+    let v2_preferred_matched: any = null;
+    let v2_missing: any = null;
+    let v2_weights_profile_id: string | null = null;
+    try {
+      const [{ data: jobFull }, { data: candFull }] = await Promise.all([
+        admin.from("jobs").select("id, tenant_id, structured_jd, structured_jd_version").eq("id", job_id).maybeSingle(),
+        admin.from("candidates").select("id, structured_profile, structured_profile_version, resume_url").eq("id", candidate_id).maybeSingle(),
+      ]);
+
+      let sjd: StructuredJobDescription | null = (jobFull as any)?.structured_jd ?? null;
+      let sp: StructuredCandidateProfile | null = (candFull as any)?.structured_profile ?? null;
+      const jdStale = !sjd || (jobFull as any)?.structured_jd_version !== STRUCTURED_SCHEMA_VERSION;
+      const cpStale = !sp || (candFull as any)?.structured_profile_version !== STRUCTURED_SCHEMA_VERSION;
+
+      if (jdStale) {
+        await invokeSibling("structure-jd", { job_id, force: false }, authHeader);
+        const { data: r } = await admin.from("jobs").select("structured_jd").eq("id", job_id).maybeSingle();
+        sjd = (r as any)?.structured_jd ?? sjd;
+      }
+      if (cpStale) {
+        await invokeSibling("parse-cv", { candidate_id, resume_url: (candFull as any)?.resume_url, force: false }, authHeader);
+        const { data: r } = await admin.from("candidates").select("structured_profile").eq("id", candidate_id).maybeSingle();
+        sp = (r as any)?.structured_profile ?? sp;
+      }
+
+      if (sjd && sp) {
+        let weights: ScoringWeights = DEFAULT_WEIGHTS;
+        let thresholds: TierThresholds = DEFAULT_THRESHOLDS;
+        try {
+          const { data: profile } = await admin
+            .from("scoring_weights_profiles")
+            .select("id, weights, thresholds")
+            .eq("tenant_id", job.tenant_id)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (profile) {
+            v2_weights_profile_id = (profile as any).id ?? null;
+            if ((profile as any).weights) weights = { ...DEFAULT_WEIGHTS, ...((profile as any).weights) };
+            if ((profile as any).thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...((profile as any).thresholds) };
+          }
+        } catch (e) { console.warn("weights profile lookup failed", e); }
+
+        const expl = scoreStructured(sjd, sp, weights, thresholds);
+        v2_final_score = expl.final_score;
+        v2_recommendation_tier = expl.recommendation_tier;
+        v2_explanation = expl.summary;
+        v2_mandatory_matched = expl.mandatory_skills_matched;
+        v2_preferred_matched = expl.preferred_skills_matched;
+        v2_missing = expl.missing_requirements;
+        v2_prefilter_score = canonicalScore ?? computeMatchScore(job, candidate).final;
+      }
+    } catch (e) {
+      console.error("v2 scoring augmentation failed; falling back to legacy score", e);
+    }
+
+    // Authoritative score = v2 when available, else legacy fit_score.
+    const authoritative_score = v2_final_score ?? fit_score;
+    const authoritative_tier = v2_recommendation_tier ?? recommendation;
+
     const insertRow = {
       tenant_id: job.tenant_id,
       job_id, candidate_id,
-      fit_score, recommendation,
+      fit_score: authoritative_score,
+      recommendation,
       match_classification: matchClassification,
       interview_probability: interviewProbability,
       ecosystem_signals: ecosystemSignals,
       jd_signature: jdSig || null,
       validation_stale: false,
-      engine_version: "exec_search_v1",
+      engine_version: v2_final_score != null ? "enterprise_validation_v2" : "exec_search_v1",
+      // v2 fields (single scoring authority)
+      final_score: authoritative_score,
+      prefilter_score: v2_prefilter_score ?? canonicalScore ?? null,
+      recommendation_tier: authoritative_tier,
+      explanation: v2_explanation ?? null,
+      mandatory_skills_matched: v2_mandatory_matched,
+      preferred_skills_matched: v2_preferred_matched,
+      missing_requirements: v2_missing,
+      weights_profile_id: v2_weights_profile_id,
       summary: cleanedSummary,
       strengths: softenList(Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : []),
       weaknesses: softenList(Array.isArray(parsed.considerations) ? parsed.considerations.slice(0, 6) : (Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [])),
@@ -668,10 +750,28 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       return new Response(JSON.stringify({ error: insErr.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Mirror authoritative v2 fields to rediscovered_matches so dashboards
+    // (which read from rediscovered_matches) and the validation row stay in sync.
+    if (v2_final_score != null) {
+      try {
+        await admin.from("rediscovered_matches").upsert({
+          job_id, candidate_id, tenant_id: job.tenant_id,
+          match_score: v2_prefilter_score ?? canonicalScore ?? authoritative_score,
+          ai_score: authoritative_score,
+          final_score: authoritative_score,
+          recommendation_tier: authoritative_tier,
+          ai_validation_id: (validation as any)?.id ?? null,
+          model_version: "enterprise_validation_v2",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "job_id,candidate_id" });
+      } catch (e) { console.warn("rediscovered_matches mirror failed", e); }
+    }
+
     return new Response(JSON.stringify({
       validation: { ...validation, sub_scores: canonical?.sub_scores ?? null, confidence, scoring_version: scoringVersion },
       cached: false,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (e) {
     console.error("validate-candidate-fit error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
