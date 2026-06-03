@@ -655,23 +655,32 @@ serve(async (req) => {
       let enqueuedForValidation = 0;
       try {
         const TOP_N = 25;
-        const top = rows.slice(0, TOP_N).map((r) => ({
-          tenant_id: r.tenant_id,
-          job_id: r.job_id,
-          candidate_id: r.candidate_id,
-          status: "pending",
-          priority: 10,
-        }));
+        const top = rows.slice(0, TOP_N);
         if (top.length) {
-          const { error: qErr, count } = await supabase
+          const ids = top.map((r) => r.candidate_id);
+          const { data: existing } = await supabase
             .from("validation_queue")
-            .upsert(top, { onConflict: "tenant_id,job_id,candidate_id,status", ignoreDuplicates: true, count: "exact" });
-          if (qErr) console.warn("validation_queue enqueue failed", qErr);
-          else enqueuedForValidation = count ?? top.length;
+            .select("candidate_id")
+            .eq("job_id", job_id)
+            .in("candidate_id", ids)
+            .in("status", ["pending", "in_progress"]);
+          const skip = new Set((existing ?? []).map((e: any) => e.candidate_id));
+          const toInsert = top
+            .filter((r) => !skip.has(r.candidate_id))
+            .map((r) => ({
+              tenant_id: r.tenant_id, job_id: r.job_id, candidate_id: r.candidate_id,
+              status: "pending", priority: 10,
+            }));
+          if (toInsert.length) {
+            const { error: qErr } = await supabase.from("validation_queue").insert(toInsert);
+            if (qErr) console.warn("validation_queue enqueue failed", qErr);
+            else enqueuedForValidation = toInsert.length;
+          }
         }
       } catch (e) {
         console.warn("fan-out enqueue failed (non-fatal)", e);
       }
+
 
       await supabase.from("rediscovery_runs").update({
         status: "success", candidates_scanned: scanned, matches_found: rows.length, completed_at: new Date().toISOString(),
