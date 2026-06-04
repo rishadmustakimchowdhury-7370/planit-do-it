@@ -40,6 +40,7 @@ export interface NormalizedTitle {
   canonical: string;              // e.g. "Market Risk Analyst"
   aliases: string[];              // synonyms: "Risk Analyst – Market", "Market Risk Specialist"
   related: string[];              // adjacent roles: "Credit Risk Analyst", "Risk Manager"
+  function_family?: string | null;// stable family slug used by role-similarity scoring
   seniority?: SeniorityLevel | null;
 }
 
