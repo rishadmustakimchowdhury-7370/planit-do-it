@@ -280,6 +280,7 @@ const roleItem = {
     normalized_title: { type: ["string", "null"] },
     title_aliases: { type: "array", items: { type: "string" } },
     related_titles: { type: "array", items: { type: "string" } },
+    function_family: { type: ["string", "null"] },
     seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
     company: { type: ["string", "null"] },
     industry: { type: ["string", "null"] },
