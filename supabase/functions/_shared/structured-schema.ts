@@ -92,6 +92,7 @@ export interface NormalizedRole {
   normalized_title?: string | null;
   title_aliases?: string[];
   related_titles?: string[];
+  function_family?: string | null;
   seniority?: SeniorityLevel | null;
   company?: string | null;
   industry?: string | null;
