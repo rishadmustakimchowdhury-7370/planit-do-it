@@ -417,24 +417,28 @@ export function scoreStructured(
   // preferred skills slide into the title weight slot proportionally
   const pref = scoreSkills(job.preferred_skills, cand.skills, 0, "preferred");
 
+  const role = scoreRoleSimilarity(job, cand, weights.role_similarity ?? 0, mand.dim.score_0_1);
   const industry = scoreIndustry(job, cand, weights.industry);
   const domain = scoreDomain(job, cand, weights.domain);
-  const title = scoreTitle(job, cand, weights.title);
+  const title = scoreTitle(job, cand, weights.title ?? 0);
   const experience = scoreExperience(job, cand, weights.experience);
   const location = scoreLocation(job, cand, weights.location);
   const education = scoreEducation(job, cand, weights.education);
 
   const dimensions: Record<string, DimensionResult> = {
+    role_similarity: role,
     mandatory_skills: mand.dim,
-    industry, domain, title, experience, location, education,
+    domain, experience, industry, location, education, title,
   };
 
+  const titleW = weights.title ?? 0;
+  const roleW = weights.role_similarity ?? 0;
   const totalWeight =
-    weights.mandatory_skills + weights.industry + weights.domain +
-    weights.title + weights.experience + weights.location + weights.education;
+    roleW + weights.mandatory_skills + weights.industry + weights.domain +
+    titleW + weights.experience + weights.location + weights.education;
 
   const rawWeighted =
-    mand.dim.weighted + industry.weighted + domain.weighted +
+    role.weighted + mand.dim.weighted + industry.weighted + domain.weighted +
     title.weighted + experience.weighted + location.weighted + education.weighted;
 
   let baseScore = totalWeight > 0 ? (rawWeighted / totalWeight) * 100 : 0;
@@ -444,26 +448,38 @@ export function scoreStructured(
   baseScore = Math.min(100, baseScore + prefBonus);
 
   const dealBreakers = detectDealBreakers(job, cand);
-  // Penalties: missing mandatory skills (already in dim), deal breakers (-25 each, capped -50),
-  // missing required certs (also a deal breaker)
   let penalty = 0;
   penalty += Math.min(50, dealBreakers.length * 25);
-  // Hard floor: if mandatory skill match < 50%, cap score at 70
+
+  // -------- role_first_v1 hard caps (function gate) ----------------------
+  // Approved rules — wrong-function candidates must NEVER appear as
+  // Recommended or Strong Match, regardless of industry pedigree.
+  if (role.score_0_1 < 0.15) {
+    baseScore = Math.min(baseScore, 55);
+  } else if (role.score_0_1 < 0.45 && mand.dim.score_0_1 < 0.6) {
+    baseScore = Math.min(baseScore, 65);
+  }
+  // Legacy mandatory-skill caps (still apply on top).
   if (mand.dim.score_0_1 < 0.5) baseScore = Math.min(baseScore, 70);
-  // If mandatory skill match < 25%, cap at 50
   if (mand.dim.score_0_1 < 0.25) baseScore = Math.min(baseScore, 50);
 
   const finalScore = Math.max(0, Math.round(baseScore - penalty));
 
-  // Tier
+  // -------- Tier --------------------------------------------------------
+  // Strong Match requires: role_similarity ≥ 0.80 AND mandatory_skills ≥ 0.80
+  // AND domain ≥ 0.60. Industry is no longer a gate.
   let tier: RecommendationTier;
-  const directIndustry = industry.score_0_1 >= 0.95;
-  if (finalScore >= thresholds.strong && mand.dim.score_0_1 >= 0.8 && directIndustry) tier = "strong_match";
-  else if (finalScore >= thresholds.recommended) tier = "recommended";
+  const strongOk =
+    role.score_0_1 >= 0.8 &&
+    mand.dim.score_0_1 >= 0.8 &&
+    domain.score_0_1 >= 0.6;
+  if (finalScore >= thresholds.strong && strongOk) tier = "strong_match";
+  else if (finalScore >= thresholds.recommended && role.score_0_1 >= 0.45) tier = "recommended";
   else if (finalScore >= thresholds.transferable) tier = "transferable_match";
   else if (finalScore >= 40) tier = "needs_validation";
   else if (finalScore >= 25) tier = "weak_match";
   else tier = "reject";
+
 
   // Missing requirements aggregation
   const missing: string[] = [
