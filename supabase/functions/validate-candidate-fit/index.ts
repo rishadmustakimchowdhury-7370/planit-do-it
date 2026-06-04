@@ -708,7 +708,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
       ecosystem_signals: ecosystemSignals,
       jd_signature: jdSig || null,
       validation_stale: false,
-      engine_version: v2_final_score != null ? "enterprise_validation_v2" : "exec_search_v1",
+      engine_version: v2_final_score != null ? "enterprise_validation_v2_1_role_first" : "exec_search_v1",
       // v2 fields (single scoring authority)
       final_score: authoritative_score,
       prefilter_score: v2_prefilter_score ?? canonicalScore ?? null,
@@ -761,7 +761,7 @@ Now produce the JSON assessment per the system spec, calibrated to the canonical
           final_score: authoritative_score,
           recommendation_tier: authoritative_tier,
           ai_validation_id: (validation as any)?.id ?? null,
-          model_version: "enterprise_validation_v2",
+          model_version: "enterprise_validation_v2_1_role_first",
           updated_at: new Date().toISOString(),
         }, { onConflict: "job_id,candidate_id" });
       } catch (e) { console.warn("rediscovered_matches mirror failed", e); }
