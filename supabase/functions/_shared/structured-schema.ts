@@ -185,6 +185,7 @@ const titleObj = {
     canonical: { type: "string" },
     aliases: { type: "array", items: { type: "string" } },
     related: { type: "array", items: { type: "string" } },
+    function_family: { type: ["string", "null"] },
     seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
   },
   required: ["canonical", "aliases", "related"],
