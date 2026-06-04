@@ -20,13 +20,15 @@ import type {
 // ---------- weights profile ---------------------------------------------
 
 export interface ScoringWeights {
-  mandatory_skills: number; // default 35
-  industry: number;         // default 20
-  domain: number;           // default 15
-  title: number;            // default 10
-  experience: number;       // default 10
-  location: number;         // default 5
-  education: number;        // default 5
+  role_similarity: number;  // role_first_v1: 35 — functional fit dominates
+  mandatory_skills: number; // role_first_v1: 25
+  domain: number;           // role_first_v1: 15
+  experience: number;       // role_first_v1: 10
+  industry: number;         // role_first_v1: 5  — improves rank, never dominates
+  location: number;         // role_first_v1: 5
+  education: number;        // role_first_v1: 5
+  /** Legacy title-string scorer is now subsumed by role_similarity; kept at 0. */
+  title?: number;
 }
 
 export interface TierThresholds {
@@ -35,21 +37,27 @@ export interface TierThresholds {
   transferable: number;// default 55
 }
 
+// role_first_v1 — function-first scoring profile.
+// Approved weights: Right Function > Right Skills > Right Domain > Right Industry.
 export const DEFAULT_WEIGHTS: ScoringWeights = {
-  mandatory_skills: 35,
-  industry: 20,
+  role_similarity: 35,
+  mandatory_skills: 25,
   domain: 15,
-  title: 10,
   experience: 10,
+  industry: 5,
   location: 5,
   education: 5,
+  title: 0,
 };
+
+export const SCORING_PROFILE_NAME = "role_first_v1";
 
 export const DEFAULT_THRESHOLDS: TierThresholds = {
   strong: 85,
   recommended: 70,
   transferable: 55,
 };
+
 
 export type RecommendationTier =
   | "strong_match"
