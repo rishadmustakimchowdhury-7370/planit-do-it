@@ -20,13 +20,15 @@ import type {
 // ---------- weights profile ---------------------------------------------
 
 export interface ScoringWeights {
-  mandatory_skills: number; // default 35
-  industry: number;         // default 20
-  domain: number;           // default 15
-  title: number;            // default 10
-  experience: number;       // default 10
-  location: number;         // default 5
-  education: number;        // default 5
+  role_similarity: number;  // role_first_v1: 35 — functional fit dominates
+  mandatory_skills: number; // role_first_v1: 25
+  domain: number;           // role_first_v1: 15
+  experience: number;       // role_first_v1: 10
+  industry: number;         // role_first_v1: 5  — improves rank, never dominates
+  location: number;         // role_first_v1: 5
+  education: number;        // role_first_v1: 5
+  /** Legacy title-string scorer is now subsumed by role_similarity; kept at 0. */
+  title?: number;
 }
 
 export interface TierThresholds {
@@ -35,21 +37,27 @@ export interface TierThresholds {
   transferable: number;// default 55
 }
 
+// role_first_v1 — function-first scoring profile.
+// Approved weights: Right Function > Right Skills > Right Domain > Right Industry.
 export const DEFAULT_WEIGHTS: ScoringWeights = {
-  mandatory_skills: 35,
-  industry: 20,
+  role_similarity: 35,
+  mandatory_skills: 25,
   domain: 15,
-  title: 10,
   experience: 10,
+  industry: 5,
   location: 5,
   education: 5,
+  title: 0,
 };
+
+export const SCORING_PROFILE_NAME = "role_first_v1";
 
 export const DEFAULT_THRESHOLDS: TierThresholds = {
   strong: 85,
   recommended: 70,
   transferable: 55,
 };
+
 
 export type RecommendationTier =
   | "strong_match"
@@ -234,33 +242,95 @@ function scoreDomain(job: StructuredJobDescription, cand: StructuredCandidatePro
 }
 
 function scoreTitle(job: StructuredJobDescription, cand: StructuredCandidateProfile, weight: number): DimensionResult {
+  // Kept for backward compatibility; weight is 0 under role_first_v1.
   const jobT = titleTokens(job.title);
-  if (jobT.size === 0) {
-    return { weight, score_0_1: 0.5, weighted: weight * 0.5, matched: [], missing: [], transferable: [], note: "Job title not specified." };
+  if (jobT.size === 0 || weight === 0) {
+    return { weight, score_0_1: 0, weighted: 0, matched: [], missing: [], transferable: [], note: "Title scorer subsumed by role_similarity." };
   }
   const candT = titleTokens(cand.current_title);
-  // also consider every prior role
-  const historyTokens = cand.work_history.flatMap((r) => [
-    norm(r.title), norm(r.normalized_title), ...(r.title_aliases ?? []).map(norm), ...(r.related_titles ?? []).map(norm),
-  ]).filter(Boolean);
-  for (const t of historyTokens) candT.add(t);
-
-  // direct: canonical overlap; related: aliases/related overlap
-  const jobCanon = norm(job.title?.canonical);
-  const direct = jobCanon && candT.has(jobCanon);
   const overlap = [...jobT].some((t) => candT.has(t));
+  const s = overlap ? 1 : 0;
+  return { weight, score_0_1: s, weighted: weight * s, matched: [], missing: [], transferable: [], note: "Legacy title scorer." };
+}
 
-  let score = 0, note = "No title overlap detected.";
+// ============= role_similarity =========================================
+// Functional Role Match — highest-weighted dimension under role_first_v1.
+// Uses the structured taxonomy (function_family, canonical/aliases/related)
+// generated per-job and per-candidate by structure-jd and parse-cv.
+function scoreRoleSimilarity(
+  job: StructuredJobDescription,
+  cand: StructuredCandidateProfile,
+  weight: number,
+  mandatorySkillScore: number,
+): DimensionResult {
+  const jobFamily = norm(job.title?.function_family ?? "");
+  const jobCanon = norm(job.title?.canonical ?? "");
+  const jobAliases = new Set<string>([...(job.title?.aliases ?? []).map(norm)]);
+  const jobRelated = new Set<string>([...(job.title?.related ?? []).map(norm)]);
+
+  // Build candidate corpus across current + every past role.
+  const candFamilies = new Set<string>();
+  const candCanonicalLike = new Set<string>();
+  const candRelated = new Set<string>();
+  const addCandTitle = (t: { canonical?: string | null; aliases?: string[] | null; related?: string[] | null; function_family?: string | null } | null | undefined) => {
+    if (!t) return;
+    if (t.function_family) candFamilies.add(norm(t.function_family));
+    if (t.canonical) candCanonicalLike.add(norm(t.canonical));
+    for (const a of t.aliases ?? []) candCanonicalLike.add(norm(a));
+    for (const r of t.related ?? []) candRelated.add(norm(r));
+  };
+  addCandTitle(cand.current_title as any);
+  for (const r of cand.work_history ?? []) {
+    if (r.function_family) candFamilies.add(norm(r.function_family));
+    if (r.normalized_title) candCanonicalLike.add(norm(r.normalized_title));
+    if (r.title) candCanonicalLike.add(norm(r.title));
+    for (const a of r.title_aliases ?? []) candCanonicalLike.add(norm(a));
+    for (const x of r.related_titles ?? []) candRelated.add(norm(x));
+  }
+
+  // Tier resolution.
+  const exactCanonical = jobCanon && (candCanonicalLike.has(jobCanon) || [...jobAliases].some((a) => candCanonicalLike.has(a)));
+  const sameFamily = jobFamily && candFamilies.has(jobFamily);
+  const relatedOverlap = [...jobRelated].some((r) => candCanonicalLike.has(r))
+    || [...candRelated].some((r) => r === jobCanon || jobAliases.has(r));
+
+  let score = 0;
+  let note = "No functional overlap detected.";
   const matched: string[] = [];
-  if (direct) { score = 1; note = `Direct title match: ${job.title?.canonical}.`; matched.push(job.title!.canonical); }
-  else if (overlap) { score = 0.7; note = `Related title experience to ${job.title?.canonical}.`; matched.push(job.title!.canonical); }
+  const transferable: string[] = [];
+
+  if (exactCanonical) {
+    score = 1.0;
+    note = `Exact functional match: ${job.title?.canonical}.`;
+    matched.push(job.title?.canonical ?? "");
+  } else if (sameFamily) {
+    score = 0.8;
+    note = `Same function family (${jobFamily}) — different specialization.`;
+    matched.push(jobFamily);
+  } else if (relatedOverlap) {
+    score = 0.45;
+    note = `Adjacent function to ${job.title?.canonical ?? "the target role"}.`;
+    transferable.push(job.title?.canonical ?? "");
+  } else if (mandatorySkillScore >= 0.25) {
+    score = 0.15;
+    note = `Different function but transferable skills overlap.`;
+    transferable.push("transferable skills");
+  } else {
+    score = 0;
+  }
+
   return {
-    weight, score_0_1: score, weighted: weight * score,
-    matched, missing: score >= 1 ? [] : [job.title?.canonical ?? "Title match"],
-    transferable: score > 0 && score < 1 ? [job.title?.canonical ?? ""] : [],
+    weight,
+    score_0_1: score,
+    weighted: weight * score,
+    matched,
+    missing: score >= 0.8 ? [] : [job.title?.canonical ?? "Functional role match"],
+    transferable,
     note,
   };
 }
+
+
 
 function scoreExperience(job: StructuredJobDescription, cand: StructuredCandidateProfile, weight: number): DimensionResult {
   const min = job.years_experience_min;
@@ -347,24 +417,28 @@ export function scoreStructured(
   // preferred skills slide into the title weight slot proportionally
   const pref = scoreSkills(job.preferred_skills, cand.skills, 0, "preferred");
 
+  const role = scoreRoleSimilarity(job, cand, weights.role_similarity ?? 0, mand.dim.score_0_1);
   const industry = scoreIndustry(job, cand, weights.industry);
   const domain = scoreDomain(job, cand, weights.domain);
-  const title = scoreTitle(job, cand, weights.title);
+  const title = scoreTitle(job, cand, weights.title ?? 0);
   const experience = scoreExperience(job, cand, weights.experience);
   const location = scoreLocation(job, cand, weights.location);
   const education = scoreEducation(job, cand, weights.education);
 
   const dimensions: Record<string, DimensionResult> = {
+    role_similarity: role,
     mandatory_skills: mand.dim,
-    industry, domain, title, experience, location, education,
+    domain, experience, industry, location, education, title,
   };
 
+  const titleW = weights.title ?? 0;
+  const roleW = weights.role_similarity ?? 0;
   const totalWeight =
-    weights.mandatory_skills + weights.industry + weights.domain +
-    weights.title + weights.experience + weights.location + weights.education;
+    roleW + weights.mandatory_skills + weights.industry + weights.domain +
+    titleW + weights.experience + weights.location + weights.education;
 
   const rawWeighted =
-    mand.dim.weighted + industry.weighted + domain.weighted +
+    role.weighted + mand.dim.weighted + industry.weighted + domain.weighted +
     title.weighted + experience.weighted + location.weighted + education.weighted;
 
   let baseScore = totalWeight > 0 ? (rawWeighted / totalWeight) * 100 : 0;
@@ -374,29 +448,42 @@ export function scoreStructured(
   baseScore = Math.min(100, baseScore + prefBonus);
 
   const dealBreakers = detectDealBreakers(job, cand);
-  // Penalties: missing mandatory skills (already in dim), deal breakers (-25 each, capped -50),
-  // missing required certs (also a deal breaker)
   let penalty = 0;
   penalty += Math.min(50, dealBreakers.length * 25);
-  // Hard floor: if mandatory skill match < 50%, cap score at 70
+
+  // -------- role_first_v1 hard caps (function gate) ----------------------
+  // Approved rules — wrong-function candidates must NEVER appear as
+  // Recommended or Strong Match, regardless of industry pedigree.
+  if (role.score_0_1 < 0.15) {
+    baseScore = Math.min(baseScore, 55);
+  } else if (role.score_0_1 < 0.45 && mand.dim.score_0_1 < 0.6) {
+    baseScore = Math.min(baseScore, 65);
+  }
+  // Legacy mandatory-skill caps (still apply on top).
   if (mand.dim.score_0_1 < 0.5) baseScore = Math.min(baseScore, 70);
-  // If mandatory skill match < 25%, cap at 50
   if (mand.dim.score_0_1 < 0.25) baseScore = Math.min(baseScore, 50);
 
   const finalScore = Math.max(0, Math.round(baseScore - penalty));
 
-  // Tier
+  // -------- Tier --------------------------------------------------------
+  // Strong Match requires: role_similarity ≥ 0.80 AND mandatory_skills ≥ 0.80
+  // AND domain ≥ 0.60. Industry is no longer a gate.
   let tier: RecommendationTier;
-  const directIndustry = industry.score_0_1 >= 0.95;
-  if (finalScore >= thresholds.strong && mand.dim.score_0_1 >= 0.8 && directIndustry) tier = "strong_match";
-  else if (finalScore >= thresholds.recommended) tier = "recommended";
+  const strongOk =
+    role.score_0_1 >= 0.8 &&
+    mand.dim.score_0_1 >= 0.8 &&
+    domain.score_0_1 >= 0.6;
+  if (finalScore >= thresholds.strong && strongOk) tier = "strong_match";
+  else if (finalScore >= thresholds.recommended && role.score_0_1 >= 0.45) tier = "recommended";
   else if (finalScore >= thresholds.transferable) tier = "transferable_match";
   else if (finalScore >= 40) tier = "needs_validation";
   else if (finalScore >= 25) tier = "weak_match";
   else tier = "reject";
 
+
   // Missing requirements aggregation
   const missing: string[] = [
+    ...(role.score_0_1 < 0.8 ? [`Functional role: ${job.title?.canonical ?? "target role"}`] : []),
     ...mand.dim.missing.map((s) => `Mandatory skill: ${s}`),
     ...(industry.score_0_1 < 0.7 && job.industry?.canonical ? [`Industry: ${job.industry.canonical}`] : []),
     ...domain.missing.map((d) => `Domain: ${d}`),
@@ -406,11 +493,12 @@ export function scoreStructured(
   ];
 
   const transferableConsiderations: string[] = [
+    ...role.transferable.map((t) => `Functional adjacency to ${t}`),
     ...industry.transferable.map((i) => `Industry experience transferable from ${i}`),
     ...title.transferable.map((t) => `Related title experience for ${t}`),
   ];
 
-  const summary = buildSummary(tier, finalScore, mand.dim, industry, title, dealBreakers);
+  const summary = buildSummary(tier, finalScore, mand.dim, industry, role, dealBreakers);
 
   return {
     final_score: finalScore,
@@ -430,7 +518,7 @@ export function scoreStructured(
 
 function buildSummary(
   tier: RecommendationTier, score: number,
-  mand: DimensionResult, industry: DimensionResult, title: DimensionResult, dealBreakers: string[],
+  mand: DimensionResult, industry: DimensionResult, role: DimensionResult, dealBreakers: string[],
 ): string {
   const parts: string[] = [];
   const tierPhrase: Record<RecommendationTier, string> = {
@@ -442,13 +530,16 @@ function buildSummary(
     reject: "Limited alignment",
   };
   parts.push(`${tierPhrase[tier]} (${score}/100).`);
+  if (role.score_0_1 >= 0.95) parts.push(`Exact functional match.`);
+  else if (role.score_0_1 >= 0.75) parts.push(`Same function family — different specialization.`);
+  else if (role.score_0_1 >= 0.4) parts.push(`Adjacent function with transferable experience.`);
+  else parts.push(`Different functional discipline.`);
   if (mand.score_0_1 >= 0.9) parts.push(`Strong mandatory-skill coverage (${mand.matched.length}/${mand.matched.length + mand.missing.length}).`);
   else if (mand.score_0_1 >= 0.6) parts.push(`Most mandatory skills covered (${mand.matched.length}/${mand.matched.length + mand.missing.length}).`);
   else if (mand.missing.length) parts.push(`Gaps in mandatory skills: ${mand.missing.slice(0, 3).join(", ")}.`);
   if (industry.score_0_1 >= 0.95) parts.push(`Direct industry experience.`);
   else if (industry.score_0_1 >= 0.6) parts.push(`Adjacent / transferable industry background.`);
-  if (title.score_0_1 >= 0.95) parts.push(`Same role experience.`);
-  else if (title.score_0_1 >= 0.6) parts.push(`Related role experience.`);
   if (dealBreakers.length) parts.push(`Deal-breaker(s): ${dealBreakers.slice(0, 2).join("; ")}.`);
   return parts.join(" ");
 }
+

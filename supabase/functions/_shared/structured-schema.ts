@@ -40,6 +40,7 @@ export interface NormalizedTitle {
   canonical: string;              // e.g. "Market Risk Analyst"
   aliases: string[];              // synonyms: "Risk Analyst – Market", "Market Risk Specialist"
   related: string[];              // adjacent roles: "Credit Risk Analyst", "Risk Manager"
+  function_family?: string | null;// stable family slug used by role-similarity scoring
   seniority?: SeniorityLevel | null;
 }
 
@@ -91,6 +92,7 @@ export interface NormalizedRole {
   normalized_title?: string | null;
   title_aliases?: string[];
   related_titles?: string[];
+  function_family?: string | null;
   seniority?: SeniorityLevel | null;
   company?: string | null;
   industry?: string | null;
@@ -183,6 +185,7 @@ const titleObj = {
     canonical: { type: "string" },
     aliases: { type: "array", items: { type: "string" } },
     related: { type: "array", items: { type: "string" } },
+    function_family: { type: ["string", "null"] },
     seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
   },
   required: ["canonical", "aliases", "related"],
@@ -277,6 +280,7 @@ const roleItem = {
     normalized_title: { type: ["string", "null"] },
     title_aliases: { type: "array", items: { type: "string" } },
     related_titles: { type: "array", items: { type: "string" } },
+    function_family: { type: ["string", "null"] },
     seniority: { type: ["string", "null"], enum: [...seniorityEnum, null] },
     company: { type: ["string", "null"] },
     industry: { type: ["string", "null"] },
@@ -407,7 +411,7 @@ export const JOB_STRUCTURED_TOOL = {
 export const CANDIDATE_STRUCTURED_SYSTEM = `You are a senior global talent intelligence analyst. Convert a CV / LinkedIn profile into a normalized, explainable candidate profile suitable for cross-industry semantic matching.
 
 SEMANTIC NORMALIZATION RULES (mandatory):
-- For every job title, output: canonical (the cleanest industry-standard form), aliases (other ways the same role is named: "Sr. SWE II" → "Senior Software Engineer", "Cyber Security Analyst" → "SOC Analyst"), and related (adjacent roles a hiring manager would consider — e.g. for "Market Risk Analyst" → ["Credit Risk Analyst", "Risk Specialist", "Quantitative Risk Analyst"]).
+- For every job title, output: canonical (the cleanest industry-standard form), aliases (other ways the same role is named: "Sr. SWE II" → "Senior Software Engineer", "Cyber Security Analyst" → "SOC Analyst"), related (adjacent roles a hiring manager would consider — e.g. for "Market Risk Analyst" → ["Credit Risk Analyst", "Risk Specialist", "Quantitative Risk Analyst"]), and function_family (a short lowercase slug that identifies the functional discipline regardless of industry — e.g. "compliance", "market_risk", "software_engineering", "security_operations", "frontend_engineering", "data_engineering", "talent_acquisition", "financial_planning", "product_management"). Two people in the SAME function_family perform the same job in different settings; two people in DIFFERENT function_family perform fundamentally different jobs. Be consistent: a Compliance Analyst, Compliance Officer, AML Analyst, KYC Analyst and Trade Compliance Specialist all share function_family "compliance".
 - For every skill, output canonical name plus aliases ("MS Excel" → ["Microsoft Excel", "Excel"], "AWS" → ["Amazon Web Services"], "SOC" → ["Security Operations Center"]). Do NOT collapse different skills.
 - For every industry, output canonical name, aliases ("Financial Services" → ["Banking & Finance", "FS"]), adjacent industries (close sectors recruiters routinely consider) and transferable industries (regulated / structurally similar sectors).
 - These taxonomies are GENERATED PER PROFILE, not pulled from a hardcoded list. Cover any industry worldwide.
@@ -423,7 +427,7 @@ GENERAL RULES:
 export const JOB_STRUCTURED_SYSTEM = `You are a senior executive search analyst. Convert a job description into a normalized, explainable job specification suitable for cross-industry semantic matching.
 
 SEMANTIC NORMALIZATION RULES (mandatory):
-- For the title, output: canonical (the standard market name), aliases (other names the same role is advertised under), and related (titles a recruiter would also consider sourcing — e.g. for "SOC Analyst" → ["Cyber Security Analyst", "Security Operations Analyst", "Threat Detection Analyst"]).
+- For the title, output: canonical (the standard market name), aliases (other names the same role is advertised under), related (titles a recruiter would also consider sourcing — e.g. for "SOC Analyst" → ["Cyber Security Analyst", "Security Operations Analyst", "Threat Detection Analyst"]), and function_family (a short lowercase slug naming the functional discipline regardless of industry — e.g. "compliance", "market_risk", "software_engineering", "security_operations", "frontend_engineering", "talent_acquisition", "product_management"). Pick the SAME family slug that you would assign to any candidate performing this function, so that a Compliance Analyst job and a Compliance Officer candidate both resolve to "compliance".
 - For every skill, output canonical plus aliases. Separate mandatory vs preferred strictly — "must have", "required", "essential" → mandatory; otherwise preferred.
 - For the industry, output canonical, aliases, adjacent (close sectors), and transferable (regulated or structurally similar sectors that a hiring manager would accept on the right candidate). Also populate industries_acceptable with any explicit "open to candidates from X" sectors mentioned.
 - These taxonomies are GENERATED PER JOB, not pulled from a hardcoded list. Cover any industry, country, and seniority.

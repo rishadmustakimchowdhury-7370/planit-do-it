@@ -35,7 +35,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ENGINE_VERSION = "enterprise_validation_v2";
+const ENGINE_VERSION = "enterprise_validation_v2_1_role_first";
 
 async function invokeFunction(name: string, body: any, authHeader: string): Promise<void> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/${name}`;

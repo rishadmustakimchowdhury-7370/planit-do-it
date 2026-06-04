@@ -4111,10 +4111,12 @@ export type Database = {
           experience: number
           id: string
           industry: number
+          is_active: boolean
           is_default: boolean
           location: number
           mandatory_skills: number
           name: string
+          role_similarity: number
           tenant_id: string
           tier_consider: number
           tier_highly_recommended: number
@@ -4130,10 +4132,12 @@ export type Database = {
           experience?: number
           id?: string
           industry?: number
+          is_active?: boolean
           is_default?: boolean
           location?: number
           mandatory_skills?: number
           name: string
+          role_similarity?: number
           tenant_id: string
           tier_consider?: number
           tier_highly_recommended?: number
@@ -4149,10 +4153,12 @@ export type Database = {
           experience?: number
           id?: string
           industry?: number
+          is_active?: boolean
           is_default?: boolean
           location?: number
           mandatory_skills?: number
           name?: string
+          role_similarity?: number
           tenant_id?: string
           tier_consider?: number
           tier_highly_recommended?: number
