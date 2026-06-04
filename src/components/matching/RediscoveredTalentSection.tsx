@@ -254,21 +254,60 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                     body="Lower the minimum score or clear filters to see more results."
                   />
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {filtered.map((m, idx) => (
-                      <RediscoveredCandidateCard
-                        key={m.id}
-                        match={m}
-                        index={idx}
-                        selected={selected.has(m.id)}
-                        onToggleSelect={() => toggleSelect(m.id)}
-                        onDismiss={() => dismiss(m.id)}
-                        onAdd={() => handleAddToPipeline(m)}
-                        onEmail={() => setEmailTarget(m)}
-                        onOpen={() => setPanelTarget(m)}
-                        isAdding={addingId === m.id}
-                      />
-                    ))}
+                  <div className="space-y-6">
+                    {/* PRIMARY MATCHES — direct functional matches, always shown first */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-4 h-4 text-accent" />
+                        <h4 className="text-sm font-semibold text-foreground">Primary Matches</h4>
+                        <Badge variant="secondary" className="text-[10px]">{primaryMatches.length}</Badge>
+                        <span className="text-xs text-muted-foreground">Direct functional matches</span>
+                      </div>
+                      {primaryMatches.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic px-1">No direct functional matches yet — see Transferable Talent below.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {primaryMatches.map((m, idx) => (
+                            <RediscoveredCandidateCard
+                              key={m.id} match={m} index={idx}
+                              selected={selected.has(m.id)}
+                              onToggleSelect={() => toggleSelect(m.id)}
+                              onDismiss={() => dismiss(m.id)}
+                              onAdd={() => handleAddToPipeline(m)}
+                              onEmail={() => setEmailTarget(m)}
+                              onOpen={() => setPanelTarget(m)}
+                              isAdding={addingId === m.id}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* TRANSFERABLE TALENT — adjacent function / industry / skills */}
+                    {transferableMatches.length > 0 && (
+                      <section>
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                          <h4 className="text-sm font-semibold text-foreground">Transferable Talent</h4>
+                          <Badge variant="outline" className="text-[10px]">{transferableMatches.length}</Badge>
+                          <span className="text-xs text-muted-foreground">Adjacent functions, adjacent industries, transferable skills</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {transferableMatches.map((m, idx) => (
+                            <RediscoveredCandidateCard
+                              key={m.id} match={m} index={idx}
+                              selected={selected.has(m.id)}
+                              onToggleSelect={() => toggleSelect(m.id)}
+                              onDismiss={() => dismiss(m.id)}
+                              onAdd={() => handleAddToPipeline(m)}
+                              onEmail={() => setEmailTarget(m)}
+                              onOpen={() => setPanelTarget(m)}
+                              isAdding={addingId === m.id}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
                   </div>
                 )}
               </div>
