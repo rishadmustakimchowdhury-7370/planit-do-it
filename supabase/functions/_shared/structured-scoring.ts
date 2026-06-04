@@ -242,33 +242,95 @@ function scoreDomain(job: StructuredJobDescription, cand: StructuredCandidatePro
 }
 
 function scoreTitle(job: StructuredJobDescription, cand: StructuredCandidateProfile, weight: number): DimensionResult {
+  // Kept for backward compatibility; weight is 0 under role_first_v1.
   const jobT = titleTokens(job.title);
-  if (jobT.size === 0) {
-    return { weight, score_0_1: 0.5, weighted: weight * 0.5, matched: [], missing: [], transferable: [], note: "Job title not specified." };
+  if (jobT.size === 0 || weight === 0) {
+    return { weight, score_0_1: 0, weighted: 0, matched: [], missing: [], transferable: [], note: "Title scorer subsumed by role_similarity." };
   }
   const candT = titleTokens(cand.current_title);
-  // also consider every prior role
-  const historyTokens = cand.work_history.flatMap((r) => [
-    norm(r.title), norm(r.normalized_title), ...(r.title_aliases ?? []).map(norm), ...(r.related_titles ?? []).map(norm),
-  ]).filter(Boolean);
-  for (const t of historyTokens) candT.add(t);
-
-  // direct: canonical overlap; related: aliases/related overlap
-  const jobCanon = norm(job.title?.canonical);
-  const direct = jobCanon && candT.has(jobCanon);
   const overlap = [...jobT].some((t) => candT.has(t));
+  const s = overlap ? 1 : 0;
+  return { weight, score_0_1: s, weighted: weight * s, matched: [], missing: [], transferable: [], note: "Legacy title scorer." };
+}
 
-  let score = 0, note = "No title overlap detected.";
+// ============= role_similarity =========================================
+// Functional Role Match — highest-weighted dimension under role_first_v1.
+// Uses the structured taxonomy (function_family, canonical/aliases/related)
+// generated per-job and per-candidate by structure-jd and parse-cv.
+function scoreRoleSimilarity(
+  job: StructuredJobDescription,
+  cand: StructuredCandidateProfile,
+  weight: number,
+  mandatorySkillScore: number,
+): DimensionResult {
+  const jobFamily = norm(job.title?.function_family ?? "");
+  const jobCanon = norm(job.title?.canonical ?? "");
+  const jobAliases = new Set<string>([...(job.title?.aliases ?? []).map(norm)]);
+  const jobRelated = new Set<string>([...(job.title?.related ?? []).map(norm)]);
+
+  // Build candidate corpus across current + every past role.
+  const candFamilies = new Set<string>();
+  const candCanonicalLike = new Set<string>();
+  const candRelated = new Set<string>();
+  const addCandTitle = (t: { canonical?: string | null; aliases?: string[] | null; related?: string[] | null; function_family?: string | null } | null | undefined) => {
+    if (!t) return;
+    if (t.function_family) candFamilies.add(norm(t.function_family));
+    if (t.canonical) candCanonicalLike.add(norm(t.canonical));
+    for (const a of t.aliases ?? []) candCanonicalLike.add(norm(a));
+    for (const r of t.related ?? []) candRelated.add(norm(r));
+  };
+  addCandTitle(cand.current_title as any);
+  for (const r of cand.work_history ?? []) {
+    if (r.function_family) candFamilies.add(norm(r.function_family));
+    if (r.normalized_title) candCanonicalLike.add(norm(r.normalized_title));
+    if (r.title) candCanonicalLike.add(norm(r.title));
+    for (const a of r.title_aliases ?? []) candCanonicalLike.add(norm(a));
+    for (const x of r.related_titles ?? []) candRelated.add(norm(x));
+  }
+
+  // Tier resolution.
+  const exactCanonical = jobCanon && (candCanonicalLike.has(jobCanon) || [...jobAliases].some((a) => candCanonicalLike.has(a)));
+  const sameFamily = jobFamily && candFamilies.has(jobFamily);
+  const relatedOverlap = [...jobRelated].some((r) => candCanonicalLike.has(r))
+    || [...candRelated].some((r) => r === jobCanon || jobAliases.has(r));
+
+  let score = 0;
+  let note = "No functional overlap detected.";
   const matched: string[] = [];
-  if (direct) { score = 1; note = `Direct title match: ${job.title?.canonical}.`; matched.push(job.title!.canonical); }
-  else if (overlap) { score = 0.7; note = `Related title experience to ${job.title?.canonical}.`; matched.push(job.title!.canonical); }
+  const transferable: string[] = [];
+
+  if (exactCanonical) {
+    score = 1.0;
+    note = `Exact functional match: ${job.title?.canonical}.`;
+    matched.push(job.title?.canonical ?? "");
+  } else if (sameFamily) {
+    score = 0.8;
+    note = `Same function family (${jobFamily}) — different specialization.`;
+    matched.push(jobFamily);
+  } else if (relatedOverlap) {
+    score = 0.45;
+    note = `Adjacent function to ${job.title?.canonical ?? "the target role"}.`;
+    transferable.push(job.title?.canonical ?? "");
+  } else if (mandatorySkillScore >= 0.25) {
+    score = 0.15;
+    note = `Different function but transferable skills overlap.`;
+    transferable.push("transferable skills");
+  } else {
+    score = 0;
+  }
+
   return {
-    weight, score_0_1: score, weighted: weight * score,
-    matched, missing: score >= 1 ? [] : [job.title?.canonical ?? "Title match"],
-    transferable: score > 0 && score < 1 ? [job.title?.canonical ?? ""] : [],
+    weight,
+    score_0_1: score,
+    weighted: weight * score,
+    matched,
+    missing: score >= 0.8 ? [] : [job.title?.canonical ?? "Functional role match"],
+    transferable,
     note,
   };
 }
+
+
 
 function scoreExperience(job: StructuredJobDescription, cand: StructuredCandidateProfile, weight: number): DimensionResult {
   const min = job.years_experience_min;
