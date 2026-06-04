@@ -483,6 +483,7 @@ export function scoreStructured(
 
   // Missing requirements aggregation
   const missing: string[] = [
+    ...(role.score_0_1 < 0.8 ? [`Functional role: ${job.title?.canonical ?? "target role"}`] : []),
     ...mand.dim.missing.map((s) => `Mandatory skill: ${s}`),
     ...(industry.score_0_1 < 0.7 && job.industry?.canonical ? [`Industry: ${job.industry.canonical}`] : []),
     ...domain.missing.map((d) => `Domain: ${d}`),
