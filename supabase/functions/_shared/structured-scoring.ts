@@ -492,11 +492,12 @@ export function scoreStructured(
   ];
 
   const transferableConsiderations: string[] = [
+    ...role.transferable.map((t) => `Functional adjacency to ${t}`),
     ...industry.transferable.map((i) => `Industry experience transferable from ${i}`),
     ...title.transferable.map((t) => `Related title experience for ${t}`),
   ];
 
-  const summary = buildSummary(tier, finalScore, mand.dim, industry, title, dealBreakers);
+  const summary = buildSummary(tier, finalScore, mand.dim, industry, role, dealBreakers);
 
   return {
     final_score: finalScore,
@@ -516,7 +517,7 @@ export function scoreStructured(
 
 function buildSummary(
   tier: RecommendationTier, score: number,
-  mand: DimensionResult, industry: DimensionResult, title: DimensionResult, dealBreakers: string[],
+  mand: DimensionResult, industry: DimensionResult, role: DimensionResult, dealBreakers: string[],
 ): string {
   const parts: string[] = [];
   const tierPhrase: Record<RecommendationTier, string> = {
@@ -528,13 +529,16 @@ function buildSummary(
     reject: "Limited alignment",
   };
   parts.push(`${tierPhrase[tier]} (${score}/100).`);
+  if (role.score_0_1 >= 0.95) parts.push(`Exact functional match.`);
+  else if (role.score_0_1 >= 0.75) parts.push(`Same function family — different specialization.`);
+  else if (role.score_0_1 >= 0.4) parts.push(`Adjacent function with transferable experience.`);
+  else parts.push(`Different functional discipline.`);
   if (mand.score_0_1 >= 0.9) parts.push(`Strong mandatory-skill coverage (${mand.matched.length}/${mand.matched.length + mand.missing.length}).`);
   else if (mand.score_0_1 >= 0.6) parts.push(`Most mandatory skills covered (${mand.matched.length}/${mand.matched.length + mand.missing.length}).`);
   else if (mand.missing.length) parts.push(`Gaps in mandatory skills: ${mand.missing.slice(0, 3).join(", ")}.`);
   if (industry.score_0_1 >= 0.95) parts.push(`Direct industry experience.`);
   else if (industry.score_0_1 >= 0.6) parts.push(`Adjacent / transferable industry background.`);
-  if (title.score_0_1 >= 0.95) parts.push(`Same role experience.`);
-  else if (title.score_0_1 >= 0.6) parts.push(`Related role experience.`);
   if (dealBreakers.length) parts.push(`Deal-breaker(s): ${dealBreakers.slice(0, 2).join("; ")}.`);
   return parts.join(" ");
 }
+
