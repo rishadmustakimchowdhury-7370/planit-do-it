@@ -74,6 +74,24 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
     });
   }, [matches, minRec, search]);
 
+  // role_first_v1: Primary Matches = direct functional matches (strong / recommended).
+  // Transferable Talent = adjacent function, adjacent industry, transferable skills.
+  // Direct matches must always be displayed before transferable candidates.
+  const { primaryMatches, transferableMatches } = useMemo(() => {
+    const isPrimary = (m: RediscoveredMatch) => {
+      const tier = (m as any).recommendation_tier as string | null | undefined;
+      if (tier === 'strong_match' || tier === 'recommended') return true;
+      const cls = m.discovery_classification;
+      return cls === 'strong_shortlist' || cls === 'recommended_shortlist';
+    };
+    return {
+      primaryMatches: filtered.filter(isPrimary),
+      transferableMatches: filtered.filter(m => !isPrimary(m)),
+    };
+  }, [filtered]);
+
+
+
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
