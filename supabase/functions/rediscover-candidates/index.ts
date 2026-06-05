@@ -616,12 +616,26 @@ serve(async (req) => {
       // 6. Cast a WIDER prefilter net for the AI re-ranker — recruiters care about
       // ecosystem-relevant profiles even when keyword score is thin. The AI will
       // demote noise via discovery_classification="low_relevance".
+      // role_first_v1 recall fix: ALSO admit candidates whose structured_profile
+      // function_family matches the job's structured family, even if the legacy
+      // keyword score is weak. The validator v2 will then do the final ranking.
+      const jobFamilyStructured: string | null =
+        ((candidates ?? [])[0] as any)?.structured_profile?.current_title?.function_family ?? null;
+      // Re-pull job structured to know its family without re-querying.
+      let jobFunctionFamily: string | null = null;
+      try {
+        const { data: jr } = await supabase.from("jobs").select("structured_jd").eq("id", job_id).maybeSingle();
+        jobFunctionFamily = (jr?.structured_jd as any)?.title?.function_family ?? null;
+      } catch (_) { /* non-fatal */ }
+
       const sorted = scored.sort((a, b) => b.result.final - a.result.final);
       const prefilterPool = sorted.filter((s) => {
-        // Pass to AI re-ranker if: decent score OR detected Tier-1 ecosystem employer
         if (s.detectedEcosystem.some((e) => e.tier === "tier1")) return true;
-        if (!s.result.jobFamily) return s.result.final >= 40;
-        return s.result.final >= 45;
+        // Same function family always passes recall (high-recall first, then validator ranks)
+        const candFam = (s.candidate as any)?.structured_profile?.current_title?.function_family ?? null;
+        if (jobFunctionFamily && candFam && candFam === jobFunctionFamily) return true;
+        if (!s.result.jobFamily) return s.result.final >= 30;
+        return s.result.final >= 35;
       });
 
       // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 20 to control cost).
