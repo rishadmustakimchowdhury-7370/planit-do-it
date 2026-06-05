@@ -76,7 +76,7 @@ export default function AdminBackfillPage() {
     ? Math.round((progress.structured_candidates / progress.total_candidates) * 100) : 0;
 
   return (
-    <AdminLayout>
+    <AdminLayout title="AI Structuring Backfill">
       <div className="space-y-6 p-6">
         <header className="flex items-center justify-between gap-4">
           <div>
