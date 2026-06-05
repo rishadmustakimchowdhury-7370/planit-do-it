@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import {
   Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin,
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
-  Building2, Target, TrendingUp,
+  Building2, Target, TrendingUp, Clock,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
