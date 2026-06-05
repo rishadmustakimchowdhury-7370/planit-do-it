@@ -21,6 +21,7 @@ import {
   Megaphone,
   Menu,
   Link2,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
