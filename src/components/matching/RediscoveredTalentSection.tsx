@@ -295,6 +295,33 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                       )}
                     </section>
 
+                    {/* AWAITING AI VALIDATION — validator v2 has not yet produced a tier */}
+                    {awaitingMatches.length > 0 && (
+                      <section>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <h4 className="text-sm font-semibold text-foreground">Awaiting AI Validation</h4>
+                          <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700">{awaitingMatches.length}</Badge>
+                          <span className="text-xs text-muted-foreground">Structured profile or JD missing — not yet classified by Validator v2</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {awaitingMatches.map((m, idx) => (
+                            <RediscoveredCandidateCard
+                              key={m.id} match={m} index={idx}
+                              selected={selected.has(m.id)}
+                              onToggleSelect={() => toggleSelect(m.id)}
+                              onDismiss={() => dismiss(m.id)}
+                              onAdd={() => handleAddToPipeline(m)}
+                              onEmail={() => setEmailTarget(m)}
+                              onOpen={() => setPanelTarget(m)}
+                              isAdding={addingId === m.id}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+
                     {/* TRANSFERABLE TALENT — adjacent function / industry / skills */}
                     {transferableMatches.length > 0 && (
                       <section>
