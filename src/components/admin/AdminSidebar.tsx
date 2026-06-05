@@ -52,6 +52,7 @@ const adminNavItems = [
   { title: 'Live Chat', url: '/admin/chat', icon: MessageSquare },
   { title: 'Audit Logs', url: '/admin/logs', icon: ScrollText },
   { title: 'AI Validation QA', url: '/admin/ai-qa', icon: Shield },
+  { title: 'AI Structuring Backfill', url: '/admin/ai-backfill', icon: Sparkles },
   { title: 'Settings', url: '/admin/settings', icon: Settings },
 ];
 
