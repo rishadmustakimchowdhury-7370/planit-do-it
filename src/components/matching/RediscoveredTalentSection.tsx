@@ -74,20 +74,32 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
     });
   }, [matches, minRec, search]);
 
-  // role_first_v1: Primary Matches = direct functional matches (strong / recommended).
-  // Transferable Talent = adjacent function, adjacent industry, transferable skills.
-  // Direct matches must always be displayed before transferable candidates.
-  const { primaryMatches, transferableMatches } = useMemo(() => {
+  // role_first_v1: 3 buckets.
+  //   Primary Matches  — direct functional match (validator v2 tier strong/recommended,
+  //                      or legacy discovery strong/recommended_shortlist).
+  //   Awaiting AI Validation — validator v2 has not produced a tier yet. We do NOT
+  //                      classify these as Transferable; the recruiter must see
+  //                      that the system is still working on them.
+  //   Transferable Talent — explicit transferable / adjacent / weak tier.
+  const { primaryMatches, awaitingMatches, transferableMatches } = useMemo(() => {
+    const tierOf = (m: RediscoveredMatch) => ((m as any).recommendation_tier as string | null | undefined) ?? null;
     const isPrimary = (m: RediscoveredMatch) => {
-      const tier = (m as any).recommendation_tier as string | null | undefined;
+      const tier = tierOf(m);
       if (tier === 'strong_match' || tier === 'recommended') return true;
+      if (tier) return false; // explicit non-primary tier — never primary
       const cls = m.discovery_classification;
       return cls === 'strong_shortlist' || cls === 'recommended_shortlist';
     };
-    return {
-      primaryMatches: filtered.filter(isPrimary),
-      transferableMatches: filtered.filter(m => !isPrimary(m)),
+    const isAwaiting = (m: RediscoveredMatch) => {
+      if (tierOf(m)) return false;
+      // No validator v2 verdict yet AND no clear legacy classification
+      const cls = m.discovery_classification;
+      return !cls || cls === 'needs_validation';
     };
+    const primary = filtered.filter(isPrimary);
+    const awaiting = filtered.filter((m) => !isPrimary(m) && isAwaiting(m));
+    const transferable = filtered.filter((m) => !isPrimary(m) && !isAwaiting(m));
+    return { primaryMatches: primary, awaitingMatches: awaiting, transferableMatches: transferable };
   }, [filtered]);
 
 
