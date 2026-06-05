@@ -525,17 +525,70 @@ serve(async (req) => {
       await embedJobIfMissing(supabase, job_id);
       const embedded = await embedMissingCandidates(supabase, job.tenant_id, 200);
 
-      // 2. ANN prefilter — top 100 by semantic similarity (widened so different jobs return different pools)
-      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 100 });
+      // 2. ANN prefilter — top 150 by semantic similarity.
+      const { data: prefilter, error: matchErr } = await rpcClient.rpc("match_candidates_for_job", { p_job_id: job_id, p_match_count: 150 });
       if (matchErr) throw matchErr;
 
-      const prefilterIds = (prefilter ?? []).map((m: any) => m.candidate_id);
-      const scanned = prefilterIds.length;
+      const prefilterIds: string[] = (prefilter ?? []).map((m: any) => m.candidate_id);
+
+      // 2b. RECALL BOOSTER (role_first_v1 fix).
+      // Embedding ANN often misses direct functional matches whose CVs use
+      // adjacent vocabulary (e.g. Compliance Officer vs Compliance Analyst).
+      // Pull the job's structured_jd to grab its function_family + title
+      // tokens, then union in any tenant candidate whose structured_profile
+      // shares the same family OR whose current_title contains a key token.
+      const recallIds = new Set<string>(prefilterIds);
+      try {
+        const { data: jobStructured } = await supabase
+          .from("jobs").select("structured_jd").eq("id", job_id).maybeSingle();
+        const sjd: any = jobStructured?.structured_jd ?? null;
+        const family: string | null = sjd?.title?.function_family ?? null;
+        const titleTokens: string[] = [];
+        const pushTok = (s: any) => {
+          if (typeof s !== "string") return;
+          for (const t of s.toLowerCase().split(/[^a-z0-9+#]+/).filter(Boolean)) {
+            if (t.length >= 4 && !["and","with","the","for","role","team","work","year","years","senior","junior","lead","analyst","manager","officer","specialist","engineer","developer","associate"].includes(t)) {
+              titleTokens.push(t);
+            }
+          }
+        };
+        pushTok(sjd?.title?.canonical);
+        for (const a of sjd?.title?.aliases ?? []) pushTok(a);
+        for (const r of sjd?.title?.related ?? []) pushTok(r);
+        pushTok(job.title);
+        const uniqTokens = [...new Set(titleTokens)].slice(0, 8);
+
+        // Same function_family candidates
+        if (family) {
+          const { data: famRows } = await supabase
+            .from("candidates")
+            .select("id")
+            .eq("tenant_id", job.tenant_id)
+            .filter("structured_profile->current_title->>function_family", "eq", family)
+            .limit(80);
+          for (const r of famRows ?? []) recallIds.add(r.id);
+        }
+        // Title-token candidates (catches unstructured profiles too)
+        if (uniqTokens.length) {
+          const orExpr = uniqTokens.map((t) => `current_title.ilike.%${t}%`).join(",");
+          const { data: titleRows } = await supabase
+            .from("candidates")
+            .select("id")
+            .eq("tenant_id", job.tenant_id)
+            .or(orExpr)
+            .limit(80);
+          for (const r of titleRows ?? []) recallIds.add(r.id);
+        }
+      } catch (e) {
+        console.warn("recall booster failed (non-fatal)", e);
+      }
+
+      const scanned = recallIds.size;
 
       // 3. Exclude candidates already in pipeline
       const { data: existingJC } = await supabase.from("job_candidates").select("candidate_id").eq("job_id", job_id);
       const exclude = new Set((existingJC ?? []).map((x: any) => x.candidate_id));
-      const eligibleIds = prefilterIds.filter((id: string) => !exclude.has(id));
+      const eligibleIds = [...recallIds].filter((id: string) => !exclude.has(id));
 
       if (eligibleIds.length === 0) {
         await supabase.from("rediscovery_runs").update({
@@ -544,9 +597,9 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, matches: 0, embedded, scanned }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // 4. Load full profiles
+      // 4. Load full profiles (including structured_profile for downstream validator + family boost).
       const { data: candidates } = await supabase.from("candidates")
-        .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at")
+        .select("id, full_name, current_title, location, experience_years, skills, summary, updated_at, structured_profile")
         .in("id", eligibleIds);
 
       // 5. STAGE 1: Deterministic prefilter + ecosystem signal detection.
@@ -563,17 +616,31 @@ serve(async (req) => {
       // 6. Cast a WIDER prefilter net for the AI re-ranker — recruiters care about
       // ecosystem-relevant profiles even when keyword score is thin. The AI will
       // demote noise via discovery_classification="low_relevance".
+      // role_first_v1 recall fix: ALSO admit candidates whose structured_profile
+      // function_family matches the job's structured family, even if the legacy
+      // keyword score is weak. The validator v2 will then do the final ranking.
+      const jobFamilyStructured: string | null =
+        ((candidates ?? [])[0] as any)?.structured_profile?.current_title?.function_family ?? null;
+      // Re-pull job structured to know its family without re-querying.
+      let jobFunctionFamily: string | null = null;
+      try {
+        const { data: jr } = await supabase.from("jobs").select("structured_jd").eq("id", job_id).maybeSingle();
+        jobFunctionFamily = (jr?.structured_jd as any)?.title?.function_family ?? null;
+      } catch (_) { /* non-fatal */ }
+
       const sorted = scored.sort((a, b) => b.result.final - a.result.final);
       const prefilterPool = sorted.filter((s) => {
-        // Pass to AI re-ranker if: decent score OR detected Tier-1 ecosystem employer
         if (s.detectedEcosystem.some((e) => e.tier === "tier1")) return true;
-        if (!s.result.jobFamily) return s.result.final >= 40;
-        return s.result.final >= 45;
+        // Same function family always passes recall (high-recall first, then validator ranks)
+        const candFam = (s.candidate as any)?.structured_profile?.current_title?.function_family ?? null;
+        if (jobFunctionFamily && candFam && candFam === jobFunctionFamily) return true;
+        if (!s.result.jobFamily) return s.result.final >= 30;
+        return s.result.final >= 35;
       });
 
-      // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 20 to control cost).
+      // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 30 to keep recall high).
       let aiMap: Record<string, DiscoveryAIResult> = {};
-      const rerankInput = prefilterPool.slice(0, 20);
+      const rerankInput = prefilterPool.slice(0, 30);
       if (rerankInput.length > 0) {
         try {
           aiMap = await rerankBatch(job, rerankInput);

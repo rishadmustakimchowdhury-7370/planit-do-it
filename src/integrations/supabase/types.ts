@@ -53,6 +53,13 @@ export type Database = {
             foreignKeyName: "activities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -225,6 +232,13 @@ export type Database = {
             foreignKeyName: "ai_usage_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -271,6 +285,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "audit_log_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -345,6 +366,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "branding_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "branding_settings_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -594,6 +622,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_email_templates"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "candidate_emails_tenant_id_fkey"
@@ -905,6 +940,13 @@ export type Database = {
             foreignKeyName: "candidates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -957,6 +999,13 @@ export type Database = {
           visitor_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "chat_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "chat_conversations_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1043,6 +1092,13 @@ export type Database = {
             foreignKeyName: "chatbot_config_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "chatbot_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1086,6 +1142,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "client_activities_tenant_id_fkey"
@@ -1137,6 +1200,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_attachments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "client_attachments_tenant_id_fkey"
@@ -1235,6 +1305,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_email_templates"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "client_emails_tenant_id_fkey"
@@ -1623,6 +1700,13 @@ export type Database = {
             foreignKeyName: "clients_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "clients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1709,6 +1793,13 @@ export type Database = {
             foreignKeyName: "credit_transactions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1737,6 +1828,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "credits_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "credits_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1791,6 +1889,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_submissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "cv_submissions_tenant_id_fkey"
@@ -1915,6 +2020,13 @@ export type Database = {
             foreignKeyName: "email_accounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "email_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -1961,6 +2073,13 @@ export type Database = {
           tenant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "email_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "email_logs_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2196,6 +2315,13 @@ export type Database = {
             foreignKeyName: "events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -2254,6 +2380,13 @@ export type Database = {
           total_rows?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "import_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "import_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2395,6 +2528,13 @@ export type Database = {
             foreignKeyName: "invoices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -2432,6 +2572,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_assignees_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "job_assignees_tenant_id_fkey"
@@ -2514,6 +2661,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "job_candidates_tenant_id_fkey"
@@ -2710,6 +2864,13 @@ export type Database = {
             foreignKeyName: "jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -2768,6 +2929,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "linkedin_connections_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2840,6 +3008,13 @@ export type Database = {
             foreignKeyName: "linkedin_message_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "linkedin_message_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -2883,6 +3058,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_message_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "linkedin_message_templates_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2971,6 +3153,13 @@ export type Database = {
             foreignKeyName: "linkedin_outreach_campaigns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -3002,6 +3191,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "linkedin_outreach_consent_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "linkedin_outreach_consent_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3056,6 +3252,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "linkedin_outreach_queue"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "linkedin_outreach_logs_tenant_id_fkey"
@@ -3146,6 +3349,13 @@ export type Database = {
             foreignKeyName: "linkedin_outreach_queue_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "linkedin_outreach_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -3201,6 +3411,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "notifications_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3287,6 +3504,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "orders_tenant_id_fkey"
@@ -3582,6 +3806,13 @@ export type Database = {
             foreignKeyName: "profiles_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -3626,6 +3857,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promo_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "promo_code_usage_tenant_id_fkey"
@@ -3678,6 +3916,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promo_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_uses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "promo_code_uses_tenant_id_fkey"
@@ -3806,6 +4051,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_activities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "recruiter_activities_tenant_id_fkey"
@@ -4097,6 +4349,13 @@ export type Database = {
             foreignKeyName: "scheduled_actions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "scheduled_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -4255,6 +4514,57 @@ export type Database = {
           stripe_secret_key_encrypted?: string | null
           stripe_webhook_secret_encrypted?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      structuring_backfill_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          details: Json
+          error: string | null
+          failed: number
+          id: string
+          scope: string
+          skipped: number
+          started_at: string
+          status: string
+          succeeded: number
+          tenant_id: string | null
+          total: number
+          triggered_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json
+          error?: string | null
+          failed?: number
+          id?: string
+          scope: string
+          skipped?: number
+          started_at?: string
+          status?: string
+          succeeded?: number
+          tenant_id?: string | null
+          total?: number
+          triggered_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          details?: Json
+          error?: string | null
+          failed?: number
+          id?: string
+          scope?: string
+          skipped?: number
+          started_at?: string
+          status?: string
+          succeeded?: number
+          tenant_id?: string | null
+          total?: number
+          triggered_by?: string | null
         }
         Relationships: []
       }
@@ -4571,6 +4881,13 @@ export type Database = {
             foreignKeyName: "support_tickets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -4620,6 +4937,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "team_invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "team_invitations_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4688,6 +5012,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tenant_work_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "tenant_work_settings_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4914,6 +5245,13 @@ export type Database = {
             foreignKeyName: "user_email_templates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_email_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -4954,6 +5292,13 @@ export type Database = {
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "user_invites_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -5003,6 +5348,13 @@ export type Database = {
             foreignKeyName: "user_permissions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -5044,6 +5396,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
           {
             foreignKeyName: "user_roles_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -5187,6 +5546,13 @@ export type Database = {
             foreignKeyName: "whatsapp_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -5315,6 +5681,13 @@ export type Database = {
             foreignKeyName: "work_sessions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "work_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -5359,6 +5732,13 @@ export type Database = {
             foreignKeyName: "work_status_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "work_status_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -5366,7 +5746,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      structuring_backfill_progress: {
+        Row: {
+          missing_candidates: number | null
+          missing_jobs: number | null
+          structured_candidates: number | null
+          structured_jobs: number | null
+          tenant_id: string | null
+          total_candidates: number | null
+          total_jobs: number | null
+        }
+        Insert: {
+          missing_candidates?: never
+          missing_jobs?: never
+          structured_candidates?: never
+          structured_jobs?: never
+          tenant_id?: string | null
+          total_candidates?: never
+          total_jobs?: never
+        }
+        Update: {
+          missing_candidates?: never
+          missing_jobs?: never
+          structured_candidates?: never
+          structured_jobs?: never
+          tenant_id?: string | null
+          total_candidates?: never
+          total_jobs?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_chat_message: {

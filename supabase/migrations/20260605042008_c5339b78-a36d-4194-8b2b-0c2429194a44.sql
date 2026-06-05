@@ -1,0 +1,1 @@
+ALTER VIEW public.structuring_backfill_progress SET (security_invoker = on);

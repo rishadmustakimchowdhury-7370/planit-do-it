@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import {
   Sparkles, RefreshCw, ChevronDown, ChevronUp, MapPin,
   CheckCircle2, AlertCircle, Mail, UserPlus, X, Search, Wand2, Loader2,
-  Building2, Target, TrendingUp,
+  Building2, Target, TrendingUp, Clock,
 } from 'lucide-react';
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { CandidateWorkflowPanel } from '@/components/matching/CandidateWorkflowPanel';
@@ -74,20 +74,32 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
     });
   }, [matches, minRec, search]);
 
-  // role_first_v1: Primary Matches = direct functional matches (strong / recommended).
-  // Transferable Talent = adjacent function, adjacent industry, transferable skills.
-  // Direct matches must always be displayed before transferable candidates.
-  const { primaryMatches, transferableMatches } = useMemo(() => {
+  // role_first_v1: 3 buckets.
+  //   Primary Matches  — direct functional match (validator v2 tier strong/recommended,
+  //                      or legacy discovery strong/recommended_shortlist).
+  //   Awaiting AI Validation — validator v2 has not produced a tier yet. We do NOT
+  //                      classify these as Transferable; the recruiter must see
+  //                      that the system is still working on them.
+  //   Transferable Talent — explicit transferable / adjacent / weak tier.
+  const { primaryMatches, awaitingMatches, transferableMatches } = useMemo(() => {
+    const tierOf = (m: RediscoveredMatch) => ((m as any).recommendation_tier as string | null | undefined) ?? null;
     const isPrimary = (m: RediscoveredMatch) => {
-      const tier = (m as any).recommendation_tier as string | null | undefined;
+      const tier = tierOf(m);
       if (tier === 'strong_match' || tier === 'recommended') return true;
+      if (tier) return false; // explicit non-primary tier — never primary
       const cls = m.discovery_classification;
       return cls === 'strong_shortlist' || cls === 'recommended_shortlist';
     };
-    return {
-      primaryMatches: filtered.filter(isPrimary),
-      transferableMatches: filtered.filter(m => !isPrimary(m)),
+    const isAwaiting = (m: RediscoveredMatch) => {
+      if (tierOf(m)) return false;
+      // No validator v2 verdict yet AND no clear legacy classification
+      const cls = m.discovery_classification;
+      return !cls || cls === 'needs_validation';
     };
+    const primary = filtered.filter(isPrimary);
+    const awaiting = filtered.filter((m) => !isPrimary(m) && isAwaiting(m));
+    const transferable = filtered.filter((m) => !isPrimary(m) && !isAwaiting(m));
+    return { primaryMatches: primary, awaitingMatches: awaiting, transferableMatches: transferable };
   }, [filtered]);
 
 
@@ -282,6 +294,33 @@ export function RediscoveredTalentSection({ jobId, jobTitle, onCandidateAdded }:
                         </div>
                       )}
                     </section>
+
+                    {/* AWAITING AI VALIDATION — validator v2 has not yet produced a tier */}
+                    {awaitingMatches.length > 0 && (
+                      <section>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <h4 className="text-sm font-semibold text-foreground">Awaiting AI Validation</h4>
+                          <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700">{awaitingMatches.length}</Badge>
+                          <span className="text-xs text-muted-foreground">Structured profile or JD missing — not yet classified by Validator v2</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {awaitingMatches.map((m, idx) => (
+                            <RediscoveredCandidateCard
+                              key={m.id} match={m} index={idx}
+                              selected={selected.has(m.id)}
+                              onToggleSelect={() => toggleSelect(m.id)}
+                              onDismiss={() => dismiss(m.id)}
+                              onAdd={() => handleAddToPipeline(m)}
+                              onEmail={() => setEmailTarget(m)}
+                              onOpen={() => setPanelTarget(m)}
+                              isAdding={addingId === m.id}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
 
                     {/* TRANSFERABLE TALENT — adjacent function / industry / skills */}
                     {transferableMatches.length > 0 && (

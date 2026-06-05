@@ -154,5 +154,9 @@ verify_jwt = true
 [functions.process-validation-queue]
 verify_jwt = false
 
+[functions.backfill-structuring]
+verify_jwt = true
+
+
 
 
