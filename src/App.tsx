@@ -88,6 +88,7 @@ const AdminTrustedClientsPage = lazy(() => import("./pages/admin/AdminTrustedCli
 const AdminPromoCodesPage = lazy(() => import("./pages/admin/AdminPromoCodesPage"));
 const AdminClientPortalPage = lazy(() => import("./pages/admin/AdminClientPortalPage"));
 const AdminAIQAPage = lazy(() => import("./pages/admin/AdminAIQAPage"));
+const AdminBackfillPage = lazy(() => import("./pages/admin/AdminBackfillPage"));
 const AcceptClientInvitationPage = lazy(() => import("./pages/AcceptClientInvitationPage"));
 
 // Lazy load chat widget
