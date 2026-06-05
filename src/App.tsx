@@ -233,6 +233,7 @@ const AppRoutes = () => (
       <Route path="/admin/trusted-clients" element={<ProtectedRoute><AdminTrustedClientsPage /></ProtectedRoute>} />
       <Route path="/admin/client-portal" element={<ProtectedRoute><AdminClientPortalPage /></ProtectedRoute>} />
       <Route path="/admin/ai-qa" element={<ProtectedRoute><AdminAIQAPage /></ProtectedRoute>} />
+      <Route path="/admin/ai-backfill" element={<ProtectedRoute><AdminBackfillPage /></ProtectedRoute>} />
       
       {/* Checkout routes */}
       <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
