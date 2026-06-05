@@ -638,9 +638,9 @@ serve(async (req) => {
         return s.result.final >= 35;
       });
 
-      // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 20 to control cost).
+      // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 30 to keep recall high).
       let aiMap: Record<string, DiscoveryAIResult> = {};
-      const rerankInput = prefilterPool.slice(0, 20);
+      const rerankInput = prefilterPool.slice(0, 30);
       if (rerankInput.length > 0) {
         try {
           aiMap = await rerankBatch(job, rerankInput);
