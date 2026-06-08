@@ -28,9 +28,8 @@ async function invokeSibling(name: string, body: any, authHeader: string): Promi
       method: "POST",
       headers: isInternalStructureJd
         ? {
-            Authorization: `Bearer ${serviceKey}`,
-            apikey: serviceKey,
             "x-internal-service-token": serviceKey,
+            "x-internal-source": "validate-candidate-fit",
             "Content-Type": "application/json",
           }
         : { Authorization: authHeader, "Content-Type": "application/json" },

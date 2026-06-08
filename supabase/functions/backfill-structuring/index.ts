@@ -106,9 +106,8 @@ async function invokeStructureJd(jobId: string, force: boolean): Promise<{ ok: b
     const r = await fetch(`${SUPABASE_URL}/functions/v1/structure-jd`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: SERVICE_KEY,
         "x-internal-service-token": SERVICE_KEY,
+        "x-internal-source": "backfill-structuring",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ job_id: jobId, force }),

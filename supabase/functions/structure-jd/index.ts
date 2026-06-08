@@ -91,8 +91,14 @@ serve(async (req) => {
 
   try {
     const internalToken = req.headers.get("x-internal-service-token");
+    const internalSource = req.headers.get("x-internal-source");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!internalToken || internalToken !== serviceKey) {
+    const allowedInternalSources = new Set([
+      "backfill-structuring",
+      "validate-candidate-fit",
+      "validate-candidate-fit-v2",
+    ]);
+    if (!internalToken || internalToken !== serviceKey || !allowedInternalSources.has(internalSource ?? "")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

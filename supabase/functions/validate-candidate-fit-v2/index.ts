@@ -46,9 +46,8 @@ async function invokeFunction(name: string, body: any, authHeader: string): Prom
       method: "POST",
       headers: isInternalStructureJd
         ? {
-            Authorization: `Bearer ${serviceKey}`,
-            apikey: serviceKey,
             "x-internal-service-token": serviceKey,
+            "x-internal-source": "validate-candidate-fit-v2",
             "Content-Type": "application/json",
           }
         : { Authorization: authHeader, "Content-Type": "application/json" },
