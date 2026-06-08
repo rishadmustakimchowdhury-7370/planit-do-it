@@ -125,6 +125,7 @@ interface Job {
   openings: number | null;
   skills: string[] | null;
   clients?: { name: string } | null;
+  structured_jd?: any;
 }
 
 interface JobCandidate {
