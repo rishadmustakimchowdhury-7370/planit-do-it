@@ -39,10 +39,19 @@ const ENGINE_VERSION = "enterprise_validation_v2_1_role_first";
 
 async function invokeFunction(name: string, body: any, authHeader: string): Promise<void> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/${name}`;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const isInternalStructureJd = name === "structure-jd";
   try {
     await fetch(url, {
       method: "POST",
-      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      headers: isInternalStructureJd
+        ? {
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+            "x-internal-service-token": serviceKey,
+            "Content-Type": "application/json",
+          }
+        : { Authorization: authHeader, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
   } catch (e) {
