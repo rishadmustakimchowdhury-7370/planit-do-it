@@ -124,12 +124,19 @@ serve(async (req) => {
     const { data: job, error } = await supabase
       .from("jobs")
       .select(
-        "id, tenant_id, title, description, requirements, responsibilities, location, experience_level, employment_type, is_remote, skills, salary_min, salary_max, structured_jd_version",
+        "id, tenant_id, title, description, requirements, location, experience_level, employment_type, is_remote, skills, salary_min, salary_max, structured_jd_version",
       )
       .eq("id", job_id)
       .maybeSingle();
 
-    if (error || !job) {
+    if (error) {
+      console.error("structure-jd job lookup error:", error);
+      return new Response(JSON.stringify({ error: "job_lookup_failed", details: error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!job) {
       return new Response(JSON.stringify({ error: "job_not_found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
