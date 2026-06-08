@@ -271,16 +271,20 @@ function scoreLocation(jobLoc: string, candLoc: string): number {
 }
 
 function computeScore(job: any, cand: any): { final: number; confidence: "low" | "medium" | "high"; sub: SubScores; matched: string[]; missing: string[]; jobFamily: string | null; candFamily: string | null; jobRank: number; candRank: number; } {
-  const jobFamily = detectRoleFamily(job.title ?? "", job.description ?? "");
-  const candFamily = detectRoleFamily(cand.current_title ?? "", cand.summary ?? "");
+  // Authoritative: prefer structured function_family when available. Fall back to keyword detection.
+  const jobFamStructured: string | null =
+    job?.structured_jd?.title?.function_family ?? null;
+  const candFamStructured: string | null =
+    cand?.structured_profile?.current_title?.function_family ?? null;
+
+  const jobFamily = jobFamStructured ?? detectRoleFamily(job.title ?? "", job.description ?? "");
+  const candFamily = candFamStructured ?? detectRoleFamily(cand.current_title ?? "", cand.summary ?? "");
 
   const jobSkills = normalizeSkills(job.skills);
   const candSkills = normalizeSkills(cand.skills);
-  const jobFamilyEarly = jobFamily;
-  const candFamilyEarly = candFamily;
-  const adjEarly = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly !== candFamilyEarly &&
-    (ROLE_FAMILIES[jobFamilyEarly]?.adjacent ?? []).includes(candFamilyEarly));
-  const sameFamily = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly === candFamilyEarly);
+  const adjEarly = !!(jobFamily && candFamily && jobFamily !== candFamily &&
+    (ROLE_FAMILIES[jobFamily]?.adjacent ?? []).includes(candFamily));
+  const sameFamily = !!(jobFamily && candFamily && jobFamily === candFamily);
   const skillRes = scoreSkills(jobSkills, candSkills, adjEarly || sameFamily);
 
   const jobRank = detectSeniority(`${job.title ?? ""} ${job.experience_level ?? ""}`, null);
@@ -291,36 +295,40 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
   const sub: SubScores = {
     role: scoreRole(jobFamily, candFamily),
     skills: skillRes.score,
-    industry: 0.5, // no structured industry field yet — neutral
+    industry: 0.5, // industry is a booster only; never dominates
     seniority: scoreSeniority(jobRank, candRank),
     experience: scoreExperience(jobYears, cand.experience_years ?? null),
     location: scoreLocation(job.location ?? "", cand.location ?? ""),
     penalty: 0,
   };
 
+  // role_first_v1 weighting — Function dominates. Industry weight removed from base.
   let base =
-    0.40 * sub.role +
+    0.50 * sub.role +
     0.25 * sub.skills +
-    0.10 * sub.industry +
     0.10 * sub.seniority +
     0.10 * sub.experience +
     0.05 * sub.location;
 
-  // Penalties — recruiter-grade: only penalize true mismatches, not partial alignment.
+  // Penalties — wrong function family is the dominant penalty.
   let penalty = 0;
   if (jobFamily && candFamily && jobFamily !== candFamily) {
     const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
-    if (!adj.includes(candFamily)) penalty += 0.25; // wrong role family
+    if (!adj.includes(candFamily)) penalty += 0.35; // wrong function — strong demote
+    else penalty += 0.10; // adjacent — mild demote
   }
-  // Skill penalty only when truly sparse AND not adjacent (adjacent = transferable depth).
-  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.10;
-  if (Math.abs(jobRank - candRank) >= 2) penalty += 0.15;
+  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.05;
+  if (Math.abs(jobRank - candRank) >= 2) penalty += 0.10;
   sub.penalty = penalty;
 
   let final = Math.round(Math.max(0, base - penalty) * 100);
+
+  // Function-first floor: same-family candidates must never score below 65 here so they
+  // survive the rerank slice and reach Validator v2 as Primary candidates.
+  if (sameFamily) final = Math.max(final, 65);
   if (final > 100) final = 100;
 
-  // Confidence — adjacent + decent base counts as medium, not low.
+  // Confidence
   let confidence: "low" | "medium" | "high" = "low";
   const roleOk = !jobFamily || !candFamily || sub.role >= 0.5;
   const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.6 || adjEarly || sameFamily;
