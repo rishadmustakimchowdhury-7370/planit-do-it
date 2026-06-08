@@ -103,10 +103,18 @@ async function invokeStructureJd(jobId: string, force: boolean): Promise<{ ok: b
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/structure-jd`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ job_id: jobId, force }),
     });
-    if (!r.ok) return { ok: false, err: `structure-jd_${r.status}` };
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      console.error(`structure-jd ${r.status} for job ${jobId}:`, body.slice(0, 300));
+      return { ok: false, err: `structure-jd_${r.status}` };
+    }
     return { ok: true };
   } catch (e: any) {
     return { ok: false, err: e?.message ?? "invoke_failed" };
