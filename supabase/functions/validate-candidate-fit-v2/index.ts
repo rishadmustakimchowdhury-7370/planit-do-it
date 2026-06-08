@@ -118,7 +118,7 @@ serve(async (req) => {
     // 2. Ensure structured_jd
     let structuredJd: StructuredJobDescription | null = job.structured_jd as any;
     if (!structuredJd || job.structured_jd_version !== STRUCTURED_SCHEMA_VERSION || force) {
-      await invokeFunction("structure-jd", { job_id, force: !!force }, authHeader);
+      await invokeFunction("structure-jd", { job_id, force: !!force }, effectiveAuthHeader);
       const { data: refreshed } = await admin.from("jobs").select("structured_jd, structured_jd_version").eq("id", job_id).maybeSingle();
       structuredJd = (refreshed?.structured_jd as any) ?? null;
     }
@@ -132,7 +132,7 @@ serve(async (req) => {
     let structuredProfile: StructuredCandidateProfile | null = candidate.structured_profile as any;
     if (!structuredProfile || candidate.structured_profile_version !== STRUCTURED_SCHEMA_VERSION || force) {
       // parse-cv accepts candidate_id to write structured_profile in-place
-      await invokeFunction("parse-cv", { candidate_id, resume_url: candidate.resume_url, force: !!force }, authHeader);
+      await invokeFunction("parse-cv", { candidate_id, resume_url: candidate.resume_url, force: !!force }, effectiveAuthHeader);
       const { data: refreshed } = await admin.from("candidates").select("structured_profile, structured_profile_version").eq("id", candidate_id).maybeSingle();
       structuredProfile = (refreshed?.structured_profile as any) ?? null;
     }
