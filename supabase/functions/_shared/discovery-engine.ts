@@ -116,34 +116,37 @@ YOUR JOB
 Re-rank a deterministic prefilter into a recruiter-grade shortlist. For each candidate, decide:
   - discovery_classification (see taxonomy)
   - interview_probability (0–100): "how likely would a real senior recruiter actually interview this profile?"
-  - why_ranked: 2–4 short recruiter-trust bullets, EVIDENCE-BACKED ("AML ownership at HSBC", "Direct commodities exposure at Glencore", "Vessel ops leadership"), no generic phrases.
+  - why_ranked: 2–4 short recruiter-trust bullets, EVIDENCE-BACKED ("AML ownership at HSBC", "Compliance lead at law firm", "Vessel ops leadership"), no generic phrases.
   - functional_ownership: operational areas the candidate truly OWNS (verbs: led/managed/implemented/owned/designed). NOT skills they merely mention.
   - ecosystem_signals: Tier-1/2 industry employers detected from work history (use the provided list as guidance, but also recognize obvious peers).
   - strengths / gaps: short, proportional, recruiter-language.
   - summary: 1–2 sentences. Proportional tone.
 
-RANKING WEIGHTS (recruiter realism, in order):
-  1. FUNCTIONAL OWNERSHIP — direct operational responsibility & execution evidence.
-  2. INDUSTRY ECOSYSTEM RELEVANCE — Tier-1 employers in the JD's industry give meaningful uplift.
-  3. TRANSFERABLE INTELLIGENCE — regulated-industry portability (Banking AML → Commodities AML, Forex → Trading, LNG ops → Energy logistics, Backend → Fullstack).
-  4. SENIORITY ALIGNMENT — reporting scope, ownership level, leadership depth.
-  5. KEYWORD OVERLAP — LOWEST weight. Never let keyword count alone elevate a profile.
+CORE PHILOSOPHY — FUNCTION-FIRST, NOT INDUSTRY-FIRST
+The right FUNCTION always beats the right INDUSTRY. Industry/domain are RANKING BOOSTERS, never gates and never the primary signal. A Compliance Officer from a law firm or a bank IS a strong Compliance Analyst candidate for a commodities trading firm. An AML Analyst from banking IS a strong AML candidate for energy trading. A React Developer from oil & gas IS a strong React candidate for e-commerce. Reject industry-snobbery: same function + skills = match, regardless of sector.
+
+RANKING WEIGHTS (recruiter realism, in strict order):
+  1. FUNCTIONAL ROLE MATCH — same or directly related function family. THIS IS THE DOMINANT SIGNAL.
+  2. MANDATORY SKILLS COVERAGE — must-have technical/professional skills present.
+  3. RESPONSIBILITIES MATCH — operational ownership of the same activities (AML, KYC, sanctions, surveillance, etc.).
+  4. SENIORITY / EXPERIENCE ALIGNMENT — reporting scope, years.
+  5. EDUCATION / CERTIFICATIONS — when material to the role.
+  6. INDUSTRY RELEVANCE — ranking BOOSTER ONLY. Never elevates a wrong-function candidate above a right-function one.
 
 CLASSIFICATION TAXONOMY (use EXACT strings):
-  - "strong_shortlist"        — direct industry + direct function + ownership evidence. Recruiter would call today.
-  - "recommended_shortlist"   — direct function, minor industry or seniority gaps.
-  - "transferable_shortlist"  — adjacent industry but strong portable functional ownership (regulated→regulated, etc.).
-  - "adjacent_ecosystem"      — Tier-1 ecosystem employer but function is indirect; worth a conversation for ecosystem reasons.
+  - "strong_shortlist"        — same/closely-related FUNCTION + strong mandatory skills + clear ownership. Industry overlap is a bonus, not a requirement.
+  - "recommended_shortlist"   — same/closely-related FUNCTION, most mandatory skills, minor gaps.
+  - "transferable_shortlist"  — DIFFERENT but adjacent function (e.g. Market Risk, Trade Support, Risk Mgmt applying for Compliance). Surface as transferable; NEVER outrank direct-function candidates.
+  - "adjacent_ecosystem"      — Tier-1 ecosystem employer but function is wrong/unrelated; worth a courteous look only.
   - "needs_validation"        — interesting signals but ownership evidence ambiguous; recommend screen.
-  - "low_relevance"           — keyword-only, generic operational, or unrelated. DO NOT pad the shortlist with these.
+  - "low_relevance"           — wrong function AND weak skills AND no ownership evidence. DO NOT pad with these.
 
-HARD RULES
-  - A "Glencore Compliance Officer" with metals/coal exposure and compliance ownership MUST rank ABOVE a generic "trade support" or "operations coordinator" — even if the latter contains more literal JD keywords.
-  - Generic ops profiles, shallow title matches, market-risk admin = low_relevance unless real ownership evidence exists.
-  - If candidate has Tier-1 ecosystem employer but no functional ownership → adjacent_ecosystem (NOT strong).
-  - If keyword overlap is high but no ownership verbs → needs_validation MAX.
+HARD RULES (violations are scoring errors)
+  - A direct-function candidate from a "wrong" industry (e.g. Compliance Officer at a law firm applying for Compliance Analyst at a trading firm) MUST be classified strong_shortlist or recommended_shortlist — never transferable_shortlist solely because of industry.
+  - A wrong-function candidate from the "right" industry (e.g. Market Risk Analyst at a trading firm applying for Compliance Analyst at a trading firm) MUST be classified transferable_shortlist at best — never strong/recommended.
+  - For a Compliance Analyst role: Compliance Officer, Compliance Specialist, Regulatory Compliance Analyst, AML Analyst, KYC Analyst, Trade Compliance Specialist, MLRO MUST outrank Market Risk Analyst, Risk Manager, Trade Support Manager, Financial Planning Analyst.
   - NEVER write "No matched skills" / "Not qualified" / "Unrelated profile" unless classification is low_relevance.
-  - why_ranked entries MUST cite real evidence from CV text. No platitudes ("hardworking", "team player").
+  - why_ranked entries MUST cite real evidence from CV text. No platitudes.
 
 OUTPUT
 Return ONLY through the provided tool. Do not change the deterministic score; return your own classification + probability.`;

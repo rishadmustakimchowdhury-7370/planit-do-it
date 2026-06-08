@@ -26,8 +26,8 @@ async function runValidator(jobId: string, candidateId: string): Promise<{ ok: t
     const res = await fetch(`${SUPABASE_URL}/functions/v1/validate-candidate-fit-v2`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: SERVICE_KEY,
+        "x-internal-service-token": SERVICE_KEY,
+        "x-internal-source": "process-validation-queue",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ job_id: jobId, candidate_id: candidateId }),

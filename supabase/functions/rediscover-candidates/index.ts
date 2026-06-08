@@ -85,6 +85,34 @@ const ROLE_FAMILIES: Record<string, { keywords: string[]; adjacent: string[] }> 
     keywords: ["accountant", "finance manager", "controller", "financial analyst", "fp&a"],
     adjacent: [],
   },
+  compliance: {
+    keywords: [
+      "compliance","compliance officer","compliance analyst","compliance specialist","regulatory",
+      "regulatory affairs","aml","kyc","sanctions","anti-money laundering","financial crime",
+      "trade compliance","trade surveillance","surveillance analyst","mlro","fcc","fincrime",
+    ],
+    adjacent: ["legal","risk_management"],
+  },
+  legal: {
+    keywords: ["legal counsel","lawyer","solicitor","attorney","paralegal","contracts manager"],
+    adjacent: ["compliance"],
+  },
+  risk_management: {
+    keywords: ["risk manager","market risk","credit risk","operational risk","risk analyst","enterprise risk"],
+    adjacent: ["compliance","finance"],
+  },
+  trade_support: {
+    keywords: ["trade support","trade control","trade operations","middle office","back office","settlements"],
+    adjacent: ["finance","risk_management"],
+  },
+  trading: {
+    keywords: ["trader","trading desk","commodity trader","oil trader","gas trader","power trader"],
+    adjacent: ["trade_support","risk_management"],
+  },
+  cyber_security: {
+    keywords: ["security analyst","cyber security","cybersecurity","information security","soc analyst","infosec","penetration tester"],
+    adjacent: ["devops","backend"],
+  },
 };
 
 const SENIORITY_RANK: Record<string, number> = {
@@ -243,16 +271,20 @@ function scoreLocation(jobLoc: string, candLoc: string): number {
 }
 
 function computeScore(job: any, cand: any): { final: number; confidence: "low" | "medium" | "high"; sub: SubScores; matched: string[]; missing: string[]; jobFamily: string | null; candFamily: string | null; jobRank: number; candRank: number; } {
-  const jobFamily = detectRoleFamily(job.title ?? "", job.description ?? "");
-  const candFamily = detectRoleFamily(cand.current_title ?? "", cand.summary ?? "");
+  // Authoritative: prefer structured function_family when available. Fall back to keyword detection.
+  const jobFamStructured: string | null =
+    job?.structured_jd?.title?.function_family ?? null;
+  const candFamStructured: string | null =
+    cand?.structured_profile?.current_title?.function_family ?? null;
+
+  const jobFamily = jobFamStructured ?? detectRoleFamily(job.title ?? "", job.description ?? "");
+  const candFamily = candFamStructured ?? detectRoleFamily(cand.current_title ?? "", cand.summary ?? "");
 
   const jobSkills = normalizeSkills(job.skills);
   const candSkills = normalizeSkills(cand.skills);
-  const jobFamilyEarly = jobFamily;
-  const candFamilyEarly = candFamily;
-  const adjEarly = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly !== candFamilyEarly &&
-    (ROLE_FAMILIES[jobFamilyEarly]?.adjacent ?? []).includes(candFamilyEarly));
-  const sameFamily = !!(jobFamilyEarly && candFamilyEarly && jobFamilyEarly === candFamilyEarly);
+  const adjEarly = !!(jobFamily && candFamily && jobFamily !== candFamily &&
+    (ROLE_FAMILIES[jobFamily]?.adjacent ?? []).includes(candFamily));
+  const sameFamily = !!(jobFamily && candFamily && jobFamily === candFamily);
   const skillRes = scoreSkills(jobSkills, candSkills, adjEarly || sameFamily);
 
   const jobRank = detectSeniority(`${job.title ?? ""} ${job.experience_level ?? ""}`, null);
@@ -263,36 +295,40 @@ function computeScore(job: any, cand: any): { final: number; confidence: "low" |
   const sub: SubScores = {
     role: scoreRole(jobFamily, candFamily),
     skills: skillRes.score,
-    industry: 0.5, // no structured industry field yet — neutral
+    industry: 0.5, // industry is a booster only; never dominates
     seniority: scoreSeniority(jobRank, candRank),
     experience: scoreExperience(jobYears, cand.experience_years ?? null),
     location: scoreLocation(job.location ?? "", cand.location ?? ""),
     penalty: 0,
   };
 
+  // role_first_v1 weighting — Function dominates. Industry weight removed from base.
   let base =
-    0.40 * sub.role +
+    0.50 * sub.role +
     0.25 * sub.skills +
-    0.10 * sub.industry +
     0.10 * sub.seniority +
     0.10 * sub.experience +
     0.05 * sub.location;
 
-  // Penalties — recruiter-grade: only penalize true mismatches, not partial alignment.
+  // Penalties — wrong function family is the dominant penalty.
   let penalty = 0;
   if (jobFamily && candFamily && jobFamily !== candFamily) {
     const adj = ROLE_FAMILIES[jobFamily]?.adjacent ?? [];
-    if (!adj.includes(candFamily)) penalty += 0.25; // wrong role family
+    if (!adj.includes(candFamily)) penalty += 0.35; // wrong function — strong demote
+    else penalty += 0.10; // adjacent — mild demote
   }
-  // Skill penalty only when truly sparse AND not adjacent (adjacent = transferable depth).
-  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.10;
-  if (Math.abs(jobRank - candRank) >= 2) penalty += 0.15;
+  if (!adjEarly && !sameFamily && jobSkills.size > 0 && skillRes.matched.length / jobSkills.size < 0.3) penalty += 0.05;
+  if (Math.abs(jobRank - candRank) >= 2) penalty += 0.10;
   sub.penalty = penalty;
 
   let final = Math.round(Math.max(0, base - penalty) * 100);
+
+  // Function-first floor: same-family candidates must never score below 65 here so they
+  // survive the rerank slice and reach Validator v2 as Primary candidates.
+  if (sameFamily) final = Math.max(final, 65);
   if (final > 100) final = 100;
 
-  // Confidence — adjacent + decent base counts as medium, not low.
+  // Confidence
   let confidence: "low" | "medium" | "high" = "low";
   const roleOk = !jobFamily || !candFamily || sub.role >= 0.5;
   const skillsOk = jobSkills.size === 0 || skillRes.score >= 0.6 || adjEarly || sameFamily;
@@ -326,6 +362,8 @@ async function rerankBatch(
     id: c.id,
     name: c.full_name,
     current_title: c.current_title,
+    structured_function_family: c?.structured_profile?.current_title?.function_family ?? null,
+    structured_canonical_title: c?.structured_profile?.current_title?.canonical ?? null,
     location: c.location,
     experience_years: c.experience_years,
     summary: (c.summary ?? "").slice(0, 1200),
@@ -346,7 +384,11 @@ Location: ${job.location ?? "unspecified"}
 Description (truncated):
 ${(job.description ?? "").slice(0, 2500)}
 
-Detected job family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}
+Detected job function family (authoritative): ${job?.structured_jd?.title?.function_family ?? detectRoleFamily(job.title ?? "", job.description ?? "")}
+Job canonical title: ${job?.structured_jd?.title?.canonical ?? job.title ?? ""}
+Mandatory skills (authoritative): ${(job?.structured_jd?.mandatory_skills ?? []).map((s: any) => s?.name).filter(Boolean).join(", ")}
+
+FUNCTION-FIRST REMINDER: Industry/domain are RANKING BOOSTERS ONLY. Same/closely-related function family + skills + responsibilities = strong/recommended. Different function family = transferable at best, regardless of industry pedigree.
 
 CANDIDATES (prefiltered by deterministic engine; YOU re-rank by recruiter realism):
 ${JSON.stringify(payload)}`;
@@ -500,7 +542,7 @@ serve(async (req) => {
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
     const callerTenant = profile?.tenant_id;
     const { data: job } = await supabase.from("jobs")
-      .select("id, tenant_id, title, description, requirements, location, experience_level, skills")
+      .select("id, tenant_id, title, description, requirements, location, experience_level, skills, structured_jd")
       .eq("id", job_id).maybeSingle();
 
     if (!job) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });

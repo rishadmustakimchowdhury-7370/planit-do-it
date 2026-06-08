@@ -62,28 +62,33 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Accept either: (a) internal service token from worker, or (b) real user JWT.
+    const internalToken = req.headers.get("x-internal-service-token");
+    const isInternal = !!internalToken && internalToken === SERVICE_KEY;
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    let supabase = admin;
+    let effectiveAuthHeader = `Bearer ${SERVICE_KEY}`;
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!isInternal) {
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      supabase = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      effectiveAuthHeader = authHeader;
     }
 
     const { job_id, candidate_id, force } = await req.json();
@@ -93,10 +98,11 @@ serve(async (req) => {
       });
     }
 
-    // 1. Load job + candidate (RLS-checked)
+    // 1. Load job + candidate (RLS-checked for user calls; admin for worker calls)
+    const reader = isInternal ? admin : supabase;
     const [{ data: job, error: jobErr }, { data: candidate, error: candErr }] = await Promise.all([
-      supabase.from("jobs").select("*").eq("id", job_id).maybeSingle(),
-      supabase.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
+      reader.from("jobs").select("*").eq("id", job_id).maybeSingle(),
+      reader.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
     ]);
     if (jobErr || !job) {
       return new Response(JSON.stringify({ error: "Job not found or access denied" }), {
@@ -112,7 +118,7 @@ serve(async (req) => {
     // 2. Ensure structured_jd
     let structuredJd: StructuredJobDescription | null = job.structured_jd as any;
     if (!structuredJd || job.structured_jd_version !== STRUCTURED_SCHEMA_VERSION || force) {
-      await invokeFunction("structure-jd", { job_id, force: !!force }, authHeader);
+      await invokeFunction("structure-jd", { job_id, force: !!force }, effectiveAuthHeader);
       const { data: refreshed } = await admin.from("jobs").select("structured_jd, structured_jd_version").eq("id", job_id).maybeSingle();
       structuredJd = (refreshed?.structured_jd as any) ?? null;
     }
@@ -126,7 +132,7 @@ serve(async (req) => {
     let structuredProfile: StructuredCandidateProfile | null = candidate.structured_profile as any;
     if (!structuredProfile || candidate.structured_profile_version !== STRUCTURED_SCHEMA_VERSION || force) {
       // parse-cv accepts candidate_id to write structured_profile in-place
-      await invokeFunction("parse-cv", { candidate_id, resume_url: candidate.resume_url, force: !!force }, authHeader);
+      await invokeFunction("parse-cv", { candidate_id, resume_url: candidate.resume_url, force: !!force }, effectiveAuthHeader);
       const { data: refreshed } = await admin.from("candidates").select("structured_profile, structured_profile_version").eq("id", candidate_id).maybeSingle();
       structuredProfile = (refreshed?.structured_profile as any) ?? null;
     }
