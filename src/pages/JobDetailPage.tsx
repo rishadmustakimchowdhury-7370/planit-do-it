@@ -447,6 +447,19 @@ const JobDetailPage = () => {
           Back to Jobs
         </Link>
 
+        {job.structured_jd?.structuring_status === 'partial' && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200">
+            <span className="mt-0.5">⚠️</span>
+            <div>
+              <p className="font-semibold">AI matching quality may be limited</p>
+              <p className="text-amber-800/90 dark:text-amber-200/80">
+                This job was structured from its title alone because the description is incomplete. Add a full description and requirements to improve match accuracy.
+              </p>
+            </div>
+          </div>
+        )}
+
+
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
