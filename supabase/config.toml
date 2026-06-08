@@ -149,7 +149,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.validate-candidate-fit-v2]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-validation-queue]
 verify_jwt = false
