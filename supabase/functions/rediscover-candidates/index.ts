@@ -85,6 +85,34 @@ const ROLE_FAMILIES: Record<string, { keywords: string[]; adjacent: string[] }> 
     keywords: ["accountant", "finance manager", "controller", "financial analyst", "fp&a"],
     adjacent: [],
   },
+  compliance: {
+    keywords: [
+      "compliance","compliance officer","compliance analyst","compliance specialist","regulatory",
+      "regulatory affairs","aml","kyc","sanctions","anti-money laundering","financial crime",
+      "trade compliance","trade surveillance","surveillance analyst","mlro","fcc","fincrime",
+    ],
+    adjacent: ["legal","risk_management"],
+  },
+  legal: {
+    keywords: ["legal counsel","lawyer","solicitor","attorney","paralegal","contracts manager"],
+    adjacent: ["compliance"],
+  },
+  risk_management: {
+    keywords: ["risk manager","market risk","credit risk","operational risk","risk analyst","enterprise risk"],
+    adjacent: ["compliance","finance"],
+  },
+  trade_support: {
+    keywords: ["trade support","trade control","trade operations","middle office","back office","settlements"],
+    adjacent: ["finance","risk_management"],
+  },
+  trading: {
+    keywords: ["trader","trading desk","commodity trader","oil trader","gas trader","power trader"],
+    adjacent: ["trade_support","risk_management"],
+  },
+  cyber_security: {
+    keywords: ["security analyst","cyber security","cybersecurity","information security","soc analyst","infosec","penetration tester"],
+    adjacent: ["devops","backend"],
+  },
 };
 
 const SENIORITY_RANK: Record<string, number> = {
