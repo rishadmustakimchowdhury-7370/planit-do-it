@@ -1,0 +1,1 @@
+UPDATE public.validation_queue SET status='pending', started_at=null WHERE status='in_progress' AND (started_at IS NULL OR started_at < now() - interval '1 minute');
