@@ -382,7 +382,11 @@ Location: ${job.location ?? "unspecified"}
 Description (truncated):
 ${(job.description ?? "").slice(0, 2500)}
 
-Detected job family: ${detectRoleFamily(job.title ?? "", job.description ?? "")}
+Detected job function family (authoritative): ${job?.structured_jd?.title?.function_family ?? detectRoleFamily(job.title ?? "", job.description ?? "")}
+Job canonical title: ${job?.structured_jd?.title?.canonical ?? job.title ?? ""}
+Mandatory skills (authoritative): ${(job?.structured_jd?.mandatory_skills ?? []).map((s: any) => s?.name).filter(Boolean).join(", ")}
+
+FUNCTION-FIRST REMINDER: Industry/domain are RANKING BOOSTERS ONLY. Same/closely-related function family + skills + responsibilities = strong/recommended. Different function family = transferable at best, regardless of industry pedigree.
 
 CANDIDATES (prefiltered by deterministic engine; YOU re-rank by recruiter realism):
 ${JSON.stringify(payload)}`;
