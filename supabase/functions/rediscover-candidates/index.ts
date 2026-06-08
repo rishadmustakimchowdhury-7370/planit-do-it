@@ -628,19 +628,31 @@ serve(async (req) => {
         jobFunctionFamily = (jr?.structured_jd as any)?.title?.function_family ?? null;
       } catch (_) { /* non-fatal */ }
 
+      const candFamOf = (s: typeof scored[number]) =>
+        (s.candidate as any)?.structured_profile?.current_title?.function_family ?? null;
+      const isSameFamily = (s: typeof scored[number]) =>
+        !!(jobFunctionFamily && candFamOf(s) && candFamOf(s) === jobFunctionFamily);
+
       const sorted = scored.sort((a, b) => b.result.final - a.result.final);
       const prefilterPool = sorted.filter((s) => {
         if (s.detectedEcosystem.some((e) => e.tier === "tier1")) return true;
         // Same function family always passes recall (high-recall first, then validator ranks)
-        const candFam = (s.candidate as any)?.structured_profile?.current_title?.function_family ?? null;
-        if (jobFunctionFamily && candFam && candFam === jobFunctionFamily) return true;
+        if (isSameFamily(s)) return true;
         if (!s.result.jobFamily) return s.result.final >= 30;
         return s.result.final >= 35;
       });
 
       // 7. STAGE 2: OpenAI recruiter re-ranker (cap at 30 to keep recall high).
+      // CRITICAL: pin same-function-family candidates to the front of the slice.
+      // The legacy keyword engine under-scores roles like Compliance / Legal whose
+      // skills aren't in SKILL_ALIASES, so without this they get cut by slice(0,30)
+      // and never reach Validator v2 — producing Primary Matches = 0 for those roles.
+      const familyMatches = prefilterPool.filter(isSameFamily);
+      const others = prefilterPool.filter((s) => !isSameFamily(s));
+      const orderedForRerank = [...familyMatches, ...others];
+
       let aiMap: Record<string, DiscoveryAIResult> = {};
-      const rerankInput = prefilterPool.slice(0, 30);
+      const rerankInput = orderedForRerank.slice(0, 30);
       if (rerankInput.length > 0) {
         try {
           aiMap = await rerankBatch(job, rerankInput);
