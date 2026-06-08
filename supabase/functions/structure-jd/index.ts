@@ -150,18 +150,37 @@ serve(async (req) => {
     }
 
     const sourceText = buildJobSource(job);
-    if (sourceText.length < 30) {
-      return new Response(JSON.stringify({ ok: false, reason: "insufficient_jd_text" }), {
+
+    // A job must at least have a title to be structurable.
+    if (!job.title || job.title.trim().length === 0) {
+      return new Response(JSON.stringify({ ok: false, reason: "missing_title" }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const structured = await callOpenAI(sourceText, OPENAI_API_KEY);
+    // Determine whether this is a "title-only" / minimal job. If the
+    // description+requirements payload is essentially empty, do a lightweight
+    // call to extract just the title taxonomy and mark the record as partial
+    // so the UI can warn the user — but never block downstream AI matching.
+    const meaningfulText = [job.description, job.requirements, ...(job.skills ?? [])]
+      .filter(Boolean).join(" ").trim();
+    const isMinimal = meaningfulText.length < 30;
+
+    const structured: any = await callOpenAI(sourceText, OPENAI_API_KEY);
+
+    // Annotate structuring quality metadata directly into the JSON payload
+    // (the column is jsonb and the schema is open-ended for these markers).
+    structured.structuring_status = isMinimal ? "partial" : "complete";
+    structured.confidence = isMinimal ? "low" : "high";
+    structured.structuring_notes = isMinimal
+      ? "Generated from job title only — description and requirements were missing or too short."
+      : null;
 
     const { error: updErr } = await supabase
       .from("jobs")
       .update({
-        structured_jd: structured as any,
+        structured_jd: structured,
         structured_jd_version: STRUCTURED_SCHEMA_VERSION,
         structured_jd_at: new Date().toISOString(),
       })
@@ -170,7 +189,7 @@ serve(async (req) => {
     if (updErr) throw updErr;
 
     return new Response(
-      JSON.stringify({ ok: true, structured_jd: structured }),
+      JSON.stringify({ ok: true, structured_jd: structured, partial: isMinimal }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
