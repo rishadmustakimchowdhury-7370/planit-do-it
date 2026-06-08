@@ -21,10 +21,19 @@ import {
 
 // Best-effort sibling-function invocation.
 async function invokeSibling(name: string, body: any, authHeader: string): Promise<void> {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const isInternalStructureJd = name === "structure-jd";
   try {
     await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${name}`, {
       method: "POST",
-      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      headers: isInternalStructureJd
+        ? {
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+            "x-internal-service-token": serviceKey,
+            "Content-Type": "application/json",
+          }
+        : { Authorization: authHeader, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
   } catch (e) { console.error(`invoke ${name} failed`, e); }
