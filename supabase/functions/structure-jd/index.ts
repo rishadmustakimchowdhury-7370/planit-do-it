@@ -90,6 +90,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const internalToken = req.headers.get("x-internal-service-token");
+    const internalSource = req.headers.get("x-internal-source");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const allowedInternalSources = new Set([
+      "backfill-structuring",
+      "validate-candidate-fit",
+      "validate-candidate-fit-v2",
+    ]);
+    if (!internalToken || internalToken !== serviceKey || !allowedInternalSources.has(internalSource ?? "")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { job_id, force } = await req.json();
     if (!job_id) {
       return new Response(JSON.stringify({ error: "job_id required" }), {
@@ -103,7 +118,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      serviceKey,
     );
 
     const { data: job, error } = await supabase

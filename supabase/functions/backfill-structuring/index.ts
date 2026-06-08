@@ -101,15 +101,13 @@ async function structureCandidateFromRow(c: any): Promise<StructuredCandidatePro
 
 async function invokeStructureJd(jobId: string, force: boolean): Promise<{ ok: boolean; err?: string }> {
   try {
-    // Gateway verify_jwt requires a valid JWT. The new SERVICE_ROLE_KEY format
-    // (sb_secret_...) is NOT a JWT and fails with UNAUTHORIZED_INVALID_JWT_FORMAT.
-    // Use the ANON_KEY (always a valid JWT) to pass the gateway; structure-jd
-    // does its own DB writes with the service role internally.
+    // structure-jd is an internal service function. The gateway does not verify
+    // JWTs for it; the function itself requires this service-only header.
     const r = await fetch(`${SUPABASE_URL}/functions/v1/structure-jd`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${ANON_KEY}`,
-        apikey: ANON_KEY,
+        "x-internal-service-token": SERVICE_KEY,
+        "x-internal-source": "backfill-structuring",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ job_id: jobId, force }),
