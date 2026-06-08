@@ -536,7 +536,7 @@ serve(async (req) => {
     const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
     const callerTenant = profile?.tenant_id;
     const { data: job } = await supabase.from("jobs")
-      .select("id, tenant_id, title, description, requirements, location, experience_level, skills")
+      .select("id, tenant_id, title, description, requirements, location, experience_level, skills, structured_jd")
       .eq("id", job_id).maybeSingle();
 
     if (!job) return new Response(JSON.stringify({ error: "Job not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
