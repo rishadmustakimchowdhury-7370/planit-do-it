@@ -362,6 +362,8 @@ async function rerankBatch(
     id: c.id,
     name: c.full_name,
     current_title: c.current_title,
+    structured_function_family: c?.structured_profile?.current_title?.function_family ?? null,
+    structured_canonical_title: c?.structured_profile?.current_title?.canonical ?? null,
     location: c.location,
     experience_years: c.experience_years,
     summary: (c.summary ?? "").slice(0, 1200),
