@@ -353,6 +353,13 @@ async function buildReportPdf(
   drawParagraph(ctx, report.executive_summary || "—");
   ctx.y -= 6;
 
+  // Candidate Overview
+  if (report.candidate_overview) {
+    drawSectionTitle(ctx, "Candidate Overview");
+    drawParagraph(ctx, report.candidate_overview);
+    ctx.y -= 6;
+  }
+
   // Fit assessment
   drawSectionTitle(ctx, "Fit Assessment vs Job Description");
   drawFitTable(ctx, report.fit_assessment ?? []);
@@ -363,14 +370,21 @@ async function buildReportPdf(
   ctx.y -= 4;
 
   // Considerations
-  drawSectionTitle(ctx, "Considerations");
+  drawSectionTitle(ctx, "Considerations / Potential Gaps");
   drawBullets(ctx, report.considerations ?? []);
   ctx.y -= 4;
 
-  // Recruiter Notes
-  drawSectionTitle(ctx, "Recruiter Notes");
-  drawParagraph(ctx, report.recruiter_notes || "—");
+  // Recruiter Assessment (preferred new field; falls back to legacy recruiter_notes)
+  drawSectionTitle(ctx, "Recruiter Assessment");
+  drawParagraph(ctx, report.recruiter_assessment || report.recruiter_notes || "—");
   ctx.y -= 6;
+
+  // Salary & Availability
+  if (report.salary_availability) {
+    drawSectionTitle(ctx, "Salary & Availability");
+    drawParagraph(ctx, report.salary_availability);
+    ctx.y -= 6;
+  }
 
   // Recommendation
   drawSectionTitle(ctx, "Recommendation");
