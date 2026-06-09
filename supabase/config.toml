@@ -166,3 +166,6 @@ verify_jwt = false
 
 [functions.generate-client-report]
 verify_jwt = true
+
+[functions.build-submission-pack]
+verify_jwt = true
