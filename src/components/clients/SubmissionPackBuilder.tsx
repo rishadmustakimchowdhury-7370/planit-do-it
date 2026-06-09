@@ -24,8 +24,11 @@ const OPTIONS: { key: "A" | "B" | "C"; title: string; desc: string }[] = [
   { key: "C", title: "Branded CV + AI Report", desc: "Branded cover page, CV, and AI report" },
 ];
 
+type LifecycleStatus = "none" | "draft" | "approved" | "generated" | "sent";
+
 export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, refreshKey }: Props) {
   const [latestReport, setLatestReport] = useState<{ id: string; version: number; status: string } | null>(null);
+  const [lifecycle, setLifecycle] = useState<LifecycleStatus>("none");
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState(false);
@@ -37,6 +40,22 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
       .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
       .order("version", { ascending: false }).limit(1).maybeSingle();
     setLatestReport(rep as any);
+
+    // Derive lifecycle status from packs & emails
+    let next: LifecycleStatus = "none";
+    if (rep) next = (rep as any).status === "approved" ? "approved" : "draft";
+    const [{ count: packs }, { count: emails }] = await Promise.all([
+      supabase.from("client_submission_pack_files")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId),
+      supabase.from("client_emails")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .in("status", ["sent", "sending"]),
+    ]);
+    if ((packs ?? 0) > 0 && next !== "none") next = "generated";
+    if ((emails ?? 0) > 0) next = "sent";
+    setLifecycle(next);
     setLoading(false);
   }
 
@@ -79,6 +98,8 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
               <Package className="h-4 w-4" />
             </div>
             <h4 className="font-semibold text-sm">Generate Submission Pack</h4>
+            <LifecycleBadge status={lifecycle} />
+
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
@@ -123,3 +144,16 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
     </Card>
   );
 }
+
+function LifecycleBadge({ status }: { status: LifecycleStatus }) {
+  const map: Record<LifecycleStatus, { label: string; variant: "secondary" | "default" | "outline" }> = {
+    none: { label: "No Report", variant: "outline" },
+    draft: { label: "Draft", variant: "secondary" },
+    approved: { label: "Approved", variant: "default" },
+    generated: { label: "Pack Generated", variant: "default" },
+    sent: { label: "Sent to Client", variant: "default" },
+  };
+  const { label, variant } = map[status];
+  return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
+}
+
