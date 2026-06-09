@@ -92,13 +92,36 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
 
   async function saveEdits() {
     if (!activeId) return;
+    const wasApproved = active?.status === "approved";
     const { error } = await supabase
       .from("client_submission_reports")
       .update({ report_data: report })
       .eq("id", activeId);
     if (error) { toast.error(error.message); return; }
-    toast.success("Saved");
+    toast.success(wasApproved ? "Saved — status reverted to Draft. Re-approve before generating a pack." : "Saved");
     setDirty(false);
+    loadVersions();
+  }
+
+  async function approve() {
+    if (!activeId) return;
+    const { error } = await supabase
+      .from("client_submission_reports")
+      .update({ status: "approved" })
+      .eq("id", activeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Report v${active?.version} approved and locked`);
+    loadVersions();
+  }
+
+  async function unapprove() {
+    if (!activeId) return;
+    const { error } = await supabase
+      .from("client_submission_reports")
+      .update({ status: "draft" })
+      .eq("id", activeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Reverted to Draft");
     loadVersions();
   }
 
