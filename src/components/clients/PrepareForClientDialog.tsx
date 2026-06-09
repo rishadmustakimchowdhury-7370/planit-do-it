@@ -112,6 +112,8 @@ export function PrepareForClientDialog({
 
   function handleBuilt(packId: string) {
     setPreviewPackId(packId);
+    setDeliveryAttachmentId(packId);
+    setRefreshKey((k) => k + 1);
     refreshStepState();
     setTimeout(() => jumpTo("preview-pack"), 100);
   }
