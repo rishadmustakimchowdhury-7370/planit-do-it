@@ -236,6 +236,25 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           </div>
         )}
 
+        {/* AI Match provenance banner — proves report inherits from validated AI Match */}
+        {(report.meta?.match_score != null || report.meta?.interview_probability != null || rec.tier) && (
+          <div className="px-3 py-2 text-xs bg-primary/5 text-foreground border-b flex flex-wrap items-center gap-2">
+            <Sparkles className="h-3 w-3 text-primary" />
+            <span className="font-semibold">Inherited from AI Match:</span>
+            {rec.tier && <Badge variant="default">{rec.tier}</Badge>}
+            {report.meta?.match_score != null && (
+              <Badge variant="outline">Match Score {report.meta.match_score}%</Badge>
+            )}
+            {report.meta?.interview_probability != null && (
+              <Badge variant="outline">Interview Probability {report.meta.interview_probability}%</Badge>
+            )}
+            <span className="text-muted-foreground ml-auto">
+              Recruiter Notes enrich the narrative — they do not change the score.
+            </span>
+          </div>
+        )}
+
+
         {/* Report Preview */}
         <div className="p-5 space-y-6" style={branding.primary_color ? { borderTop: `4px solid ${branding.primary_color}` } : {}}>
           {/* Header */}
