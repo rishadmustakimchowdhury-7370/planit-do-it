@@ -16,6 +16,8 @@ interface Props {
   candidateId: string;
   /** Provide to pin the preview to a specific historical file. */
   pinnedPackId?: string | null;
+  /** Bump to force a reload (e.g. after a new pack is built). */
+  refreshKey?: number;
   onEditReport?: () => void;
   onRegenerateReport?: () => void;
   onSendToClient?: (packId: string) => void;
