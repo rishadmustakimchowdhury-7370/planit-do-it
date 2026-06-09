@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
+import { ClientReportSection } from "./ClientReportSection";
 
 interface Props {
   open: boolean;
@@ -100,11 +101,13 @@ export function PrepareForClientDialog({
             candidateId={candidateId}
           />
 
-          {/* AI Report (Coming Soon) */}
-          <ComingSoonSection
-            icon={<Sparkles className="h-4 w-4" />}
-            title="AI Report"
-            description="An AI-generated fit analysis tailored to this client — strengths, gaps, talking points, and recommended next steps."
+          {/* AI Client Submission Report — Phase 3 */}
+          <ClientReportSection
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+            candidateName={candidateName}
+            jobTitle={jobTitle}
           />
 
           {/* Generate Submission Pack (Coming Soon) */}
