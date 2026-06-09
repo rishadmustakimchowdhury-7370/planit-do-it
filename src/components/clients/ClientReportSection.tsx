@@ -256,10 +256,44 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <Switch id="anon2" checked={anonymous} onCheckedChange={setAnonymous} />
               <Label htmlFor="anon2" className="text-xs">Anonymous</Label>
             </div>
-            <Button size="sm" variant="outline" onClick={generate} disabled={generating}>
-              {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-              Regenerate
-            </Button>
+            <div className="inline-flex rounded-md shadow-sm">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-r-none border-r-0"
+                onClick={() => generate("with_edits")}
+                disabled={generating}
+                title="Regenerate using your manual edits as context (default)"
+              >
+                {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Pencil className="h-3 w-3 mr-1" />}
+                Regenerate Using My Edits
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="rounded-l-none px-2" disabled={generating}>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="text-xs">Regeneration mode</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => generate("with_edits")}>
+                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Regenerate Using My Edits</span>
+                      <span className="text-[11px] text-muted-foreground">Default — preserves recruiter edits</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => generate("from_original")}>
+                    <Eraser className="h-3.5 w-3.5 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Regenerate From Original</span>
+                      <span className="text-[11px] text-muted-foreground">Clean slate — discards manual edits</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Button size="sm" variant="outline" onClick={saveEdits} disabled={!dirty}>
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
