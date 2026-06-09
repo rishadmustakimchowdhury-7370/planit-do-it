@@ -627,8 +627,16 @@ Deno.serve(async (req) => {
       }, 500);
     }
 
-    // Re-stamp page numbers / footer (header bar already rendered on every native page).
-    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, false);
+    // Stamp footers per pack option: report-pages get a minimal continuation
+    // footer; CV pages are untouched (B) or get a small "Submitted by" line (C).
+    const restamped = await stampSubmissionPack(finalPdf, brand, {
+      reportPageCount: reportPages,
+      cvPageCount: cvPages,
+      packOption: pack_option as "A" | "B" | "C",
+      candidateName,
+      position,
+      watermark: wantWatermark,
+    });
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
