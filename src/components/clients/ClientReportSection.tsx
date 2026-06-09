@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle, ChevronDown, Pencil, Eraser } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 const FIT_VALUES = ["STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
@@ -101,11 +102,18 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     if (active) { setReport(active.report_data); setDirty(false); }
   }, [activeId]); // eslint-disable-line
 
-  async function generate() {
+  async function generate(mode: "with_edits" | "from_original" = "with_edits") {
     setGenerating(true);
     try {
+      // If the recruiter has unsaved edits and chose "with_edits", persist them
+      // first so the latest text is what the regen reads from previous_report.
+      if (mode === "with_edits" && dirty && activeId) {
+        await supabase.from("client_submission_reports").update({ report_data: report }).eq("id", activeId);
+        setDirty(false);
+      }
+      const previous_report = mode === "with_edits" ? (report ?? active?.report_data ?? null) : null;
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
-        body: { job_id: jobId, candidate_id: candidateId, anonymous },
+        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report },
       });
       if (error) {
         // supabase-js hides the response body on non-2xx — read it from context.
@@ -125,12 +133,16 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         throw new Error(backendMsg);
       }
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(`Report v${(data as any).report.version} generated`);
+      const v = (data as any).report.version;
+      toast.success(mode === "with_edits"
+        ? `Report v${v} regenerated using your edits`
+        : `Report v${v} regenerated from original`);
       await Promise.all([loadVersions(), loadLiveAiMatch()]);
     } catch (e: any) {
       toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
   }
+
 
   async function saveEdits() {
     if (!activeId) return;
@@ -190,7 +202,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
               <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
             </div>
-            <Button onClick={generate} disabled={generating}>
+            <Button onClick={() => generate("from_original")} disabled={generating}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Generate Report
             </Button>
@@ -244,10 +256,44 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <Switch id="anon2" checked={anonymous} onCheckedChange={setAnonymous} />
               <Label htmlFor="anon2" className="text-xs">Anonymous</Label>
             </div>
-            <Button size="sm" variant="outline" onClick={generate} disabled={generating}>
-              {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-              Regenerate
-            </Button>
+            <div className="inline-flex rounded-md shadow-sm">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-r-none border-r-0"
+                onClick={() => generate("with_edits")}
+                disabled={generating}
+                title="Regenerate using your manual edits as context (default)"
+              >
+                {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Pencil className="h-3 w-3 mr-1" />}
+                Regenerate Using My Edits
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="rounded-l-none px-2" disabled={generating}>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="text-xs">Regeneration mode</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => generate("with_edits")}>
+                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Regenerate Using My Edits</span>
+                      <span className="text-[11px] text-muted-foreground">Default — preserves recruiter edits</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => generate("from_original")}>
+                    <Eraser className="h-3.5 w-3.5 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Regenerate From Original</span>
+                      <span className="text-[11px] text-muted-foreground">Clean slate — discards manual edits</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Button size="sm" variant="outline" onClick={saveEdits} disabled={!dirty}>
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>

@@ -100,7 +100,12 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return j({ error: "Unauthorized" }, 401);
 
-    const { job_id, candidate_id, anonymous = false } = await req.json();
+    const body = await req.json();
+    const { job_id, candidate_id, anonymous = false } = body;
+    // "with_edits" (default) = bring previous narrative + recruiter edits into the regen context
+    // "from_original" = clean slate, ignore prior edits
+    const mode: "with_edits" | "from_original" = body.mode === "from_original" ? "from_original" : "with_edits";
+    const previousReport = body.previous_report ?? null;
     if (!job_id || !candidate_id) return j({ error: "job_id and candidate_id required" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
@@ -186,16 +191,28 @@ Deno.serve(async (req) => {
       : "";
 
     // ---------- NARRATIVE-ONLY AI CALL ----------
+    const useEdits = mode === "with_edits" && previousReport;
     const systemPrompt = `You are an experienced executive recruiter writing the NARRATIVE sections of a Client Submission Report.
 
 CRITICAL RULES:
 - The Recommendation Tier, Match Score, Key Strengths, Considerations, and Fit Evidence are ALREADY DECIDED by the validated AI Match engine. They are provided below in "ai_match".
 - DO NOT re-score, contradict, or replace any of those fields. Your job is to translate them into client-safe prose.
-- Your executive_summary and recommendation_reasoning MUST be consistent with the supplied tier and score (e.g. if tier = "Strong Shortlist" and score = 85, write a confident summary; if tier = "Do Not Recommend", do not write a flattering summary).
+- Your executive_summary and recommendation_reasoning MUST be consistent with the supplied tier and score.
 - Recruiter notes enrich the narrative but never override the AI Match scoring.
-- For the snapshot, use the candidate/recruiter assessment data; say "Not stated" when unknown. Never fabricate.`;
+- For the snapshot, use the candidate/recruiter assessment data; say "Not stated" when unknown. Never fabricate.
+${useEdits ? `
+RECRUITER EDIT MODE — PRESERVE THE RECRUITER'S EDITS:
+- "previous_report" contains the recruiter's edited version. Treat it as ground truth for tone, factual snapshot fields, and phrasing the recruiter has chosen.
+- Refine and polish — do NOT discard, contradict, or revert recruiter edits.
+- Keep any snapshot values the recruiter has filled in. Only fill blanks.
+- Keep the recruiter's executive_summary structure and any specific claims they added; you may tighten prose, fix grammar, and reconcile with ai_match, but preserve the recruiter's intent.
+- Keep recruiter_notes substantially intact; you may improve flow but do not remove substantive points.
+- recommendation_reasoning should reflect the recruiter's framing where present.` : `
+CLEAN REGENERATION — IGNORE PRIOR EDITS:
+- Generate a fresh narrative from ai_match + recruiter_assessment only. Do not reuse prior report text.`}`;
 
     const userPayload = {
+      regeneration_mode: mode,
       job: {
         title: job.title, seniority: job.seniority_level, location: job.location,
         employment_type: job.employment_type, description: job.description,
@@ -223,7 +240,14 @@ CRITICAL RULES:
         structured: assessment.structured_notes,
         voice_transcript: voiceText,
       } : null,
+      previous_report: useEdits ? {
+        snapshot: previousReport.snapshot ?? null,
+        executive_summary: previousReport.executive_summary ?? null,
+        recruiter_notes: previousReport.recruiter_notes ?? null,
+        recommendation_reasoning: previousReport.recommendation?.reasoning ?? null,
+      } : null,
     };
+
 
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -292,6 +316,8 @@ CRITICAL RULES:
         match_score: matchScore,
         interview_probability: interviewProbability,
         recommendation_tier_raw: validation.recommendation_tier ?? validation.recommendation ?? null,
+        regeneration_mode: mode,
+        based_on_recruiter_edits: !!useEdits,
       },
     };
 
