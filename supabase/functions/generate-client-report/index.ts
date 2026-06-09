@@ -463,10 +463,18 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
         confidential: true,
       },
       branding: {
-        company_name: brandingRes.data?.company_name ?? null,
-        logo_url: brandingRes.data?.logo_url ?? null,
-        primary_color: brandingRes.data?.primary_color ?? null,
-        footer_text: brandingRes.data?.footer_text ?? null,
+        company_name: mergedBranding.company_name,
+        logo_url: mergedBranding.logo_url,
+        primary_color: mergedBranding.primary_color,
+        footer_text: mergedBranding.footer_text,
+      },
+      branding_diagnostics: {
+        agency_name: mergedBranding.company_name,
+        stored_logo_url: brandingRes.data?.logo_url || tenantRes.data?.logo_url || null,
+        resolved_logo_url: mergedBranding.logo_url,
+        source: brandingRes.data?.company_name
+          ? "branding_settings"
+          : (tenantRes.data?.name ? "tenants" : "none"),
       },
       meta: {
         generated_at: new Date().toISOString(),
