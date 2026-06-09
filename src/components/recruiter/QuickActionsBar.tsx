@@ -66,7 +66,7 @@ export const QuickActionsBar = memo(function QuickActionsBar({
   const actions: ActionDef[] = [
     { key: "v", label: "Validate fit", shortcut: "V", icon: CheckCircle2, onClick: onValidate, pending: pending?.validate },
     { key: "s", label: "Shortlist", shortcut: "S", icon: ListPlus, onClick: onShortlist, pending: pending?.shortlist },
-    { key: "u", label: "Submit to client", shortcut: "U", icon: Send, onClick: onSubmit, pending: pending?.submit },
+    { key: "u", label: "Prepare for client", shortcut: "U", icon: Send, onClick: onSubmit, pending: pending?.submit },
     { key: "m", label: "Message", shortcut: "M", icon: MessageSquare, onClick: onMessage },
     { key: "n", label: "Quick note", shortcut: "N", icon: StickyNote, onClick: onNote },
     { key: "f", label: "Follow-up reminder", shortcut: "F", icon: BellPlus, onClick: onFollowUp },

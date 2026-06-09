@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { SubmissionStatusBadge, type SubmissionStatus, SUBMISSION_STATUS_META, PIPELINE_STAGES } from "./SubmissionStatusBadge";
 import { SubmissionDetailDialog } from "./SubmissionDetailDialog";
-import { SubmissionWizard } from "./SubmissionWizard";
+import { PrepareForClientDialog } from "./PrepareForClientDialog";
 
 interface Props {
   tenantId: string;
@@ -80,11 +80,11 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold">Client Submission Pipeline</h3>
-            <p className="text-xs text-muted-foreground">Track candidates from submitted → hired across all client contacts.</p>
+            <h3 className="text-base font-semibold">Prepare For Client</h3>
+            <p className="text-xs text-muted-foreground">Prepare AI-powered submissions for clients and track candidates across the pipeline.</p>
           </div>
           <Button onClick={() => setPickerOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Submit Candidate
+            <Plus className="h-4 w-4 mr-1.5" /> Prepare For Client
           </Button>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
@@ -106,10 +106,10 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
             <Inbox className="h-10 w-10 text-muted-foreground" />
             <div>
               <p className="font-medium">No submissions yet</p>
-              <p className="text-sm text-muted-foreground">Submit a candidate from your pipeline to start collaborating with the client.</p>
+              <p className="text-sm text-muted-foreground">Prepare a candidate for a client to start collaborating.</p>
             </div>
             <Button onClick={() => setPickerOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" /> Submit a Candidate
+              <Plus className="h-4 w-4 mr-1.5" /> Prepare For Client
             </Button>
           </CardContent>
         </Card>
@@ -205,15 +205,13 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       })()}
 
       {pickedCandidate && (
-        <SubmissionWizard
+        <PrepareForClientDialog
           open={wizardOpen}
           onOpenChange={(v) => { setWizardOpen(v); if (!v) setPickedCandidate(null); }}
-          tenantId={tenantId}
           jobId={jobId}
           candidateId={pickedCandidate.id}
           candidateName={pickedCandidate.name}
           jobTitle={jobTitle}
-          onCompleted={() => load()}
         />
       )}
 
