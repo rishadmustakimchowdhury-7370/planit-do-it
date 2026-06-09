@@ -91,44 +91,60 @@ interface Ctx {
   branding: any;
   reportTitle: string;
   pageNumberStart: number;
+  logoImage: any | null;
+  headerMeta?: { candidateName?: string; position?: string; dateStr?: string };
+  pageIndex: number;
 }
 
 function newPage(ctx: Ctx) {
   ctx.page = ctx.pdf.addPage([A4.w, A4.h]);
+  ctx.pageIndex++;
   drawHeader(ctx);
-  ctx.y = A4.h - 110;
-}
-
-async function drawLogo(ctx: Ctx) {
-  const logo = await embedLogo(ctx.pdf, ctx.branding?.logo_url);
-  if (logo) {
-    const maxH = 32;
-    const scale = maxH / logo.height;
-    const w = Math.min(logo.width * scale, 160);
-    ctx.page.drawImage(logo, { x: MARGIN, y: A4.h - 50, width: w, height: maxH });
-  } else if (ctx.branding?.company_name) {
-    ctx.page.drawText(ctx.branding.company_name, {
-      x: MARGIN, y: A4.h - 38, size: 14, font: ctx.fonts.bold, color: ctx.brandColor,
-    });
-  }
+  ctx.y = A4.h - 96;
 }
 
 function drawHeader(ctx: Ctx) {
-  // brand color band
+  // top brand band
   ctx.page.drawRectangle({ x: 0, y: A4.h - 6, width: A4.w, height: 6, color: ctx.brandColor });
-  // confidential pill
-  ctx.page.drawText("CONFIDENTIAL", {
-    x: A4.w - MARGIN - 80, y: A4.h - 32, size: 9, font: ctx.fonts.bold, color: rgb(0.7, 0.15, 0.15),
+
+  // Agency logo (or explicit "no logo" notice — never silently fallback)
+  let logoBoxRight = MARGIN;
+  if (ctx.logoImage) {
+    const maxH = 38;
+    const scale = maxH / ctx.logoImage.height;
+    const w = Math.min(ctx.logoImage.width * scale, 150);
+    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 52, width: w, height: maxH });
+    logoBoxRight = MARGIN + w + 14;
+  } else {
+    ctx.page.drawText("No agency logo configured", {
+      x: MARGIN, y: A4.h - 30, size: 8, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
+    });
+    logoBoxRight = MARGIN + ctx.fonts.italic.widthOfTextAtSize("No agency logo configured", 8) + 14;
+  }
+
+  // Agency name + confidential subtitle next to logo
+  const agencyName = ctx.branding?.company_name || "Agency";
+  ctx.page.drawText(String(agencyName), {
+    x: logoBoxRight, y: A4.h - 30, size: 13, font: ctx.fonts.bold, color: ctx.brandColor,
   });
+  ctx.page.drawText("Candidate Submission Report — Confidential", {
+    x: logoBoxRight, y: A4.h - 46, size: 8.5, font: ctx.fonts.reg, color: MUTED,
+  });
+
+  // Right-side confidential pill
+  const conf = "CONFIDENTIAL";
+  const cw = ctx.fonts.bold.widthOfTextAtSize(conf, 9);
+  ctx.page.drawText(conf, {
+    x: A4.w - MARGIN - cw, y: A4.h - 30, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
+  });
+
   // hairline
   ctx.page.drawLine({
-    start: { x: MARGIN, y: A4.h - 60 }, end: { x: A4.w - MARGIN, y: A4.h - 60 },
+    start: { x: MARGIN, y: A4.h - 64 }, end: { x: A4.w - MARGIN, y: A4.h - 64 },
     thickness: 0.5, color: HAIR,
   });
-  ctx.page.drawText(ctx.reportTitle, {
-    x: MARGIN, y: A4.h - 78, size: 10, font: ctx.fonts.reg, color: MUTED,
-  });
 }
+
 
 function ensureSpace(ctx: Ctx, h: number) {
   if (ctx.y - h < 60) newPage(ctx);
