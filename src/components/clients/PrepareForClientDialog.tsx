@@ -182,7 +182,11 @@ export function PrepareForClientDialog({
             <Card className="mt-4">
               <CardContent className="p-5 space-y-3">
                 <SectionHeader icon={<Briefcase className="h-4 w-4" />} title="Job Information" />
-                {!job ? <Skeleton className="h-20" /> : (
+                {jobLoading ? <Skeleton className="h-20" /> : jobError && !job ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs">
+                    Could not load job details: {jobError}
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Job Title" value={job.title} />
                     <Field label="Seniority" value={job.seniority_level} />
