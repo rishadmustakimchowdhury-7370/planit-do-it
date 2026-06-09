@@ -63,6 +63,7 @@ serve(async (req) => {
     const [{ data: validation }, { data: candidate }, { data: job }] = await Promise.all([
       supabase.from("ai_candidate_validations").select("*")
         .eq("job_id", job_id).eq("candidate_id", candidate_id)
+        .eq("is_active", true)
         .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("candidates").select("full_name, current_title, current_company").eq("id", candidate_id).maybeSingle(),
       supabase.from("jobs").select("title, location, employment_type").eq("id", job_id).maybeSingle(),

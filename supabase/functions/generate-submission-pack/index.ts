@@ -177,7 +177,7 @@ serve(async (req) => {
       admin.from("jobs").select("*").eq("id", submission.job_id).maybeSingle(),
       submission.ai_validation_id
         ? admin.from("ai_candidate_validations").select("*").eq("id", submission.ai_validation_id).maybeSingle()
-        : admin.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        : admin.from("ai_candidate_validations").select("*").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       admin.from("rediscovered_matches").select("match_score, sub_scores, confidence, model_version, strengths, gaps, ai_summary").eq("job_id", submission.job_id).eq("candidate_id", submission.candidate_id).maybeSingle(),
       admin.from("branding_settings").select("logo_url, company_name, primary_color, footer_text").eq("tenant_id", submission.tenant_id).maybeSingle(),
       admin.from("profiles").select("full_name, email, phone").eq("id", userId).maybeSingle(),

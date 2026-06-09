@@ -98,6 +98,14 @@ export function AIValidationCard({ jobId, candidateId, compact, canRegenerate = 
         )}
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono text-muted-foreground border-b pb-2">
+          <span className="uppercase tracking-wide font-semibold">Validation</span>
+          <span className="rounded border px-1.5 py-0.5">ID: {validation.id ? String(validation.id).slice(0, 8) : "—"}</span>
+          <span className="rounded border px-1.5 py-0.5">Created: {new Date(validation.created_at).toLocaleString()}</span>
+          <span className={`rounded border px-1.5 py-0.5 ${(validation as any).is_active === false ? "bg-rose-50 text-rose-700 border-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"}`}>
+            Active: {(validation as any).is_active === false ? "✗ archived" : "✓"}
+          </span>
+        </div>
         {(validation.validation_stale || staleInProgress) && (
           <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             {staleInProgress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
