@@ -88,7 +88,7 @@ export function PrepareForClientDialog({
     setPreviewPackId(null); setDeliveryAttachmentId(null);
     (async () => {
       supabase.from("candidates")
-        .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
+        .select("id, full_name, current_title, current_company, email, phone, location, experience_years, skills, structured_profile, cv_parsed_data")
         .eq("id", candidateId).maybeSingle()
         .then(({ data, error }) => {
           setCandidate(data ?? null);
@@ -96,7 +96,7 @@ export function PrepareForClientDialog({
           setCandidateLoading(false);
         });
       supabase.from("jobs")
-        .select("id, title, location, employment_type, seniority_level, description")
+        .select("id, title, location, employment_type, experience_level, description, structured_jd")
         .eq("id", jobId).maybeSingle()
         .then(({ data, error }) => {
           setJob(data ?? null);
@@ -170,10 +170,10 @@ export function PrepareForClientDialog({
                 ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Full Name" value={candidate.full_name} />
-                    <Field label="Current Title" value={candidate.current_title} />
-                    <Field label="Current Company" value={candidate.current_company} />
-                    <Field label="Location" value={candidate.location} />
-                    <Field label="Years of Experience" value={candidate.years_experience?.toString()} />
+                    <Field label="Current Title" value={candidate.current_title ?? candidate.structured_profile?.current_title} />
+                    <Field label="Current Company" value={candidate.current_company ?? candidate.structured_profile?.current_company} />
+                    <Field label="Location" value={candidate.location ?? candidate.structured_profile?.location} />
+                    <Field label="Years of Experience" value={(candidate.experience_years ?? candidate.structured_profile?.years_experience ?? candidate.structured_profile?.career_progression?.total_years_experience)?.toString()} />
                     <Field label="Email" value={candidate.email} />
                   </div>
                 )}
@@ -189,9 +189,9 @@ export function PrepareForClientDialog({
                 ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Job Title" value={job.title} />
-                    <Field label="Seniority" value={job.seniority_level} />
-                    <Field label="Location" value={job.location} />
-                    <Field label="Employment Type" value={job.employment_type} />
+                    <Field label="Seniority" value={job.experience_level ?? job.structured_jd?.seniority_level} />
+                    <Field label="Location" value={job.location ?? job.structured_jd?.location} />
+                    <Field label="Employment Type" value={job.employment_type ?? job.structured_jd?.employment_type} />
                   </div>
                 )}
               </CardContent>

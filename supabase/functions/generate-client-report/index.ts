@@ -374,7 +374,7 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
     const userPayload = {
       regeneration_mode: mode,
       job: {
-        title: job.title, seniority: job.seniority_level, location: job.location,
+        title: job.title, seniority: job.experience_level ?? job.structured_jd?.seniority_level, location: job.location,
         employment_type: job.employment_type, description: job.description,
         requirements: job.requirements, structured_jd: job.structured_jd,
       },
