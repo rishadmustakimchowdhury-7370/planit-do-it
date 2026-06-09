@@ -116,6 +116,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { job_id, candidate_id, anonymous = false } = body;
+    const requestedValidationId = typeof body.ai_match_validation_id === "string" && body.ai_match_validation_id.trim()
+      ? body.ai_match_validation_id.trim()
+      : null;
     // "with_edits" (default) = bring previous narrative + recruiter edits into the regen context
     // "from_original" = clean slate, ignore prior edits
     const mode: "with_edits" | "from_original" = body.mode === "from_original" ? "from_original" : "with_edits";
@@ -128,17 +131,36 @@ Deno.serve(async (req) => {
     const tenant_id = profile?.tenant_id;
     if (!tenant_id) return j({ error: "No tenant" }, 403);
 
-    const [candidateRes, jobRes, validationRes, assessmentRes, brandingRes] = await Promise.all([
+    const [candidateRes, jobRes, latestValidationRes, mirrorRes, assessmentRes, brandingRes] = await Promise.all([
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
       admin.from("jobs").select("*").eq("id", job_id).maybeSingle(),
       admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
+      admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, interview_probability").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
       admin.from("prepare_for_client_assessments").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("recruiter_id", user.id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", tenant_id).maybeSingle(),
     ]);
 
     const candidate = candidateRes.data;
     const job = jobRes.data;
-    const validation = validationRes.data;
+    const aiMatchValidationId = requestedValidationId ?? mirrorRes.data?.ai_validation_id ?? latestValidationRes.data?.id ?? null;
+    let validation = latestValidationRes.data;
+    if (aiMatchValidationId) {
+      const { data: exactValidation, error: exactErr } = await admin
+        .from("ai_candidate_validations")
+        .select("*")
+        .eq("id", aiMatchValidationId)
+        .eq("job_id", job_id)
+        .eq("candidate_id", candidate_id)
+        .maybeSingle();
+      if (exactErr) return j({ error: exactErr.message }, 500);
+      if (!exactValidation) {
+        return j({
+          error: `AI Match validation record ${aiMatchValidationId} was not found for this candidate/job. Re-run AI Match before generating the report.`,
+          parity: { ai_match_validation_id: aiMatchValidationId, report_validation_id: null },
+        }, 409);
+      }
+      validation = exactValidation;
+    }
     const assessment = assessmentRes.data;
 
     if (!candidate || !job) return j({ error: "Candidate or job not found" }, 404);
