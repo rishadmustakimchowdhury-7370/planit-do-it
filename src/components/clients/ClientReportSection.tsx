@@ -40,7 +40,7 @@ type ReportRow = {
   created_at: string;
 };
 
-export function ClientReportSection({ tenantId, jobId, candidateId, candidateName, jobTitle }: Props) {
+export function ClientReportSection({ tenantId, jobId, candidateId, candidateName, jobTitle, onReportChanged }: Props) {
   const [versions, setVersions] = useState<ReportRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [report, setReport] = useState<any | null>(null);
