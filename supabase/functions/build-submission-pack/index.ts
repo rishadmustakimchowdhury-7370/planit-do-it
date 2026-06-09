@@ -267,37 +267,56 @@ function drawFitTable(ctx: Ctx, rows: any[]) {
   ctx.y -= 4;
 }
 
-async function buildReportPdf(report: any, branding: any, reportTitle: string): Promise<Uint8Array> {
+async function buildReportPdf(
+  report: any,
+  branding: any,
+  reportTitle: string,
+  diag?: { logo_status: LogoStatus; logo_reason: string },
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const reg = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const brandColor = hexToRgb(branding?.primary_color);
+  const logoEmbed = await embedLogoDiag(pdf, branding?.logo_url);
+  if (diag) { diag.logo_status = logoEmbed.status; diag.logo_reason = logoEmbed.reason; }
+
+  const h = report.header ?? {};
+  const candidateName = h.anonymous ? "Confidential Candidate" : (h.candidate_name || "—");
+  const position = h.position || "—";
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 
   const ctx: Ctx = {
     pdf,
     page: pdf.addPage([A4.w, A4.h]),
-    y: A4.h - 110,
+    y: A4.h - 96,
     fonts: { reg, bold, italic },
     brandColor, branding, reportTitle, pageNumberStart: 1,
+    logoImage: logoEmbed.image,
+    headerMeta: { candidateName, position, dateStr },
+    pageIndex: 0,
   };
   drawHeader(ctx);
-  await drawLogo(ctx);
 
-  // Title block
-  const h = report.header ?? {};
-  ctx.page.drawText("Client Submission Report", {
-    x: MARGIN, y: ctx.y, size: 18, font: bold, color: INK,
+  // Page 1: Candidate / Position / Date row directly under the header
+  const colW = (A4.w - 2 * MARGIN) / 3;
+  const kvRow = (x: number, label: string, value: string) => {
+    ctx.page.drawText(label.toUpperCase(), { x, y: ctx.y, size: 7.5, font: bold, color: MUTED });
+    const lines = wrap(value || "—", bold, 12, colW - 8);
+    lines.slice(0, 2).forEach((ln, i) => {
+      ctx.page.drawText(ln, { x, y: ctx.y - 14 - i * 14, size: 12, font: bold, color: INK });
+    });
+  };
+  kvRow(MARGIN, "Candidate", candidateName);
+  kvRow(MARGIN + colW, "Position", position);
+  kvRow(MARGIN + colW * 2, "Date", dateStr);
+  ctx.y -= 50;
+  ctx.page.drawLine({
+    start: { x: MARGIN, y: ctx.y + 4 }, end: { x: A4.w - MARGIN, y: ctx.y + 4 },
+    thickness: 0.5, color: HAIR,
   });
-  ctx.y -= 22;
-  ctx.page.drawText((h.anonymous ? "Confidential Candidate" : (h.candidate_name || "—")), {
-    x: MARGIN, y: ctx.y, size: 14, font: bold, color: brandColor,
-  });
-  ctx.y -= 16;
-  ctx.page.drawText(`Position: ${h.position || "—"}`, {
-    x: MARGIN, y: ctx.y, size: 10, font: reg, color: MUTED,
-  });
-  ctx.y -= 24;
+  ctx.y -= 8;
+
 
   // Snapshot — 2 columns
   drawSectionTitle(ctx, "Candidate Snapshot");
