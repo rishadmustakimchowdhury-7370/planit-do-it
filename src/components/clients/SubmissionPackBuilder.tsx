@@ -40,7 +40,7 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
     setLoading(false);
   }
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, refreshKey]);
 
   async function approve() {
     if (!latestReport) return;
