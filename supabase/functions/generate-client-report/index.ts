@@ -66,22 +66,36 @@ function asArr(x: any): string[] {
 
 function buildFitAssessment(validation: any): Array<{ requirement: string; evidence: string; fit: string }> {
   const rows: Array<{ requirement: string; evidence: string; fit: string }> = [];
+  const mandate = Array.isArray(validation?.mandate_match) ? validation.mandate_match : [];
+  for (const m of mandate) {
+    if (!m || m.__kind) continue;
+    const req = typeof m === "string" ? m : (m.requirement ?? m.required ?? m.skill ?? m.name ?? "");
+    const ev = typeof m === "string" ? "Evidenced in Validator v2" : (m.evidence ?? m.notes ?? m.reason ?? "Evidenced in Validator v2");
+    const fit = String(typeof m === "string" ? "STRONG" : (m.fit ?? "STRONG")).toUpperCase();
+    if (req) rows.push({ requirement: req, evidence: ev, fit });
+  }
+  if (rows.length > 0) return rows;
+
+  const reqOf = (m: any) => typeof m === "string" ? m : (m?.requirement ?? m?.required ?? m?.skill ?? m?.name ?? m?.label ?? "");
+  const evOf = (m: any, fallback: string) => typeof m === "string" ? fallback : (m?.evidence ?? m?.notes ?? m?.reason ?? (m?.candidate_skill ? `Matched candidate evidence: ${m.candidate_skill}` : fallback));
   const matched = Array.isArray(validation?.mandatory_skills_matched) ? validation.mandatory_skills_matched : [];
   for (const m of matched) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Evidenced in candidate profile");
+    if (m && typeof m === "object" && m.matched === false) continue;
+    const req = reqOf(m);
+    const ev  = evOf(m, "Matched by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "STRONG" });
   }
   const preferred = Array.isArray(validation?.preferred_skills_matched) ? validation.preferred_skills_matched : [];
   for (const m of preferred) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Preferred skill demonstrated" : (m?.evidence ?? m?.notes ?? "Preferred skill demonstrated");
+    if (m && typeof m === "object" && m.matched === false) continue;
+    const req = reqOf(m);
+    const ev  = evOf(m, "Preferred requirement matched by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "GOOD" });
   }
   const missing = Array.isArray(validation?.missing_requirements) ? validation.missing_requirements : [];
   for (const m of missing) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Not evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Not evidenced in candidate profile");
+    const req = reqOf(m);
+    const ev  = evOf(m, "Marked missing by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "MISSING" });
   }
   return rows;
@@ -102,6 +116,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { job_id, candidate_id, anonymous = false } = body;
+    const requestedValidationId = typeof body.ai_match_validation_id === "string" && body.ai_match_validation_id.trim()
+      ? body.ai_match_validation_id.trim()
+      : null;
     // "with_edits" (default) = bring previous narrative + recruiter edits into the regen context
     // "from_original" = clean slate, ignore prior edits
     const mode: "with_edits" | "from_original" = body.mode === "from_original" ? "from_original" : "with_edits";
@@ -114,17 +131,36 @@ Deno.serve(async (req) => {
     const tenant_id = profile?.tenant_id;
     if (!tenant_id) return j({ error: "No tenant" }, 403);
 
-    const [candidateRes, jobRes, validationRes, assessmentRes, brandingRes] = await Promise.all([
+    const [candidateRes, jobRes, latestValidationRes, mirrorRes, assessmentRes, brandingRes] = await Promise.all([
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
       admin.from("jobs").select("*").eq("id", job_id).maybeSingle(),
       admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
+      admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, discovery_classification, interview_probability, strengths, gaps").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
       admin.from("prepare_for_client_assessments").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("recruiter_id", user.id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", tenant_id).maybeSingle(),
     ]);
 
     const candidate = candidateRes.data;
     const job = jobRes.data;
-    const validation = validationRes.data;
+    const aiMatchValidationId = requestedValidationId ?? mirrorRes.data?.ai_validation_id ?? latestValidationRes.data?.id ?? null;
+    let validation = latestValidationRes.data;
+    if (aiMatchValidationId) {
+      const { data: exactValidation, error: exactErr } = await admin
+        .from("ai_candidate_validations")
+        .select("*")
+        .eq("id", aiMatchValidationId)
+        .eq("job_id", job_id)
+        .eq("candidate_id", candidate_id)
+        .maybeSingle();
+      if (exactErr) return j({ error: exactErr.message }, 500);
+      if (!exactValidation) {
+        return j({
+          error: `AI Match validation record ${aiMatchValidationId} was not found for this candidate/job. Re-run AI Match before generating the report.`,
+          parity: { ai_match_validation_id: aiMatchValidationId, report_validation_id: null },
+        }, 409);
+      }
+      validation = exactValidation;
+    }
     const assessment = assessmentRes.data;
 
     if (!candidate || !job) return j({ error: "Candidate or job not found" }, 404);
@@ -147,31 +183,64 @@ Deno.serve(async (req) => {
       }, 409);
     }
 
-    // Score Parity Guard: cross-check the latest validation against the
-    // rediscovered_matches mirror that powers the AI Match panel. If they
-    // disagree, refuse to generate so AI Match and the report can never
-    // tell two different stories.
-    const { data: mirror } = await admin
-      .from("rediscovered_matches")
-      .select("ai_validation_id, final_score, ai_score, recommendation_tier")
-      .eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle();
-    const mirrorScore = mirror?.final_score ?? mirror?.ai_score ?? null;
-    const mirrorTier = String(mirror?.recommendation_tier ?? "").toLowerCase();
-    const scoreMismatch = mirrorScore != null && Math.round(Number(mirrorScore)) !== Math.round(Number(matchScore));
-    const tierMismatch = mirrorTier && mirrorTier !== tierRaw;
-    if (scoreMismatch || tierMismatch) {
-      console.error("[generate-client-report] PARITY MISMATCH", {
+    // Parity Guard: the report must use the exact validation row attached to
+    // the displayed AI Match card. If the IDs or inherited fields differ,
+    // refuse generation — no secondary assessment or stale validation allowed.
+    const mirror = mirrorRes.data;
+    const mirrorValidationId = mirror?.ai_validation_id ?? null;
+    if (mirrorValidationId && validation.id !== mirrorValidationId) {
+      console.error("[generate-client-report] VALIDATION ID MISMATCH", {
         job_id, candidate_id,
-        validation_id: validation.id, validation_score: matchScore, validation_tier: tierRaw,
-        mirror_validation_id: mirror?.ai_validation_id, mirror_score: mirrorScore, mirror_tier: mirrorTier,
+        ai_match_validation_id: mirrorValidationId,
+        report_validation_id: validation.id,
+        requested_validation_id: requestedValidationId,
       });
       return j({
-        error: `Score parity check failed: AI Match mirror shows ${mirrorScore ?? "n/a"}% / ${mirrorTier || "n/a"} but the latest validation shows ${matchScore}% / ${tierRaw}. Re-run AI Match to reconcile, then regenerate the report.`,
+        error: `Validation ID mismatch: AI Match is using ${mirrorValidationId}, but the report would use ${validation.id}. Re-run AI Match, then regenerate the report.`,
         parity: {
-          validation_id: validation.id,
-          validation_score: matchScore,
-          validation_tier: tierRaw,
-          mirror_validation_id: mirror?.ai_validation_id ?? null,
+          ai_match_validation_id: mirrorValidationId,
+          report_validation_id: validation.id,
+          requested_validation_id: requestedValidationId,
+        },
+      }, 409);
+    }
+
+    const mirrorScore = mirror?.final_score ?? mirror?.ai_score ?? null;
+    const mirrorTier = String(mirror?.recommendation_tier ?? "").toLowerCase();
+    const mirrorInterviewProbability = mirror?.interview_probability ?? null;
+    const scoreMismatch = mirrorScore != null && Math.round(Number(mirrorScore)) !== Math.round(Number(matchScore));
+    const tierMismatch = mirrorTier && mirrorTier !== tierRaw;
+    const interviewProbabilityMismatch = mirrorInterviewProbability != null && interviewProbability != null && Math.round(Number(mirrorInterviewProbability)) !== Math.round(Number(interviewProbability));
+    const interviewProbabilityMissing = mirrorInterviewProbability != null && interviewProbability == null;
+    const discoveryTierMismatch = mirror?.discovery_classification === "strong_shortlist" && tierRaw !== "strong_match";
+    const mirrorStrengths = asArr(mirror?.strengths);
+    const mirrorGaps = asArr(mirror?.gaps);
+    const validationMissing = asArr(validation.missing_requirements);
+    const mirrorStoryMismatch = (mirrorStrengths.length > 0 && asArr(validation.strengths).length === 0)
+      || (mirrorGaps.length === 0 && validationMissing.length > 0);
+
+    if (scoreMismatch || tierMismatch || interviewProbabilityMismatch || interviewProbabilityMissing || discoveryTierMismatch || mirrorStoryMismatch) {
+      console.error("[generate-client-report] PARITY MISMATCH", {
+        job_id, candidate_id,
+        validation_id: validation.id, validation_score: matchScore, validation_tier: tierRaw, validation_interview_probability: interviewProbability,
+        ai_match_validation_id: mirrorValidationId, mirror_score: mirrorScore, mirror_tier: mirrorTier,
+        mirror_interview_probability: mirrorInterviewProbability, mirror_discovery_classification: mirror?.discovery_classification,
+        mirror_strength_count: mirrorStrengths.length, validation_strength_count: asArr(validation.strengths).length,
+        mirror_gap_count: mirrorGaps.length, validation_missing_count: validationMissing.length,
+      });
+      return j({
+        error: `AI Match parity check failed: AI Match displays validation ${mirrorValidationId ?? "latest"} with score ${mirrorScore ?? "n/a"}%, tier ${mirrorTier || mirror?.discovery_classification || "n/a"}, interview probability ${mirrorInterviewProbability ?? "n/a"}% and ${mirrorGaps.length} gaps; the report validation ${validation.id} has score ${matchScore}%, tier ${tierRaw}, interview probability ${interviewProbability ?? "n/a"}% and ${validationMissing.length} missing requirements. Re-run AI Match to reconcile before generating the report.`,
+        parity: {
+          ai_match_validation_id: mirrorValidationId,
+          report_validation_id: validation.id,
+          ai_match_score: mirrorScore,
+          report_score: matchScore,
+          ai_match_tier: mirrorTier || mirror?.discovery_classification || null,
+          report_tier: tierRaw,
+          ai_match_interview_probability: mirrorInterviewProbability,
+          report_interview_probability: interviewProbability,
+          ai_match_gap_count: mirrorGaps.length,
+          report_missing_count: validationMissing.length,
           mirror_score: mirrorScore,
           mirror_tier: mirrorTier || null,
         },
@@ -311,6 +380,8 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
       meta: {
         generated_at: new Date().toISOString(),
         source: "ai_match_v2",
+        ai_match_validation_id: mirrorValidationId ?? validation.id,
+        report_validation_id: validation.id,
         validation_id: validation.id,
         validation_generated_at: validation.created_at,
         match_score: matchScore,

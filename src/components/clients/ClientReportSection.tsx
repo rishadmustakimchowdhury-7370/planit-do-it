@@ -51,7 +51,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [dirty, setDirty] = useState(false);
   const [liveAiMatch, setLiveAiMatch] = useState<{
     validation_score: number | null; validation_tier: string | null; validation_id: string | null;
-    mirror_score: number | null; mirror_tier: string | null;
+    mirror_score: number | null; mirror_tier: string | null; mirror_validation_id: string | null;
+    mirror_interview_probability: number | null; mirror_discovery_classification: string | null;
   } | null>(null);
 
   const active = useMemo(() => versions.find((v) => v.id === activeId) ?? null, [versions, activeId]);
@@ -63,15 +64,18 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         .eq("job_id", jobId).eq("candidate_id", candidateId)
         .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("rediscovered_matches")
-        .select("final_score, ai_score, recommendation_tier")
+        .select("ai_validation_id, final_score, ai_score, recommendation_tier, interview_probability, discovery_classification")
         .eq("job_id", jobId).eq("candidate_id", candidateId).maybeSingle(),
     ]);
     setLiveAiMatch({
       validation_id: (v as any)?.id ?? null,
       validation_score: (v as any)?.final_score ?? (v as any)?.fit_score ?? null,
       validation_tier: ((v as any)?.recommendation_tier ?? (v as any)?.recommendation ?? null),
+      mirror_validation_id: (m as any)?.ai_validation_id ?? null,
       mirror_score: (m as any)?.final_score ?? (m as any)?.ai_score ?? null,
       mirror_tier: (m as any)?.recommendation_tier ?? null,
+      mirror_interview_probability: (m as any)?.interview_probability ?? null,
+      mirror_discovery_classification: (m as any)?.discovery_classification ?? null,
     });
   }
 
@@ -112,8 +116,9 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         setDirty(false);
       }
       const previous_report = mode === "with_edits" ? (report ?? active?.report_data ?? null) : null;
+      const ai_match_validation_id = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
-        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report },
+        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report, ai_match_validation_id },
       });
       if (error) {
         // supabase-js hides the response body on non-2xx — read it from context.
@@ -197,6 +202,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           <p className="text-sm text-muted-foreground">
             Generate an AI-powered recruiter assessment report combining the JD, CV, validation results, and your recruiter notes.
           </p>
+          <div className="rounded-md border bg-muted/30 p-3 text-xs flex flex-wrap gap-2">
+            <span className="font-semibold text-muted-foreground uppercase tracking-wide">Validation Diagnostics</span>
+            <Badge variant="outline">AI Match Validation ID: {shortId(liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null)}</Badge>
+            <Badge variant="outline">Report Validation ID: —</Badge>
+            {liveAiMatch?.mirror_score != null && <Badge variant="outline">AI Match Score: {Math.round(Number(liveAiMatch.mirror_score))}%</Badge>}
+          </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
@@ -343,12 +354,16 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         {/* Score Parity Diagnostic — AI Match Score / Validator Score / Report Score MUST match */}
         {(() => {
           const reportScore = report.meta?.match_score ?? null;
-          const aiMatchScore = liveAiMatch?.mirror_score ?? null;        // value shown on AI Match panel
+          const aiMatchScore = liveAiMatch?.mirror_score ?? liveAiMatch?.validation_score ?? null; // AI Match mirror, falling back to latest validator row
           const validatorScore = liveAiMatch?.validation_score ?? null;  // latest validator row
+          const aiMatchValidationId = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
+          const reportValidationId = report.meta?.report_validation_id ?? report.meta?.validation_id ?? null;
           const round = (n: any) => (n == null ? null : Math.round(Number(n)));
           const a = round(aiMatchScore), v = round(validatorScore), r = round(reportScore);
           const present = [a, v, r].filter((x) => x != null) as number[];
-          const mismatch = present.length >= 2 && new Set(present).size > 1;
+          const scoreMismatch = present.length >= 2 && new Set(present).size > 1;
+          const validationMismatch = !!(aiMatchValidationId && reportValidationId && aiMatchValidationId !== reportValidationId);
+          const mismatch = scoreMismatch || validationMismatch;
           const cellCls = (val: number | null) =>
             `px-2 py-1 rounded border text-xs font-mono ${
               mismatch ? "bg-rose-50 text-rose-700 border-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"
@@ -362,10 +377,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
                 <span className={cellCls(a)}>AI Match: {a ?? "—"}%</span>
                 <span className={cellCls(v)}>Validator: {v ?? "—"}%</span>
                 <span className={cellCls(r)}>Report: {r ?? "—"}%</span>
+                <span className={cellCls(null)}>AI Match Validation ID: {shortId(aiMatchValidationId)}</span>
+                <span className={cellCls(null)}>Report Validation ID: {shortId(reportValidationId)}</span>
                 {mismatch ? (
                   <span className="ml-auto inline-flex items-center gap-1 text-rose-700 font-medium">
                     <AlertTriangle className="h-3 w-3" />
-                    Mismatch — regenerate the report to reconcile.
+                    Mismatch — generation is blocked until AI Match is re-run.
                   </span>
                 ) : (
                   <span className="ml-auto inline-flex items-center gap-1 text-emerald-700 font-medium">
@@ -579,6 +596,10 @@ function SectionHeader({ title }: { title: string }) {
       <h4 className="font-semibold text-sm">{title}</h4>
     </div>
   );
+}
+
+function shortId(id?: string | null) {
+  return id ? `${id.slice(0, 8)}…` : "—";
 }
 
 function Subsection({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
