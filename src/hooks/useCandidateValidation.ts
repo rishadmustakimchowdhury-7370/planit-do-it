@@ -60,6 +60,7 @@ export function useLatestValidation(jobId?: string | null, candidateId?: string 
       const { data: validation, error } = await supabase
         .from("ai_candidate_validations").select("*")
         .eq("job_id", jobId!).eq("candidate_id", candidateId!)
+        .eq("is_active", true)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
       if (!validation) return null;
