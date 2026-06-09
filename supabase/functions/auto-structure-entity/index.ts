@@ -134,33 +134,23 @@ async function processJob(jobId: string, force: boolean) {
   const text = await r.text();
 
   if (!r.ok) {
+    const { data: cur } = await admin
+      .from("jobs")
+      .select("structuring_retry_count")
+      .eq("id", jobId)
+      .maybeSingle();
     await admin
       .from("jobs")
       .update({
         structuring_status: "failed",
-        structuring_last_error: `structure-jd_${r.status}: ${text.slice(0, 300)}`,
-        structuring_retry_count: ((): any =>
-          // bump via SQL-style update through RPC-less approach: read then write
-          undefined)(),
+        structuring_last_error:
+          `structure-jd_${r.status}: ${text.slice(0, 300)}`,
+        structuring_retry_count: (cur?.structuring_retry_count ?? 0) + 1,
       })
       .eq("id", jobId);
-    // Bump retry separately
-    await admin.rpc("noop_does_not_exist").catch(() => null);
-    await admin
-      .from("jobs")
-      .select("structuring_retry_count")
-      .eq("id", jobId)
-      .maybeSingle()
-      .then(async ({ data }) => {
-        await admin
-          .from("jobs")
-          .update({
-            structuring_retry_count: (data?.structuring_retry_count ?? 0) + 1,
-          })
-          .eq("id", jobId);
-      });
     throw new Error(`structure-jd_${r.status}`);
   }
+
 
   await admin
     .from("jobs")
