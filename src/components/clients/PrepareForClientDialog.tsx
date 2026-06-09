@@ -37,6 +37,7 @@ export function PrepareForClientDialog({
   const [previewPackId, setPreviewPackId] = useState<string | null>(null);
   const [deliveryAttachmentId, setDeliveryAttachmentId] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<StepKey>("context");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const refs = {
     context: useRef<HTMLDivElement>(null),
