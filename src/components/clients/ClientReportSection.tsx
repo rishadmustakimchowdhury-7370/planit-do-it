@@ -95,7 +95,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     onReportChanged?.();
   }
 
-  useEffect(() => { loadVersions(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { loadVersions(); loadLiveAiMatch(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
 
   useEffect(() => {
     if (active) { setReport(active.report_data); setDirty(false); }
