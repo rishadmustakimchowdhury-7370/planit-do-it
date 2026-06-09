@@ -144,3 +144,16 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
     </Card>
   );
 }
+
+function LifecycleBadge({ status }: { status: LifecycleStatus }) {
+  const map: Record<LifecycleStatus, { label: string; variant: "secondary" | "default" | "outline" }> = {
+    none: { label: "No Report", variant: "outline" },
+    draft: { label: "Draft", variant: "secondary" },
+    approved: { label: "Approved", variant: "default" },
+    generated: { label: "Pack Generated", variant: "default" },
+    sent: { label: "Sent to Client", variant: "default" },
+  };
+  const { label, variant } = map[status];
+  return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
+}
+
