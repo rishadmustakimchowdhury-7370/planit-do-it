@@ -59,20 +59,21 @@ export function SubmissionHistoryTable({
     const reportIds = Array.from(new Set(list.map(r => r.report_id).filter(Boolean)));
     const recruiterIds = Array.from(new Set(list.map(r => r.recruiter_id).filter(Boolean)));
 
+    const sb = supabase as any;
     const [reportsRes, profsRes, candRes, jobRes] = await Promise.all([
       reportIds.length
-        ? (supabase.from("client_submission_reports").select("id, version").in("id", reportIds as string[]) as any)
-        : Promise.resolve({ data: [] as any[] }),
+        ? sb.from("client_submission_reports").select("id, version").in("id", reportIds)
+        : Promise.resolve({ data: [] }),
       recruiterIds.length
-        ? (supabase.from("profiles").select("user_id, full_name").in("user_id", recruiterIds as string[]) as any)
-        : Promise.resolve({ data: [] as any[] }),
-      supabase.from("candidates").select("full_name").eq("id", candidateId).maybeSingle(),
-      supabase.from("jobs").select("title, client_id").eq("id", jobId).maybeSingle(),
+        ? sb.from("profiles").select("user_id, full_name").in("user_id", recruiterIds)
+        : Promise.resolve({ data: [] }),
+      sb.from("candidates").select("full_name").eq("id", candidateId).maybeSingle(),
+      sb.from("jobs").select("title, client_id").eq("id", jobId).maybeSingle(),
     ]);
-    const reports = (reportsRes as any).data as any[] | null;
-    const profs = (profsRes as any).data as any[] | null;
-    const cand = (candRes as any).data as any;
-    const job = (jobRes as any).data as any;
+    const reports = (reportsRes?.data ?? []) as any[];
+    const profs = (profsRes?.data ?? []) as any[];
+    const cand = candRes?.data as any;
+    const job = jobRes?.data as any;
 
     let clientName: string | null = null;
     if ((job as any)?.client_id) {
