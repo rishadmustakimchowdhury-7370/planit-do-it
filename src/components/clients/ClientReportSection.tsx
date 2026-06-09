@@ -202,6 +202,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           <p className="text-sm text-muted-foreground">
             Generate an AI-powered recruiter assessment report combining the JD, CV, validation results, and your recruiter notes.
           </p>
+          <div className="rounded-md border bg-muted/30 p-3 text-xs flex flex-wrap gap-2">
+            <span className="font-semibold text-muted-foreground uppercase tracking-wide">Validation Diagnostics</span>
+            <Badge variant="outline">AI Match Validation ID: {shortId(liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null)}</Badge>
+            <Badge variant="outline">Report Validation ID: —</Badge>
+            {liveAiMatch?.mirror_score != null && <Badge variant="outline">AI Match Score: {Math.round(Number(liveAiMatch.mirror_score))}%</Badge>}
+          </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
@@ -590,6 +596,10 @@ function SectionHeader({ title }: { title: string }) {
       <h4 className="font-semibold text-sm">{title}</h4>
     </div>
   );
+}
+
+function shortId(id?: string | null) {
+  return id ? `${id.slice(0, 8)}…` : "—";
 }
 
 function Subsection({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
