@@ -66,22 +66,36 @@ function asArr(x: any): string[] {
 
 function buildFitAssessment(validation: any): Array<{ requirement: string; evidence: string; fit: string }> {
   const rows: Array<{ requirement: string; evidence: string; fit: string }> = [];
+  const mandate = Array.isArray(validation?.mandate_match) ? validation.mandate_match : [];
+  for (const m of mandate) {
+    if (!m || m.__kind) continue;
+    const req = typeof m === "string" ? m : (m.requirement ?? m.required ?? m.skill ?? m.name ?? "");
+    const ev = typeof m === "string" ? "Evidenced in Validator v2" : (m.evidence ?? m.notes ?? m.reason ?? "Evidenced in Validator v2");
+    const fit = String(typeof m === "string" ? "STRONG" : (m.fit ?? "STRONG")).toUpperCase();
+    if (req) rows.push({ requirement: req, evidence: ev, fit });
+  }
+  if (rows.length > 0) return rows;
+
+  const reqOf = (m: any) => typeof m === "string" ? m : (m?.requirement ?? m?.required ?? m?.skill ?? m?.name ?? m?.label ?? "");
+  const evOf = (m: any, fallback: string) => typeof m === "string" ? fallback : (m?.evidence ?? m?.notes ?? m?.reason ?? (m?.candidate_skill ? `Matched candidate evidence: ${m.candidate_skill}` : fallback));
   const matched = Array.isArray(validation?.mandatory_skills_matched) ? validation.mandatory_skills_matched : [];
   for (const m of matched) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Evidenced in candidate profile");
+    if (m && typeof m === "object" && m.matched === false) continue;
+    const req = reqOf(m);
+    const ev  = evOf(m, "Matched by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "STRONG" });
   }
   const preferred = Array.isArray(validation?.preferred_skills_matched) ? validation.preferred_skills_matched : [];
   for (const m of preferred) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Preferred skill demonstrated" : (m?.evidence ?? m?.notes ?? "Preferred skill demonstrated");
+    if (m && typeof m === "object" && m.matched === false) continue;
+    const req = reqOf(m);
+    const ev  = evOf(m, "Preferred requirement matched by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "GOOD" });
   }
   const missing = Array.isArray(validation?.missing_requirements) ? validation.missing_requirements : [];
   for (const m of missing) {
-    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
-    const ev  = typeof m === "string" ? "Not evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Not evidenced in candidate profile");
+    const req = reqOf(m);
+    const ev  = evOf(m, "Marked missing by Validator v2");
     if (req) rows.push({ requirement: req, evidence: ev, fit: "MISSING" });
   }
   return rows;
