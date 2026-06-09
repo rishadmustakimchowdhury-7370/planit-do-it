@@ -471,35 +471,55 @@ Deno.serve(async (req) => {
       .from("client_submission_reports").select("*").eq("id", report_id).maybeSingle();
     if (rErr || !report) return jsonR({ error: "Report not found" }, 404);
 
-    const [{ data: candidate }, { data: job }, { data: branding }] = await Promise.all([
+    const [{ data: candidate }, { data: job }, { data: branding }, { data: tenant }] = await Promise.all([
       admin.from("candidates").select("*").eq("id", report.candidate_id).maybeSingle(),
       admin.from("jobs").select("title").eq("id", report.job_id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", report.tenant_id).maybeSingle(),
+      admin.from("tenants").select("name, logo_url, primary_color").eq("id", report.tenant_id).maybeSingle(),
     ]);
 
-    const brand = { ...(branding ?? {}), ...(report.report_data?.branding ?? {}) };
+    // Merge branding from tenants -> branding_settings -> report override.
+    const mergedBranding: any = {
+      company_name: branding?.company_name || tenant?.name || null,
+      logo_url: branding?.logo_url || tenant?.logo_url || null,
+      primary_color: branding?.primary_color || tenant?.primary_color || null,
+      footer_text: branding?.footer_text || branding?.company_name || tenant?.name || null,
+      ...(report.report_data?.branding ?? {}),
+    };
+    if (mergedBranding.logo_url) {
+      mergedBranding.logo_url = await resolveLogoUrl(admin, mergedBranding.logo_url);
+    }
+    const brand = mergedBranding;
+
     const candidateName = report.report_data?.header?.anonymous
       ? "Confidential Candidate"
       : (candidate?.full_name ?? "Candidate");
     const position = job?.title ?? report.report_data?.header?.position ?? "";
 
-    const reportTitle = `${brand.company_name || "Agency"} — Client Submission v${report.version}`;
+    const reportTitle = brand.company_name
+      ? `${brand.company_name} — Client Submission v${report.version}`
+      : `Client Submission v${report.version}`;
     const reportPdf = await buildReportPdf(report.report_data, brand, reportTitle);
 
+    // Always include the FULL CV for options B and C — fall back to a structured CV PDF when source isn't a PDF.
+    let cvBytes: Uint8Array | null = null;
+    if (pack_option === "B" || pack_option === "C") {
+      cvBytes = await tryFetchCvPdf(admin, candidate);
+      if (!cvBytes) cvBytes = await buildStructuredCvPdf(candidate, brand, position);
+    }
+
     const parts: Uint8Array[] = [];
+    // Order per spec: Report first, then CV.
+    parts.push(reportPdf);
     if (pack_option === "C") {
       parts.push(await buildBrandedCvCover(brand, candidateName, position));
     }
-    if (pack_option === "B" || pack_option === "C") {
-      const cv = await tryFetchCvPdf(admin, candidate);
-      if (cv) parts.push(cv);
-    }
-    parts.push(reportPdf);
+    if (cvBytes) parts.push(cvBytes);
 
     const finalPdf = parts.length === 1 ? parts[0] : await mergePdfs(parts);
 
-    // Re-stamp page numbers across the merged document for clean numbering
-    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark);
+    // Re-stamp page numbers / footer; for option C also overlay agency logo on every page.
+    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, pack_option === "C");
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
