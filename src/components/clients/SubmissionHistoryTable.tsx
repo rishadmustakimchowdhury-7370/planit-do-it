@@ -74,6 +74,7 @@ export function SubmissionHistoryTable({
 
     const list = (packs?.data ?? []) as any[];
     if (list.length === 0) { setRows([]); setLoading(false); return; }
+    // (events were already set above)
 
     const reportIds = Array.from(new Set(list.map(r => r.report_id).filter(Boolean)));
     const recruiterIds = Array.from(new Set(list.map(r => r.recruiter_id).filter(Boolean)));
