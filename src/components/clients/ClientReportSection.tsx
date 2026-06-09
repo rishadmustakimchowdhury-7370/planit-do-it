@@ -51,7 +51,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [dirty, setDirty] = useState(false);
   const [liveAiMatch, setLiveAiMatch] = useState<{
     validation_score: number | null; validation_tier: string | null; validation_id: string | null;
-    mirror_score: number | null; mirror_tier: string | null;
+    mirror_score: number | null; mirror_tier: string | null; mirror_validation_id: string | null;
+    mirror_interview_probability: number | null; mirror_discovery_classification: string | null;
   } | null>(null);
 
   const active = useMemo(() => versions.find((v) => v.id === activeId) ?? null, [versions, activeId]);
@@ -63,15 +64,18 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         .eq("job_id", jobId).eq("candidate_id", candidateId)
         .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("rediscovered_matches")
-        .select("final_score, ai_score, recommendation_tier")
+        .select("ai_validation_id, final_score, ai_score, recommendation_tier, interview_probability, discovery_classification")
         .eq("job_id", jobId).eq("candidate_id", candidateId).maybeSingle(),
     ]);
     setLiveAiMatch({
       validation_id: (v as any)?.id ?? null,
       validation_score: (v as any)?.final_score ?? (v as any)?.fit_score ?? null,
       validation_tier: ((v as any)?.recommendation_tier ?? (v as any)?.recommendation ?? null),
+      mirror_validation_id: (m as any)?.ai_validation_id ?? null,
       mirror_score: (m as any)?.final_score ?? (m as any)?.ai_score ?? null,
       mirror_tier: (m as any)?.recommendation_tier ?? null,
+      mirror_interview_probability: (m as any)?.interview_probability ?? null,
+      mirror_discovery_classification: (m as any)?.discovery_classification ?? null,
     });
   }
 
@@ -112,8 +116,9 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         setDirty(false);
       }
       const previous_report = mode === "with_edits" ? (report ?? active?.report_data ?? null) : null;
+      const ai_match_validation_id = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
-        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report },
+        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report, ai_match_validation_id },
       });
       if (error) {
         // supabase-js hides the response body on non-2xx — read it from context.
