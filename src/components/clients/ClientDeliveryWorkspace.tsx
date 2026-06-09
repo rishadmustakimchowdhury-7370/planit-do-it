@@ -145,7 +145,7 @@ export function ClientDeliveryWorkspace({
     setLoading(false);
   }
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id]);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id, refreshKey]);
 
   // Honor prefill: when a history row asks us to re-send, auto-attach and jump to compose.
   useEffect(() => {
@@ -153,7 +153,11 @@ export function ClientDeliveryWorkspace({
     if (packs.find(p => p.id === prefillAttachmentId)) {
       setSelectedPackIds([prefillAttachmentId]);
       setTab("compose");
+    } else {
+      // Pack not in current list yet (just built) — refresh to pick it up.
+      refresh();
     }
+    /* eslint-disable-next-line */
   }, [prefillAttachmentId, packs]);
 
   const sentItems = useMemo(() => emails.filter(e => e.status === "sent" || e.status === "sending" || e.direction === "outbound"), [emails]);
