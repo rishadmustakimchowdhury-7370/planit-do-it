@@ -551,6 +551,23 @@ Deno.serve(async (req) => {
     }
     const brand = mergedBranding;
 
+    // Branding diagnostics — surfaced to the recruiter/super admin in the response.
+    const brandingDiagnostics: {
+      agency_name: string | null;
+      stored_logo_url: string | null;
+      resolved_logo_url: string | null;
+      logo_status: LogoStatus;
+      logo_reason: string;
+      last_attempt: string;
+    } = {
+      agency_name: brand.company_name,
+      stored_logo_url: branding?.logo_url || tenant?.logo_url || null,
+      resolved_logo_url: brand.logo_url,
+      logo_status: brand.logo_url ? "ok" : "missing",
+      logo_reason: brand.logo_url ? "pending embed" : "No agency logo configured",
+      last_attempt: new Date().toISOString(),
+    };
+
     const candidateName = report.report_data?.header?.anonymous
       ? "Confidential Candidate"
       : (candidate?.full_name ?? "Candidate");
@@ -559,27 +576,64 @@ Deno.serve(async (req) => {
     const reportTitle = brand.company_name
       ? `${brand.company_name} — Client Submission v${report.version}`
       : `Client Submission v${report.version}`;
-    const reportPdf = await buildReportPdf(report.report_data, brand, reportTitle);
+
+    // Build report PDF and capture the actual logo embed result for diagnostics.
+    const logoDiag: { logo_status: LogoStatus; logo_reason: string } = {
+      logo_status: brandingDiagnostics.logo_status, logo_reason: brandingDiagnostics.logo_reason,
+    };
+    const reportPdf = await buildReportPdf(report.report_data, brand, reportTitle, logoDiag);
+    brandingDiagnostics.logo_status = logoDiag.logo_status;
+    brandingDiagnostics.logo_reason = logoDiag.logo_reason;
+    brandingDiagnostics.last_attempt = new Date().toISOString();
 
     // Always include the FULL CV for options B and C — fall back to a structured CV PDF when source isn't a PDF.
     let cvBytes: Uint8Array | null = null;
+    let cvSource: "original_pdf" | "structured_fallback" | "none" = "none";
     if (pack_option === "B" || pack_option === "C") {
       cvBytes = await tryFetchCvPdf(admin, candidate);
-      if (!cvBytes) cvBytes = await buildStructuredCvPdf(candidate, brand, position);
+      if (cvBytes) cvSource = "original_pdf";
+      else { cvBytes = await buildStructuredCvPdf(candidate, brand, position); cvSource = "structured_fallback"; }
     }
 
-    const parts: Uint8Array[] = [];
-    // Order per spec: Report first, then CV.
-    parts.push(reportPdf);
-    if (pack_option === "C") {
-      parts.push(await buildBrandedCvCover(brand, candidateName, position));
-    }
+    // Pack structure per spec: Report first, CV immediately after. NO cover/intro/separator pages.
+    const parts: Uint8Array[] = [reportPdf];
     if (cvBytes) parts.push(cvBytes);
 
-    const finalPdf = parts.length === 1 ? parts[0] : await mergePdfs(parts);
+    let finalPdf: Uint8Array;
+    let mergeFailed: number[] = [];
+    if (parts.length === 1) {
+      finalPdf = parts[0];
+    } else {
+      const merged = await mergePdfs(parts);
+      finalPdf = merged.bytes;
+      mergeFailed = merged.failed;
+    }
 
-    // Re-stamp page numbers / footer; for option C also overlay agency logo on every page.
-    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, pack_option === "C");
+    // Merge validation — count pages and refuse to ship a partial pack.
+    const reportPages = await countPdfPages(reportPdf);
+    const cvPages = cvBytes ? await countPdfPages(cvBytes) : 0;
+    const totalPages = await countPdfPages(finalPdf);
+    const expectedTotal = reportPages + cvPages;
+    const mergeOk = mergeFailed.length === 0 && totalPages === expectedTotal && reportPages > 0;
+    const mergeValidation = {
+      report_pages: reportPages,
+      cv_pages: cvPages,
+      total_pages: totalPages,
+      expected_total: expectedTotal,
+      cv_source: cvSource,
+      failed_parts: mergeFailed,
+      merge_status: mergeOk ? "ok" : (cvBytes && mergeFailed.includes(1) ? "cv_merge_failed" : "validation_failed"),
+    };
+    if (!mergeOk) {
+      return jsonR({
+        error: cvBytes ? "CV merge failed" : "PDF merge validation failed",
+        branding_diagnostics: brandingDiagnostics,
+        merge_validation: mergeValidation,
+      }, 500);
+    }
+
+    // Re-stamp page numbers / footer (header bar already rendered on every native page).
+    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, false);
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
@@ -601,12 +655,18 @@ Deno.serve(async (req) => {
     const { data: signed } = await admin.storage.from("submission-packs")
       .createSignedUrl(storagePath, 3600);
 
-    return jsonR({ pack: inserted, download_url: signed?.signedUrl ?? null });
+    return jsonR({
+      pack: inserted,
+      download_url: signed?.signedUrl ?? null,
+      branding_diagnostics: brandingDiagnostics,
+      merge_validation: mergeValidation,
+    });
   } catch (e) {
     console.error(e);
     return jsonR({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
+
 
 async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
   try {
