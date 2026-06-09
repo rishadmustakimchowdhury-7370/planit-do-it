@@ -106,10 +106,10 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
             <Inbox className="h-10 w-10 text-muted-foreground" />
             <div>
               <p className="font-medium">No submissions yet</p>
-              <p className="text-sm text-muted-foreground">Submit a candidate from your pipeline to start collaborating with the client.</p>
+              <p className="text-sm text-muted-foreground">Prepare a candidate for a client to start collaborating.</p>
             </div>
             <Button onClick={() => setPickerOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" /> Submit a Candidate
+              <Plus className="h-4 w-4 mr-1.5" /> Prepare For Client
             </Button>
           </CardContent>
         </Card>
