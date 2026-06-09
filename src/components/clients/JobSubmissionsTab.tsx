@@ -80,11 +80,11 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold">Client Submission Pipeline</h3>
-            <p className="text-xs text-muted-foreground">Track candidates from submitted → hired across all client contacts.</p>
+            <h3 className="text-base font-semibold">Prepare For Client</h3>
+            <p className="text-xs text-muted-foreground">Prepare AI-powered submissions for clients and track candidates across the pipeline.</p>
           </div>
           <Button onClick={() => setPickerOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Submit Candidate
+            <Plus className="h-4 w-4 mr-1.5" /> Prepare For Client
           </Button>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
