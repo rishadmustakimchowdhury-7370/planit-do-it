@@ -100,7 +100,12 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return j({ error: "Unauthorized" }, 401);
 
-    const { job_id, candidate_id, anonymous = false } = await req.json();
+    const body = await req.json();
+    const { job_id, candidate_id, anonymous = false } = body;
+    // "with_edits" (default) = bring previous narrative + recruiter edits into the regen context
+    // "from_original" = clean slate, ignore prior edits
+    const mode: "with_edits" | "from_original" = body.mode === "from_original" ? "from_original" : "with_edits";
+    const previousReport = body.previous_report ?? null;
     if (!job_id || !candidate_id) return j({ error: "job_id and candidate_id required" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
