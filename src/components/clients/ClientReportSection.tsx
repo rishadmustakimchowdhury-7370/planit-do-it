@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle, ChevronDown, Pencil, Eraser } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 const FIT_VALUES = ["STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
