@@ -183,14 +183,28 @@ Deno.serve(async (req) => {
       }, 409);
     }
 
-    // Score Parity Guard: cross-check the latest validation against the
-    // rediscovered_matches mirror that powers the AI Match panel. If they
-    // disagree, refuse to generate so AI Match and the report can never
-    // tell two different stories.
-    const { data: mirror } = await admin
-      .from("rediscovered_matches")
-      .select("ai_validation_id, final_score, ai_score, recommendation_tier")
-      .eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle();
+    // Parity Guard: the report must use the exact validation row attached to
+    // the displayed AI Match card. If the IDs or inherited fields differ,
+    // refuse generation — no secondary assessment or stale validation allowed.
+    const mirror = mirrorRes.data;
+    const mirrorValidationId = mirror?.ai_validation_id ?? null;
+    if (mirrorValidationId && validation.id !== mirrorValidationId) {
+      console.error("[generate-client-report] VALIDATION ID MISMATCH", {
+        job_id, candidate_id,
+        ai_match_validation_id: mirrorValidationId,
+        report_validation_id: validation.id,
+        requested_validation_id: requestedValidationId,
+      });
+      return j({
+        error: `Validation ID mismatch: AI Match is using ${mirrorValidationId}, but the report would use ${validation.id}. Re-run AI Match, then regenerate the report.`,
+        parity: {
+          ai_match_validation_id: mirrorValidationId,
+          report_validation_id: validation.id,
+          requested_validation_id: requestedValidationId,
+        },
+      }, 409);
+    }
+
     const mirrorScore = mirror?.final_score ?? mirror?.ai_score ?? null;
     const mirrorTier = String(mirror?.recommendation_tier ?? "").toLowerCase();
     const scoreMismatch = mirrorScore != null && Math.round(Number(mirrorScore)) !== Math.round(Number(matchScore));
@@ -207,7 +221,7 @@ Deno.serve(async (req) => {
           validation_id: validation.id,
           validation_score: matchScore,
           validation_tier: tierRaw,
-          mirror_validation_id: mirror?.ai_validation_id ?? null,
+          ai_match_validation_id: mirrorValidationId,
           mirror_score: mirrorScore,
           mirror_tier: mirrorTier || null,
         },
