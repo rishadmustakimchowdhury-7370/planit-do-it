@@ -83,12 +83,28 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
         body: { job_id: jobId, candidate_id: candidateId, anonymous },
       });
-      if (error) throw error;
+      if (error) {
+        // supabase-js hides the response body on non-2xx — read it from context.
+        let backendMsg = error.message;
+        const ctx: any = (error as any).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const raw = await ctx.text();
+            try {
+              const parsed = JSON.parse(raw);
+              backendMsg = parsed.error || parsed.message || raw || backendMsg;
+            } catch {
+              if (raw) backendMsg = raw;
+            }
+          } catch { /* ignore */ }
+        }
+        throw new Error(backendMsg);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success(`Report v${(data as any).report.version} generated`);
       await loadVersions();
     } catch (e: any) {
-      toast.error(e?.message ?? "Generation failed");
+      toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
   }
 
