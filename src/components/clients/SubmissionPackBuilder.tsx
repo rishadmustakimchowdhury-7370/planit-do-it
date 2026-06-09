@@ -167,6 +167,35 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
             ))}
           </div>
         )}
+
+        {lastDiag && (lastDiag.branding_diagnostics || lastDiag.merge_validation) && (
+          <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+              Branding & Merge Diagnostics
+            </div>
+            {lastDiag.branding_diagnostics && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                <DiagCell label="Agency" value={lastDiag.branding_diagnostics.agency_name || "—"} />
+                <DiagCell label="Logo Status" value={lastDiag.branding_diagnostics.logo_status}
+                  tone={lastDiag.branding_diagnostics.logo_status === "ok" ? "ok" : "warn"} />
+                <DiagCell label="Last Attempt" value={new Date(lastDiag.branding_diagnostics.last_attempt).toLocaleTimeString()} />
+                <DiagCell label="Stored logo_url" value={lastDiag.branding_diagnostics.stored_logo_url || "—"} mono />
+                <DiagCell label="Resolved URL" value={lastDiag.branding_diagnostics.resolved_logo_url || "—"} mono />
+                <DiagCell label="Reason" value={lastDiag.branding_diagnostics.logo_reason} />
+              </div>
+            )}
+            {lastDiag.merge_validation && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                <DiagCell label="Report Pages" value={String(lastDiag.merge_validation.report_pages)} />
+                <DiagCell label="CV Pages" value={String(lastDiag.merge_validation.cv_pages)} />
+                <DiagCell label="Total Pages" value={String(lastDiag.merge_validation.total_pages)} />
+                <DiagCell label="CV Source" value={lastDiag.merge_validation.cv_source} />
+                <DiagCell label="Merge Status" value={lastDiag.merge_validation.merge_status}
+                  tone={lastDiag.merge_validation.merge_status === "ok" ? "ok" : "warn"} />
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
