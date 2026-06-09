@@ -96,7 +96,7 @@ export function SubmissionHistoryTable({
     setLoading(false);
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, refreshKey]);
 
   async function download(row: Row) {
     const { data, error } = await supabase.storage.from("submission-packs")
