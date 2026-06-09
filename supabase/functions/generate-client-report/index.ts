@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
       ...asArr(validation.risks),
       ...asArr(validation.missing_requirements).map(r => `Gap: ${r}`),
     ];
-    const inheritedFit = buildFitAssessment(validation);
+    const inheritedFit = buildFitAssessment(validation, candidate);
 
     const voiceText = Array.isArray(assessment?.voice_transcripts)
       ? assessment.voice_transcripts.map((v: any) => v?.transcript || "").filter(Boolean).join("\n\n")
