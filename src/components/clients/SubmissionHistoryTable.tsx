@@ -44,6 +44,7 @@ export function SubmissionHistoryTable({
   tenantId, jobId, candidateId, refreshKey, onPreview, onResend,
 }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
