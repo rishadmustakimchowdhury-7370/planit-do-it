@@ -102,11 +102,18 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     if (active) { setReport(active.report_data); setDirty(false); }
   }, [activeId]); // eslint-disable-line
 
-  async function generate() {
+  async function generate(mode: "with_edits" | "from_original" = "with_edits") {
     setGenerating(true);
     try {
+      // If the recruiter has unsaved edits and chose "with_edits", persist them
+      // first so the latest text is what the regen reads from previous_report.
+      if (mode === "with_edits" && dirty && activeId) {
+        await supabase.from("client_submission_reports").update({ report_data: report }).eq("id", activeId);
+        setDirty(false);
+      }
+      const previous_report = mode === "with_edits" ? (report ?? active?.report_data ?? null) : null;
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
-        body: { job_id: jobId, candidate_id: candidateId, anonymous },
+        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report },
       });
       if (error) {
         // supabase-js hides the response body on non-2xx — read it from context.
@@ -126,12 +133,16 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         throw new Error(backendMsg);
       }
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(`Report v${(data as any).report.version} generated`);
+      const v = (data as any).report.version;
+      toast.success(mode === "with_edits"
+        ? `Report v${v} regenerated using your edits`
+        : `Report v${v} regenerated from original`);
       await Promise.all([loadVersions(), loadLiveAiMatch()]);
     } catch (e: any) {
       toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
   }
+
 
   async function saveEdits() {
     if (!activeId) return;
