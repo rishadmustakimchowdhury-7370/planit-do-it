@@ -397,25 +397,9 @@ async function buildReportPdf(
   ctx.y -= 28;
   drawParagraph(ctx, rec.reasoning || "—");
 
-  // Footer w/ page numbers
-  finalizePageNumbers(pdf, branding, reg);
+  // Page numbers / footers are stamped after the final merge so report-pages
+  // and CV-pages can be footered differently per pack option.
   return await pdf.save();
-}
-
-function finalizePageNumbers(pdf: PDFDocument, branding: any, font: PDFFont) {
-  const total = pdf.getPageCount();
-  for (let i = 0; i < total; i++) {
-    const p = pdf.getPage(i);
-    p.drawLine({
-      start: { x: MARGIN, y: 36 }, end: { x: A4.w - MARGIN, y: 36 },
-      thickness: 0.5, color: HAIR,
-    });
-    const left = branding?.footer_text || branding?.company_name || "";
-    if (left) p.drawText(String(left), { x: MARGIN, y: 22, size: 8, font, color: MUTED });
-    const txt = `Page ${i + 1} of ${total}`;
-    const w = font.widthOfTextAtSize(txt, 8);
-    p.drawText(txt, { x: A4.w - MARGIN - w, y: 22, size: 8, font, color: MUTED });
-  }
 }
 
 async function buildBrandedCvCover(branding: any, candidateName: string, position: string): Promise<Uint8Array> {
