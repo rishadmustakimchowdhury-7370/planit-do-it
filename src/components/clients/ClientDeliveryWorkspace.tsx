@@ -25,6 +25,8 @@ interface Props {
   jobTitle: string;
   /** When set, the matching pack is auto-attached on mount/update. */
   prefillAttachmentId?: string | null;
+  /** Bump to force a reload of packs/emails (e.g. after a new pack is built). */
+  refreshKey?: number;
 }
 
 type PackRow = {
@@ -59,7 +61,7 @@ const PACK_LABELS: Record<string, string> = {
 };
 
 export function ClientDeliveryWorkspace({
-  tenantId, jobId, candidateId, candidateName, jobTitle, prefillAttachmentId,
+  tenantId, jobId, candidateId, candidateName, jobTitle, prefillAttachmentId, refreshKey,
 }: Props) {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -143,7 +145,7 @@ export function ClientDeliveryWorkspace({
     setLoading(false);
   }
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id]);
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id, refreshKey]);
 
   // Honor prefill: when a history row asks us to re-send, auto-attach and jump to compose.
   useEffect(() => {
@@ -151,7 +153,11 @@ export function ClientDeliveryWorkspace({
     if (packs.find(p => p.id === prefillAttachmentId)) {
       setSelectedPackIds([prefillAttachmentId]);
       setTab("compose");
+    } else {
+      // Pack not in current list yet (just built) — refresh to pick it up.
+      refresh();
     }
+    /* eslint-disable-next-line */
   }, [prefillAttachmentId, packs]);
 
   const sentItems = useMemo(() => emails.filter(e => e.status === "sent" || e.status === "sending" || e.direction === "outbound"), [emails]);

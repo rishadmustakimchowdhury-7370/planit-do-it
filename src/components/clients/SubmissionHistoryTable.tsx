@@ -14,6 +14,7 @@ interface Props {
   tenantId: string;
   jobId: string;
   candidateId: string;
+  refreshKey?: number;
   onPreview?: (packId: string) => void;
   onResend?: (packId: string) => void;
 }
@@ -40,7 +41,7 @@ const OPT_LABEL: Record<string, string> = {
 };
 
 export function SubmissionHistoryTable({
-  tenantId, jobId, candidateId, onPreview, onResend,
+  tenantId, jobId, candidateId, refreshKey, onPreview, onResend,
 }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +96,7 @@ export function SubmissionHistoryTable({
     setLoading(false);
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, refreshKey]);
 
   async function download(row: Row) {
     const { data, error } = await supabase.storage.from("submission-packs")

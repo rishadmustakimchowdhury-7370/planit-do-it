@@ -37,6 +37,7 @@ export function PrepareForClientDialog({
   const [previewPackId, setPreviewPackId] = useState<string | null>(null);
   const [deliveryAttachmentId, setDeliveryAttachmentId] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<StepKey>("context");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const refs = {
     context: useRef<HTMLDivElement>(null),
@@ -111,6 +112,8 @@ export function PrepareForClientDialog({
 
   function handleBuilt(packId: string) {
     setPreviewPackId(packId);
+    setDeliveryAttachmentId(packId);
+    setRefreshKey((k) => k + 1);
     refreshStepState();
     setTimeout(() => jumpTo("preview-pack"), 100);
   }
@@ -199,6 +202,7 @@ export function PrepareForClientDialog({
             <SubmissionPackPreview
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               pinnedPackId={previewPackId}
+              refreshKey={refreshKey}
               onEditReport={() => jumpTo("report")}
               onRegenerateReport={() => jumpTo("report")}
               onSendToClient={handleSendFromPreview}
@@ -210,12 +214,14 @@ export function PrepareForClientDialog({
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               candidateName={candidateName} jobTitle={jobTitle}
               prefillAttachmentId={deliveryAttachmentId}
+              refreshKey={refreshKey}
             />
           </div>
 
           <div ref={refs.history}>
             <SubmissionHistoryTable
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              refreshKey={refreshKey}
               onPreview={handleHistoryPreview}
               onResend={handleHistoryResend}
             />
