@@ -350,10 +350,14 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           const reportScore = report.meta?.match_score ?? null;
           const aiMatchScore = liveAiMatch?.mirror_score ?? null;        // value shown on AI Match panel
           const validatorScore = liveAiMatch?.validation_score ?? null;  // latest validator row
+          const aiMatchValidationId = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
+          const reportValidationId = report.meta?.report_validation_id ?? report.meta?.validation_id ?? null;
           const round = (n: any) => (n == null ? null : Math.round(Number(n)));
           const a = round(aiMatchScore), v = round(validatorScore), r = round(reportScore);
           const present = [a, v, r].filter((x) => x != null) as number[];
-          const mismatch = present.length >= 2 && new Set(present).size > 1;
+          const scoreMismatch = present.length >= 2 && new Set(present).size > 1;
+          const validationMismatch = !!(aiMatchValidationId && reportValidationId && aiMatchValidationId !== reportValidationId);
+          const mismatch = scoreMismatch || validationMismatch;
           const cellCls = (val: number | null) =>
             `px-2 py-1 rounded border text-xs font-mono ${
               mismatch ? "bg-rose-50 text-rose-700 border-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"
@@ -367,10 +371,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
                 <span className={cellCls(a)}>AI Match: {a ?? "—"}%</span>
                 <span className={cellCls(v)}>Validator: {v ?? "—"}%</span>
                 <span className={cellCls(r)}>Report: {r ?? "—"}%</span>
+                <span className={cellCls(null)}>AI Match Validation ID: {shortId(aiMatchValidationId)}</span>
+                <span className={cellCls(null)}>Report Validation ID: {shortId(reportValidationId)}</span>
                 {mismatch ? (
                   <span className="ml-auto inline-flex items-center gap-1 text-rose-700 font-medium">
                     <AlertTriangle className="h-3 w-3" />
-                    Mismatch — regenerate the report to reconcile.
+                    Mismatch — generation is blocked until AI Match is re-run.
                   </span>
                 ) : (
                   <span className="ml-auto inline-flex items-center gap-1 text-emerald-700 font-medium">
