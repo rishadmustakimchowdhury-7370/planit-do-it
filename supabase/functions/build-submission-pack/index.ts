@@ -548,7 +548,7 @@ async function restampPageNumbers(bytes: Uint8Array, branding: any, watermark = 
         font: bold,
         color: rgb(0.85, 0.2, 0.2),
         opacity: 0.08,
-        rotate: { type: "degrees", angle: 30 } as any,
+        rotate: degrees(30),
       });
     }
     const left = branding?.footer_text || branding?.company_name || "";
