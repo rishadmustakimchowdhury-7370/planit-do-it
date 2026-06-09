@@ -88,7 +88,7 @@ export function PrepareForClientDialog({
     setPreviewPackId(null); setDeliveryAttachmentId(null);
     (async () => {
       supabase.from("candidates")
-        .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
+        .select("id, full_name, current_title, current_company, email, phone, location, experience_years, skills, structured_profile, cv_parsed_data")
         .eq("id", candidateId).maybeSingle()
         .then(({ data, error }) => {
           setCandidate(data ?? null);
@@ -96,7 +96,7 @@ export function PrepareForClientDialog({
           setCandidateLoading(false);
         });
       supabase.from("jobs")
-        .select("id, title, location, employment_type, seniority_level, description")
+        .select("id, title, location, employment_type, experience_level, description, structured_jd")
         .eq("id", jobId).maybeSingle()
         .then(({ data, error }) => {
           setJob(data ?? null);
