@@ -609,7 +609,7 @@ const JobDetailPage = () => {
             </TabsTrigger>
             <TabsTrigger value="submissions" className="gap-2 px-4 py-2">
               <FileText className="w-4 h-4" />
-              Submissions
+              Prepare For Client
             </TabsTrigger>
             <TabsTrigger value="description" className="gap-2 px-4 py-2">
               <FileText className="w-4 h-4" />
