@@ -1233,6 +1233,7 @@ export type Database = {
         Row: {
           attachments: Json | null
           body_text: string
+          candidate_id: string | null
           client_id: string
           created_at: string | null
           direction: string | null
@@ -1240,12 +1241,16 @@ export type Database = {
           from_account_id: string | null
           from_email: string
           id: string
+          job_id: string | null
           metadata: Json | null
           scheduled_at: string | null
           sent_at: string | null
           sent_by: string | null
           status: string | null
           subject: string
+          submission_pack_file_id: string | null
+          submission_report_id: string | null
+          submission_version: number | null
           template_id: string | null
           tenant_id: string
           timezone: string | null
@@ -1255,6 +1260,7 @@ export type Database = {
         Insert: {
           attachments?: Json | null
           body_text: string
+          candidate_id?: string | null
           client_id: string
           created_at?: string | null
           direction?: string | null
@@ -1262,12 +1268,16 @@ export type Database = {
           from_account_id?: string | null
           from_email: string
           id?: string
+          job_id?: string | null
           metadata?: Json | null
           scheduled_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
           status?: string | null
           subject: string
+          submission_pack_file_id?: string | null
+          submission_report_id?: string | null
+          submission_version?: number | null
           template_id?: string | null
           tenant_id: string
           timezone?: string | null
@@ -1277,6 +1287,7 @@ export type Database = {
         Update: {
           attachments?: Json | null
           body_text?: string
+          candidate_id?: string | null
           client_id?: string
           created_at?: string | null
           direction?: string | null
@@ -1284,12 +1295,16 @@ export type Database = {
           from_account_id?: string | null
           from_email?: string
           id?: string
+          job_id?: string | null
           metadata?: Json | null
           scheduled_at?: string | null
           sent_at?: string | null
           sent_by?: string | null
           status?: string | null
           subject?: string
+          submission_pack_file_id?: string | null
+          submission_report_id?: string | null
+          submission_version?: number | null
           template_id?: string | null
           tenant_id?: string
           timezone?: string | null
@@ -1297,6 +1312,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_emails_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "client_emails_client_id_fkey"
             columns: ["client_id"]
@@ -1309,6 +1331,27 @@ export type Database = {
             columns: ["from_account_id"]
             isOneToOne: false
             referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_submission_pack_file_id_fkey"
+            columns: ["submission_pack_file_id"]
+            isOneToOne: false
+            referencedRelation: "client_submission_pack_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_emails_submission_report_id_fkey"
+            columns: ["submission_report_id"]
+            isOneToOne: false
+            referencedRelation: "client_submission_reports"
             referencedColumns: ["id"]
           },
           {
