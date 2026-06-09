@@ -48,21 +48,21 @@ const REPORT_TOOL = {
         },
         executive_summary: {
           type: "string",
-          description: "3-6 sentence client-facing summary of why this candidate is worth meeting.",
+          description: "HARD LIMIT 120 words. Client-facing summary of why this candidate is worth meeting. Do not repeat content that appears in candidate_overview or recruiter_assessment.",
         },
         candidate_overview: {
           type: "string",
-          description: "2-4 sentence overview of the candidate's background, current role, total experience and key domain.",
+          description: "HARD LIMIT 80 words. Background, current role, total experience and domain. Factual, no fit commentary.",
         },
         fit_assessment: {
           type: "array",
-          description: "Evidence-based map of JD requirements to candidate evidence. Treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in (e.g. a React/Next.js developer demonstrably knows JavaScript). Only mark MISSING if neither the CV nor the candidate's roles credibly evidence it.",
+          description: "Evidence-based map of JD requirements to candidate evidence. Maximum 6 rows — only the requirements that matter for the decision. Treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in (a React/Next.js dev demonstrably knows JavaScript). Only MISSING if neither the CV nor the candidate's roles credibly evidence it.",
           items: {
             type: "object",
             additionalProperties: false,
             properties: {
               requirement: { type: "string" },
-              evidence: { type: "string" },
+              evidence: { type: "string", description: "Single concise sentence. Max 25 words." },
               fit: { type: "string", enum: ["EXCEEDS","STRONG","GOOD","PARTIAL","WEAK","MISSING"] },
             },
             required: ["requirement","evidence","fit"],
@@ -70,28 +70,28 @@ const REPORT_TOOL = {
         },
         key_strengths: {
           type: "array",
-          description: "5-7 bullets, each starting with a short bolded lead phrase (e.g. 'Direct domain experience.') followed by 1-2 sentences of substance.",
+          description: "MAX 5 bullets. Each bullet MAX 15 words. Punchy, decision-relevant only.",
           items: { type: "string" },
         },
         considerations: {
           type: "array",
-          description: "3-5 considerations / potential gaps the client should probe at interview. Same format as strengths.",
+          description: "MAX 3 bullets. Each bullet MAX 15 words. Real gaps to probe at interview only.",
           items: { type: "string" },
         },
         recruiter_assessment: {
           type: "string",
-          description: "Recruiter's own view (post-screen) in 3-6 sentences. Plain prose, first-person plural ('we'). Incorporate the recruiter notes and voice transcript verbatim where useful.",
+          description: "HARD LIMIT 100 words. Recruiter's own view post-screen. Must add something not already in executive_summary or candidate_overview (e.g. cultural fit, motivation, why interviewing, depth observed in screen).",
         },
         salary_availability: {
           type: "string",
-          description: "1-3 sentences summarising compensation expectation, current package context, notice period and any flexibility.",
+          description: "Single concise paragraph. Compensation expectation, notice period, flexibility. 'Not stated' when unknown.",
         },
         recommendation: {
           type: "object",
           additionalProperties: false,
           properties: {
             tier: { type: "string", enum: [...RECOMMENDATIONS] },
-            reasoning: { type: "string", description: "Plain-English justification for the chosen tier." },
+            reasoning: { type: "string", description: "MAX 60 words. Plain-English justification." },
           },
           required: ["tier","reasoning"],
         },
@@ -156,14 +156,21 @@ Deno.serve(async (req) => {
 
     const useEdits = mode === "with_edits" && previousReport;
 
-    const systemPrompt = `You are an experienced executive recruiter authoring a Client Submission Report. The recruiter has already decided this candidate is suitable and is presenting them to a client.
+    const systemPrompt = `You are a senior executive-search recruiter authoring a premium Client Submission Report. The recruiter has already decided to submit this candidate. The client must be able to make a decision in under 60 seconds.
 
-CRITICAL RULES:
-- Build a recruiter-style assessment that answers "Why is this candidate suitable?" — not "Did I find the exact keyword?".
-- EVIDENCE-BASED REASONING: treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in. Examples: a React/Next.js developer demonstrably knows JavaScript, HTML and CSS; a TypeScript engineer knows the JavaScript ecosystem; a SOC Analyst demonstrates Security Operations; a Compliance Officer demonstrates Regulatory Compliance. Only mark something MISSING if neither the CV nor the candidate's roles credibly evidence it.
-- Use the JD requirements as the source of truth for what to evaluate, and the CV + recruiter notes + voice transcript as the evidence base.
-- For snapshot/salary fields, say "Not stated" when unknown. Never fabricate compensation, notice period or visa status.
-- Keep the prose professional, neutral and client-safe. No internal scoring jargon.
+EXECUTIVE-SEARCH COMPRESSION RULES (NON-NEGOTIABLE):
+- Target: report fits on 1 PDF page. Hard ceiling: 2 pages. Never produce content that would exceed 2 pages.
+- Executive Summary ≤ 120 words. Candidate Overview ≤ 80 words. Recruiter Assessment ≤ 100 words. Recommendation reasoning ≤ 60 words.
+- Key Strengths: ≤ 5 bullets, ≤ 15 words each. Considerations: ≤ 3 bullets, ≤ 15 words each.
+- Fit Assessment: ≤ 6 rows, only the JD requirements that actually drive the hiring decision.
+- DO NOT repeat the same evidence across Executive Summary, Candidate Overview, and Recruiter Assessment. Each section must add something new.
+- No filler, no marketing tone, no generic platitudes. If a section has nothing decision-relevant to add, keep it short — do not pad.
+
+CONTENT PRIORITY ORDER: (1) JD requirements, (2) Candidate CV, (3) Recruiter notes. Ignore anything not relevant to the target role.
+
+EVIDENCE-BASED REASONING: treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in. A React/Next.js developer demonstrably knows JavaScript/HTML/CSS. A SOC Analyst demonstrates Security Operations. Only mark MISSING if neither the CV nor the candidate's roles credibly evidence it.
+
+For snapshot/salary fields, say "Not stated" when unknown. Never fabricate compensation, notice period or visa status. Tone: professional, neutral, client-safe. No internal scoring jargon.
 ${useEdits ? `
 RECRUITER EDIT MODE — PRESERVE THE RECRUITER'S EDITS:
 - "previous_report" contains the recruiter's edited version. Treat it as ground truth for tone, factual snapshot fields, and phrasing the recruiter has chosen.

@@ -112,47 +112,44 @@ function newPage(ctx: Ctx) {
   ctx.page = ctx.pdf.addPage([A4.w, A4.h]);
   ctx.pageIndex++;
   drawHeader(ctx);
-  ctx.y = A4.h - 96;
+  // Page 1 leaves room for the big logo+confidential block. Continuation
+  // pages are minimal — start near the top of the page.
+  ctx.y = ctx.pageIndex === 0 ? A4.h - 96 : A4.h - MARGIN;
 }
 
 function drawHeader(ctx: Ctx) {
-  // top brand band
-  ctx.page.drawRectangle({ x: 0, y: A4.h - 6, width: A4.w, height: 6, color: ctx.brandColor });
+  // Continuation pages: NO logo, NO agency name, NO branding banner.
+  // The minimal footer (candidate | position | page x of y) is added at finalize time.
+  if (ctx.pageIndex > 0) return;
 
-  // Agency logo (or explicit "no logo" notice — never silently fallback)
-  let logoBoxRight = MARGIN;
+  // === PAGE 1 ONLY: premium executive-search header ===
+  // Logo on the left (logo only — no agency name beside it).
   if (ctx.logoImage) {
-    const maxH = 38;
+    const maxH = 44;
     const scale = maxH / ctx.logoImage.height;
-    const w = Math.min(ctx.logoImage.width * scale, 150);
-    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 52, width: w, height: maxH });
-    logoBoxRight = MARGIN + w + 14;
+    const w = Math.min(ctx.logoImage.width * scale, 180);
+    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 60, width: w, height: maxH });
   } else {
     ctx.page.drawText("No agency logo configured", {
-      x: MARGIN, y: A4.h - 30, size: 8, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
+      x: MARGIN, y: A4.h - 38, size: 9, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
     });
-    logoBoxRight = MARGIN + ctx.fonts.italic.widthOfTextAtSize("No agency logo configured", 8) + 14;
   }
 
-  // Agency name + confidential subtitle next to logo
-  const agencyName = ctx.branding?.company_name || "Agency";
-  ctx.page.drawText(String(agencyName), {
-    x: logoBoxRight, y: A4.h - 30, size: 13, font: ctx.fonts.bold, color: ctx.brandColor,
+  // Right side: "Candidate Report" + "CONFIDENTIAL"
+  const title = "Candidate Report";
+  const tw = ctx.fonts.bold.widthOfTextAtSize(title, 12);
+  ctx.page.drawText(title, {
+    x: A4.w - MARGIN - tw, y: A4.h - 34, size: 12, font: ctx.fonts.bold, color: INK,
   });
-  ctx.page.drawText("Candidate Submission Report — Confidential", {
-    x: logoBoxRight, y: A4.h - 46, size: 8.5, font: ctx.fonts.reg, color: MUTED,
-  });
-
-  // Right-side confidential pill
   const conf = "CONFIDENTIAL";
   const cw = ctx.fonts.bold.widthOfTextAtSize(conf, 9);
   ctx.page.drawText(conf, {
-    x: A4.w - MARGIN - cw, y: A4.h - 30, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
+    x: A4.w - MARGIN - cw, y: A4.h - 48, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
   });
 
   // hairline
   ctx.page.drawLine({
-    start: { x: MARGIN, y: A4.h - 64 }, end: { x: A4.w - MARGIN, y: A4.h - 64 },
+    start: { x: MARGIN, y: A4.h - 70 }, end: { x: A4.w - MARGIN, y: A4.h - 70 },
     thickness: 0.5, color: HAIR,
   });
 }
@@ -400,25 +397,9 @@ async function buildReportPdf(
   ctx.y -= 28;
   drawParagraph(ctx, rec.reasoning || "—");
 
-  // Footer w/ page numbers
-  finalizePageNumbers(pdf, branding, reg);
+  // Page numbers / footers are stamped after the final merge so report-pages
+  // and CV-pages can be footered differently per pack option.
   return await pdf.save();
-}
-
-function finalizePageNumbers(pdf: PDFDocument, branding: any, font: PDFFont) {
-  const total = pdf.getPageCount();
-  for (let i = 0; i < total; i++) {
-    const p = pdf.getPage(i);
-    p.drawLine({
-      start: { x: MARGIN, y: 36 }, end: { x: A4.w - MARGIN, y: 36 },
-      thickness: 0.5, color: HAIR,
-    });
-    const left = branding?.footer_text || branding?.company_name || "";
-    if (left) p.drawText(String(left), { x: MARGIN, y: 22, size: 8, font, color: MUTED });
-    const txt = `Page ${i + 1} of ${total}`;
-    const w = font.widthOfTextAtSize(txt, 8);
-    p.drawText(txt, { x: A4.w - MARGIN - w, y: 22, size: 8, font, color: MUTED });
-  }
 }
 
 async function buildBrandedCvCover(branding: any, candidateName: string, position: string): Promise<Uint8Array> {
@@ -646,8 +627,16 @@ Deno.serve(async (req) => {
       }, 500);
     }
 
-    // Re-stamp page numbers / footer (header bar already rendered on every native page).
-    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, false);
+    // Stamp footers per pack option: report-pages get a minimal continuation
+    // footer; CV pages are untouched (B) or get a small "Submitted by" line (C).
+    const restamped = await stampSubmissionPack(finalPdf, brand, {
+      reportPageCount: reportPages,
+      cvPageCount: cvPages,
+      packOption: pack_option as "A" | "B" | "C",
+      candidateName,
+      position,
+      watermark: wantWatermark,
+    });
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
@@ -697,18 +686,39 @@ async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
   return raw;
 }
 
-async function restampPageNumbers(
-  bytes: Uint8Array, branding: any, watermark = false, brandedHeader = false,
+async function stampSubmissionPack(
+  bytes: Uint8Array,
+  branding: any,
+  opts: {
+    reportPageCount: number;
+    cvPageCount: number;
+    packOption: "A" | "B" | "C";
+    candidateName: string;
+    position: string;
+    watermark: boolean;
+  },
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const brandColor = hexToRgb(branding?.primary_color);
-  const headerLogo = brandedHeader ? await embedLogo(pdf, branding?.logo_url) : null;
   const total = pdf.getPageCount();
+  const { reportPageCount, packOption, candidateName, position, watermark } = opts;
+
+  // Report continuation footer line: "Candidate Name | Position | Page X of Y"
+  // (Page 1 of the report gets no footer text — it has the premium header.)
+  const reportFooter = (i: number) =>
+    `${candidateName} | ${position} | Page ${i + 1} of ${reportPageCount}`;
+
+  // Option C only: small "Submitted by [Agency Name]" footer on CV pages.
+  const agencyName = branding?.company_name || branding?.footer_text || "";
+  const cvFooterC = agencyName ? `Submitted by ${agencyName}` : "";
+
   for (let i = 0; i < total; i++) {
     const p = pdf.getPage(i);
     const { width, height } = p.getSize();
+    const isReportPage = i < reportPageCount;
+    const isCvPage = i >= reportPageCount;
+
     if (watermark) {
       const wmText = "CONFIDENTIAL";
       const size = 72;
@@ -719,27 +729,26 @@ async function restampPageNumbers(
         opacity: 0.08, rotate: degrees(30),
       });
     }
-    // Optional branded header overlay on every page (Option C)
-    if (brandedHeader) {
-      p.drawRectangle({ x: 0, y: height - 4, width, height: 4, color: brandColor });
-      if (headerLogo) {
-        const maxH = 22;
-        const scale = maxH / headerLogo.height;
-        const w = Math.min(headerLogo.width * scale, 110);
-        p.drawImage(headerLogo, { x: width - MARGIN - w, y: height - 30, width: w, height: maxH });
-      } else if (branding?.company_name) {
-        const t = String(branding.company_name);
-        const tw = bold.widthOfTextAtSize(t, 10);
-        p.drawText(t, { x: width - MARGIN - tw, y: height - 20, size: 10, font: bold, color: brandColor });
+
+    if (isReportPage) {
+      // Minimal footer for report pages 2+. Page 1 stays clean.
+      if (i > 0) {
+        const txt = reportFooter(i);
+        const w = font.widthOfTextAtSize(txt, 8);
+        p.drawText(txt, { x: (width - w) / 2, y: 22, size: 8, font, color: MUTED });
+      }
+      continue;
+    }
+
+    if (isCvPage) {
+      // Option B: preserve original CV exactly — no stamping.
+      if (packOption === "B") continue;
+      // Option C: minimal "Submitted by [Agency]" footer only. No logo, no header.
+      if (packOption === "C" && cvFooterC) {
+        const w = font.widthOfTextAtSize(cvFooterC, 8);
+        p.drawText(cvFooterC, { x: (width - w) / 2, y: 18, size: 8, font, color: MUTED });
       }
     }
-    const left = branding?.footer_text || branding?.company_name || "";
-    p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
-    p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
-    if (left) p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
-    const txt = `Page ${i + 1} of ${total}`;
-    const w = font.widthOfTextAtSize(txt, 8);
-    p.drawText(txt, { x: width - MARGIN - w, y: 14, size: 8, font, color: MUTED });
   }
   return await pdf.save();
 }
