@@ -48,8 +48,32 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [generating, setGenerating] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [liveAiMatch, setLiveAiMatch] = useState<{
+    validation_score: number | null; validation_tier: string | null; validation_id: string | null;
+    mirror_score: number | null; mirror_tier: string | null;
+  } | null>(null);
 
   const active = useMemo(() => versions.find((v) => v.id === activeId) ?? null, [versions, activeId]);
+
+  async function loadLiveAiMatch() {
+    const [{ data: v }, { data: m }] = await Promise.all([
+      supabase.from("ai_candidate_validations")
+        .select("id, final_score, fit_score, recommendation_tier, recommendation")
+        .eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("rediscovered_matches")
+        .select("final_score, ai_score, recommendation_tier")
+        .eq("job_id", jobId).eq("candidate_id", candidateId).maybeSingle(),
+    ]);
+    setLiveAiMatch({
+      validation_id: (v as any)?.id ?? null,
+      validation_score: (v as any)?.final_score ?? (v as any)?.fit_score ?? null,
+      validation_tier: ((v as any)?.recommendation_tier ?? (v as any)?.recommendation ?? null),
+      mirror_score: (m as any)?.final_score ?? (m as any)?.ai_score ?? null,
+      mirror_tier: (m as any)?.recommendation_tier ?? null,
+    });
+  }
+
 
   async function loadVersions() {
     setLoading(true);
@@ -71,7 +95,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     onReportChanged?.();
   }
 
-  useEffect(() => { loadVersions(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { loadVersions(); loadLiveAiMatch(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
 
   useEffect(() => {
     if (active) { setReport(active.report_data); setDirty(false); }
@@ -102,7 +126,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
       }
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success(`Report v${(data as any).report.version} generated`);
-      await loadVersions();
+      await Promise.all([loadVersions(), loadLiveAiMatch()]);
     } catch (e: any) {
       toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
@@ -269,6 +293,46 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             </span>
           </div>
         )}
+
+        {/* Score Parity Diagnostic — AI Match Score / Validator Score / Report Score MUST match */}
+        {(() => {
+          const reportScore = report.meta?.match_score ?? null;
+          const aiMatchScore = liveAiMatch?.mirror_score ?? null;        // value shown on AI Match panel
+          const validatorScore = liveAiMatch?.validation_score ?? null;  // latest validator row
+          const round = (n: any) => (n == null ? null : Math.round(Number(n)));
+          const a = round(aiMatchScore), v = round(validatorScore), r = round(reportScore);
+          const present = [a, v, r].filter((x) => x != null) as number[];
+          const mismatch = present.length >= 2 && new Set(present).size > 1;
+          const cellCls = (val: number | null) =>
+            `px-2 py-1 rounded border text-xs font-mono ${
+              mismatch ? "bg-rose-50 text-rose-700 border-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"
+            }`;
+          return (
+            <div className={`px-3 py-2 text-xs border-b ${mismatch ? "bg-rose-50/60" : "bg-muted/30"}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold uppercase tracking-wide text-[10px] text-muted-foreground">
+                  Score Parity
+                </span>
+                <span className={cellCls(a)}>AI Match: {a ?? "—"}%</span>
+                <span className={cellCls(v)}>Validator: {v ?? "—"}%</span>
+                <span className={cellCls(r)}>Report: {r ?? "—"}%</span>
+                {mismatch ? (
+                  <span className="ml-auto inline-flex items-center gap-1 text-rose-700 font-medium">
+                    <AlertTriangle className="h-3 w-3" />
+                    Mismatch — regenerate the report to reconcile.
+                  </span>
+                ) : (
+                  <span className="ml-auto inline-flex items-center gap-1 text-emerald-700 font-medium">
+                    <CheckCircle2 className="h-3 w-3" />
+                    In sync
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+
 
 
         {/* Report Preview */}

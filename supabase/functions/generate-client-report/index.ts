@@ -134,6 +134,45 @@ Deno.serve(async (req) => {
     const interviewProbability = validation.interview_probability ?? null;
     const tierRaw = String(validation.recommendation_tier ?? validation.recommendation ?? "").toLowerCase();
     const tier = TIER_MAP[tierRaw] ?? "Consider";
+
+    // Hard-fail if scoring is missing — no secondary scoring is allowed.
+    if (matchScore == null || !tierRaw) {
+      return j({
+        error: "AI Match has no final_score or recommendation_tier on the latest validation. Re-run AI Match before generating the Client Submission Report.",
+      }, 409);
+    }
+
+    // Score Parity Guard: cross-check the latest validation against the
+    // rediscovered_matches mirror that powers the AI Match panel. If they
+    // disagree, refuse to generate so AI Match and the report can never
+    // tell two different stories.
+    const { data: mirror } = await admin
+      .from("rediscovered_matches")
+      .select("ai_validation_id, final_score, ai_score, recommendation_tier")
+      .eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle();
+    const mirrorScore = mirror?.final_score ?? mirror?.ai_score ?? null;
+    const mirrorTier = String(mirror?.recommendation_tier ?? "").toLowerCase();
+    const scoreMismatch = mirrorScore != null && Math.round(Number(mirrorScore)) !== Math.round(Number(matchScore));
+    const tierMismatch = mirrorTier && mirrorTier !== tierRaw;
+    if (scoreMismatch || tierMismatch) {
+      console.error("[generate-client-report] PARITY MISMATCH", {
+        job_id, candidate_id,
+        validation_id: validation.id, validation_score: matchScore, validation_tier: tierRaw,
+        mirror_validation_id: mirror?.ai_validation_id, mirror_score: mirrorScore, mirror_tier: mirrorTier,
+      });
+      return j({
+        error: `Score parity check failed: AI Match mirror shows ${mirrorScore ?? "n/a"}% / ${mirrorTier || "n/a"} but the latest validation shows ${matchScore}% / ${tierRaw}. Re-run AI Match to reconcile, then regenerate the report.`,
+        parity: {
+          validation_id: validation.id,
+          validation_score: matchScore,
+          validation_tier: tierRaw,
+          mirror_validation_id: mirror?.ai_validation_id ?? null,
+          mirror_score: mirrorScore,
+          mirror_tier: mirrorTier || null,
+        },
+      }, 409);
+    }
+
     const inheritedStrengths = asArr(validation.strengths);
     const inheritedConsiderations = [
       ...asArr(validation.weaknesses),
