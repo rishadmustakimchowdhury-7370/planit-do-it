@@ -535,9 +535,13 @@ export default function AddCandidatePage() {
       if (error) throw error;
 
       if (newCand?.id) {
+        supabase.functions.invoke('auto-structure-entity', {
+          body: { entity_type: 'candidate', entity_id: newCand.id },
+        }).catch((e) => console.warn('Structure candidate failed:', e));
         supabase.functions.invoke('embed-candidate', { body: { candidate_id: newCand.id } })
           .catch((e) => console.warn('Embed candidate failed:', e));
       }
+
 
       // Log activity for KPI tracking
       await logActivity({
