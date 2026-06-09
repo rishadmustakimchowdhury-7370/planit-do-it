@@ -205,15 +205,13 @@ export function JobSubmissionsTab({ tenantId, jobId, jobTitle, candidates = [] }
       })()}
 
       {pickedCandidate && (
-        <SubmissionWizard
+        <PrepareForClientDialog
           open={wizardOpen}
           onOpenChange={(v) => { setWizardOpen(v); if (!v) setPickedCandidate(null); }}
-          tenantId={tenantId}
           jobId={jobId}
           candidateId={pickedCandidate.id}
           candidateName={pickedCandidate.name}
           jobTitle={jobTitle}
-          onCompleted={() => load()}
         />
       )}
 
