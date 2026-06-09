@@ -41,7 +41,7 @@ const OPT_LABEL: Record<string, string> = {
 };
 
 export function SubmissionHistoryTable({
-  tenantId, jobId, candidateId, onPreview, onResend,
+  tenantId, jobId, candidateId, refreshKey, onPreview, onResend,
 }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
