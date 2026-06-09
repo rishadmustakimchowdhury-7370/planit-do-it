@@ -13,10 +13,11 @@ import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-const FIT_VALUES = ["STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
+const FIT_VALUES = ["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
 const RECOMMENDATIONS = ["Strong Shortlist", "Recommended", "Consider", "Transferable", "Do Not Recommend"] as const;
 
 const FIT_COLOR: Record<string, string> = {
+  EXCEEDS: "bg-blue-500/15 text-blue-700 border-blue-300",
   STRONG: "bg-emerald-500/15 text-emerald-700 border-emerald-300",
   GOOD: "bg-green-500/15 text-green-700 border-green-300",
   PARTIAL: "bg-amber-500/15 text-amber-700 border-amber-300",
@@ -51,40 +52,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [dirty, setDirty] = useState(false);
   const [staleSources, setStaleSources] = useState<{ label: string; at: string }[]>([]);
   const [staleAck, setStaleAck] = useState(false);
-  const [liveAiMatch, setLiveAiMatch] = useState<{
-    validation_score: number | null; validation_tier: string | null; validation_id: string | null;
-    validation_created_at: string | null; validation_is_active: boolean | null;
-    mirror_score: number | null; mirror_tier: string | null; mirror_validation_id: string | null;
-    mirror_interview_probability: number | null; mirror_discovery_classification: string | null;
-  } | null>(null);
 
   const active = useMemo(() => versions.find((v) => v.id === activeId) ?? null, [versions, activeId]);
-
-  async function loadLiveAiMatch() {
-    const [{ data: v }, { data: m }] = await Promise.all([
-      supabase.from("ai_candidate_validations")
-        .select("id, final_score, fit_score, recommendation_tier, recommendation, created_at, is_active")
-        .eq("job_id", jobId).eq("candidate_id", candidateId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("rediscovered_matches")
-        .select("ai_validation_id, final_score, ai_score, recommendation_tier, interview_probability, discovery_classification")
-        .eq("job_id", jobId).eq("candidate_id", candidateId).maybeSingle(),
-    ]);
-    setLiveAiMatch({
-      validation_id: (v as any)?.id ?? null,
-      validation_score: (v as any)?.final_score ?? (v as any)?.fit_score ?? null,
-      validation_tier: ((v as any)?.recommendation_tier ?? (v as any)?.recommendation ?? null),
-      validation_created_at: (v as any)?.created_at ?? null,
-      validation_is_active: (v as any)?.is_active ?? null,
-      mirror_validation_id: (m as any)?.ai_validation_id ?? null,
-      mirror_score: (m as any)?.final_score ?? (m as any)?.ai_score ?? null,
-      mirror_tier: (m as any)?.recommendation_tier ?? null,
-      mirror_interview_probability: (m as any)?.interview_probability ?? null,
-      mirror_discovery_classification: (m as any)?.discovery_classification ?? null,
-    });
-  }
-
 
   async function loadVersions() {
     setLoading(true);
@@ -106,13 +75,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     onReportChanged?.();
   }
 
+  // Staleness now only checks recruiter notes / candidate / job — the report
+  // no longer has any dependency on the AI Match / validator workflow.
   async function checkStaleness(reportCreatedAt: string | null) {
     if (!reportCreatedAt) { setStaleSources([]); return; }
     const reportTs = new Date(reportCreatedAt).getTime();
-    const [{ data: v }, { data: notes }, { data: cand }, { data: jb }] = await Promise.all([
-      supabase.from("ai_candidate_validations")
-        .select("created_at").eq("job_id", jobId).eq("candidate_id", candidateId)
-        .eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    const [{ data: notes }, { data: cand }, { data: jb }] = await Promise.all([
       supabase.from("prepare_for_client_assessments")
         .select("updated_at, created_at").eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
         .order("updated_at", { ascending: false }).limit(1).maybeSingle(),
@@ -123,7 +91,6 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     const push = (label: string, at?: string | null) => {
       if (at && new Date(at).getTime() > reportTs) items.push({ label, at });
     };
-    push("AI Match / Validator", (v as any)?.created_at);
     push("Recruiter Notes", (notes as any)?.updated_at ?? (notes as any)?.created_at);
     push("Candidate profile", (cand as any)?.updated_at);
     push("Job", (jb as any)?.updated_at);
@@ -131,7 +98,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     setStaleAck(false);
   }
 
-  useEffect(() => { loadVersions(); loadLiveAiMatch(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { loadVersions(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
 
   useEffect(() => {
     if (active) checkStaleness(active.created_at);
@@ -146,19 +113,15 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   async function generate(mode: "with_edits" | "from_original" = "with_edits") {
     setGenerating(true);
     try {
-      // If the recruiter has unsaved edits and chose "with_edits", persist them
-      // first so the latest text is what the regen reads from previous_report.
       if (mode === "with_edits" && dirty && activeId) {
         await supabase.from("client_submission_reports").update({ report_data: report }).eq("id", activeId);
         setDirty(false);
       }
       const previous_report = mode === "with_edits" ? (report ?? active?.report_data ?? null) : null;
-      const ai_match_validation_id = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
       const { data, error } = await supabase.functions.invoke("generate-client-report", {
-        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report, ai_match_validation_id },
+        body: { job_id: jobId, candidate_id: candidateId, anonymous, mode, previous_report },
       });
       if (error) {
-        // supabase-js hides the response body on non-2xx — read it from context.
         let backendMsg = error.message;
         const ctx: any = (error as any).context;
         if (ctx && typeof ctx.text === "function") {
@@ -167,9 +130,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             try {
               const parsed = JSON.parse(raw);
               backendMsg = parsed.error || parsed.message || raw || backendMsg;
-            } catch {
-              if (raw) backendMsg = raw;
-            }
+            } catch { if (raw) backendMsg = raw; }
           } catch { /* ignore */ }
         }
         throw new Error(backendMsg);
@@ -179,12 +140,11 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
       toast.success(mode === "with_edits"
         ? `Report v${v} regenerated using your edits`
         : `Report v${v} regenerated from original`);
-      await Promise.all([loadVersions(), loadLiveAiMatch()]);
+      await loadVersions();
     } catch (e: any) {
       toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
   }
-
 
   async function saveEdits() {
     if (!activeId) return;
@@ -235,16 +195,11 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     return (
       <Card>
         <CardContent className="p-5 space-y-3">
-          <SectionHeader title="AI Client Submission Report" />
+          <SectionHeader title="Client Submission Report" />
           <p className="text-sm text-muted-foreground">
-            Generate an AI-powered recruiter assessment report combining the JD, CV, validation results, and your recruiter notes.
+            Generate a professional client-facing submission report from the JD, CV, your recruiter notes and any voice transcript.
+            This is independent of AI Match — you've already decided to submit this candidate.
           </p>
-          <div className="rounded-md border bg-muted/30 p-3 text-xs flex flex-wrap gap-2">
-            <span className="font-semibold text-muted-foreground uppercase tracking-wide">Validation Diagnostics</span>
-            <Badge variant="outline">AI Match Validation ID: {shortId(liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null)}</Badge>
-            <Badge variant="outline">Report Validation ID: —</Badge>
-            {liveAiMatch?.mirror_score != null && <Badge variant="outline">AI Match Score: {Math.round(Number(liveAiMatch.mirror_score))}%</Badge>}
-          </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
@@ -277,7 +232,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm">AI Client Submission Report</span>
+            <span className="font-semibold text-sm">Client Submission Report</span>
             <Badge variant="outline" className="ml-2"><History className="h-3 w-3 mr-1" />v{active?.version}</Badge>
             {active?.status === "approved" ? (
               <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600 text-white">
@@ -376,7 +331,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <div className="flex-1 space-y-1.5">
                 <div>
-                  <span className="font-semibold">Report is outdated.</span> Regenerate recommended — newer data exists since v{active?.version} was saved
+                  <span className="font-semibold">Report may be outdated.</span> Newer source data exists since v{active?.version} was saved
                   {active?.created_at ? ` (${new Date(active.created_at).toLocaleString()})` : ""}.
                 </div>
                 <ul className="list-disc ml-4 space-y-0.5">
@@ -398,80 +353,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           </div>
         )}
 
-        {/* AI Match provenance banner — proves report inherits from validated AI Match */}
-        {(report.meta?.match_score != null || report.meta?.interview_probability != null || rec.tier) && (
-          <div className="px-3 py-2 text-xs bg-primary/5 text-foreground border-b flex flex-wrap items-center gap-2">
-            <Sparkles className="h-3 w-3 text-primary" />
-            <span className="font-semibold">Inherited from AI Match:</span>
-            {rec.tier && <Badge variant="default">{rec.tier}</Badge>}
-            {report.meta?.match_score != null && (
-              <Badge variant="outline">Match Score {report.meta.match_score}%</Badge>
-            )}
-            {report.meta?.interview_probability != null && (
-              <Badge variant="outline">Interview Probability {report.meta.interview_probability}%</Badge>
-            )}
-            <span className="text-muted-foreground ml-auto">
-              Recruiter Notes enrich the narrative — they do not change the score.
-            </span>
-          </div>
-        )}
-
-        {/* Score Parity Diagnostic — AI Match Score / Validator Score / Report Score MUST match */}
-        {(() => {
-          const reportScore = report.meta?.match_score ?? null;
-          const aiMatchScore = liveAiMatch?.mirror_score ?? liveAiMatch?.validation_score ?? null; // AI Match mirror, falling back to latest validator row
-          const validatorScore = liveAiMatch?.validation_score ?? null;  // latest validator row
-          const aiMatchValidationId = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
-          const reportValidationId = report.meta?.report_validation_id ?? report.meta?.validation_id ?? null;
-          const round = (n: any) => (n == null ? null : Math.round(Number(n)));
-          const a = round(aiMatchScore), v = round(validatorScore), r = round(reportScore);
-          const present = [a, v, r].filter((x) => x != null) as number[];
-          const scoreMismatch = present.length >= 2 && new Set(present).size > 1;
-          const validationMismatch = !!(aiMatchValidationId && reportValidationId && aiMatchValidationId !== reportValidationId);
-          const mismatch = scoreMismatch || validationMismatch;
-          const cellCls = (val: number | null) =>
-            `px-2 py-1 rounded border text-xs font-mono ${
-              mismatch ? "bg-rose-50 text-rose-700 border-rose-300" : "bg-emerald-50 text-emerald-700 border-emerald-300"
-            }`;
-          return (
-            <div className={`px-3 py-2 text-xs border-b ${mismatch ? "bg-rose-50/60" : "bg-muted/30"}`}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold uppercase tracking-wide text-[10px] text-muted-foreground">
-                  Score Parity
-                </span>
-                <span className={cellCls(a)}>AI Match: {a ?? "—"}%</span>
-                <span className={cellCls(v)}>Validator: {v ?? "—"}%</span>
-                <span className={cellCls(r)}>Report: {r ?? "—"}%</span>
-                <span className={cellCls(null)}>AI Match Validation ID: {shortId(aiMatchValidationId)}</span>
-                <span className={cellCls(null)}>Report Validation ID: {shortId(reportValidationId)}</span>
-                {liveAiMatch?.validation_created_at && (
-                  <span className={cellCls(null)}>Created: {new Date(liveAiMatch.validation_created_at).toLocaleString()}</span>
-                )}
-                <span className={cellCls(null)}>
-                  Active: {liveAiMatch?.validation_is_active === true ? "✓" : liveAiMatch?.validation_is_active === false ? "✗" : "—"}
-                </span>
-                {mismatch ? (
-                  <span className="ml-auto inline-flex items-center gap-1 text-rose-700 font-medium">
-                    <AlertTriangle className="h-3 w-3" />
-                    Mismatch — generation is blocked until AI Match is re-run.
-                  </span>
-                ) : (
-                  <span className="ml-auto inline-flex items-center gap-1 text-emerald-700 font-medium">
-                    <CheckCircle2 className="h-3 w-3" />
-                    In sync
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-
-
-
         {/* Branding diagnostics banner */}
         {(() => {
-          const bd = (report as any).branding_diagnostics ?? {};
           const hasName = !!branding.company_name;
           const hasLogo = !!branding.logo_url;
           if (hasName && hasLogo) return null;
@@ -481,13 +364,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <div className="space-y-0.5">
                 {!hasName && <div>• Agency name missing — set <span className="font-mono">company_name</span> in Branding Settings (or Tenant name).</div>}
                 {!hasLogo && <div>• Agency logo missing — upload a PNG/JPG logo in Branding Settings.</div>}
-                {bd.source && <div className="opacity-70">Source resolved: {bd.source}</div>}
               </div>
             </div>
           );
         })()}
 
-        {/* Report Preview */}
+        {/* Report Preview — mirrors the PDF template */}
         <div className="p-5 space-y-6" style={branding.primary_color ? { borderTop: `4px solid ${branding.primary_color}` } : {}}>
           {/* Header */}
           <div className="flex items-start justify-between gap-4 pb-4 border-b">
@@ -500,33 +382,35 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
                 </div>
               )}
               <div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Client Submission Report</div>
                 <div className="font-semibold">{branding.company_name || "Agency"}</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">Client Submission Report</div>
               </div>
             </div>
-            <Badge variant="destructive" className="uppercase">Confidential</Badge>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Candidate Report</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-rose-700 font-semibold">Confidential</div>
+            </div>
           </div>
 
-
+          {/* Candidate name + position */}
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Candidate</div>
             <h2 className="text-2xl font-bold">{header.anonymous ? "Confidential Candidate" : (header.candidate_name || candidateName)}</h2>
-            <div className="text-sm text-muted-foreground">Position: {header.position || jobTitle}</div>
+            <div className="text-sm text-muted-foreground">{header.position || jobTitle}</div>
           </div>
 
-          {/* Snapshot */}
-          <Subsection title="Candidate Snapshot">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Snapshot — 4-up like template */}
+          <Subsection title="Snapshot">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 ["Compensation Expectation", "compensation_expectation"],
                 ["Availability", "availability"],
-                ["Nationality", "nationality"],
+                ["Base / Nationality", "nationality"],
+                ["Current Role", "current_position"],
                 ["Current Location", "current_location"],
                 ["Current Employer", "current_employer"],
-                ["Current Position", "current_position"],
               ].map(([label, key]) => (
                 <div key={key}>
-                  <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
                   <Input
                     className="h-8 text-sm"
                     value={snap[key] ?? ""}
@@ -546,12 +430,21 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             />
           </Subsection>
 
+          {/* Candidate Overview */}
+          <Subsection title="Candidate Overview">
+            <Textarea
+              className="min-h-[90px] text-sm"
+              value={report.candidate_overview ?? ""}
+              onChange={(e) => update((r) => { r.candidate_overview = e.target.value; })}
+            />
+          </Subsection>
+
           {/* Fit Assessment */}
           <Subsection
             title="Fit Assessment vs Job Description"
             action={
               <Button size="sm" variant="outline" onClick={() => update((r) => {
-                r.fit_assessment = [...(r.fit_assessment ?? []), { requirement: "", evidence: "", fit: "PARTIAL" }];
+                r.fit_assessment = [...(r.fit_assessment ?? []), { requirement: "", evidence: "", fit: "STRONG" }];
               })}><Plus className="h-3 w-3 mr-1" />Add row</Button>
             }
           >
@@ -604,46 +497,56 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             </Table>
           </Subsection>
 
-          {/* Strengths */}
-          <Subsection
-            title="Key Strengths"
-            action={<Button size="sm" variant="outline" onClick={() => update((r) => { r.key_strengths = [...(r.key_strengths ?? []), ""]; })}><Plus className="h-3 w-3 mr-1" />Add</Button>}
-          >
-            <div className="space-y-2">
-              {strengths.map((s, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input value={s} onChange={(e) => update((r) => { r.key_strengths[i] = e.target.value; })} />
-                  <Button size="icon" variant="ghost" onClick={() => update((r) => { r.key_strengths.splice(i, 1); })}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Subsection>
+          {/* Two-column Strengths / Considerations */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <Subsection
+              title="Key Strengths"
+              action={<Button size="sm" variant="outline" onClick={() => update((r) => { r.key_strengths = [...(r.key_strengths ?? []), ""]; })}><Plus className="h-3 w-3 mr-1" />Add</Button>}
+            >
+              <div className="space-y-2">
+                {strengths.map((s, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Textarea className="min-h-[44px] text-sm" value={s} onChange={(e) => update((r) => { r.key_strengths[i] = e.target.value; })} />
+                    <Button size="icon" variant="ghost" onClick={() => update((r) => { r.key_strengths.splice(i, 1); })}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Subsection>
 
-          {/* Considerations */}
-          <Subsection
-            title="Considerations"
-            action={<Button size="sm" variant="outline" onClick={() => update((r) => { r.considerations = [...(r.considerations ?? []), ""]; })}><Plus className="h-3 w-3 mr-1" />Add</Button>}
-          >
-            <div className="space-y-2">
-              {considerations.map((s, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input value={s} onChange={(e) => update((r) => { r.considerations[i] = e.target.value; })} />
-                  <Button size="icon" variant="ghost" onClick={() => update((r) => { r.considerations.splice(i, 1); })}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Subsection>
+            <Subsection
+              title="Considerations / Potential Gaps"
+              action={<Button size="sm" variant="outline" onClick={() => update((r) => { r.considerations = [...(r.considerations ?? []), ""]; })}><Plus className="h-3 w-3 mr-1" />Add</Button>}
+            >
+              <div className="space-y-2">
+                {considerations.map((s, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Textarea className="min-h-[44px] text-sm" value={s} onChange={(e) => update((r) => { r.considerations[i] = e.target.value; })} />
+                    <Button size="icon" variant="ghost" onClick={() => update((r) => { r.considerations.splice(i, 1); })}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Subsection>
+          </div>
 
-          {/* Recruiter Notes */}
-          <Subsection title="Recruiter Notes">
+          {/* Recruiter Assessment */}
+          <Subsection title="Recruiter Assessment">
             <Textarea
               className="min-h-[120px] text-sm"
-              value={report.recruiter_notes ?? ""}
-              onChange={(e) => update((r) => { r.recruiter_notes = e.target.value; })}
+              value={report.recruiter_assessment ?? ""}
+              onChange={(e) => update((r) => { r.recruiter_assessment = e.target.value; })}
+            />
+          </Subsection>
+
+          {/* Salary & Availability */}
+          <Subsection title="Salary & Availability">
+            <Textarea
+              className="min-h-[80px] text-sm"
+              value={report.salary_availability ?? ""}
+              onChange={(e) => update((r) => { r.salary_availability = e.target.value; })}
             />
           </Subsection>
 
@@ -686,10 +589,6 @@ function SectionHeader({ title }: { title: string }) {
       <h4 className="font-semibold text-sm">{title}</h4>
     </div>
   );
-}
-
-function shortId(id?: string | null) {
-  return id ? `${id.slice(0, 8)}…` : "—";
 }
 
 function Subsection({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
