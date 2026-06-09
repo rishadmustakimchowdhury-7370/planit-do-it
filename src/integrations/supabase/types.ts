@@ -3761,6 +3761,60 @@ export type Database = {
         }
         Relationships: []
       }
+      prepare_for_client_assessments: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          id: string
+          job_id: string
+          recruiter_id: string
+          structured_notes: Json
+          tenant_id: string
+          text_notes: string
+          updated_at: string
+          voice_transcripts: Json
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          id?: string
+          job_id: string
+          recruiter_id: string
+          structured_notes?: Json
+          tenant_id: string
+          text_notes?: string
+          updated_at?: string
+          voice_transcripts?: Json
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          recruiter_id?: string
+          structured_notes?: Json
+          tenant_id?: string
+          text_notes?: string
+          updated_at?: string
+          voice_transcripts?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepare_for_client_assessments_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepare_for_client_assessments_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

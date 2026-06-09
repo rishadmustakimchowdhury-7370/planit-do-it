@@ -6,12 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Sparkles, User, Briefcase, FileText, Package, Lock } from "lucide-react";
+import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  tenantId: string;
   jobId: string;
   candidateId: string;
   candidateName: string;
@@ -24,17 +26,15 @@ interface Props {
  * but preserves routing, permissions, and audit history of existing submissions.
  */
 export function PrepareForClientDialog({
-  open, onOpenChange, jobId, candidateId, candidateName, jobTitle,
+  open, onOpenChange, tenantId, jobId, candidateId, candidateName, jobTitle,
 }: Props) {
   const [candidate, setCandidate] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
-  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setCandidate(null);
     setJob(null);
-    setNotes("");
     (async () => {
       const [{ data: c }, { data: j }] = await Promise.all([
         supabase.from("candidates")
@@ -93,21 +93,12 @@ export function PrepareForClientDialog({
             </CardContent>
           </Card>
 
-          {/* Recruiter Notes */}
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <SectionHeader icon={<FileText className="h-4 w-4" />} title="Recruiter Notes" />
-              <Label className="text-xs text-muted-foreground">
-                Capture context the AI will use to craft the client-facing report.
-              </Label>
-              <Textarea
-                rows={5}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Why is this candidate a strong fit? Key wins, motivations, salary expectations, availability…"
-              />
-            </CardContent>
-          </Card>
+          {/* Recruiter Assessment — Phase 2 */}
+          <RecruiterAssessmentSection
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+          />
 
           {/* AI Report (Coming Soon) */}
           <ComingSoonSection
