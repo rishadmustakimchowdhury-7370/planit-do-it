@@ -188,6 +188,7 @@ export function PrepareForClientDialog({
             <ClientReportSection
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               candidateName={candidateName} jobTitle={jobTitle}
+              onReportChanged={() => { setRefreshKey(k => k + 1); refreshStepState(); }}
             />
           </div>
 
@@ -195,6 +196,7 @@ export function PrepareForClientDialog({
             <SubmissionPackBuilder
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               onBuilt={handleBuilt}
+              refreshKey={refreshKey}
             />
           </div>
 
