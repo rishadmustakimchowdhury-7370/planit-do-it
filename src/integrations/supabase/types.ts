@@ -1661,8 +1661,57 @@ export type Database = {
           },
         ]
       }
+      client_submission_report_events: {
+        Row: {
+          actor_id: string | null
+          candidate_id: string
+          created_at: string
+          event_type: string
+          id: string
+          job_id: string
+          metadata: Json
+          report_id: string
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          actor_id?: string | null
+          candidate_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          job_id: string
+          metadata?: Json
+          report_id: string
+          tenant_id: string
+          version?: number
+        }
+        Update: {
+          actor_id?: string | null
+          candidate_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_id?: string
+          metadata?: Json
+          report_id?: string
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_submission_report_events_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "client_submission_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_submission_reports: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           candidate_id: string
           created_at: string
           generated_by: string | null
@@ -1677,6 +1726,8 @@ export type Database = {
           version: number
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           candidate_id: string
           created_at?: string
           generated_by?: string | null
@@ -1691,6 +1742,8 @@ export type Database = {
           version?: number
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           candidate_id?: string
           created_at?: string
           generated_by?: string | null
