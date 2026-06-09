@@ -509,3 +509,16 @@ function j(body: unknown, status = 200) {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
+  try {
+    if (!raw) return raw;
+    if (raw.startsWith("http")) return raw;
+    if (raw.includes("/storage/v1/object/")) return raw;
+    const buckets = ["documents", "branding", "trusted-clients", "public", "logos"];
+    for (const b of buckets) {
+      const { data } = await admin.storage.from(b).createSignedUrl(raw, 60 * 60 * 24);
+      if (data?.signedUrl) return data.signedUrl;
+    }
+  } catch (_) { /* ignore */ }
+  return raw;
