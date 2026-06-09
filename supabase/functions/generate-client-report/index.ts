@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
     const [candidateRes, jobRes, latestValidationRes, mirrorRes, assessmentRes, brandingRes, tenantRes] = await Promise.all([
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
       admin.from("jobs").select("*").eq("id", job_id).maybeSingle(),
-      admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
+      admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("is_active", true).order("created_at",{ascending:false}).limit(1).maybeSingle(),
       admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, discovery_classification, interview_probability, strengths, gaps").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
       admin.from("prepare_for_client_assessments").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("recruiter_id", user.id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", tenant_id).maybeSingle(),
