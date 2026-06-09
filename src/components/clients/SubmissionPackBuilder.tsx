@@ -19,10 +19,21 @@ interface Props {
 }
 
 const OPTIONS: { key: "A" | "B" | "C"; title: string; desc: string }[] = [
-  { key: "A", title: "AI Report PDF", desc: "Recruiter assessment report only" },
-  { key: "B", title: "Original CV + AI Report", desc: "Candidate's CV followed by the AI report" },
-  { key: "C", title: "Branded CV + AI Report", desc: "Branded cover page, CV, and AI report" },
+  { key: "A", title: "AI Report Only", desc: "Recruiter assessment report only" },
+  { key: "B", title: "Original CV + Report", desc: "AI report followed by the candidate's original CV (no cover page)" },
+  { key: "C", title: "Branded CV + Report", desc: "AI report followed by an agency-branded CV (no cover page)" },
 ];
+
+type BuildDiag = {
+  branding_diagnostics?: {
+    agency_name: string | null; stored_logo_url: string | null; resolved_logo_url: string | null;
+    logo_status: string; logo_reason: string; last_attempt: string;
+  };
+  merge_validation?: {
+    report_pages: number; cv_pages: number; total_pages: number; expected_total: number;
+    cv_source: string; failed_parts: number[]; merge_status: string;
+  };
+};
 
 type LifecycleStatus = "none" | "draft" | "approved" | "generated" | "sent";
 
