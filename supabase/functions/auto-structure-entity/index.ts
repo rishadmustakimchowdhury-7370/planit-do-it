@@ -126,8 +126,9 @@ async function processJob(jobId: string, force: boolean) {
     method: "POST",
     headers: {
       "x-internal-service-token": SERVICE_KEY,
-      "x-internal-source": "backfill-structuring",
+      "x-internal-source": "auto-structure-entity",
       "Content-Type": "application/json",
+
     },
     body: JSON.stringify({ job_id: jobId, force }),
   });
