@@ -160,3 +160,6 @@ verify_jwt = true
 
 
 
+
+[functions.auto-structure-entity]
+verify_jwt = false

@@ -97,7 +97,9 @@ serve(async (req) => {
       "backfill-structuring",
       "validate-candidate-fit",
       "validate-candidate-fit-v2",
+      "auto-structure-entity",
     ]);
+
     if (!internalToken || internalToken !== serviceKey || !allowedInternalSources.has(internalSource ?? "")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,

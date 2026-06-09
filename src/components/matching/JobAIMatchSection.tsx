@@ -180,6 +180,48 @@ export function JobAIMatchSection({
     }
   };
 
+  const ensureStructured = async (jobId: string, candId: string): Promise<boolean> => {
+    // Check current structuring status for both job and candidate
+    const [jobRes, candRes] = await Promise.all([
+      supabase.from('jobs').select('structuring_status').eq('id', jobId).maybeSingle(),
+      supabase.from('candidates').select('structuring_status').eq('id', candId).maybeSingle(),
+    ]);
+    const jobStatus = (jobRes.data as any)?.structuring_status;
+    const candStatus = (candRes.data as any)?.structuring_status;
+    if (jobStatus === 'completed' && candStatus === 'completed') return true;
+
+    toast.info('Preparing AI Match — structuring data…');
+
+    // Fire structuring for whichever side is missing
+    const invokes: Promise<any>[] = [];
+    if (jobStatus !== 'completed') {
+      invokes.push(supabase.functions.invoke('auto-structure-entity', {
+        body: { entity_type: 'job', entity_id: jobId, force: jobStatus === 'failed' },
+      }).catch(() => null));
+    }
+    if (candStatus !== 'completed') {
+      invokes.push(supabase.functions.invoke('auto-structure-entity', {
+        body: { entity_type: 'candidate', entity_id: candId, force: candStatus === 'failed' },
+      }).catch(() => null));
+    }
+    await Promise.all(invokes);
+
+    // Poll for up to 45s
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const [j, c] = await Promise.all([
+        supabase.from('jobs').select('structuring_status').eq('id', jobId).maybeSingle(),
+        supabase.from('candidates').select('structuring_status').eq('id', candId).maybeSingle(),
+      ]);
+      const js = (j.data as any)?.structuring_status;
+      const cs = (c.data as any)?.structuring_status;
+      if (js === 'completed' && cs === 'completed') return true;
+      if (js === 'failed' && cs === 'failed') break;
+    }
+    toast.warning('AI matching quality may be limited — structured data is still being prepared.');
+    return false;
+  };
+
   const runAIMatch = async () => {
     if (!selectedJobId || !tenantId) {
       toast.error('Please select a job first');
@@ -191,6 +233,10 @@ export function JobAIMatchSection({
       // Get job details
       const selectedJob = jobs.find(j => j.id === selectedJobId);
       if (!selectedJob) throw new Error('Job not found');
+
+      // Auto-structure both sides before invoking the matcher
+      await ensureStructured(selectedJobId, candidateId);
+
 
       // Build comprehensive resume from candidate data
       const resumeParts: string[] = [];

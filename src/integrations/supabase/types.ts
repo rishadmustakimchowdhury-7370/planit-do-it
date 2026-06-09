@@ -867,6 +867,10 @@ export type Database = {
           structured_profile: Json | null
           structured_profile_at: string | null
           structured_profile_version: string | null
+          structuring_last_error: string | null
+          structuring_retry_count: number
+          structuring_started_at: string | null
+          structuring_status: string
           summary: string | null
           tags: Json | null
           tenant_id: string
@@ -898,6 +902,10 @@ export type Database = {
           structured_profile?: Json | null
           structured_profile_at?: string | null
           structured_profile_version?: string | null
+          structuring_last_error?: string | null
+          structuring_retry_count?: number
+          structuring_started_at?: string | null
+          structuring_status?: string
           summary?: string | null
           tags?: Json | null
           tenant_id: string
@@ -929,6 +937,10 @@ export type Database = {
           structured_profile?: Json | null
           structured_profile_at?: string | null
           structured_profile_version?: string | null
+          structuring_last_error?: string | null
+          structuring_retry_count?: number
+          structuring_started_at?: string | null
+          structuring_status?: string
           summary?: string | null
           tags?: Json | null
           tenant_id?: string
@@ -2788,6 +2800,10 @@ export type Database = {
           structured_jd: Json | null
           structured_jd_at: string | null
           structured_jd_version: string | null
+          structuring_last_error: string | null
+          structuring_retry_count: number
+          structuring_started_at: string | null
+          structuring_status: string
           tenant_id: string
           title: string
           updated_at: string | null
@@ -2818,6 +2834,10 @@ export type Database = {
           structured_jd?: Json | null
           structured_jd_at?: string | null
           structured_jd_version?: string | null
+          structuring_last_error?: string | null
+          structuring_retry_count?: number
+          structuring_started_at?: string | null
+          structuring_status?: string
           tenant_id: string
           title: string
           updated_at?: string | null
@@ -2848,6 +2868,10 @@ export type Database = {
           structured_jd?: Json | null
           structured_jd_at?: string | null
           structured_jd_version?: string | null
+          structuring_last_error?: string | null
+          structuring_retry_count?: number
+          structuring_started_at?: string | null
+          structuring_status?: string
           tenant_id?: string
           title?: string
           updated_at?: string | null
@@ -5778,6 +5802,10 @@ export type Database = {
       }
     }
     Functions: {
+      _enqueue_auto_structure: {
+        Args: { _entity_id: string; _entity_type: string }
+        Returns: undefined
+      }
       add_chat_message: {
         Args: {
           p_conversation_id: string
@@ -5993,6 +6021,7 @@ export type Database = {
         Args: { p_deleted_by: string; p_user_id: string }
         Returns: boolean
       }
+      sweep_pending_structuring: { Args: never; Returns: undefined }
       user_belongs_to_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean

@@ -163,12 +163,18 @@ export default function AddJobPage() {
 
       if (error) throw error;
 
-      // Fire-and-forget: embed job + trigger AI rediscovery scan
+      // Fire-and-forget: structure JD immediately (DB trigger is authoritative;
+      // this just gives the recruiter faster UI feedback), then embed + rediscover.
       if (newJob?.id) {
+        supabase.functions.invoke('auto-structure-entity', {
+          body: { entity_type: 'job', entity_id: newJob.id },
+        }).catch((e) => console.warn('Background structuring failed:', e));
+
         supabase.functions.invoke('embed-job', { body: { job_id: newJob.id } })
           .then(() => supabase.functions.invoke('rediscover-candidates', { body: { job_id: newJob.id, force: true } }))
           .catch((e) => console.warn('Background rediscovery failed:', e));
       }
+
 
       toast.success('Job created — AI is scanning your database for matches.');
       navigate(newJob?.id ? `/jobs/${newJob.id}` : '/jobs');
