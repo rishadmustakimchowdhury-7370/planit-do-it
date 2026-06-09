@@ -1,101 +1,89 @@
 
-# Validator v2 — Production Integration Plan
+# Phases 8–11 — Submission Pack Preview, Quality, History, Client-Ready Workflow
 
-## Guiding principle
+Goal: close the loop so recruiters can preview, polish, download, send, and revisit every generated pack — without leaving HireMetrics.
 
-**One scoring authority, two-payload compatibility.** `validate-candidate-fit` (legacy) currently produces the rich payload the UI already consumes — `mandate_match`, `recruiter_copilot`, `placement_calibration`, `ecosystem_signals`, `recruiter_notes_impact`. We do not throw that away. Instead, legacy becomes a **thin orchestrator** that:
+## 1. Submission Pack Preview (Phase 8)
 
-1. Calls the v2 scoring core (`scoreStructured`) for the authoritative `final_score`, `prefilter_score`, `recommendation_tier`, `explanation`, `missing_requirements`, `mandatory_skills_matched`, `preferred_skills_matched`.
-2. Continues to generate the recruiter copilot + qualitative reasoning via OpenAI.
-3. Writes both halves into the **same** `ai_candidate_validations` row.
+After `build-submission-pack` completes, open a new **Submission Pack Preview** screen that renders the PDF inline.
 
-Result: every recruiter surface keeps working, and there is exactly one row, one `final_score`, one `recommendation_tier` — produced in one place.
+- New component: `src/components/clients/SubmissionPackPreview.tsx`
+  - Embeds the generated PDF via signed-URL `<iframe>` (browser PDF viewer = native page-through, zoom, search).
+  - Mode tabs: **AI Report Only (A)** · **Original CV + Report (B)** · **Branded CV + Report (C)** — each tab loads the latest pack of that option (builds on demand if missing).
+  - Header chips: pack option, version, file size, created-at, recruiter.
+  - Action bar:
+    1. **Edit Report** — scrolls to `ClientReportSection` and focuses edit mode.
+    2. **Regenerate Report** — triggers `generate-client-report` (new version).
+    3. **Regenerate Pack** — re-runs `build-submission-pack` for the active option.
+    4. **Download PDF** — signed URL download.
+    5. **Send To Client** — scrolls to `ClientDeliveryWorkspace` with the previewed file pre-attached.
+- Auto-opens after a successful build in `SubmissionPackBuilder`; also opens when clicking a row in history.
 
----
+## 2. PDF Quality Hardening (Phase 9)
 
-## Phase 1 — Frontend Cutover (single authority)
+Refactor `supabase/functions/build-submission-pack/index.ts` to enforce client-ready quality:
 
-### 1.1 `useCandidateValidation.ts`
-- Extend `AICandidateValidation` type with `final_score`, `prefilter_score`, `recommendation_tier`, `explanation`, `mandatory_skills_matched`, `preferred_skills_matched`, `missing_requirements`, `weights_profile_id`.
-- **Remove** the silent overwrite of `fit_score` with `rediscovered_matches.match_score`. New `useLatestValidation` returns the row as-is, with a derived `display_score = final_score ?? fit_score` field and `prefilter_score` separately exposed.
-- `useValidateCandidateFit.run()` keeps invoking `validate-candidate-fit` (which is now the unified orchestrator).
+- **Layout system**: A4, uniform 56pt margins, `drawWrappedText` helper with measured line breaks (no overflow).
+- **Typography**: Helvetica family throughout, hierarchical sizes (Title 22 / H2 14 / Body 10.5 / Caption 8.5) with consistent leading.
+- **Cover (Option C)**: agency logo top-left (signed URL → embedded), candidate name, role, client, date; bottom band uses agency primary color.
+- **Header on every page**: small agency logo + candidate name — role.
+- **Footer on every page**: `Confidential` (configurable), agency name, `Page X of Y`.
+- **Optional watermark**: diagonal `CONFIDENTIAL` text at low opacity, toggleable per build (default off, on via UI checkbox).
+- **Page-break safety**: section helper that measures remaining vertical space and inserts a new page before drawing; never split a heading from its first paragraph.
+- **CV merge**: re-stamp imported CV pages with the same footer/page-number band so numbering is continuous across merged docs.
 
-### 1.2 `validate-candidate-fit` edge function (legacy → unified orchestrator)
-- Import `scoreStructured` from `_shared/structured-scoring.ts`.
-- After loading job + candidate, ensure `structured_jd` + `structured_profile` exist (invoke `structure-jd` / `parse-cv` if missing — same idempotent pattern as v2).
-- Load tenant `scoring_weights_profile`.
-- Compute `prefilterScore = computeMatchScore(...)` and `explanation = scoreStructured(...)`.
-- Insert row with **both** halves:
-  - v2 fields: `final_score`, `prefilter_score`, `recommendation_tier`, `explanation`, `mandatory_skills_matched`, `preferred_skills_matched`, `missing_requirements`, `weights_profile_id`, `engine_version = "enterprise_validation_v2"`.
-  - legacy fields kept: `mandate_match`, `recruiter_copilot`, `match_classification`, `interview_probability`, `ecosystem_signals`, `placement_calibration`, etc.
-  - `fit_score` set to `final_score` (no longer a separate authority).
-- Mirror to `rediscovered_matches` (`final_score`, `recommendation_tier`, `ai_validation_id`).
+UI toggle for watermark added to `SubmissionPackBuilder` and forwarded as `{ watermark: boolean }` to the edge function.
 
-### 1.3 v2 endpoint
-- `validate-candidate-fit-v2` stays as the **lightweight** scoring-only endpoint (used by the queue worker and any non-UI caller). It writes the same row shape minus the qualitative copilot fields.
+## 3. Submission History (Phase 10)
 
-### 1.4 UI surfaces (no schema changes, just new fields surfaced)
-- `JobAIMatchSection.tsx`, `AIMatchPage.tsx`, `JobDetailPage.tsx`, `AIValidationCard.tsx`, `SubmissionWizard.tsx`: read `final_score`, `prefilter_score`, `recommendation_tier`, `explanation` from the validation row. Continue to read legacy fields where already used. Tier chip uses `recommendation_tier` when present, falls back to `match_classification`.
+Promote the existing history list to a first-class table:
 
----
+- New component: `src/components/clients/SubmissionHistoryTable.tsx`
+  - Columns: **Version**, **Option**, **Candidate**, **Job**, **Client**, **Created By**, **Created Date**, **Actions**.
+  - Data source: `client_submission_pack_files` joined with `client_submission_reports.version`, `profiles.full_name`, `candidates.full_name`, `jobs.title`, `clients.name`.
+  - Row actions (no regeneration required):
+    - **Open** → loads file into `SubmissionPackPreview`.
+    - **Download** → signed URL.
+    - **Re-send** → opens `ClientDeliveryWorkspace` with the historical file pre-attached and prior recipient pre-filled (from latest `client_emails` row referencing the same `submission_pack_file_id`).
+- DB migration: add `created_by uuid` to `client_submission_pack_files` (default `auth.uid()`), backfill from `client_submission_reports.created_by`. Grants/RLS preserved.
 
-## Phase 2 — Validation Queue Worker
+## 4. Client-Ready Workflow (Phase 11)
 
-### 2.1 New edge function `process-validation-queue`
-- Loops a batch (default 20) of `validation_queue` rows where `status = 'pending'` ordered by `priority desc, enqueued_at asc`.
-- Per row: mark `in_progress` → invoke `validate-candidate-fit-v2` with service-role auth → on success mark `done` + set `processed_at`; on failure increment `attempts`, mark `failed` after 3 attempts.
-- Respects OpenAI 429 / 402: backs off the batch, leaves row as `pending`.
-- Idempotent — never enqueues duplicates (relies on existing `validation_queue` unique constraint on (job_id, candidate_id, status='pending')).
-- Returns `{processed, failed, remaining}`.
+Restructure `PrepareForClientDialog` into an explicit linear stepper so the end-state flow is visible to recruiters:
 
-### 2.2 Cron schedule
-- Insert (via the insert tool, since URL + anon key are environment-specific) a `pg_cron` job: `process-validation-queue-every-minute`, `* * * * *`, POSTs to the function URL with the project anon key.
+```text
+1. Candidate & Job   (auto)
+2. Recruiter Notes   (text + voice)
+3. AI Report         (generate / edit / approve)
+4. Report Preview    (read-only render of approved report)
+5. Submission Pack   (A / B / C + watermark)
+6. Pack Preview      (inline PDF, full review)
+7. Send To Client    (delivery workspace)
+8. History           (all versions, re-open / re-send)
+```
 
----
+- Stepper at the top of the dialog with completion state per step (derived from existing data: notes saved, report approved, pack exists, email sent).
+- Each step collapses into a card; clicking a step jumps to the section.
+- "Send To Client" is gated until a pack exists; "Pack Preview" is gated until a pack is built; matches the existing approval gate on the report.
 
-## Phase 3 — Rediscovery Fan-Out
+## Files
 
-### 3.1 `rediscover-candidates` edge function
-- After `rediscovered_matches.upsert(...)`, take the top **N=25** by `match_score` and bulk-insert into `validation_queue` with `status='pending'`, `priority=10`, conflict-do-nothing on `(tenant_id, job_id, candidate_id)` where status='pending'.
-- Returns `enqueued_for_validation: N` in the response.
-- The cron worker drains these → writes `final_score`/`recommendation_tier` back to `rediscovered_matches` (already done by v2's mirror step).
+**New**
+- `src/components/clients/SubmissionPackPreview.tsx`
+- `src/components/clients/SubmissionHistoryTable.tsx`
+- `src/components/clients/PrepareForClientStepper.tsx`
+- `supabase/migrations/<ts>_pack_files_created_by.sql`
 
----
+**Edited**
+- `supabase/functions/build-submission-pack/index.ts` — quality rewrite + watermark + page numbers across merged docs
+- `src/components/clients/SubmissionPackBuilder.tsx` — watermark toggle, auto-open preview, hand-off to history
+- `src/components/clients/PrepareForClientDialog.tsx` — stepper + section gating + wiring of preview / history / delivery hand-offs
+- `src/components/clients/ClientDeliveryWorkspace.tsx` — accept a `prefillAttachmentId` prop for re-send
 
-## Phase 4 — Consistency Audit & Production Readiness Report
+## Out of scope (explicit)
 
-Final deliverable in chat:
+- Email delivery itself (already in Phase 5).
+- AI report generation logic (already in Phase 3).
+- Mobile-specific PDF viewer (browser default is sufficient for now).
 
-- **Single Authority Confirmation** — sole writer of `final_score` / `recommendation_tier` is `scoreStructured` (called from both `validate-candidate-fit` and `validate-candidate-fit-v2`).
-- **No Legacy Overwrite** — `useLatestValidation` no longer overwrites; `rediscovered_matches.match_score` is now labelled `prefilter_score` for read purposes.
-- **Consumer Matrix** — table showing recruiter UI / dashboard / queue worker / future submission engine all reading the same `ai_candidate_validations` row and the same `rediscovered_matches.final_score`.
-- **Data flow diagram** (ASCII).
-- **Known follow-ups** before Submission Engine begins.
-
----
-
-## Files Touched
-
-**Frontend (5):**
-- `src/hooks/useCandidateValidation.ts`
-- `src/components/clients/AIValidationCard.tsx`
-- `src/components/matching/JobAIMatchSection.tsx`
-- `src/pages/AIMatchPage.tsx`
-- `src/pages/JobDetailPage.tsx`
-
-**Edge functions (3):**
-- `supabase/functions/validate-candidate-fit/index.ts` (becomes unified orchestrator)
-- `supabase/functions/rediscover-candidates/index.ts` (fan-out enqueue)
-- `supabase/functions/process-validation-queue/index.ts` (new)
-
-**Infra (1):**
-- `supabase/config.toml` (register worker function)
-- `pg_cron` schedule (inserted via insert tool, not migration)
-
-No new tables, no schema changes. All additive at the column level — schema is already migrated from earlier phases.
-
----
-
-## Open question before I start
-
-The legacy `validate-candidate-fit` is ~655 lines of OpenAI prompt + parsing + recruiter copilot logic. The cleanest unification is to **augment** it with v2 scoring rather than rewrite. Confirm you're OK with that (vs. a full rewrite that would also redesign the copilot prompt). My recommendation: augment now, revisit copilot prompt in a later phase — keeps risk surface small for this integration.
+Approve and I'll implement all four phases in one pass.
