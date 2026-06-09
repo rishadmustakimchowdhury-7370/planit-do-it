@@ -202,7 +202,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
               <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
             </div>
-            <Button onClick={generate} disabled={generating}>
+            <Button onClick={() => generate("from_original")} disabled={generating}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
               Generate Report
             </Button>
