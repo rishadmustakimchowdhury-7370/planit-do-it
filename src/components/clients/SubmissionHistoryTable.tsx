@@ -49,11 +49,28 @@ export function SubmissionHistoryTable({
 
   async function load() {
     setLoading(true);
-    const { data: packs } = await supabase
-      .from("client_submission_pack_files")
-      .select("id, pack_option, storage_path, file_name, created_at, recruiter_id, report_id")
-      .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
-      .order("created_at", { ascending: false });
+    const sbAny = supabase as any;
+    const [packsRes, eventsRes] = await Promise.all([
+      supabase.from("client_submission_pack_files")
+        .select("id, pack_option, storage_path, file_name, created_at, recruiter_id, report_id")
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false }),
+      sbAny.from("client_submission_report_events")
+        .select("id, event_type, version, actor_id, metadata, created_at")
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false }).limit(50),
+    ]);
+    const packs = packsRes;
+
+    const evList = (eventsRes?.data ?? []) as any[];
+    const actorIds = Array.from(new Set(evList.map((e: any) => e.actor_id).filter(Boolean)));
+    if (actorIds.length) {
+      const { data: actors } = await sbAny.from("profiles").select("id, full_name").in("id", actorIds);
+      const am = new Map((actors ?? []).map((a: any) => [a.id, a.full_name]));
+      evList.forEach((e: any) => { e.actor_name = e.actor_id ? am.get(e.actor_id) ?? null : null; });
+    }
+    setEvents(evList);
+
 
     const list = (packs ?? []) as any[];
     if (list.length === 0) { setRows([]); setLoading(false); return; }
