@@ -163,3 +163,6 @@ verify_jwt = true
 
 [functions.auto-structure-entity]
 verify_jwt = false
+
+[functions.generate-client-report]
+verify_jwt = true
