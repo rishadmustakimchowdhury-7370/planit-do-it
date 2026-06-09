@@ -51,6 +51,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [dirty, setDirty] = useState(false);
   const [liveAiMatch, setLiveAiMatch] = useState<{
     validation_score: number | null; validation_tier: string | null; validation_id: string | null;
+    validation_created_at: string | null; validation_is_active: boolean | null;
     mirror_score: number | null; mirror_tier: string | null; mirror_validation_id: string | null;
     mirror_interview_probability: number | null; mirror_discovery_classification: string | null;
   } | null>(null);
@@ -60,8 +61,9 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   async function loadLiveAiMatch() {
     const [{ data: v }, { data: m }] = await Promise.all([
       supabase.from("ai_candidate_validations")
-        .select("id, final_score, fit_score, recommendation_tier, recommendation")
+        .select("id, final_score, fit_score, recommendation_tier, recommendation, created_at, is_active")
         .eq("job_id", jobId).eq("candidate_id", candidateId)
+        .eq("is_active", true)
         .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("rediscovered_matches")
         .select("ai_validation_id, final_score, ai_score, recommendation_tier, interview_probability, discovery_classification")
@@ -71,6 +73,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
       validation_id: (v as any)?.id ?? null,
       validation_score: (v as any)?.final_score ?? (v as any)?.fit_score ?? null,
       validation_tier: ((v as any)?.recommendation_tier ?? (v as any)?.recommendation ?? null),
+      validation_created_at: (v as any)?.created_at ?? null,
+      validation_is_active: (v as any)?.is_active ?? null,
       mirror_validation_id: (m as any)?.ai_validation_id ?? null,
       mirror_score: (m as any)?.final_score ?? (m as any)?.ai_score ?? null,
       mirror_tier: (m as any)?.recommendation_tier ?? null,
