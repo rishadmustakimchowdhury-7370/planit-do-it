@@ -1562,6 +1562,51 @@ export type Database = {
         }
         Relationships: []
       }
+      client_submission_reports: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          generated_by: string | null
+          id: string
+          job_id: string
+          model: string | null
+          recruiter_id: string | null
+          report_data: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          job_id: string
+          model?: string | null
+          recruiter_id?: string | null
+          report_data?: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          job_id?: string
+          model?: string | null
+          recruiter_id?: string | null
+          report_data?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       client_user_permissions: {
         Row: {
           approve_reject: boolean
