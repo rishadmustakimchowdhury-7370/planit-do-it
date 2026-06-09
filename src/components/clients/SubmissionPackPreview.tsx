@@ -60,13 +60,15 @@ export function SubmissionPackPreview({
     setLoading(false);
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, refreshKey]);
 
-  // Pinned overrides
+  // Pinned overrides — if the pinned id isn't in our list yet, force a reload.
   useEffect(() => {
     if (!pinnedPackId) { setPinned(null); return; }
     const found = packs.find(p => p.id === pinnedPackId);
     if (found) { setPinned(found); setActiveOption(found.pack_option); }
+    else { load(); }
+    /* eslint-disable-next-line */
   }, [pinnedPackId, packs]);
 
   const latestByOption = useMemo(() => {
