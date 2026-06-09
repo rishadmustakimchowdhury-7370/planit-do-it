@@ -3,6 +3,7 @@
 // (validate-candidate-fit-v2) — the AI only enriches narrative; it never
 // re-scores or changes the recommendation tier.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { expandImpliedSkillTokens } from "../_shared/skill-inference.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
