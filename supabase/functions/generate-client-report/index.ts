@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
       admin.from("jobs").select("*").eq("id", job_id).maybeSingle(),
       admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
-      admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, interview_probability").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
+      admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, discovery_classification, interview_probability, strengths, gaps").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
       admin.from("prepare_for_client_assessments").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("recruiter_id", user.id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", tenant_id).maybeSingle(),
     ]);
@@ -207,21 +207,40 @@ Deno.serve(async (req) => {
 
     const mirrorScore = mirror?.final_score ?? mirror?.ai_score ?? null;
     const mirrorTier = String(mirror?.recommendation_tier ?? "").toLowerCase();
+    const mirrorInterviewProbability = mirror?.interview_probability ?? null;
     const scoreMismatch = mirrorScore != null && Math.round(Number(mirrorScore)) !== Math.round(Number(matchScore));
     const tierMismatch = mirrorTier && mirrorTier !== tierRaw;
-    if (scoreMismatch || tierMismatch) {
+    const interviewProbabilityMismatch = mirrorInterviewProbability != null && interviewProbability != null && Math.round(Number(mirrorInterviewProbability)) !== Math.round(Number(interviewProbability));
+    const interviewProbabilityMissing = mirrorInterviewProbability != null && interviewProbability == null;
+    const discoveryTierMismatch = mirror?.discovery_classification === "strong_shortlist" && tierRaw !== "strong_match";
+    const mirrorStrengths = asArr(mirror?.strengths);
+    const mirrorGaps = asArr(mirror?.gaps);
+    const validationMissing = asArr(validation.missing_requirements);
+    const mirrorStoryMismatch = (mirrorStrengths.length > 0 && asArr(validation.strengths).length === 0)
+      || (mirrorGaps.length === 0 && validationMissing.length > 0);
+
+    if (scoreMismatch || tierMismatch || interviewProbabilityMismatch || interviewProbabilityMissing || discoveryTierMismatch || mirrorStoryMismatch) {
       console.error("[generate-client-report] PARITY MISMATCH", {
         job_id, candidate_id,
-        validation_id: validation.id, validation_score: matchScore, validation_tier: tierRaw,
-        mirror_validation_id: mirror?.ai_validation_id, mirror_score: mirrorScore, mirror_tier: mirrorTier,
+        validation_id: validation.id, validation_score: matchScore, validation_tier: tierRaw, validation_interview_probability: interviewProbability,
+        ai_match_validation_id: mirrorValidationId, mirror_score: mirrorScore, mirror_tier: mirrorTier,
+        mirror_interview_probability: mirrorInterviewProbability, mirror_discovery_classification: mirror?.discovery_classification,
+        mirror_strength_count: mirrorStrengths.length, validation_strength_count: asArr(validation.strengths).length,
+        mirror_gap_count: mirrorGaps.length, validation_missing_count: validationMissing.length,
       });
       return j({
-        error: `Score parity check failed: AI Match mirror shows ${mirrorScore ?? "n/a"}% / ${mirrorTier || "n/a"} but the latest validation shows ${matchScore}% / ${tierRaw}. Re-run AI Match to reconcile, then regenerate the report.`,
+        error: `AI Match parity check failed: AI Match displays validation ${mirrorValidationId ?? "latest"} with score ${mirrorScore ?? "n/a"}%, tier ${mirrorTier || mirror?.discovery_classification || "n/a"}, interview probability ${mirrorInterviewProbability ?? "n/a"}% and ${mirrorGaps.length} gaps; the report validation ${validation.id} has score ${matchScore}%, tier ${tierRaw}, interview probability ${interviewProbability ?? "n/a"}% and ${validationMissing.length} missing requirements. Re-run AI Match to reconcile before generating the report.`,
         parity: {
-          validation_id: validation.id,
-          validation_score: matchScore,
-          validation_tier: tierRaw,
           ai_match_validation_id: mirrorValidationId,
+          report_validation_id: validation.id,
+          ai_match_score: mirrorScore,
+          report_score: matchScore,
+          ai_match_tier: mirrorTier || mirror?.discovery_classification || null,
+          report_tier: tierRaw,
+          ai_match_interview_probability: mirrorInterviewProbability,
+          report_interview_probability: interviewProbability,
+          ai_match_gap_count: mirrorGaps.length,
+          report_missing_count: validationMissing.length,
           mirror_score: mirrorScore,
           mirror_tier: mirrorTier || null,
         },
