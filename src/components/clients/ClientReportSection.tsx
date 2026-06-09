@@ -29,6 +29,7 @@ interface Props {
   candidateId: string;
   candidateName: string;
   jobTitle: string;
+  onReportChanged?: () => void;
 }
 
 type ReportRow = {
