@@ -6,12 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Sparkles, User, Briefcase, FileText, Package, Lock } from "lucide-react";
+import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  tenantId: string;
   jobId: string;
   candidateId: string;
   candidateName: string;
