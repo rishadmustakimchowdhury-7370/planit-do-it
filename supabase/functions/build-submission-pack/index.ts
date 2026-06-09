@@ -70,17 +70,29 @@ async function fetchBytes(url?: string | null): Promise<{ bytes: Uint8Array; mim
   } catch { return null; }
 }
 
-async function embedLogo(pdf: PDFDocument, url?: string | null) {
-  if (!url) return null;
+type LogoStatus = "ok" | "missing" | "svg_unsupported" | "fetch_failed" | "decode_failed";
+
+async function embedLogoDiag(
+  pdf: PDFDocument, url?: string | null,
+): Promise<{ image: any | null; status: LogoStatus; reason: string }> {
+  if (!url) return { image: null, status: "missing", reason: "logo_url is empty" };
   const clean = url.split("?")[0].toLowerCase();
-  if (clean.endsWith(".svg")) return null;
+  if (clean.endsWith(".svg")) return { image: null, status: "svg_unsupported", reason: "SVG logos cannot be embedded in PDF (export PNG/JPG)" };
   const data = await fetchBytes(url);
-  if (!data) return null;
+  if (!data) return { image: null, status: "fetch_failed", reason: "Could not download logo at resolved URL" };
   try {
-    if (clean.endsWith(".png") || data.mime.includes("png")) return await pdf.embedPng(data.bytes);
-    return await pdf.embedJpg(data.bytes);
-  } catch { return null; }
+    const img = (clean.endsWith(".png") || data.mime.includes("png"))
+      ? await pdf.embedPng(data.bytes)
+      : await pdf.embedJpg(data.bytes);
+    return { image: img, status: "ok", reason: "embedded successfully" };
+  } catch (e) {
+    return { image: null, status: "decode_failed", reason: `decode error: ${(e as Error).message}` };
+  }
 }
+async function embedLogo(pdf: PDFDocument, url?: string | null) {
+  return (await embedLogoDiag(pdf, url)).image;
+}
+
 
 interface Ctx {
   pdf: PDFDocument;
