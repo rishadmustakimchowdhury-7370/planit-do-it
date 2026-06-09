@@ -742,6 +742,7 @@ export type Database = {
           client_org_id: string
           created_at: string
           draft_state: Json | null
+          email_replied: boolean
           id: string
           job_candidate_id: string | null
           job_id: string
@@ -758,6 +759,8 @@ export type Database = {
           recruiter_recommendation: string | null
           recruiter_strengths: string[] | null
           recruiter_summary: string | null
+          reply_date: string | null
+          reply_summary: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["submission_status"]
           structured_notes: Json
@@ -775,6 +778,7 @@ export type Database = {
           client_org_id: string
           created_at?: string
           draft_state?: Json | null
+          email_replied?: boolean
           id?: string
           job_candidate_id?: string | null
           job_id: string
@@ -791,6 +795,8 @@ export type Database = {
           recruiter_recommendation?: string | null
           recruiter_strengths?: string[] | null
           recruiter_summary?: string | null
+          reply_date?: string | null
+          reply_summary?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
           structured_notes?: Json
@@ -808,6 +814,7 @@ export type Database = {
           client_org_id?: string
           created_at?: string
           draft_state?: Json | null
+          email_replied?: boolean
           id?: string
           job_candidate_id?: string | null
           job_id?: string
@@ -824,6 +831,8 @@ export type Database = {
           recruiter_recommendation?: string | null
           recruiter_strengths?: string[] | null
           recruiter_summary?: string | null
+          reply_date?: string | null
+          reply_summary?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["submission_status"]
           structured_notes?: Json
@@ -4984,6 +4993,50 @@ export type Database = {
           },
         ]
       }
+      submission_stage_audit: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          note: string | null
+          source: string
+          submission_id: string
+          tenant_id: string
+          to_status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          source?: string
+          submission_id: string
+          tenant_id: string
+          to_status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          source?: string
+          submission_id?: string
+          tenant_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_stage_audit_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -6270,6 +6323,10 @@ export type Database = {
       restore_user: {
         Args: { p_restored_by: string; p_user_id: string }
         Returns: boolean
+      }
+      set_submission_status: {
+        Args: { _note?: string; _submission_id: string; _to_status: string }
+        Returns: undefined
       }
       soft_delete_user: {
         Args: { p_deleted_by: string; p_user_id: string }

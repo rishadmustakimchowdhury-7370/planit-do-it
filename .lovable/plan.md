@@ -1,89 +1,58 @@
+# Phase 6 — Client Submission Pipeline & Kanban
 
-# Phases 8–11 — Submission Pack Preview, Quality, History, Client-Ready Workflow
+## Current state (already shipped)
+- DB: `candidate_submissions` (with full status enum incl. all 10 stages), `submission_activity`, `client_feedback_log`, `submission_recipients`.
+- UI: `SubmissionStatusBadge`, `SubmissionPipelineBar`, `SubmissionActivityTimeline`, `SubmissionDetailDialog`, client-side `ClientSubmissionsPage`.
+- Recruiter "Prepare For Client" wizard creates submissions and sets status (draft → prepared → submitted).
 
-Goal: close the loop so recruiters can preview, polish, download, send, and revisit every generated pack — without leaving HireMetrics.
+## Gap
+No **recruiter-facing** pipeline dashboard. We have a per-job submissions tab, but no global Kanban board, no aggregated counters/metrics, no drag-and-drop, no manual feedback panel, no audit log of stage changes, no email-reply schema.
 
-## 1. Submission Pack Preview (Phase 8)
+## Plan
 
-After `build-submission-pack` completes, open a new **Submission Pack Preview** screen that renders the PDF inline.
+### 1. DB migration (additive)
+- Add columns to `candidate_submissions`: `email_replied bool default false`, `reply_date timestamptz`, `reply_summary text`.
+- New table `submission_stage_audit` (id, submission_id, tenant_id, from_status, to_status, changed_by, changed_at, source text, note text) + RLS + grants.
+- Trigger on `candidate_submissions` status change → insert into `submission_stage_audit` AND `submission_activity` (event_type `status_changed`).
+- Trigger on `client_feedback_log` insert → append to `submission_activity` (event_type `client_feedback`).
+- Helper RPC `set_submission_status(_submission_id, _to_status, _note)` that validates tenant membership and updates status (so client-side drag triggers fire via single call, captures actor).
 
-- New component: `src/components/clients/SubmissionPackPreview.tsx`
-  - Embeds the generated PDF via signed-URL `<iframe>` (browser PDF viewer = native page-through, zoom, search).
-  - Mode tabs: **AI Report Only (A)** · **Original CV + Report (B)** · **Branded CV + Report (C)** — each tab loads the latest pack of that option (builds on demand if missing).
-  - Header chips: pack option, version, file size, created-at, recruiter.
-  - Action bar:
-    1. **Edit Report** — scrolls to `ClientReportSection` and focuses edit mode.
-    2. **Regenerate Report** — triggers `generate-client-report` (new version).
-    3. **Regenerate Pack** — re-runs `build-submission-pack` for the active option.
-    4. **Download PDF** — signed URL download.
-    5. **Send To Client** — scrolls to `ClientDeliveryWorkspace` with the previewed file pre-attached.
-- Auto-opens after a successful build in `SubmissionPackBuilder`; also opens when clicking a row in history.
+### 2. Pipeline page (new)
+`src/pages/ClientPipelinePage.tsx` at route `/pipeline` (sidebar entry "Client Pipeline"):
+- Top counter row: Submitted / Viewed / Screening / Interview Requested / Interview Confirmed / Offer / Hired (live via realtime channel on `candidate_submissions`).
+- Metrics strip: Total Submitted, Interview Rate, Offer Rate, Hire Rate (computed from current tenant filter).
+- Filters: recruiter, client, job, date range.
+- Kanban board: 10 columns (Submitted → Withdrawn), drag-and-drop using `@dnd-kit/core` (already installed via shadcn? confirm; otherwise `bun add @dnd-kit/core @dnd-kit/sortable`).
+- Each card: candidate avatar+name, job title, client name, days-in-stage, last activity, status badge.
+- Drag onto column → call `set_submission_status` RPC → optimistic update + toast.
+- Click card → opens existing `SubmissionDetailDialog` (extended).
 
-## 2. PDF Quality Hardening (Phase 9)
+### 3. SubmissionDetailDialog upgrades
+- New "Feedback" tab: list past `client_feedback_log` entries + form to log new feedback (interested / need_more_info / not_suitable / interview_requested / offer_pending / rejected + optional note). Insert via supabase; trigger pushes to timeline.
+- New "Audit" sub-section in Activity tab pulling from `submission_stage_audit`.
+- Existing Overview/Pack/Recipients tabs preserved.
 
-Refactor `supabase/functions/build-submission-pack/index.ts` to enforce client-ready quality:
+### 4. Wire "Send to Client"
+Verify `SubmissionWizard` / "Send to Client" action sets status to `submitted` and writes activity event (most likely already done; confirm and patch if not).
 
-- **Layout system**: A4, uniform 56pt margins, `drawWrappedText` helper with measured line breaks (no overflow).
-- **Typography**: Helvetica family throughout, hierarchical sizes (Title 22 / H2 14 / Body 10.5 / Caption 8.5) with consistent leading.
-- **Cover (Option C)**: agency logo top-left (signed URL → embedded), candidate name, role, client, date; bottom band uses agency primary color.
-- **Header on every page**: small agency logo + candidate name — role.
-- **Footer on every page**: `Confidential` (configurable), agency name, `Page X of Y`.
-- **Optional watermark**: diagonal `CONFIDENTIAL` text at low opacity, toggleable per build (default off, on via UI checkbox).
-- **Page-break safety**: section helper that measures remaining vertical space and inserts a new page before drawing; never split a heading from its first paragraph.
-- **CV merge**: re-stamp imported CV pages with the same footer/page-number band so numbering is continuous across merged docs.
+### 5. Sidebar nav
+Add "Client Pipeline" link in `src/components/layout/Sidebar.tsx` (icon: Kanban/Columns).
 
-UI toggle for watermark added to `SubmissionPackBuilder` and forwarded as `{ watermark: boolean }` to the edge function.
-
-## 3. Submission History (Phase 10)
-
-Promote the existing history list to a first-class table:
-
-- New component: `src/components/clients/SubmissionHistoryTable.tsx`
-  - Columns: **Version**, **Option**, **Candidate**, **Job**, **Client**, **Created By**, **Created Date**, **Actions**.
-  - Data source: `client_submission_pack_files` joined with `client_submission_reports.version`, `profiles.full_name`, `candidates.full_name`, `jobs.title`, `clients.name`.
-  - Row actions (no regeneration required):
-    - **Open** → loads file into `SubmissionPackPreview`.
-    - **Download** → signed URL.
-    - **Re-send** → opens `ClientDeliveryWorkspace` with the historical file pre-attached and prior recipient pre-filled (from latest `client_emails` row referencing the same `submission_pack_file_id`).
-- DB migration: add `created_by uuid` to `client_submission_pack_files` (default `auth.uid()`), backfill from `client_submission_reports.created_by`. Grants/RLS preserved.
-
-## 4. Client-Ready Workflow (Phase 11)
-
-Restructure `PrepareForClientDialog` into an explicit linear stepper so the end-state flow is visible to recruiters:
-
-```text
-1. Candidate & Job   (auto)
-2. Recruiter Notes   (text + voice)
-3. AI Report         (generate / edit / approve)
-4. Report Preview    (read-only render of approved report)
-5. Submission Pack   (A / B / C + watermark)
-6. Pack Preview      (inline PDF, full review)
-7. Send To Client    (delivery workspace)
-8. History           (all versions, re-open / re-send)
-```
-
-- Stepper at the top of the dialog with completion state per step (derived from existing data: notes saved, report approved, pack exists, email sent).
-- Each step collapses into a card; clicking a step jumps to the section.
-- "Send To Client" is gated until a pack exists; "Pack Preview" is gated until a pack is built; matches the existing approval gate on the report.
+### 6. Metrics per recruiter/client
+On pipeline page, group view toggle: by recruiter, by client. Same metrics row recomputed for selected grouping. Pure client-side aggregation from loaded rows.
 
 ## Files
+- New: `supabase/migrations/<ts>_submission_pipeline.sql`
+- New: `src/pages/ClientPipelinePage.tsx`
+- New: `src/components/clients/SubmissionKanban.tsx`
+- New: `src/components/clients/SubmissionMetricsBar.tsx`
+- New: `src/components/clients/ClientFeedbackPanel.tsx`
+- Edit: `src/components/clients/SubmissionDetailDialog.tsx` (+Feedback tab, +Audit)
+- Edit: `src/App.tsx` (route)
+- Edit: `src/components/layout/Sidebar.tsx` (nav link)
 
-**New**
-- `src/components/clients/SubmissionPackPreview.tsx`
-- `src/components/clients/SubmissionHistoryTable.tsx`
-- `src/components/clients/PrepareForClientStepper.tsx`
-- `supabase/migrations/<ts>_pack_files_created_by.sql`
+## Out of scope
+- Real email-reply ingestion (schema only, per spec).
+- Changing the existing "Prepare For Client" report-creation wizard.
 
-**Edited**
-- `supabase/functions/build-submission-pack/index.ts` — quality rewrite + watermark + page numbers across merged docs
-- `src/components/clients/SubmissionPackBuilder.tsx` — watermark toggle, auto-open preview, hand-off to history
-- `src/components/clients/PrepareForClientDialog.tsx` — stepper + section gating + wiring of preview / history / delivery hand-offs
-- `src/components/clients/ClientDeliveryWorkspace.tsx` — accept a `prefillAttachmentId` prop for re-send
-
-## Out of scope (explicit)
-
-- Email delivery itself (already in Phase 5).
-- AI report generation logic (already in Phase 3).
-- Mobile-specific PDF viewer (browser default is sufficient for now).
-
-Approve and I'll implement all four phases in one pass.
+Confirm and I will proceed with the migration first, then UI.
