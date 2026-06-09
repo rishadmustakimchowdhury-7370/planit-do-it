@@ -24,7 +24,7 @@ const OPTIONS: { key: "A" | "B" | "C"; title: string; desc: string }[] = [
   { key: "C", title: "Branded CV + AI Report", desc: "Branded cover page, CV, and AI report" },
 ];
 
-export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt }: Props) {
+export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, refreshKey }: Props) {
   const [latestReport, setLatestReport] = useState<{ id: string; version: number; status: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
