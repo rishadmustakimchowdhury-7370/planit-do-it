@@ -35,7 +35,6 @@ export function PrepareForClientDialog({
     if (!open) return;
     setCandidate(null);
     setJob(null);
-    setNotes("");
     (async () => {
       const [{ data: c }, { data: j }] = await Promise.all([
         supabase.from("candidates")
