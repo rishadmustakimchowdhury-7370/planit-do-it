@@ -528,17 +528,33 @@ Deno.serve(async (req) => {
   }
 });
 
-async function restampPageNumbers(bytes: Uint8Array, branding: any): Promise<Uint8Array> {
+async function restampPageNumbers(bytes: Uint8Array, branding: any, watermark = false): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const total = pdf.getPageCount();
   for (let i = 0; i < total; i++) {
     const p = pdf.getPage(i);
-    const { width } = p.getSize();
+    const { width, height } = p.getSize();
+    // Watermark first so footer sits above it
+    if (watermark) {
+      const wmText = "CONFIDENTIAL";
+      const size = 72;
+      const tw = bold.widthOfTextAtSize(wmText, size);
+      p.drawText(wmText, {
+        x: (width - tw * 0.7) / 2,
+        y: height / 2 - size / 2,
+        size,
+        font: bold,
+        color: rgb(0.85, 0.2, 0.2),
+        opacity: 0.08,
+        rotate: { type: "degrees", angle: 30 } as any,
+      });
+    }
     const left = branding?.footer_text || branding?.company_name || "";
+    p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
+    p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
     if (left) {
-      p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
-      p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
       p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
     }
     const txt = `Page ${i + 1} of ${total}`;
