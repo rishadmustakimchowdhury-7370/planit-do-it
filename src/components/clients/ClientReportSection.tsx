@@ -68,6 +68,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     } else {
       setActiveId(null); setReport(null);
     }
+    onReportChanged?.();
   }
 
   useEffect(() => { loadVersions(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
