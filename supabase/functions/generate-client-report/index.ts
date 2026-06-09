@@ -380,6 +380,8 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
       meta: {
         generated_at: new Date().toISOString(),
         source: "ai_match_v2",
+        ai_match_validation_id: mirrorValidationId ?? validation.id,
+        report_validation_id: validation.id,
         validation_id: validation.id,
         validation_generated_at: validation.created_at,
         match_score: matchScore,
