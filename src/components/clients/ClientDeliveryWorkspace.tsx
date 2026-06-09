@@ -59,7 +59,7 @@ const PACK_LABELS: Record<string, string> = {
 };
 
 export function ClientDeliveryWorkspace({
-  tenantId, jobId, candidateId, candidateName, jobTitle,
+  tenantId, jobId, candidateId, candidateName, jobTitle, prefillAttachmentId,
 }: Props) {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
