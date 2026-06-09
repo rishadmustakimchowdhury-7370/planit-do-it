@@ -83,18 +83,26 @@ export function PrepareForClientDialog({
   useEffect(() => {
     if (!open) return;
     setCandidate(null); setJob(null); setActiveStep("context");
+    setCandidateLoading(true); setJobLoading(true);
+    setCandidateError(null); setJobError(null);
     setPreviewPackId(null); setDeliveryAttachmentId(null);
     (async () => {
-      const [{ data: c }, { data: j }] = await Promise.all([
-        supabase.from("candidates")
-          .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
-          .eq("id", candidateId).maybeSingle(),
-        supabase.from("jobs")
-          .select("id, title, location, employment_type, seniority_level, description")
-          .eq("id", jobId).maybeSingle(),
-      ]);
-      setCandidate(c);
-      setJob(j);
+      supabase.from("candidates")
+        .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
+        .eq("id", candidateId).maybeSingle()
+        .then(({ data, error }) => {
+          setCandidate(data ?? null);
+          setCandidateError(error?.message ?? (!data ? "Candidate not found" : null));
+          setCandidateLoading(false);
+        });
+      supabase.from("jobs")
+        .select("id, title, location, employment_type, seniority_level, description")
+        .eq("id", jobId).maybeSingle()
+        .then(({ data, error }) => {
+          setJob(data ?? null);
+          setJobError(error?.message ?? (!data ? "Job not found" : null));
+          setJobLoading(false);
+        });
       refreshStepState();
     })();
   }, [open, candidateId, jobId, tenantId]);
