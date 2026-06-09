@@ -98,6 +98,8 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
               <Package className="h-4 w-4" />
             </div>
             <h4 className="font-semibold text-sm">Generate Submission Pack</h4>
+            <LifecycleBadge status={lifecycle} />
+
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
