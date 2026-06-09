@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
 import { SubmissionStatusBadge, type SubmissionStatus, SUBMISSION_STATUS_META, PIPELINE_STAGES } from "./SubmissionStatusBadge";
 import { SubmissionDetailDialog } from "./SubmissionDetailDialog";
-import { SubmissionWizard } from "./SubmissionWizard";
+import { PrepareForClientDialog } from "./PrepareForClientDialog";
 
 interface Props {
   tenantId: string;
