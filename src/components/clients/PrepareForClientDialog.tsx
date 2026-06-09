@@ -202,6 +202,7 @@ export function PrepareForClientDialog({
             <SubmissionPackPreview
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               pinnedPackId={previewPackId}
+              refreshKey={refreshKey}
               onEditReport={() => jumpTo("report")}
               onRegenerateReport={() => jumpTo("report")}
               onSendToClient={handleSendFromPreview}
@@ -213,12 +214,14 @@ export function PrepareForClientDialog({
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
               candidateName={candidateName} jobTitle={jobTitle}
               prefillAttachmentId={deliveryAttachmentId}
+              refreshKey={refreshKey}
             />
           </div>
 
           <div ref={refs.history}>
             <SubmissionHistoryTable
               tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              refreshKey={refreshKey}
               onPreview={handleHistoryPreview}
               onResend={handleHistoryResend}
             />
