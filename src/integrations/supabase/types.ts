@@ -77,6 +77,7 @@ export type Database = {
           generated_by: string | null
           id: string
           interview_probability: number | null
+          is_active: boolean
           jd_signature: string | null
           job_id: string
           mandate_match: Json | null
@@ -113,6 +114,7 @@ export type Database = {
           generated_by?: string | null
           id?: string
           interview_probability?: number | null
+          is_active?: boolean
           jd_signature?: string | null
           job_id: string
           mandate_match?: Json | null
@@ -149,6 +151,7 @@ export type Database = {
           generated_by?: string | null
           id?: string
           interview_probability?: number | null
+          is_active?: boolean
           jd_signature?: string | null
           job_id?: string
           mandate_match?: Json | null
