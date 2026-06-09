@@ -329,7 +329,7 @@ async function buildReportPdf(
     ["Current Employer", snap.current_employer],
     ["Current Position", snap.current_position],
   ];
-  const colW = (A4.w - 2 * MARGIN - 16) / 2;
+  const snapColW = (A4.w - 2 * MARGIN - 16) / 2;
   for (let i = 0; i < snapItems.length; i += 2) {
     const left = snapItems[i];
     const right = snapItems[i + 1];
@@ -337,13 +337,13 @@ async function buildReportPdf(
     const yStart = ctx.y;
     const drawCell = (x: number, label: string, val: string) => {
       ctx.page.drawText(label.toUpperCase(), { x, y: yStart, size: 7.5, font: bold, color: MUTED });
-      const lines = wrap(val || "—", reg, 10, colW);
+      const lines = wrap(val || "—", reg, 10, snapColW);
       lines.slice(0, 2).forEach((ln, i2) => {
         ctx.page.drawText(ln, { x, y: yStart - 12 - i2 * 12, size: 10, font: reg, color: INK });
       });
     };
     drawCell(MARGIN, left[0], left[1] ?? "");
-    if (right) drawCell(MARGIN + colW + 16, right[0], right[1] ?? "");
+    if (right) drawCell(MARGIN + snapColW + 16, right[0], right[1] ?? "");
     ctx.y -= 36;
   }
   ctx.y -= 4;
