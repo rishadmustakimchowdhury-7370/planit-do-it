@@ -522,3 +522,5 @@ async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
     }
   } catch (_) { /* ignore */ }
   return raw;
+
+}
