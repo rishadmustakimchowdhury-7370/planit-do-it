@@ -137,7 +137,7 @@ export interface ValidationExplanation {
 
 // ---------- dimension scorers -------------------------------------------
 
-function scoreSkills(required: NormalizedSkill[], candidate: NormalizedSkill[], weight: number, kind: "mandatory" | "preferred"): {
+function scoreSkills(required: NormalizedSkill[], candidate: NormalizedSkill[], weight: number, kind: "mandatory" | "preferred", candidateTitleTokens?: Set<string>): {
   dim: DimensionResult;
   matches: SkillMatch[];
 } {
@@ -150,10 +150,23 @@ function scoreSkills(required: NormalizedSkill[], candidate: NormalizedSkill[], 
   const candAliasMap: { canonical: string; tokens: Set<string> }[] =
     candidate.map((s) => ({ canonical: s.name, tokens: skillTokens(s) }));
 
+  // Build inferred/implied skill token set from candidate skills + role titles.
+  // This lets "React" imply JavaScript/HTML/CSS, "Next.js" imply React,
+  // "SOC Analyst" imply Incident Response, etc. — so we don't mark obvious
+  // prerequisites as Missing.
+  const inferenceInputs: string[] = [];
+  for (const s of candidate) {
+    inferenceInputs.push(s.name);
+    for (const a of s.aliases ?? []) inferenceInputs.push(a);
+  }
+  if (candidateTitleTokens) for (const t of candidateTitleTokens) inferenceInputs.push(t);
+  const impliedTokens = expandImpliedSkillTokens(inferenceInputs);
+
   const matches: SkillMatch[] = [];
   for (const req of required) {
     const reqTokens = skillTokens(req);
     let hit: SkillMatch = { required: req.name, matched: false };
+    // 1. Direct alias match against candidate's listed skills.
     for (const c of candAliasMap) {
       for (const t of reqTokens) {
         if (c.tokens.has(t)) {
@@ -163,10 +176,20 @@ function scoreSkills(required: NormalizedSkill[], candidate: NormalizedSkill[], 
       }
       if (hit.matched) break;
     }
+    // 2. Implied / inferred match (e.g. React Developer => JavaScript).
+    if (!hit.matched) {
+      for (const t of reqTokens) {
+        if (impliedTokens.has(t)) {
+          hit = { required: req.name, matched: true, via: `implied:${t}`, candidate_skill: "(inferred)" };
+          break;
+        }
+      }
+    }
     matches.push(hit);
   }
   const matched = matches.filter((m) => m.matched);
   const missing = matches.filter((m) => !m.matched);
+  const inferred = matched.filter((m) => (m.via ?? "").startsWith("implied:"));
   const score = matched.length / required.length;
 
   return {
@@ -176,8 +199,8 @@ function scoreSkills(required: NormalizedSkill[], candidate: NormalizedSkill[], 
       weighted: weight * score,
       matched: matched.map((m) => m.required),
       missing: missing.map((m) => m.required),
-      transferable: [],
-      note: `${matched.length}/${required.length} ${kind} skills matched.`,
+      transferable: inferred.map((m) => m.required),
+      note: `${matched.length}/${required.length} ${kind} skills matched${inferred.length ? ` (${inferred.length} via implied skills)` : ""}.`,
     },
     matches,
   };
