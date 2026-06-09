@@ -354,7 +354,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
         {/* Score Parity Diagnostic — AI Match Score / Validator Score / Report Score MUST match */}
         {(() => {
           const reportScore = report.meta?.match_score ?? null;
-          const aiMatchScore = liveAiMatch?.mirror_score ?? null;        // value shown on AI Match panel
+          const aiMatchScore = liveAiMatch?.mirror_score ?? liveAiMatch?.validation_score ?? null; // AI Match mirror, falling back to latest validator row
           const validatorScore = liveAiMatch?.validation_score ?? null;  // latest validator row
           const aiMatchValidationId = liveAiMatch?.mirror_validation_id ?? liveAiMatch?.validation_id ?? null;
           const reportValidationId = report.meta?.report_validation_id ?? report.meta?.validation_id ?? null;
