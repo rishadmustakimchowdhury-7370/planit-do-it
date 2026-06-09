@@ -383,6 +383,12 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
                 <span className={cellCls(r)}>Report: {r ?? "—"}%</span>
                 <span className={cellCls(null)}>AI Match Validation ID: {shortId(aiMatchValidationId)}</span>
                 <span className={cellCls(null)}>Report Validation ID: {shortId(reportValidationId)}</span>
+                {liveAiMatch?.validation_created_at && (
+                  <span className={cellCls(null)}>Created: {new Date(liveAiMatch.validation_created_at).toLocaleString()}</span>
+                )}
+                <span className={cellCls(null)}>
+                  Active: {liveAiMatch?.validation_is_active === true ? "✓" : liveAiMatch?.validation_is_active === false ? "✗" : "—"}
+                </span>
                 {mismatch ? (
                   <span className="ml-auto inline-flex items-center gap-1 text-rose-700 font-medium">
                     <AlertTriangle className="h-3 w-3" />
