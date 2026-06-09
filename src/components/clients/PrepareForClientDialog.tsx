@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 import { ClientReportSection } from "./ClientReportSection";
 import { SubmissionPackBuilder } from "./SubmissionPackBuilder";
+import { ClientDeliveryWorkspace } from "./ClientDeliveryWorkspace";
 
 interface Props {
   open: boolean;
