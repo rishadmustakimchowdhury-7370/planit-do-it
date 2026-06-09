@@ -40,7 +40,7 @@ const OPTIONS: { key: "A" | "B" | "C"; label: string }[] = [
 ];
 
 export function SubmissionPackPreview({
-  tenantId, jobId, candidateId, pinnedPackId,
+  tenantId, jobId, candidateId, pinnedPackId, refreshKey,
   onEditReport, onRegenerateReport, onSendToClient,
 }: Props) {
   const [packs, setPacks] = useState<PackRow[]>([]);
