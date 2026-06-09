@@ -72,7 +72,7 @@ export function SubmissionHistoryTable({
     setEvents(evList);
 
 
-    const list = (packs ?? []) as any[];
+    const list = (packs?.data ?? []) as any[];
     if (list.length === 0) { setRows([]); setLoading(false); return; }
 
     const reportIds = Array.from(new Set(list.map(r => r.report_id).filter(Boolean)));
