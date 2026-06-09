@@ -49,6 +49,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [generating, setGenerating] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [staleSources, setStaleSources] = useState<{ label: string; at: string }[]>([]);
+  const [staleAck, setStaleAck] = useState(false);
   const [liveAiMatch, setLiveAiMatch] = useState<{
     validation_score: number | null; validation_tier: string | null; validation_id: string | null;
     validation_created_at: string | null; validation_is_active: boolean | null;
@@ -104,7 +106,38 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     onReportChanged?.();
   }
 
+  async function checkStaleness(reportCreatedAt: string | null) {
+    if (!reportCreatedAt) { setStaleSources([]); return; }
+    const reportTs = new Date(reportCreatedAt).getTime();
+    const [{ data: v }, { data: notes }, { data: cand }, { data: jb }] = await Promise.all([
+      supabase.from("ai_candidate_validations")
+        .select("created_at").eq("job_id", jobId).eq("candidate_id", candidateId)
+        .eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("prepare_for_client_assessments")
+        .select("updated_at, created_at").eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("candidates").select("updated_at").eq("id", candidateId).maybeSingle(),
+      supabase.from("jobs").select("updated_at").eq("id", jobId).maybeSingle(),
+    ]);
+    const items: { label: string; at: string }[] = [];
+    const push = (label: string, at?: string | null) => {
+      if (at && new Date(at).getTime() > reportTs) items.push({ label, at });
+    };
+    push("AI Match / Validator", (v as any)?.created_at);
+    push("Recruiter Notes", (notes as any)?.updated_at ?? (notes as any)?.created_at);
+    push("Candidate profile", (cand as any)?.updated_at);
+    push("Job", (jb as any)?.updated_at);
+    setStaleSources(items);
+    setStaleAck(false);
+  }
+
   useEffect(() => { loadVersions(); loadLiveAiMatch(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+
+  useEffect(() => {
+    if (active) checkStaleness(active.created_at);
+    else setStaleSources([]);
+    // eslint-disable-next-line
+  }, [activeId, versions]);
 
   useEffect(() => {
     if (active) { setReport(active.report_data); setDirty(false); }
@@ -334,6 +367,34 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
           <div className="px-3 py-2 text-xs bg-amber-50 text-amber-800 border-b flex items-center gap-2">
             <AlertTriangle className="h-3 w-3" />
             Submission Pack generation is disabled until this report is Approved.
+          </div>
+        )}
+
+        {staleSources.length > 0 && !staleAck && (
+          <div className="px-3 py-2 text-xs bg-amber-100 text-amber-900 border-b">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div>
+                  <span className="font-semibold">Report is outdated.</span> Regenerate recommended — newer data exists since v{active?.version} was saved
+                  {active?.created_at ? ` (${new Date(active.created_at).toLocaleString()})` : ""}.
+                </div>
+                <ul className="list-disc ml-4 space-y-0.5">
+                  {staleSources.map((s) => (
+                    <li key={s.label}>{s.label} updated {new Date(s.at).toLocaleString()}</li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => setStaleAck(true)}>
+                    Continue Editing Existing Report
+                  </Button>
+                  <Button size="sm" className="h-7" onClick={() => { setStaleAck(true); generate("from_original"); }} disabled={generating}>
+                    {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Regenerate Using Current Data
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
