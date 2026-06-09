@@ -548,38 +548,172 @@ Deno.serve(async (req) => {
   }
 });
 
-async function restampPageNumbers(bytes: Uint8Array, branding: any, watermark = false): Promise<Uint8Array> {
+async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
+  try {
+    if (!raw) return raw;
+    if (raw.startsWith("http")) return raw;
+    if (raw.includes("/storage/v1/object/")) return raw;
+    // Treat as bucket-relative path. Try common buckets.
+    const buckets = ["documents", "branding", "trusted-clients", "public", "logos"];
+    for (const b of buckets) {
+      const { data } = await admin.storage.from(b).createSignedUrl(raw, 60 * 60 * 24);
+      if (data?.signedUrl) return data.signedUrl;
+    }
+  } catch (_) { /* ignore */ }
+  return raw;
+}
+
+async function restampPageNumbers(
+  bytes: Uint8Array, branding: any, watermark = false, brandedHeader = false,
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const brandColor = hexToRgb(branding?.primary_color);
+  const headerLogo = brandedHeader ? await embedLogo(pdf, branding?.logo_url) : null;
   const total = pdf.getPageCount();
   for (let i = 0; i < total; i++) {
     const p = pdf.getPage(i);
     const { width, height } = p.getSize();
-    // Watermark first so footer sits above it
     if (watermark) {
       const wmText = "CONFIDENTIAL";
       const size = 72;
       const tw = bold.widthOfTextAtSize(wmText, size);
       p.drawText(wmText, {
-        x: (width - tw * 0.7) / 2,
-        y: height / 2 - size / 2,
-        size,
-        font: bold,
-        color: rgb(0.85, 0.2, 0.2),
-        opacity: 0.08,
-        rotate: degrees(30),
+        x: (width - tw * 0.7) / 2, y: height / 2 - size / 2,
+        size, font: bold, color: rgb(0.85, 0.2, 0.2),
+        opacity: 0.08, rotate: degrees(30),
       });
+    }
+    // Optional branded header overlay on every page (Option C)
+    if (brandedHeader) {
+      p.drawRectangle({ x: 0, y: height - 4, width, height: 4, color: brandColor });
+      if (headerLogo) {
+        const maxH = 22;
+        const scale = maxH / headerLogo.height;
+        const w = Math.min(headerLogo.width * scale, 110);
+        p.drawImage(headerLogo, { x: width - MARGIN - w, y: height - 30, width: w, height: maxH });
+      } else if (branding?.company_name) {
+        const t = String(branding.company_name);
+        const tw = bold.widthOfTextAtSize(t, 10);
+        p.drawText(t, { x: width - MARGIN - tw, y: height - 20, size: 10, font: bold, color: brandColor });
+      }
     }
     const left = branding?.footer_text || branding?.company_name || "";
     p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
     p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
-    if (left) {
-      p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
-    }
+    if (left) p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
     const txt = `Page ${i + 1} of ${total}`;
     const w = font.widthOfTextAtSize(txt, 8);
     p.drawText(txt, { x: width - MARGIN - w, y: 14, size: 8, font, color: MUTED });
   }
+  return await pdf.save();
+}
+
+// ---------- Structured CV fallback ----------
+// Renders a multi-page CV PDF from candidate.cv_parsed_data / structured_profile / work_history
+// when the original CV file isn't a PDF (e.g., DOCX). Ensures Option B/C always include a full CV.
+async function buildStructuredCvPdf(candidate: any, branding: any, position: string): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const reg = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+  const brandColor = hexToRgb(branding?.primary_color);
+
+  const ctx: Ctx = {
+    pdf,
+    page: pdf.addPage([A4.w, A4.h]),
+    y: A4.h - 110,
+    fonts: { reg, bold, italic },
+    brandColor, branding, reportTitle: "Curriculum Vitae", pageNumberStart: 1,
+  };
+  drawHeader(ctx);
+  await drawLogo(ctx);
+
+  const name = candidate?.full_name || "Candidate";
+  ctx.page.drawText(name, { x: MARGIN, y: ctx.y, size: 22, font: bold, color: INK });
+  ctx.y -= 22;
+  const sub = [candidate?.current_title, candidate?.current_company].filter(Boolean).join(" · ");
+  if (sub) {
+    ctx.page.drawText(sub, { x: MARGIN, y: ctx.y, size: 11, font: reg, color: brandColor });
+    ctx.y -= 14;
+  }
+  const meta = [candidate?.location, candidate?.email, candidate?.phone].filter(Boolean).join("  •  ");
+  if (meta) {
+    ctx.page.drawText(meta, { x: MARGIN, y: ctx.y, size: 9.5, font: reg, color: MUTED });
+    ctx.y -= 14;
+  }
+  if (position) {
+    ctx.page.drawText(`Submitted for: ${position}`, { x: MARGIN, y: ctx.y, size: 9.5, font: italic, color: MUTED });
+    ctx.y -= 14;
+  }
+  ctx.y -= 8;
+
+  // Pull data from any structured source available
+  const sp = candidate?.structured_profile ?? {};
+  const cp = candidate?.cv_parsed_data ?? {};
+  const summary = sp.summary || cp.summary || candidate?.summary;
+  const skills = (sp.skills || cp.skills || candidate?.skills || []) as any[];
+  const experience = (sp.work_history || sp.experience || cp.work_history || cp.experience || candidate?.work_history || []) as any[];
+  const education = (sp.education || cp.education || candidate?.education || []) as any[];
+
+  if (summary) {
+    drawSectionTitle(ctx, "Professional Summary");
+    drawParagraph(ctx, String(summary));
+    ctx.y -= 6;
+  }
+
+  if (Array.isArray(skills) && skills.length) {
+    drawSectionTitle(ctx, "Core Skills");
+    const flat = skills.map((s) => typeof s === "string" ? s : (s?.name || s?.skill || "")).filter(Boolean);
+    drawParagraph(ctx, flat.join(" · "));
+    ctx.y -= 6;
+  }
+
+  if (Array.isArray(experience) && experience.length) {
+    drawSectionTitle(ctx, "Professional Experience");
+    for (const job of experience) {
+      const title = job?.title || job?.role || job?.position || "Role";
+      const company = job?.company || job?.employer || job?.organization || "";
+      const period = [job?.start_date || job?.start || job?.from, job?.end_date || job?.end || job?.to || (job?.current ? "Present" : "")].filter(Boolean).join(" – ");
+      ensureSpace(ctx, 36);
+      ctx.page.drawText(`${title}${company ? " · " + company : ""}`, { x: MARGIN, y: ctx.y, size: 11, font: bold, color: INK });
+      ctx.y -= 13;
+      if (period) {
+        ctx.page.drawText(period, { x: MARGIN, y: ctx.y, size: 9, font: italic, color: MUTED });
+        ctx.y -= 12;
+      }
+      const desc = job?.description || job?.summary || "";
+      if (desc) drawParagraph(ctx, String(desc), 9.5);
+      const hl = job?.highlights || job?.achievements || [];
+      if (Array.isArray(hl) && hl.length) drawBullets(ctx, hl.map(String));
+      ctx.y -= 4;
+    }
+  }
+
+  if (Array.isArray(education) && education.length) {
+    drawSectionTitle(ctx, "Education");
+    for (const ed of education) {
+      const degree = ed?.degree || ed?.qualification || ed?.title || "";
+      const inst = ed?.institution || ed?.school || ed?.university || "";
+      const period = [ed?.start_date || ed?.start, ed?.end_date || ed?.end].filter(Boolean).join(" – ");
+      ensureSpace(ctx, 30);
+      const line = [degree, inst].filter(Boolean).join(" — ");
+      ctx.page.drawText(line || "Education", { x: MARGIN, y: ctx.y, size: 10.5, font: bold, color: INK });
+      ctx.y -= 12;
+      if (period) {
+        ctx.page.drawText(period, { x: MARGIN, y: ctx.y, size: 9, font: italic, color: MUTED });
+        ctx.y -= 12;
+      }
+      ctx.y -= 2;
+    }
+  }
+
+  // No structured data at all — render an informational page so the pack is never empty.
+  if (!summary && !(skills?.length) && !(experience?.length) && !(education?.length)) {
+    drawSectionTitle(ctx, "Curriculum Vitae");
+    drawParagraph(ctx, "A full CV is available on request. The candidate's original CV is not in a format that can be embedded inline (e.g., DOCX). Please contact the recruiter for the source file.");
+  }
+
   return await pdf.save();
 }
