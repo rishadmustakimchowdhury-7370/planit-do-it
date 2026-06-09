@@ -89,15 +89,30 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
       const { data, error } = await supabase.functions.invoke("build-submission-pack", {
         body: { report_id: latestReport.id, pack_option: option, watermark },
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success("Submission pack ready");
-      const newId = (data as any)?.pack?.id;
+      // Read backend body even on non-2xx so the user sees real errors (CV merge failed, etc.)
+      let payload: any = data ?? null;
+      if (error) {
+        const ctx: any = (error as any).context;
+        if (ctx && typeof ctx.text === "function") {
+          try { payload = JSON.parse(await ctx.text()); } catch { /* ignore */ }
+        }
+        if (payload?.branding_diagnostics || payload?.merge_validation) setLastDiag(payload);
+        throw new Error(payload?.error || error.message);
+      }
+      if ((payload as any)?.error) throw new Error((payload as any).error);
+      setLastDiag(payload as BuildDiag);
+      const mv = payload?.merge_validation;
+      toast.success(
+        mv ? `Submission pack ready (${mv.report_pages} report + ${mv.cv_pages} CV = ${mv.total_pages} pages)`
+           : "Submission pack ready"
+      );
+      const newId = (payload as any)?.pack?.id;
       if (newId) onBuilt?.(newId);
     } catch (e: any) {
-      toast.error(e?.message ?? "Build failed");
+      toast.error(e?.message ?? "Build failed", { duration: 8000 });
     } finally { setBusy(null); }
   }
+
 
   const approved = latestReport?.status === "approved";
 
