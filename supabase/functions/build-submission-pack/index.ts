@@ -669,16 +669,18 @@ async function buildStructuredCvPdf(candidate: any, branding: any, position: str
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const brandColor = hexToRgb(branding?.primary_color);
+  const logo = await embedLogo(pdf, branding?.logo_url);
 
   const ctx: Ctx = {
     pdf,
     page: pdf.addPage([A4.w, A4.h]),
-    y: A4.h - 110,
+    y: A4.h - 96,
     fonts: { reg, bold, italic },
     brandColor, branding, reportTitle: "Curriculum Vitae", pageNumberStart: 1,
+    logoImage: logo, pageIndex: 0,
   };
   drawHeader(ctx);
-  await drawLogo(ctx);
+
 
   const name = candidate?.full_name || "Candidate";
   ctx.page.drawText(name, { x: MARGIN, y: ctx.y, size: 22, font: bold, color: INK });
