@@ -678,18 +678,39 @@ async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
   return raw;
 }
 
-async function restampPageNumbers(
-  bytes: Uint8Array, branding: any, watermark = false, brandedHeader = false,
+async function stampSubmissionPack(
+  bytes: Uint8Array,
+  branding: any,
+  opts: {
+    reportPageCount: number;
+    cvPageCount: number;
+    packOption: "A" | "B" | "C";
+    candidateName: string;
+    position: string;
+    watermark: boolean;
+  },
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const brandColor = hexToRgb(branding?.primary_color);
-  const headerLogo = brandedHeader ? await embedLogo(pdf, branding?.logo_url) : null;
   const total = pdf.getPageCount();
+  const { reportPageCount, packOption, candidateName, position, watermark } = opts;
+
+  // Report continuation footer line: "Candidate Name | Position | Page X of Y"
+  // (Page 1 of the report gets no footer text — it has the premium header.)
+  const reportFooter = (i: number) =>
+    `${candidateName} | ${position} | Page ${i + 1} of ${reportPageCount}`;
+
+  // Option C only: small "Submitted by [Agency Name]" footer on CV pages.
+  const agencyName = branding?.company_name || branding?.footer_text || "";
+  const cvFooterC = agencyName ? `Submitted by ${agencyName}` : "";
+
   for (let i = 0; i < total; i++) {
     const p = pdf.getPage(i);
     const { width, height } = p.getSize();
+    const isReportPage = i < reportPageCount;
+    const isCvPage = i >= reportPageCount;
+
     if (watermark) {
       const wmText = "CONFIDENTIAL";
       const size = 72;
@@ -700,27 +721,26 @@ async function restampPageNumbers(
         opacity: 0.08, rotate: degrees(30),
       });
     }
-    // Optional branded header overlay on every page (Option C)
-    if (brandedHeader) {
-      p.drawRectangle({ x: 0, y: height - 4, width, height: 4, color: brandColor });
-      if (headerLogo) {
-        const maxH = 22;
-        const scale = maxH / headerLogo.height;
-        const w = Math.min(headerLogo.width * scale, 110);
-        p.drawImage(headerLogo, { x: width - MARGIN - w, y: height - 30, width: w, height: maxH });
-      } else if (branding?.company_name) {
-        const t = String(branding.company_name);
-        const tw = bold.widthOfTextAtSize(t, 10);
-        p.drawText(t, { x: width - MARGIN - tw, y: height - 20, size: 10, font: bold, color: brandColor });
+
+    if (isReportPage) {
+      // Minimal footer for report pages 2+. Page 1 stays clean.
+      if (i > 0) {
+        const txt = reportFooter(i);
+        const w = font.widthOfTextAtSize(txt, 8);
+        p.drawText(txt, { x: (width - w) / 2, y: 22, size: 8, font, color: MUTED });
+      }
+      continue;
+    }
+
+    if (isCvPage) {
+      // Option B: preserve original CV exactly — no stamping.
+      if (packOption === "B") continue;
+      // Option C: minimal "Submitted by [Agency]" footer only. No logo, no header.
+      if (packOption === "C" && cvFooterC) {
+        const w = font.widthOfTextAtSize(cvFooterC, 8);
+        p.drawText(cvFooterC, { x: (width - w) / 2, y: 18, size: 8, font, color: MUTED });
       }
     }
-    const left = branding?.footer_text || branding?.company_name || "";
-    p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
-    p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
-    if (left) p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
-    const txt = `Page ${i + 1} of ${total}`;
-    const w = font.widthOfTextAtSize(txt, 8);
-    p.drawText(txt, { x: width - MARGIN - w, y: 14, size: 8, font, color: MUTED });
   }
   return await pdf.save();
 }
