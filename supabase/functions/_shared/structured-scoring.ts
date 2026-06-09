@@ -437,9 +437,26 @@ export function scoreStructured(
   weights: ScoringWeights = DEFAULT_WEIGHTS,
   thresholds: TierThresholds = DEFAULT_THRESHOLDS,
 ): ValidationExplanation {
-  const mand = scoreSkills(job.mandatory_skills, cand.skills, weights.mandatory_skills, "mandatory");
+  // Collect candidate title-ish tokens (current title + each work-history title)
+  // so that role-name inference (e.g. "React Developer" => JS/HTML/CSS) works
+  // even when the candidate's skills list omits the obvious prerequisites.
+  const candTitleStrings = new Set<string>();
+  const pushTitle = (t: any) => {
+    if (!t) return;
+    if (t.canonical) candTitleStrings.add(String(t.canonical));
+    for (const a of t.aliases ?? []) candTitleStrings.add(String(a));
+    for (const r of t.related ?? []) candTitleStrings.add(String(r));
+  };
+  pushTitle(cand.current_title);
+  for (const r of cand.work_history ?? []) {
+    if (r.title) candTitleStrings.add(String(r.title));
+    if (r.normalized_title) candTitleStrings.add(String(r.normalized_title));
+    for (const a of r.title_aliases ?? []) candTitleStrings.add(String(a));
+  }
+
+  const mand = scoreSkills(job.mandatory_skills, cand.skills, weights.mandatory_skills, "mandatory", candTitleStrings);
   // preferred skills slide into the title weight slot proportionally
-  const pref = scoreSkills(job.preferred_skills, cand.skills, 0, "preferred");
+  const pref = scoreSkills(job.preferred_skills, cand.skills, 0, "preferred", candTitleStrings);
 
   const role = scoreRoleSimilarity(job, cand, weights.role_similarity ?? 0, mand.dim.score_0_1);
   const industry = scoreIndustry(job, cand, weights.industry);
