@@ -402,11 +402,16 @@ export default function AddCandidatePage() {
 
         if (insertError) throw insertError;
 
-        // Fire-and-forget: build embedding for AI rediscovery
+        // Fire-and-forget: structure profile (DB trigger is authoritative; this
+        // just provides faster UI feedback) + build embedding for AI rediscovery.
         if (insertedCand?.id) {
+          supabase.functions.invoke('auto-structure-entity', {
+            body: { entity_type: 'candidate', entity_id: insertedCand.id },
+          }).catch((e) => console.warn('Structure candidate failed:', e));
           supabase.functions.invoke('embed-candidate', { body: { candidate_id: insertedCand.id } })
             .catch((e) => console.warn('Embed candidate failed:', e));
         }
+
 
         // Log activity for KPI tracking
         await logActivity({
