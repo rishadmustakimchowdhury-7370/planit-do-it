@@ -346,6 +346,8 @@ CRITICAL RULES:
 - Your executive_summary and recommendation_reasoning MUST be consistent with the supplied tier and score.
 - Recruiter notes enrich the narrative but never override the AI Match scoring.
 - For the snapshot, use the candidate/recruiter assessment data; say "Not stated" when unknown. Never fabricate.
+- EVIDENCE-BASED REASONING (not keyword matching): when describing fit, treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in. Examples: a React/Next.js developer demonstrably knows JavaScript, HTML and CSS; a TypeScript engineer knows the JavaScript ecosystem; a SOC Analyst demonstrates Security Operations and Incident Response; a Compliance Officer demonstrates Regulatory Compliance. The "fit_evidence" array already reflects this — describe requirements as STRONG/TRANSFERABLE when evidence (direct or inherent to the candidate's role) exists, and only call something MISSING if neither the CV nor the candidate's roles credibly evidence it.
+- Answer "Why is this candidate suitable?" — not "Did I find the exact keyword?".
 ${useEdits ? `
 RECRUITER EDIT MODE — PRESERVE THE RECRUITER'S EDITS:
 - "previous_report" contains the recruiter's edited version. Treat it as ground truth for tone, factual snapshot fields, and phrasing the recruiter has chosen.
