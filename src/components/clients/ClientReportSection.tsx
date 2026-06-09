@@ -49,6 +49,8 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const [generating, setGenerating] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [staleSources, setStaleSources] = useState<{ label: string; at: string }[]>([]);
+  const [staleAck, setStaleAck] = useState(false);
   const [liveAiMatch, setLiveAiMatch] = useState<{
     validation_score: number | null; validation_tier: string | null; validation_id: string | null;
     validation_created_at: string | null; validation_is_active: boolean | null;
