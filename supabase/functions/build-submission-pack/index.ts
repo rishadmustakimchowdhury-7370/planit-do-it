@@ -112,47 +112,44 @@ function newPage(ctx: Ctx) {
   ctx.page = ctx.pdf.addPage([A4.w, A4.h]);
   ctx.pageIndex++;
   drawHeader(ctx);
-  ctx.y = A4.h - 96;
+  // Page 1 leaves room for the big logo+confidential block. Continuation
+  // pages are minimal — start near the top of the page.
+  ctx.y = ctx.pageIndex === 0 ? A4.h - 96 : A4.h - MARGIN;
 }
 
 function drawHeader(ctx: Ctx) {
-  // top brand band
-  ctx.page.drawRectangle({ x: 0, y: A4.h - 6, width: A4.w, height: 6, color: ctx.brandColor });
+  // Continuation pages: NO logo, NO agency name, NO branding banner.
+  // The minimal footer (candidate | position | page x of y) is added at finalize time.
+  if (ctx.pageIndex > 0) return;
 
-  // Agency logo (or explicit "no logo" notice — never silently fallback)
-  let logoBoxRight = MARGIN;
+  // === PAGE 1 ONLY: premium executive-search header ===
+  // Logo on the left (logo only — no agency name beside it).
   if (ctx.logoImage) {
-    const maxH = 38;
+    const maxH = 44;
     const scale = maxH / ctx.logoImage.height;
-    const w = Math.min(ctx.logoImage.width * scale, 150);
-    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 52, width: w, height: maxH });
-    logoBoxRight = MARGIN + w + 14;
+    const w = Math.min(ctx.logoImage.width * scale, 180);
+    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 60, width: w, height: maxH });
   } else {
     ctx.page.drawText("No agency logo configured", {
-      x: MARGIN, y: A4.h - 30, size: 8, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
+      x: MARGIN, y: A4.h - 38, size: 9, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
     });
-    logoBoxRight = MARGIN + ctx.fonts.italic.widthOfTextAtSize("No agency logo configured", 8) + 14;
   }
 
-  // Agency name + confidential subtitle next to logo
-  const agencyName = ctx.branding?.company_name || "Agency";
-  ctx.page.drawText(String(agencyName), {
-    x: logoBoxRight, y: A4.h - 30, size: 13, font: ctx.fonts.bold, color: ctx.brandColor,
+  // Right side: "Candidate Report" + "CONFIDENTIAL"
+  const title = "Candidate Report";
+  const tw = ctx.fonts.bold.widthOfTextAtSize(title, 12);
+  ctx.page.drawText(title, {
+    x: A4.w - MARGIN - tw, y: A4.h - 34, size: 12, font: ctx.fonts.bold, color: INK,
   });
-  ctx.page.drawText("Candidate Submission Report — Confidential", {
-    x: logoBoxRight, y: A4.h - 46, size: 8.5, font: ctx.fonts.reg, color: MUTED,
-  });
-
-  // Right-side confidential pill
   const conf = "CONFIDENTIAL";
   const cw = ctx.fonts.bold.widthOfTextAtSize(conf, 9);
   ctx.page.drawText(conf, {
-    x: A4.w - MARGIN - cw, y: A4.h - 30, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
+    x: A4.w - MARGIN - cw, y: A4.h - 48, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
   });
 
   // hairline
   ctx.page.drawLine({
-    start: { x: MARGIN, y: A4.h - 64 }, end: { x: A4.w - MARGIN, y: A4.h - 64 },
+    start: { x: MARGIN, y: A4.h - 70 }, end: { x: A4.w - MARGIN, y: A4.h - 70 },
     thickness: 0.5, color: HAIR,
   });
 }
