@@ -163,7 +163,11 @@ export function PrepareForClientDialog({
             <Card>
               <CardContent className="p-5 space-y-3">
                 <SectionHeader icon={<User className="h-4 w-4" />} title="Candidate Information" />
-                {!candidate ? <Skeleton className="h-20" /> : (
+                {candidateLoading ? <Skeleton className="h-20" /> : candidateError && !candidate ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs">
+                    Could not load candidate details: {candidateError}
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Full Name" value={candidate.full_name} />
                     <Field label="Current Title" value={candidate.current_title} />
