@@ -8,7 +8,7 @@
 // in `client_submission_pack_files`. No email delivery in this phase.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts, degrees } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -459,10 +459,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return jsonR({ error: "Unauthorized" }, 401);
 
-    const { report_id, pack_option } = await req.json();
+    const { report_id, pack_option, watermark } = await req.json();
     if (!report_id || !["A", "B", "C"].includes(pack_option)) {
       return jsonR({ error: "report_id and pack_option (A|B|C) required" }, 400);
     }
+    const wantWatermark = watermark === true;
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -498,7 +499,7 @@ Deno.serve(async (req) => {
     const finalPdf = parts.length === 1 ? parts[0] : await mergePdfs(parts);
 
     // Re-stamp page numbers across the merged document for clean numbering
-    const restamped = await restampPageNumbers(finalPdf, brand);
+    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark);
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
@@ -527,17 +528,33 @@ Deno.serve(async (req) => {
   }
 });
 
-async function restampPageNumbers(bytes: Uint8Array, branding: any): Promise<Uint8Array> {
+async function restampPageNumbers(bytes: Uint8Array, branding: any, watermark = false): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const total = pdf.getPageCount();
   for (let i = 0; i < total; i++) {
     const p = pdf.getPage(i);
-    const { width } = p.getSize();
+    const { width, height } = p.getSize();
+    // Watermark first so footer sits above it
+    if (watermark) {
+      const wmText = "CONFIDENTIAL";
+      const size = 72;
+      const tw = bold.widthOfTextAtSize(wmText, size);
+      p.drawText(wmText, {
+        x: (width - tw * 0.7) / 2,
+        y: height / 2 - size / 2,
+        size,
+        font: bold,
+        color: rgb(0.85, 0.2, 0.2),
+        opacity: 0.08,
+        rotate: degrees(30),
+      });
+    }
     const left = branding?.footer_text || branding?.company_name || "";
+    p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
+    p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
     if (left) {
-      p.drawRectangle({ x: 0, y: 0, width, height: 32, color: WHITE });
-      p.drawLine({ start: { x: MARGIN, y: 30 }, end: { x: width - MARGIN, y: 30 }, thickness: 0.4, color: HAIR });
       p.drawText(String(left), { x: MARGIN, y: 14, size: 8, font, color: MUTED });
     }
     const txt = `Page ${i + 1} of ${total}`;

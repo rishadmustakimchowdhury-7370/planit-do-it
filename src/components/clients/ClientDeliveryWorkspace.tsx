@@ -23,6 +23,8 @@ interface Props {
   candidateId: string;
   candidateName: string;
   jobTitle: string;
+  /** When set, the matching pack is auto-attached on mount/update. */
+  prefillAttachmentId?: string | null;
 }
 
 type PackRow = {
@@ -57,7 +59,7 @@ const PACK_LABELS: Record<string, string> = {
 };
 
 export function ClientDeliveryWorkspace({
-  tenantId, jobId, candidateId, candidateName, jobTitle,
+  tenantId, jobId, candidateId, candidateName, jobTitle, prefillAttachmentId,
 }: Props) {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -142,6 +144,15 @@ export function ClientDeliveryWorkspace({
   }
 
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id]);
+
+  // Honor prefill: when a history row asks us to re-send, auto-attach and jump to compose.
+  useEffect(() => {
+    if (!prefillAttachmentId) return;
+    if (packs.find(p => p.id === prefillAttachmentId)) {
+      setSelectedPackIds([prefillAttachmentId]);
+      setTab("compose");
+    }
+  }, [prefillAttachmentId, packs]);
 
   const sentItems = useMemo(() => emails.filter(e => e.status === "sent" || e.status === "sending" || e.direction === "outbound"), [emails]);
   const drafts = useMemo(() => emails.filter(e => e.status === "draft"), [emails]);
