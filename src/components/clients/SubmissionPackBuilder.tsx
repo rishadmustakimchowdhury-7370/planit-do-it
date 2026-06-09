@@ -213,3 +213,17 @@ function LifecycleBadge({ status }: { status: LifecycleStatus }) {
   return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
 }
 
+
+function DiagCell({ label, value, mono, tone }: { label: string; value: string; mono?: boolean; tone?: "ok" | "warn" }) {
+  const toneCls = tone === "ok"
+    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+    : tone === "warn"
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : "border-border bg-background";
+  return (
+    <div className={`rounded border px-2 py-1 ${toneCls}`}>
+      <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
+      <div className={`text-xs truncate ${mono ? "font-mono" : "font-medium"}`} title={value}>{value}</div>
+    </div>
+  );
+}
