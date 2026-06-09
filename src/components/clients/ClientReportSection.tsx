@@ -126,7 +126,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
       }
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success(`Report v${(data as any).report.version} generated`);
-      await loadVersions();
+      await Promise.all([loadVersions(), loadLiveAiMatch()]);
     } catch (e: any) {
       toast.error(e?.message ?? "Generation failed", { duration: 8000 });
     } finally { setGenerating(false); }
