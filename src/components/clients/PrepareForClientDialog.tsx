@@ -28,6 +28,10 @@ export function PrepareForClientDialog({
 }: Props) {
   const [candidate, setCandidate] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
+  const [candidateLoading, setCandidateLoading] = useState(true);
+  const [jobLoading, setJobLoading] = useState(true);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
 
   // Step state
   const [notesDone, setNotesDone] = useState(false);
