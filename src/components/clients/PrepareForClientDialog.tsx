@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
+import { ClientReportSection } from "./ClientReportSection";
 
 interface Props {
   open: boolean;
