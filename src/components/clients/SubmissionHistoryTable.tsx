@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { History, Eye, Download, Send } from "lucide-react";
+import { History, Eye, Download, Send, FileText, CheckCircle2, Package, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
