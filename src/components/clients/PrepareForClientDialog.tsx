@@ -10,6 +10,7 @@ import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 import { ClientReportSection } from "./ClientReportSection";
+import { SubmissionPackBuilder } from "./SubmissionPackBuilder";
 
 interface Props {
   open: boolean;
@@ -110,11 +111,11 @@ export function PrepareForClientDialog({
             jobTitle={jobTitle}
           />
 
-          {/* Generate Submission Pack (Coming Soon) */}
-          <ComingSoonSection
-            icon={<Package className="h-4 w-4" />}
-            title="Generate Submission Pack"
-            description="One-click branded submission pack with CV, AI report and recruiter notes — ready to share with the client."
+          {/* Submission Pack Builder — Phase 4 */}
+          <SubmissionPackBuilder
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
           />
         </div>
 
