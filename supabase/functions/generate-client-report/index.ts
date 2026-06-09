@@ -316,6 +316,8 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
         match_score: matchScore,
         interview_probability: interviewProbability,
         recommendation_tier_raw: validation.recommendation_tier ?? validation.recommendation ?? null,
+        regeneration_mode: mode,
+        based_on_recruiter_edits: !!useEdits,
       },
     };
 
