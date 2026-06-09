@@ -93,21 +93,12 @@ export function PrepareForClientDialog({
             </CardContent>
           </Card>
 
-          {/* Recruiter Notes */}
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <SectionHeader icon={<FileText className="h-4 w-4" />} title="Recruiter Notes" />
-              <Label className="text-xs text-muted-foreground">
-                Capture context the AI will use to craft the client-facing report.
-              </Label>
-              <Textarea
-                rows={5}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Why is this candidate a strong fit? Key wins, motivations, salary expectations, availability…"
-              />
-            </CardContent>
-          </Card>
+          {/* Recruiter Assessment — Phase 2 */}
+          <RecruiterAssessmentSection
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+          />
 
           {/* AI Report (Coming Soon) */}
           <ComingSoonSection
