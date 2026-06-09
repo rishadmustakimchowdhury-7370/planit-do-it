@@ -14,6 +14,7 @@ interface Props {
   tenantId: string;
   jobId: string;
   candidateId: string;
+  refreshKey?: number;
   onPreview?: (packId: string) => void;
   onResend?: (packId: string) => void;
 }
