@@ -16,7 +16,7 @@ import type {
   NormalizedEducation,
   NormalizedLocation,
 } from "./structured-schema.ts";
-import { expandImpliedSkillTokens, impliedSkillsFor } from "./skill-inference.ts";
+import { expandImpliedSkillTokens } from "./skill-inference.ts";
 
 // ---------- weights profile ---------------------------------------------
 
