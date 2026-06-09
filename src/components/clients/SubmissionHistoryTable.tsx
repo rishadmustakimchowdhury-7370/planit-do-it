@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { History, Eye, Download, Send } from "lucide-react";
+import { History, Eye, Download, Send, FileText, CheckCircle2, Package, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -44,18 +44,37 @@ export function SubmissionHistoryTable({
   tenantId, jobId, candidateId, refreshKey, onPreview, onResend,
 }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const { data: packs } = await supabase
-      .from("client_submission_pack_files")
-      .select("id, pack_option, storage_path, file_name, created_at, recruiter_id, report_id")
-      .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
-      .order("created_at", { ascending: false });
+    const sbAny = supabase as any;
+    const [packsRes, eventsRes] = await Promise.all([
+      supabase.from("client_submission_pack_files")
+        .select("id, pack_option, storage_path, file_name, created_at, recruiter_id, report_id")
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false }),
+      sbAny.from("client_submission_report_events")
+        .select("id, event_type, version, actor_id, metadata, created_at")
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false }).limit(50),
+    ]);
+    const packs = packsRes;
 
-    const list = (packs ?? []) as any[];
+    const evList = (eventsRes?.data ?? []) as any[];
+    const actorIds = Array.from(new Set(evList.map((e: any) => e.actor_id).filter(Boolean)));
+    if (actorIds.length) {
+      const { data: actors } = await sbAny.from("profiles").select("id, full_name").in("id", actorIds);
+      const am = new Map((actors ?? []).map((a: any) => [a.id, a.full_name]));
+      evList.forEach((e: any) => { e.actor_name = e.actor_id ? am.get(e.actor_id) ?? null : null; });
+    }
+    setEvents(evList);
+
+
+    const list = (packs?.data ?? []) as any[];
     if (list.length === 0) { setRows([]); setLoading(false); return; }
+    // (events were already set above)
 
     const reportIds = Array.from(new Set(list.map(r => r.report_id).filter(Boolean)));
     const recruiterIds = Array.from(new Set(list.map(r => r.recruiter_id).filter(Boolean)));
@@ -107,13 +126,50 @@ export function SubmissionHistoryTable({
 
   return (
     <Card>
-      <CardContent className="p-5 space-y-3">
+      <CardContent className="p-5 space-y-4">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-md bg-primary/10 text-primary flex items-center justify-center">
             <History className="h-4 w-4" />
           </div>
           <h4 className="font-semibold text-sm">Submission History</h4>
           <Badge variant="secondary" className="ml-1">{rows.length}</Badge>
+        </div>
+
+        {/* Audit timeline */}
+        <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Audit Timeline</div>
+          {events.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No activity yet.</p>
+          ) : (
+            <ol className="space-y-1.5">
+              {events.map((e: any) => {
+                const meta: Record<string, { icon: any; label: string; cls: string }> = {
+                  draft:     { icon: FileText,     label: "Draft",     cls: "text-amber-700 bg-amber-100 border-amber-200" },
+                  approved:  { icon: CheckCircle2, label: "Approved",  cls: "text-emerald-700 bg-emerald-100 border-emerald-200" },
+                  generated: { icon: Package,      label: "Generated", cls: "text-sky-700 bg-sky-100 border-sky-200" },
+                  sent:      { icon: Mail,         label: "Sent",      cls: "text-violet-700 bg-violet-100 border-violet-200" },
+                };
+                const m = meta[e.event_type] ?? meta.draft;
+                const Icon = m.icon;
+                const sub =
+                  e.event_type === "generated" ? (e.metadata?.file_name ?? e.metadata?.pack_option) :
+                  e.event_type === "sent" ? (e.metadata?.to_email ?? "") :
+                  e.event_type === "draft" && e.metadata?.reason === "edited_after_approval" ? "Edited after approval" :
+                  "";
+                return (
+                  <li key={e.id} className="flex items-center gap-2 text-xs">
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${m.cls}`}>
+                      <Icon className="h-3 w-3" />{m.label}
+                    </span>
+                    <span className="font-medium">v{e.version}</span>
+                    {sub && <span className="text-muted-foreground truncate max-w-[260px]">· {sub}</span>}
+                    <span className="text-muted-foreground">· {e.actor_name ?? "system"}</span>
+                    <span className="text-muted-foreground ml-auto whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </div>
 
         {loading ? (

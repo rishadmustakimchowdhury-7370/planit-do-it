@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History } from "lucide-react";
+import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 const FIT_VALUES = ["STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
@@ -29,6 +29,7 @@ interface Props {
   candidateId: string;
   candidateName: string;
   jobTitle: string;
+  onReportChanged?: () => void;
 }
 
 type ReportRow = {
@@ -39,7 +40,7 @@ type ReportRow = {
   created_at: string;
 };
 
-export function ClientReportSection({ tenantId, jobId, candidateId, candidateName, jobTitle }: Props) {
+export function ClientReportSection({ tenantId, jobId, candidateId, candidateName, jobTitle, onReportChanged }: Props) {
   const [versions, setVersions] = useState<ReportRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [report, setReport] = useState<any | null>(null);
@@ -67,6 +68,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     } else {
       setActiveId(null); setReport(null);
     }
+    onReportChanged?.();
   }
 
   useEffect(() => { loadVersions(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
@@ -92,13 +94,36 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
 
   async function saveEdits() {
     if (!activeId) return;
+    const wasApproved = active?.status === "approved";
     const { error } = await supabase
       .from("client_submission_reports")
       .update({ report_data: report })
       .eq("id", activeId);
     if (error) { toast.error(error.message); return; }
-    toast.success("Saved");
+    toast.success(wasApproved ? "Saved — status reverted to Draft. Re-approve before generating a pack." : "Saved");
     setDirty(false);
+    loadVersions();
+  }
+
+  async function approve() {
+    if (!activeId) return;
+    const { error } = await supabase
+      .from("client_submission_reports")
+      .update({ status: "approved" })
+      .eq("id", activeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Report v${active?.version} approved and locked`);
+    loadVersions();
+  }
+
+  async function unapprove() {
+    if (!activeId) return;
+    const { error } = await supabase
+      .from("client_submission_reports")
+      .update({ status: "draft" })
+      .eq("id", activeId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Reverted to Draft");
     loadVersions();
   }
 
@@ -154,12 +179,21 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">AI Client Submission Report</span>
             <Badge variant="outline" className="ml-2"><History className="h-3 w-3 mr-1" />v{active?.version}</Badge>
+            {active?.status === "approved" ? (
+              <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600 text-white">
+                <Lock className="h-3 w-3" /> Approved · Locked
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="gap-1">
+                <AlertTriangle className="h-3 w-3" /> Draft
+              </Badge>
+            )}
             {versions.length > 1 && (
               <Select value={activeId ?? undefined} onValueChange={setActiveId}>
                 <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {versions.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>v{v.version} · {new Date(v.created_at).toLocaleDateString()}</SelectItem>
+                    <SelectItem key={v.id} value={v.id}>v{v.version} · {v.status} · {new Date(v.created_at).toLocaleDateString()}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -174,11 +208,33 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
               {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Regenerate
             </Button>
-            <Button size="sm" onClick={saveEdits} disabled={!dirty}>
+            <Button size="sm" variant="outline" onClick={saveEdits} disabled={!dirty}>
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
+            {active?.status === "approved" ? (
+              <Button size="sm" variant="outline" onClick={unapprove}>
+                <Lock className="h-3 w-3 mr-1" /> Unlock
+              </Button>
+            ) : (
+              <Button size="sm" onClick={approve} disabled={dirty} title={dirty ? "Save your edits first" : "Approve and lock this version"}>
+                <CheckCircle2 className="h-3 w-3 mr-1" /> Approve Report
+              </Button>
+            )}
           </div>
         </div>
+
+        {active?.status === "approved" && (
+          <div className="px-3 py-2 text-xs bg-emerald-50 text-emerald-800 border-b flex items-center gap-2">
+            <Lock className="h-3 w-3" />
+            Version v{active.version} is locked. Any edit will automatically revert this report to Draft and require re-approval.
+          </div>
+        )}
+        {active?.status !== "approved" && (
+          <div className="px-3 py-2 text-xs bg-amber-50 text-amber-800 border-b flex items-center gap-2">
+            <AlertTriangle className="h-3 w-3" />
+            Submission Pack generation is disabled until this report is Approved.
+          </div>
+        )}
 
         {/* Report Preview */}
         <div className="p-5 space-y-6" style={branding.primary_color ? { borderTop: `4px solid ${branding.primary_color}` } : {}}>
