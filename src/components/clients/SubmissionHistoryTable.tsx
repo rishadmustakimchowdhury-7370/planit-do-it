@@ -125,13 +125,50 @@ export function SubmissionHistoryTable({
 
   return (
     <Card>
-      <CardContent className="p-5 space-y-3">
+      <CardContent className="p-5 space-y-4">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-md bg-primary/10 text-primary flex items-center justify-center">
             <History className="h-4 w-4" />
           </div>
           <h4 className="font-semibold text-sm">Submission History</h4>
           <Badge variant="secondary" className="ml-1">{rows.length}</Badge>
+        </div>
+
+        {/* Audit timeline */}
+        <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Audit Timeline</div>
+          {events.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No activity yet.</p>
+          ) : (
+            <ol className="space-y-1.5">
+              {events.map((e: any) => {
+                const meta: Record<string, { icon: any; label: string; cls: string }> = {
+                  draft:     { icon: FileText,     label: "Draft",     cls: "text-amber-700 bg-amber-100 border-amber-200" },
+                  approved:  { icon: CheckCircle2, label: "Approved",  cls: "text-emerald-700 bg-emerald-100 border-emerald-200" },
+                  generated: { icon: Package,      label: "Generated", cls: "text-sky-700 bg-sky-100 border-sky-200" },
+                  sent:      { icon: Mail,         label: "Sent",      cls: "text-violet-700 bg-violet-100 border-violet-200" },
+                };
+                const m = meta[e.event_type] ?? meta.draft;
+                const Icon = m.icon;
+                const sub =
+                  e.event_type === "generated" ? (e.metadata?.file_name ?? e.metadata?.pack_option) :
+                  e.event_type === "sent" ? (e.metadata?.to_email ?? "") :
+                  e.event_type === "draft" && e.metadata?.reason === "edited_after_approval" ? "Edited after approval" :
+                  "";
+                return (
+                  <li key={e.id} className="flex items-center gap-2 text-xs">
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${m.cls}`}>
+                      <Icon className="h-3 w-3" />{m.label}
+                    </span>
+                    <span className="font-medium">v{e.version}</span>
+                    {sub && <span className="text-muted-foreground truncate max-w-[260px]">· {sub}</span>}
+                    <span className="text-muted-foreground">· {e.actor_name ?? "system"}</span>
+                    <span className="text-muted-foreground ml-auto whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </div>
 
         {loading ? (
