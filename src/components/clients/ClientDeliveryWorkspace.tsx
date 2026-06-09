@@ -270,6 +270,92 @@ export function ClientDeliveryWorkspace({
     } finally { setSavingDraft(false); }
   }
 
+  async function resolveClientOrgId(): Promise<string> {
+    if (!client?.id) throw new Error("No client linked to this job");
+    // 1. Try to find existing client_organizations mapped to this client
+    const { data: existing, error: findErr } = await supabase
+      .from("client_organizations")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("client_id", client.id)
+      .maybeSingle();
+    if (findErr) throw findErr;
+    if (existing?.id) return existing.id;
+    // 2. Otherwise create one
+    const { data: created, error: createErr } = await supabase
+      .from("client_organizations")
+      .insert({
+        tenant_id: tenantId,
+        client_id: client.id,
+        name: client.name,
+        is_active: true,
+        created_by: user?.id ?? null,
+      })
+      .select("id")
+      .single();
+    if (createErr) throw createErr;
+    return created.id;
+  }
+
+  async function upsertSubmission(primaryPackId: string | null): Promise<string> {
+    const clientOrgId = await resolveClientOrgId();
+    const nowIso = new Date().toISOString();
+
+    const { data: existing, error: findErr } = await supabase
+      .from("candidate_submissions")
+      .select("id, status")
+      .eq("tenant_id", tenantId)
+      .eq("job_id", jobId)
+      .eq("candidate_id", candidateId)
+      .eq("client_org_id", clientOrgId)
+      .maybeSingle();
+    if (findErr) throw new Error(`Pipeline lookup failed: ${findErr.message}`);
+
+    const preSubmitStatuses = ["draft", "ai_validated", "prepared"];
+
+    if (existing?.id) {
+      const patch: Record<string, any> = {
+        sent_at: nowIso,
+        last_activity_at: nowIso,
+        submission_message: body || null,
+      };
+      // Only advance status forward — never regress an existing pipeline stage
+      if (preSubmitStatuses.includes(existing.status as string)) {
+        patch.status = "submitted";
+        patch.submitted_at = nowIso;
+        patch.submitted_by = user?.id ?? null;
+      }
+      const { error: updErr } = await supabase
+        .from("candidate_submissions")
+        .update(patch)
+        .eq("id", existing.id);
+      if (updErr) throw new Error(`Pipeline update failed: ${updErr.message}`);
+      return existing.id;
+    }
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("candidate_submissions")
+      .insert({
+        tenant_id: tenantId,
+        job_id: jobId,
+        candidate_id: candidateId,
+        client_org_id: clientOrgId,
+        status: "submitted",
+        submission_message: body || null,
+        submitted_by: user?.id ?? null,
+        submitted_at: nowIso,
+        sent_at: nowIso,
+        last_activity_at: nowIso,
+        pack_status: primaryPackId ? "ready" : "none",
+        pack_components: primaryPackId ? { pack_file_id: primaryPackId } : {},
+        structured_notes: {},
+      } as any)
+      .select("id")
+      .single();
+    if (insErr) throw new Error(`Pipeline insert failed: ${insErr.message}`);
+    return inserted!.id;
+  }
+
   async function send() {
     const err = validate();
     if (err) { toast.error(err); return; }
@@ -298,7 +384,7 @@ export function ClientDeliveryWorkspace({
         submission_pack_file_id: primaryPack?.id ?? null,
         submission_report_id: latestReport?.id ?? null,
         attachments: attachments.length
-          ? attachments.map((a, i) => ({
+          ? attachments.map((a) => ({
               name: a.name, size: a.size, type: a.type,
               pack_file_id: packs.find(p => selectedPackIds.includes(p.id))?.id,
               pack_option: packs.find(p => p.file_name === a.name)?.pack_option,
@@ -324,21 +410,26 @@ export function ClientDeliveryWorkspace({
       });
       if (sendErr) throw sendErr;
 
-      // 3. Activity log
+      // 3. CRITICAL — create/update pipeline submission. If this fails, surface the
+      // real DB error so a candidate cannot be silently "sent" but missing from the pipeline.
+      const submissionId = await upsertSubmission(primaryPack?.id ?? null);
+
+      // 4. Activity log
       await supabase.from("client_activities").insert({
         client_id: client.id,
         tenant_id: tenantId,
         activity_type: "submission_email",
-        description: `Submission for ${candidateName} sent to ${toEmail}`,
+        description: `Candidate submitted to client — ${candidateName} → ${toEmail}`,
         created_by: user?.id,
         metadata: {
           job_id: jobId, candidate_id: candidateId,
+          submission_id: submissionId,
           submission_version: latestReport?.version ?? null,
           attachments: attachments.map(a => a.name),
         },
       });
 
-      toast.success("Submission email sent");
+      toast.success(`Submission Created ✓ — Pipeline: Submitted (${submissionId.slice(0, 8)})`);
       setSubject(""); setBody(""); setSelectedPackIds([]); setCcEmail("");
       setTab("sent");
       refresh();
