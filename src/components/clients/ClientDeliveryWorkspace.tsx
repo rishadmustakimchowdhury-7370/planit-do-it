@@ -145,6 +145,15 @@ export function ClientDeliveryWorkspace({
 
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId, user?.id]);
 
+  // Honor prefill: when a history row asks us to re-send, auto-attach and jump to compose.
+  useEffect(() => {
+    if (!prefillAttachmentId) return;
+    if (packs.find(p => p.id === prefillAttachmentId)) {
+      setSelectedPackIds([prefillAttachmentId]);
+      setTab("compose");
+    }
+  }, [prefillAttachmentId, packs]);
+
   const sentItems = useMemo(() => emails.filter(e => e.status === "sent" || e.status === "sending" || e.direction === "outbound"), [emails]);
   const drafts = useMemo(() => emails.filter(e => e.status === "draft"), [emails]);
   const inbox = useMemo(() => emails.filter(e => e.direction === "inbound"), [emails]);
