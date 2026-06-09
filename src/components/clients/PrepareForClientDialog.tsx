@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
+import { Sparkles, User, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 import { ClientReportSection } from "./ClientReportSection";
 import { SubmissionPackBuilder } from "./SubmissionPackBuilder";
+import { SubmissionPackPreview } from "./SubmissionPackPreview";
+import { SubmissionHistoryTable } from "./SubmissionHistoryTable";
 import { ClientDeliveryWorkspace } from "./ClientDeliveryWorkspace";
+import { PrepareForClientStepper, type StepKey } from "./PrepareForClientStepper";
 
 interface Props {
   open: boolean;
@@ -23,21 +23,62 @@ interface Props {
   jobTitle: string;
 }
 
-/**
- * Phase 1 placeholder for the new AI-powered "Prepare For Client" workflow.
- * This replaces the legacy multi-step Submission Wizard at the entry point,
- * but preserves routing, permissions, and audit history of existing submissions.
- */
 export function PrepareForClientDialog({
   open, onOpenChange, tenantId, jobId, candidateId, candidateName, jobTitle,
 }: Props) {
   const [candidate, setCandidate] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
 
+  // Step state
+  const [notesDone, setNotesDone] = useState(false);
+  const [reportApproved, setReportApproved] = useState(false);
+  const [hasPack, setHasPack] = useState(false);
+  const [hasSent, setHasSent] = useState(false);
+  const [previewPackId, setPreviewPackId] = useState<string | null>(null);
+  const [deliveryAttachmentId, setDeliveryAttachmentId] = useState<string | null>(null);
+  const [activeStep, setActiveStep] = useState<StepKey>("context");
+
+  const refs = {
+    context: useRef<HTMLDivElement>(null),
+    notes: useRef<HTMLDivElement>(null),
+    report: useRef<HTMLDivElement>(null),
+    "preview-report": useRef<HTMLDivElement>(null),
+    pack: useRef<HTMLDivElement>(null),
+    "preview-pack": useRef<HTMLDivElement>(null),
+    send: useRef<HTMLDivElement>(null),
+    history: useRef<HTMLDivElement>(null),
+  } as const;
+
+  async function refreshStepState() {
+    const [
+      { data: notes },
+      { data: report },
+      { count: packCount },
+      { count: emailCount },
+    ] = await Promise.all([
+      supabase.from("prepare_for_client_assessments")
+        .select("id").eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId).limit(1),
+      supabase.from("client_submission_reports")
+        .select("status").eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("version", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("client_submission_pack_files")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId),
+      supabase.from("client_emails")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .in("status", ["sent", "sending"]),
+    ]);
+    setNotesDone((notes ?? []).length > 0);
+    setReportApproved((report as any)?.status === "approved");
+    setHasPack((packCount ?? 0) > 0);
+    setHasSent((emailCount ?? 0) > 0);
+  }
+
   useEffect(() => {
     if (!open) return;
-    setCandidate(null);
-    setJob(null);
+    setCandidate(null); setJob(null); setActiveStep("context");
+    setPreviewPackId(null); setDeliveryAttachmentId(null);
     (async () => {
       const [{ data: c }, { data: j }] = await Promise.all([
         supabase.from("candidates")
@@ -49,12 +90,49 @@ export function PrepareForClientDialog({
       ]);
       setCandidate(c);
       setJob(j);
+      refreshStepState();
     })();
-  }, [open, candidateId, jobId]);
+  }, [open, candidateId, jobId, tenantId]);
+
+  const steps = useMemo(() => ([
+    { key: "context" as StepKey, label: "Candidate & Job", done: !!candidate && !!job },
+    { key: "notes" as StepKey, label: "Recruiter Notes", done: notesDone },
+    { key: "report" as StepKey, label: "AI Report", done: reportApproved },
+    { key: "preview-pack" as StepKey, label: "Pack Preview", done: hasPack },
+    { key: "pack" as StepKey, label: "Generate Pack", done: hasPack },
+    { key: "send" as StepKey, label: "Send To Client", done: hasSent },
+    { key: "history" as StepKey, label: "History", done: hasPack },
+  ]), [candidate, job, notesDone, reportApproved, hasPack, hasSent]);
+
+  function jumpTo(key: StepKey) {
+    setActiveStep(key);
+    refs[key].current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handleBuilt(packId: string) {
+    setPreviewPackId(packId);
+    refreshStepState();
+    setTimeout(() => jumpTo("preview-pack"), 100);
+  }
+
+  function handleSendFromPreview(packId: string) {
+    setDeliveryAttachmentId(packId);
+    setTimeout(() => jumpTo("send"), 50);
+  }
+
+  function handleHistoryPreview(packId: string) {
+    setPreviewPackId(packId);
+    setTimeout(() => jumpTo("preview-pack"), 50);
+  }
+
+  function handleHistoryResend(packId: string) {
+    setDeliveryAttachmentId(packId);
+    setTimeout(() => jumpTo("send"), 50);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -63,70 +141,85 @@ export function PrepareForClientDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 py-2">
-          {/* Candidate Information */}
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <SectionHeader icon={<User className="h-4 w-4" />} title="Candidate Information" />
-              {!candidate ? <Skeleton className="h-20" /> : (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Field label="Full Name" value={candidate.full_name} />
-                  <Field label="Current Title" value={candidate.current_title} />
-                  <Field label="Current Company" value={candidate.current_company} />
-                  <Field label="Location" value={candidate.location} />
-                  <Field label="Years of Experience" value={candidate.years_experience?.toString()} />
-                  <Field label="Email" value={candidate.email} />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <PrepareForClientStepper steps={steps} active={activeStep} onJump={jumpTo} />
 
-          {/* Job Information */}
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <SectionHeader icon={<Briefcase className="h-4 w-4" />} title="Job Information" />
-              {!job ? <Skeleton className="h-20" /> : (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Field label="Job Title" value={job.title} />
-                  <Field label="Seniority" value={job.seniority_level} />
-                  <Field label="Location" value={job.location} />
-                  <Field label="Employment Type" value={job.employment_type} />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <div className="flex-1 overflow-y-auto space-y-4 py-3 pr-1">
+          <div ref={refs.context}>
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <SectionHeader icon={<User className="h-4 w-4" />} title="Candidate Information" />
+                {!candidate ? <Skeleton className="h-20" /> : (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <Field label="Full Name" value={candidate.full_name} />
+                    <Field label="Current Title" value={candidate.current_title} />
+                    <Field label="Current Company" value={candidate.current_company} />
+                    <Field label="Location" value={candidate.location} />
+                    <Field label="Years of Experience" value={candidate.years_experience?.toString()} />
+                    <Field label="Email" value={candidate.email} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="mt-4">
+              <CardContent className="p-5 space-y-3">
+                <SectionHeader icon={<Briefcase className="h-4 w-4" />} title="Job Information" />
+                {!job ? <Skeleton className="h-20" /> : (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <Field label="Job Title" value={job.title} />
+                    <Field label="Seniority" value={job.seniority_level} />
+                    <Field label="Location" value={job.location} />
+                    <Field label="Employment Type" value={job.employment_type} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Recruiter Assessment — Phase 2 */}
-          <RecruiterAssessmentSection
-            tenantId={tenantId}
-            jobId={jobId}
-            candidateId={candidateId}
-          />
+          <div ref={refs.notes} onFocusCapture={() => refreshStepState()}>
+            <RecruiterAssessmentSection
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+            />
+          </div>
 
-          {/* AI Client Submission Report — Phase 3 */}
-          <ClientReportSection
-            tenantId={tenantId}
-            jobId={jobId}
-            candidateId={candidateId}
-            candidateName={candidateName}
-            jobTitle={jobTitle}
-          />
+          <div ref={refs.report}>
+            <ClientReportSection
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              candidateName={candidateName} jobTitle={jobTitle}
+            />
+          </div>
 
-          {/* Submission Pack Builder — Phase 4 */}
-          <SubmissionPackBuilder
-            tenantId={tenantId}
-            jobId={jobId}
-            candidateId={candidateId}
-          />
+          <div ref={refs.pack}>
+            <SubmissionPackBuilder
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              onBuilt={handleBuilt}
+            />
+          </div>
 
-          {/* Client Delivery Workspace — Phase 5 */}
-          <ClientDeliveryWorkspace
-            tenantId={tenantId}
-            jobId={jobId}
-            candidateId={candidateId}
-            candidateName={candidateName}
-            jobTitle={jobTitle}
-          />
+          <div ref={refs["preview-pack"]}>
+            <SubmissionPackPreview
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              pinnedPackId={previewPackId}
+              onEditReport={() => jumpTo("report")}
+              onRegenerateReport={() => jumpTo("report")}
+              onSendToClient={handleSendFromPreview}
+            />
+          </div>
+
+          <div ref={refs.send}>
+            <ClientDeliveryWorkspace
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              candidateName={candidateName} jobTitle={jobTitle}
+              prefillAttachmentId={deliveryAttachmentId}
+            />
+          </div>
+
+          <div ref={refs.history}>
+            <SubmissionHistoryTable
+              tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+              onPreview={handleHistoryPreview}
+              onResend={handleHistoryResend}
+            />
+          </div>
         </div>
 
         <div className="border-t pt-3 flex justify-end gap-2">
@@ -152,22 +245,5 @@ function Field({ label, value }: { label: string; value?: string | null }) {
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="font-medium">{value || <span className="text-muted-foreground">—</span>}</div>
     </div>
-  );
-}
-
-function ComingSoonSection({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <Card className="border-dashed bg-muted/30">
-      <CardContent className="p-5 space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-primary/10 text-primary flex items-center justify-center">{icon}</div>
-          <h4 className="font-semibold text-sm">{title}</h4>
-          <Badge variant="secondary" className="ml-2 gap-1">
-            <Lock className="h-3 w-3" /> Coming Soon
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground pl-9">{description}</p>
-      </CardContent>
-    </Card>
   );
 }
