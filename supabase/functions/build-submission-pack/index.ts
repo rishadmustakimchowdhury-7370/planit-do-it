@@ -470,6 +470,9 @@ Deno.serve(async (req) => {
     const { data: report, error: rErr } = await admin
       .from("client_submission_reports").select("*").eq("id", report_id).maybeSingle();
     if (rErr || !report) return jsonR({ error: "Report not found" }, 404);
+    if (report.status !== "approved") {
+      return jsonR({ error: "Report must be approved before generating a submission pack." }, 400);
+    }
 
     const [{ data: candidate }, { data: job }, { data: branding }, { data: tenant }] = await Promise.all([
       admin.from("candidates").select("*").eq("id", report.candidate_id).maybeSingle(),
