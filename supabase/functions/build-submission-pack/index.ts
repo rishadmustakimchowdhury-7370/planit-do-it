@@ -499,7 +499,7 @@ Deno.serve(async (req) => {
     const finalPdf = parts.length === 1 ? parts[0] : await mergePdfs(parts);
 
     // Re-stamp page numbers across the merged document for clean numbering
-    const restamped = await restampPageNumbers(finalPdf, brand);
+    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark);
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
