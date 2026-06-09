@@ -459,10 +459,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return jsonR({ error: "Unauthorized" }, 401);
 
-    const { report_id, pack_option } = await req.json();
+    const { report_id, pack_option, watermark } = await req.json();
     if (!report_id || !["A", "B", "C"].includes(pack_option)) {
       return jsonR({ error: "report_id and pack_option (A|B|C) required" }, 400);
     }
+    const wantWatermark = watermark === true;
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
