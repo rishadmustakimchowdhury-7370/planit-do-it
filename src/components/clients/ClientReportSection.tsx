@@ -398,13 +398,31 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
 
 
 
+        {/* Branding diagnostics banner */}
+        {(() => {
+          const bd = (report as any).branding_diagnostics ?? {};
+          const hasName = !!branding.company_name;
+          const hasLogo = !!branding.logo_url;
+          if (hasName && hasLogo) return null;
+          return (
+            <div className="mx-5 mt-3 rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs">
+              <div className="font-semibold uppercase tracking-wide mb-1">Branding Incomplete</div>
+              <div className="space-y-0.5">
+                {!hasName && <div>• Agency name missing — set <span className="font-mono">company_name</span> in Branding Settings (or Tenant name).</div>}
+                {!hasLogo && <div>• Agency logo missing — upload a PNG/JPG logo in Branding Settings.</div>}
+                {bd.source && <div className="opacity-70">Source resolved: {bd.source}</div>}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Report Preview */}
         <div className="p-5 space-y-6" style={branding.primary_color ? { borderTop: `4px solid ${branding.primary_color}` } : {}}>
           {/* Header */}
           <div className="flex items-start justify-between gap-4 pb-4 border-b">
             <div className="flex items-center gap-3">
               {branding.logo_url ? (
-                <img src={branding.logo_url} alt="Agency logo" className="h-12 max-w-[180px] object-contain" />
+                <img src={branding.logo_url} alt="Agency logo" className="h-12 max-w-[180px] object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               ) : (
                 <div className="h-12 w-12 rounded bg-primary/10 flex items-center justify-center text-primary font-bold">
                   {(branding.company_name || "A").charAt(0)}
@@ -417,6 +435,7 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             </div>
             <Badge variant="destructive" className="uppercase">Confidential</Badge>
           </div>
+
 
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Candidate</div>
