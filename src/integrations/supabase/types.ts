@@ -1562,6 +1562,62 @@ export type Database = {
         }
         Relationships: []
       }
+      client_submission_pack_files: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          job_id: string
+          pack_option: string
+          recruiter_id: string | null
+          report_id: string
+          status: string
+          storage_path: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          job_id: string
+          pack_option: string
+          recruiter_id?: string | null
+          report_id: string
+          status?: string
+          storage_path: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          job_id?: string
+          pack_option?: string
+          recruiter_id?: string | null
+          report_id?: string
+          status?: string
+          storage_path?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_submission_pack_files_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "client_submission_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_submission_reports: {
         Row: {
           candidate_id: string
