@@ -14,6 +14,8 @@ interface Props {
   candidateId: string;
   /** Called after a successful build with the new pack id, so parent can jump to preview. */
   onBuilt?: (packId: string) => void;
+  /** Bumped by parent to force a refetch of the latest report status. */
+  refreshKey?: number;
 }
 
 const OPTIONS: { key: "A" | "B" | "C"; title: string; desc: string }[] = [
