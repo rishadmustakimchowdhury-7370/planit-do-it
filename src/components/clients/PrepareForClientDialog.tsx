@@ -28,6 +28,10 @@ export function PrepareForClientDialog({
 }: Props) {
   const [candidate, setCandidate] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
+  const [candidateLoading, setCandidateLoading] = useState(true);
+  const [jobLoading, setJobLoading] = useState(true);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
 
   // Step state
   const [notesDone, setNotesDone] = useState(false);
@@ -79,18 +83,26 @@ export function PrepareForClientDialog({
   useEffect(() => {
     if (!open) return;
     setCandidate(null); setJob(null); setActiveStep("context");
+    setCandidateLoading(true); setJobLoading(true);
+    setCandidateError(null); setJobError(null);
     setPreviewPackId(null); setDeliveryAttachmentId(null);
     (async () => {
-      const [{ data: c }, { data: j }] = await Promise.all([
-        supabase.from("candidates")
-          .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
-          .eq("id", candidateId).maybeSingle(),
-        supabase.from("jobs")
-          .select("id, title, location, employment_type, seniority_level, description")
-          .eq("id", jobId).maybeSingle(),
-      ]);
-      setCandidate(c);
-      setJob(j);
+      supabase.from("candidates")
+        .select("id, full_name, current_title, current_company, email, phone, location, years_experience, skills")
+        .eq("id", candidateId).maybeSingle()
+        .then(({ data, error }) => {
+          setCandidate(data ?? null);
+          setCandidateError(error?.message ?? (!data ? "Candidate not found" : null));
+          setCandidateLoading(false);
+        });
+      supabase.from("jobs")
+        .select("id, title, location, employment_type, seniority_level, description")
+        .eq("id", jobId).maybeSingle()
+        .then(({ data, error }) => {
+          setJob(data ?? null);
+          setJobError(error?.message ?? (!data ? "Job not found" : null));
+          setJobLoading(false);
+        });
       refreshStepState();
     })();
   }, [open, candidateId, jobId, tenantId]);
@@ -151,7 +163,11 @@ export function PrepareForClientDialog({
             <Card>
               <CardContent className="p-5 space-y-3">
                 <SectionHeader icon={<User className="h-4 w-4" />} title="Candidate Information" />
-                {!candidate ? <Skeleton className="h-20" /> : (
+                {candidateLoading ? <Skeleton className="h-20" /> : candidateError && !candidate ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs">
+                    Could not load candidate details: {candidateError}
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Full Name" value={candidate.full_name} />
                     <Field label="Current Title" value={candidate.current_title} />
@@ -166,7 +182,11 @@ export function PrepareForClientDialog({
             <Card className="mt-4">
               <CardContent className="p-5 space-y-3">
                 <SectionHeader icon={<Briefcase className="h-4 w-4" />} title="Job Information" />
-                {!job ? <Skeleton className="h-20" /> : (
+                {jobLoading ? <Skeleton className="h-20" /> : jobError && !job ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs">
+                    Could not load job details: {jobError}
+                  </div>
+                ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <Field label="Job Title" value={job.title} />
                     <Field label="Seniority" value={job.seniority_level} />
