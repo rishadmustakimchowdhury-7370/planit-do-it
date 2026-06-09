@@ -208,14 +208,26 @@ Deno.serve(async (req) => {
     const tenant_id = profile?.tenant_id;
     if (!tenant_id) return j({ error: "No tenant" }, 403);
 
-    const [candidateRes, jobRes, latestValidationRes, mirrorRes, assessmentRes, brandingRes] = await Promise.all([
+    const [candidateRes, jobRes, latestValidationRes, mirrorRes, assessmentRes, brandingRes, tenantRes] = await Promise.all([
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
       admin.from("jobs").select("*").eq("id", job_id).maybeSingle(),
       admin.from("ai_candidate_validations").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).order("created_at",{ascending:false}).limit(1).maybeSingle(),
       admin.from("rediscovered_matches").select("ai_validation_id, final_score, ai_score, match_score, recommendation_tier, discovery_classification, interview_probability, strengths, gaps").eq("job_id", job_id).eq("candidate_id", candidate_id).maybeSingle(),
       admin.from("prepare_for_client_assessments").select("*").eq("job_id", job_id).eq("candidate_id", candidate_id).eq("recruiter_id", user.id).maybeSingle(),
       admin.from("branding_settings").select("*").eq("tenant_id", tenant_id).maybeSingle(),
+      admin.from("tenants").select("name, logo_url, primary_color").eq("id", tenant_id).maybeSingle(),
     ]);
+
+    // Merge branding from branding_settings -> tenants, then resolve logo URL.
+    const mergedBranding = {
+      company_name: brandingRes.data?.company_name || tenantRes.data?.name || null,
+      logo_url: brandingRes.data?.logo_url || tenantRes.data?.logo_url || null,
+      primary_color: brandingRes.data?.primary_color || tenantRes.data?.primary_color || null,
+      footer_text: brandingRes.data?.footer_text || brandingRes.data?.company_name || tenantRes.data?.name || null,
+    };
+    if (mergedBranding.logo_url) {
+      mergedBranding.logo_url = await resolveLogoUrl(admin, mergedBranding.logo_url);
+    }
 
     const candidate = candidateRes.data;
     const job = jobRes.data;
