@@ -10,6 +10,7 @@ import { Sparkles, User, Briefcase, Package, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 import { ClientReportSection } from "./ClientReportSection";
+import { SubmissionPackBuilder } from "./SubmissionPackBuilder";
 
 interface Props {
   open: boolean;
