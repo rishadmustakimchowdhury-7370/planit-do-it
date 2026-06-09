@@ -43,6 +43,7 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState(false);
+  const [lastDiag, setLastDiag] = useState<BuildDiag | null>(null);
 
   async function refresh() {
     setLoading(true);
