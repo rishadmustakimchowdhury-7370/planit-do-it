@@ -26,11 +26,10 @@ interface Props {
  * but preserves routing, permissions, and audit history of existing submissions.
  */
 export function PrepareForClientDialog({
-  open, onOpenChange, jobId, candidateId, candidateName, jobTitle,
+  open, onOpenChange, tenantId, jobId, candidateId, candidateName, jobTitle,
 }: Props) {
   const [candidate, setCandidate] = useState<any | null>(null);
   const [job, setJob] = useState<any | null>(null);
-  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!open) return;
