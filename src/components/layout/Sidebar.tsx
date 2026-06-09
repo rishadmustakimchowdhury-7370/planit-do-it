@@ -20,6 +20,7 @@ import {
   Clock,
   TrendingUp,
   ClipboardList,
+  Kanban,
   Menu,
   X
 } from 'lucide-react';
@@ -39,6 +40,7 @@ const navigation = [
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Candidates', href: '/candidates', icon: Users },
   { name: 'Clients', href: '/clients', icon: Building2, permission: 'can_add_clients' as Permission },
+  { name: 'Client Pipeline', href: '/pipeline', icon: Kanban },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles, permission: 'can_use_ai_match' as Permission },
   { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp, permission: 'can_view_reports' as Permission },
