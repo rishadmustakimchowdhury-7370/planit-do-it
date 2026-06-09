@@ -70,17 +70,29 @@ async function fetchBytes(url?: string | null): Promise<{ bytes: Uint8Array; mim
   } catch { return null; }
 }
 
-async function embedLogo(pdf: PDFDocument, url?: string | null) {
-  if (!url) return null;
+type LogoStatus = "ok" | "missing" | "svg_unsupported" | "fetch_failed" | "decode_failed";
+
+async function embedLogoDiag(
+  pdf: PDFDocument, url?: string | null,
+): Promise<{ image: any | null; status: LogoStatus; reason: string }> {
+  if (!url) return { image: null, status: "missing", reason: "logo_url is empty" };
   const clean = url.split("?")[0].toLowerCase();
-  if (clean.endsWith(".svg")) return null;
+  if (clean.endsWith(".svg")) return { image: null, status: "svg_unsupported", reason: "SVG logos cannot be embedded in PDF (export PNG/JPG)" };
   const data = await fetchBytes(url);
-  if (!data) return null;
+  if (!data) return { image: null, status: "fetch_failed", reason: "Could not download logo at resolved URL" };
   try {
-    if (clean.endsWith(".png") || data.mime.includes("png")) return await pdf.embedPng(data.bytes);
-    return await pdf.embedJpg(data.bytes);
-  } catch { return null; }
+    const img = (clean.endsWith(".png") || data.mime.includes("png"))
+      ? await pdf.embedPng(data.bytes)
+      : await pdf.embedJpg(data.bytes);
+    return { image: img, status: "ok", reason: "embedded successfully" };
+  } catch (e) {
+    return { image: null, status: "decode_failed", reason: `decode error: ${(e as Error).message}` };
+  }
 }
+async function embedLogo(pdf: PDFDocument, url?: string | null) {
+  return (await embedLogoDiag(pdf, url)).image;
+}
+
 
 interface Ctx {
   pdf: PDFDocument;
@@ -91,44 +103,60 @@ interface Ctx {
   branding: any;
   reportTitle: string;
   pageNumberStart: number;
+  logoImage: any | null;
+  headerMeta?: { candidateName?: string; position?: string; dateStr?: string };
+  pageIndex: number;
 }
 
 function newPage(ctx: Ctx) {
   ctx.page = ctx.pdf.addPage([A4.w, A4.h]);
+  ctx.pageIndex++;
   drawHeader(ctx);
-  ctx.y = A4.h - 110;
-}
-
-async function drawLogo(ctx: Ctx) {
-  const logo = await embedLogo(ctx.pdf, ctx.branding?.logo_url);
-  if (logo) {
-    const maxH = 32;
-    const scale = maxH / logo.height;
-    const w = Math.min(logo.width * scale, 160);
-    ctx.page.drawImage(logo, { x: MARGIN, y: A4.h - 50, width: w, height: maxH });
-  } else if (ctx.branding?.company_name) {
-    ctx.page.drawText(ctx.branding.company_name, {
-      x: MARGIN, y: A4.h - 38, size: 14, font: ctx.fonts.bold, color: ctx.brandColor,
-    });
-  }
+  ctx.y = A4.h - 96;
 }
 
 function drawHeader(ctx: Ctx) {
-  // brand color band
+  // top brand band
   ctx.page.drawRectangle({ x: 0, y: A4.h - 6, width: A4.w, height: 6, color: ctx.brandColor });
-  // confidential pill
-  ctx.page.drawText("CONFIDENTIAL", {
-    x: A4.w - MARGIN - 80, y: A4.h - 32, size: 9, font: ctx.fonts.bold, color: rgb(0.7, 0.15, 0.15),
+
+  // Agency logo (or explicit "no logo" notice — never silently fallback)
+  let logoBoxRight = MARGIN;
+  if (ctx.logoImage) {
+    const maxH = 38;
+    const scale = maxH / ctx.logoImage.height;
+    const w = Math.min(ctx.logoImage.width * scale, 150);
+    ctx.page.drawImage(ctx.logoImage, { x: MARGIN, y: A4.h - 52, width: w, height: maxH });
+    logoBoxRight = MARGIN + w + 14;
+  } else {
+    ctx.page.drawText("No agency logo configured", {
+      x: MARGIN, y: A4.h - 30, size: 8, font: ctx.fonts.italic, color: rgb(0.72, 0.22, 0.22),
+    });
+    logoBoxRight = MARGIN + ctx.fonts.italic.widthOfTextAtSize("No agency logo configured", 8) + 14;
+  }
+
+  // Agency name + confidential subtitle next to logo
+  const agencyName = ctx.branding?.company_name || "Agency";
+  ctx.page.drawText(String(agencyName), {
+    x: logoBoxRight, y: A4.h - 30, size: 13, font: ctx.fonts.bold, color: ctx.brandColor,
   });
+  ctx.page.drawText("Candidate Submission Report — Confidential", {
+    x: logoBoxRight, y: A4.h - 46, size: 8.5, font: ctx.fonts.reg, color: MUTED,
+  });
+
+  // Right-side confidential pill
+  const conf = "CONFIDENTIAL";
+  const cw = ctx.fonts.bold.widthOfTextAtSize(conf, 9);
+  ctx.page.drawText(conf, {
+    x: A4.w - MARGIN - cw, y: A4.h - 30, size: 9, font: ctx.fonts.bold, color: rgb(0.72, 0.15, 0.15),
+  });
+
   // hairline
   ctx.page.drawLine({
-    start: { x: MARGIN, y: A4.h - 60 }, end: { x: A4.w - MARGIN, y: A4.h - 60 },
+    start: { x: MARGIN, y: A4.h - 64 }, end: { x: A4.w - MARGIN, y: A4.h - 64 },
     thickness: 0.5, color: HAIR,
   });
-  ctx.page.drawText(ctx.reportTitle, {
-    x: MARGIN, y: A4.h - 78, size: 10, font: ctx.fonts.reg, color: MUTED,
-  });
 }
+
 
 function ensureSpace(ctx: Ctx, h: number) {
   if (ctx.y - h < 60) newPage(ctx);
@@ -239,37 +267,56 @@ function drawFitTable(ctx: Ctx, rows: any[]) {
   ctx.y -= 4;
 }
 
-async function buildReportPdf(report: any, branding: any, reportTitle: string): Promise<Uint8Array> {
+async function buildReportPdf(
+  report: any,
+  branding: any,
+  reportTitle: string,
+  diag?: { logo_status: LogoStatus; logo_reason: string },
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const reg = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const brandColor = hexToRgb(branding?.primary_color);
+  const logoEmbed = await embedLogoDiag(pdf, branding?.logo_url);
+  if (diag) { diag.logo_status = logoEmbed.status; diag.logo_reason = logoEmbed.reason; }
+
+  const h = report.header ?? {};
+  const candidateName = h.anonymous ? "Confidential Candidate" : (h.candidate_name || "—");
+  const position = h.position || "—";
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 
   const ctx: Ctx = {
     pdf,
     page: pdf.addPage([A4.w, A4.h]),
-    y: A4.h - 110,
+    y: A4.h - 96,
     fonts: { reg, bold, italic },
     brandColor, branding, reportTitle, pageNumberStart: 1,
+    logoImage: logoEmbed.image,
+    headerMeta: { candidateName, position, dateStr },
+    pageIndex: 0,
   };
   drawHeader(ctx);
-  await drawLogo(ctx);
 
-  // Title block
-  const h = report.header ?? {};
-  ctx.page.drawText("Client Submission Report", {
-    x: MARGIN, y: ctx.y, size: 18, font: bold, color: INK,
+  // Page 1: Candidate / Position / Date row directly under the header
+  const colW = (A4.w - 2 * MARGIN) / 3;
+  const kvRow = (x: number, label: string, value: string) => {
+    ctx.page.drawText(label.toUpperCase(), { x, y: ctx.y, size: 7.5, font: bold, color: MUTED });
+    const lines = wrap(value || "—", bold, 12, colW - 8);
+    lines.slice(0, 2).forEach((ln, i) => {
+      ctx.page.drawText(ln, { x, y: ctx.y - 14 - i * 14, size: 12, font: bold, color: INK });
+    });
+  };
+  kvRow(MARGIN, "Candidate", candidateName);
+  kvRow(MARGIN + colW, "Position", position);
+  kvRow(MARGIN + colW * 2, "Date", dateStr);
+  ctx.y -= 50;
+  ctx.page.drawLine({
+    start: { x: MARGIN, y: ctx.y + 4 }, end: { x: A4.w - MARGIN, y: ctx.y + 4 },
+    thickness: 0.5, color: HAIR,
   });
-  ctx.y -= 22;
-  ctx.page.drawText((h.anonymous ? "Confidential Candidate" : (h.candidate_name || "—")), {
-    x: MARGIN, y: ctx.y, size: 14, font: bold, color: brandColor,
-  });
-  ctx.y -= 16;
-  ctx.page.drawText(`Position: ${h.position || "—"}`, {
-    x: MARGIN, y: ctx.y, size: 10, font: reg, color: MUTED,
-  });
-  ctx.y -= 24;
+  ctx.y -= 8;
+
 
   // Snapshot — 2 columns
   drawSectionTitle(ctx, "Candidate Snapshot");
@@ -428,19 +475,29 @@ async function tryFetchCvPdf(supa: any, candidate: any): Promise<Uint8Array | nu
   return null;
 }
 
-async function mergePdfs(parts: Uint8Array[]): Promise<Uint8Array> {
+async function countPdfPages(bytes: Uint8Array): Promise<number> {
+  try {
+    const d = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    return d.getPageCount();
+  } catch { return 0; }
+}
+
+async function mergePdfs(parts: Uint8Array[]): Promise<{ bytes: Uint8Array; failed: number[] }> {
   const out = await PDFDocument.create();
-  for (const p of parts) {
+  const failed: number[] = [];
+  for (let i = 0; i < parts.length; i++) {
     try {
-      const src = await PDFDocument.load(p, { ignoreEncryption: true });
+      const src = await PDFDocument.load(parts[i], { ignoreEncryption: true });
       const pages = await out.copyPages(src, src.getPageIndices());
       pages.forEach((pg) => out.addPage(pg));
     } catch (e) {
-      console.warn("merge skip", e);
+      console.warn(`merge skip part ${i}`, e);
+      failed.push(i);
     }
   }
-  return await out.save();
+  return { bytes: await out.save(), failed };
 }
+
 
 function jsonR(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -494,6 +551,23 @@ Deno.serve(async (req) => {
     }
     const brand = mergedBranding;
 
+    // Branding diagnostics — surfaced to the recruiter/super admin in the response.
+    const brandingDiagnostics: {
+      agency_name: string | null;
+      stored_logo_url: string | null;
+      resolved_logo_url: string | null;
+      logo_status: LogoStatus;
+      logo_reason: string;
+      last_attempt: string;
+    } = {
+      agency_name: brand.company_name,
+      stored_logo_url: branding?.logo_url || tenant?.logo_url || null,
+      resolved_logo_url: brand.logo_url,
+      logo_status: brand.logo_url ? "ok" : "missing",
+      logo_reason: brand.logo_url ? "pending embed" : "No agency logo configured",
+      last_attempt: new Date().toISOString(),
+    };
+
     const candidateName = report.report_data?.header?.anonymous
       ? "Confidential Candidate"
       : (candidate?.full_name ?? "Candidate");
@@ -502,27 +576,64 @@ Deno.serve(async (req) => {
     const reportTitle = brand.company_name
       ? `${brand.company_name} — Client Submission v${report.version}`
       : `Client Submission v${report.version}`;
-    const reportPdf = await buildReportPdf(report.report_data, brand, reportTitle);
+
+    // Build report PDF and capture the actual logo embed result for diagnostics.
+    const logoDiag: { logo_status: LogoStatus; logo_reason: string } = {
+      logo_status: brandingDiagnostics.logo_status, logo_reason: brandingDiagnostics.logo_reason,
+    };
+    const reportPdf = await buildReportPdf(report.report_data, brand, reportTitle, logoDiag);
+    brandingDiagnostics.logo_status = logoDiag.logo_status;
+    brandingDiagnostics.logo_reason = logoDiag.logo_reason;
+    brandingDiagnostics.last_attempt = new Date().toISOString();
 
     // Always include the FULL CV for options B and C — fall back to a structured CV PDF when source isn't a PDF.
     let cvBytes: Uint8Array | null = null;
+    let cvSource: "original_pdf" | "structured_fallback" | "none" = "none";
     if (pack_option === "B" || pack_option === "C") {
       cvBytes = await tryFetchCvPdf(admin, candidate);
-      if (!cvBytes) cvBytes = await buildStructuredCvPdf(candidate, brand, position);
+      if (cvBytes) cvSource = "original_pdf";
+      else { cvBytes = await buildStructuredCvPdf(candidate, brand, position); cvSource = "structured_fallback"; }
     }
 
-    const parts: Uint8Array[] = [];
-    // Order per spec: Report first, then CV.
-    parts.push(reportPdf);
-    if (pack_option === "C") {
-      parts.push(await buildBrandedCvCover(brand, candidateName, position));
-    }
+    // Pack structure per spec: Report first, CV immediately after. NO cover/intro/separator pages.
+    const parts: Uint8Array[] = [reportPdf];
     if (cvBytes) parts.push(cvBytes);
 
-    const finalPdf = parts.length === 1 ? parts[0] : await mergePdfs(parts);
+    let finalPdf: Uint8Array;
+    let mergeFailed: number[] = [];
+    if (parts.length === 1) {
+      finalPdf = parts[0];
+    } else {
+      const merged = await mergePdfs(parts);
+      finalPdf = merged.bytes;
+      mergeFailed = merged.failed;
+    }
 
-    // Re-stamp page numbers / footer; for option C also overlay agency logo on every page.
-    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, pack_option === "C");
+    // Merge validation — count pages and refuse to ship a partial pack.
+    const reportPages = await countPdfPages(reportPdf);
+    const cvPages = cvBytes ? await countPdfPages(cvBytes) : 0;
+    const totalPages = await countPdfPages(finalPdf);
+    const expectedTotal = reportPages + cvPages;
+    const mergeOk = mergeFailed.length === 0 && totalPages === expectedTotal && reportPages > 0;
+    const mergeValidation = {
+      report_pages: reportPages,
+      cv_pages: cvPages,
+      total_pages: totalPages,
+      expected_total: expectedTotal,
+      cv_source: cvSource,
+      failed_parts: mergeFailed,
+      merge_status: mergeOk ? "ok" : (cvBytes && mergeFailed.includes(1) ? "cv_merge_failed" : "validation_failed"),
+    };
+    if (!mergeOk) {
+      return jsonR({
+        error: cvBytes ? "CV merge failed" : "PDF merge validation failed",
+        branding_diagnostics: brandingDiagnostics,
+        merge_validation: mergeValidation,
+      }, 500);
+    }
+
+    // Re-stamp page numbers / footer (header bar already rendered on every native page).
+    const restamped = await restampPageNumbers(finalPdf, brand, wantWatermark, false);
 
     const safeName = String(candidateName).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `submission-${safeName}-v${report.version}-${pack_option}.pdf`;
@@ -544,12 +655,18 @@ Deno.serve(async (req) => {
     const { data: signed } = await admin.storage.from("submission-packs")
       .createSignedUrl(storagePath, 3600);
 
-    return jsonR({ pack: inserted, download_url: signed?.signedUrl ?? null });
+    return jsonR({
+      pack: inserted,
+      download_url: signed?.signedUrl ?? null,
+      branding_diagnostics: brandingDiagnostics,
+      merge_validation: mergeValidation,
+    });
   } catch (e) {
     console.error(e);
     return jsonR({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
+
 
 async function resolveLogoUrl(admin: any, raw: string): Promise<string> {
   try {
@@ -622,16 +739,18 @@ async function buildStructuredCvPdf(candidate: any, branding: any, position: str
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const brandColor = hexToRgb(branding?.primary_color);
+  const logo = await embedLogo(pdf, branding?.logo_url);
 
   const ctx: Ctx = {
     pdf,
     page: pdf.addPage([A4.w, A4.h]),
-    y: A4.h - 110,
+    y: A4.h - 96,
     fonts: { reg, bold, italic },
     brandColor, branding, reportTitle: "Curriculum Vitae", pageNumberStart: 1,
+    logoImage: logo, pageIndex: 0,
   };
   drawHeader(ctx);
-  await drawLogo(ctx);
+
 
   const name = candidate?.full_name || "Candidate";
   ctx.page.drawText(name, { x: MARGIN, y: ctx.y, size: 22, font: bold, color: INK });

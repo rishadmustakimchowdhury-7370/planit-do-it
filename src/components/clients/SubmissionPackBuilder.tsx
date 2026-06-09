@@ -19,10 +19,21 @@ interface Props {
 }
 
 const OPTIONS: { key: "A" | "B" | "C"; title: string; desc: string }[] = [
-  { key: "A", title: "AI Report PDF", desc: "Recruiter assessment report only" },
-  { key: "B", title: "Original CV + AI Report", desc: "Candidate's CV followed by the AI report" },
-  { key: "C", title: "Branded CV + AI Report", desc: "Branded cover page, CV, and AI report" },
+  { key: "A", title: "AI Report Only", desc: "Recruiter assessment report only" },
+  { key: "B", title: "Original CV + Report", desc: "AI report followed by the candidate's original CV (no cover page)" },
+  { key: "C", title: "Branded CV + Report", desc: "AI report followed by an agency-branded CV (no cover page)" },
 ];
+
+type BuildDiag = {
+  branding_diagnostics?: {
+    agency_name: string | null; stored_logo_url: string | null; resolved_logo_url: string | null;
+    logo_status: string; logo_reason: string; last_attempt: string;
+  };
+  merge_validation?: {
+    report_pages: number; cv_pages: number; total_pages: number; expected_total: number;
+    cv_source: string; failed_parts: number[]; merge_status: string;
+  };
+};
 
 type LifecycleStatus = "none" | "draft" | "approved" | "generated" | "sent";
 
@@ -32,6 +43,7 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [watermark, setWatermark] = useState(false);
+  const [lastDiag, setLastDiag] = useState<BuildDiag | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -77,15 +89,30 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
       const { data, error } = await supabase.functions.invoke("build-submission-pack", {
         body: { report_id: latestReport.id, pack_option: option, watermark },
       });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success("Submission pack ready");
-      const newId = (data as any)?.pack?.id;
+      // Read backend body even on non-2xx so the user sees real errors (CV merge failed, etc.)
+      let payload: any = data ?? null;
+      if (error) {
+        const ctx: any = (error as any).context;
+        if (ctx && typeof ctx.text === "function") {
+          try { payload = JSON.parse(await ctx.text()); } catch { /* ignore */ }
+        }
+        if (payload?.branding_diagnostics || payload?.merge_validation) setLastDiag(payload);
+        throw new Error(payload?.error || error.message);
+      }
+      if ((payload as any)?.error) throw new Error((payload as any).error);
+      setLastDiag(payload as BuildDiag);
+      const mv = payload?.merge_validation;
+      toast.success(
+        mv ? `Submission pack ready (${mv.report_pages} report + ${mv.cv_pages} CV = ${mv.total_pages} pages)`
+           : "Submission pack ready"
+      );
+      const newId = (payload as any)?.pack?.id;
       if (newId) onBuilt?.(newId);
     } catch (e: any) {
-      toast.error(e?.message ?? "Build failed");
+      toast.error(e?.message ?? "Build failed", { duration: 8000 });
     } finally { setBusy(null); }
   }
+
 
   const approved = latestReport?.status === "approved";
 
@@ -140,6 +167,35 @@ export function SubmissionPackBuilder({ tenantId, jobId, candidateId, onBuilt, r
             ))}
           </div>
         )}
+
+        {lastDiag && (lastDiag.branding_diagnostics || lastDiag.merge_validation) && (
+          <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+            <div className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+              Branding & Merge Diagnostics
+            </div>
+            {lastDiag.branding_diagnostics && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                <DiagCell label="Agency" value={lastDiag.branding_diagnostics.agency_name || "—"} />
+                <DiagCell label="Logo Status" value={lastDiag.branding_diagnostics.logo_status}
+                  tone={lastDiag.branding_diagnostics.logo_status === "ok" ? "ok" : "warn"} />
+                <DiagCell label="Last Attempt" value={new Date(lastDiag.branding_diagnostics.last_attempt).toLocaleTimeString()} />
+                <DiagCell label="Stored logo_url" value={lastDiag.branding_diagnostics.stored_logo_url || "—"} mono />
+                <DiagCell label="Resolved URL" value={lastDiag.branding_diagnostics.resolved_logo_url || "—"} mono />
+                <DiagCell label="Reason" value={lastDiag.branding_diagnostics.logo_reason} />
+              </div>
+            )}
+            {lastDiag.merge_validation && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                <DiagCell label="Report Pages" value={String(lastDiag.merge_validation.report_pages)} />
+                <DiagCell label="CV Pages" value={String(lastDiag.merge_validation.cv_pages)} />
+                <DiagCell label="Total Pages" value={String(lastDiag.merge_validation.total_pages)} />
+                <DiagCell label="CV Source" value={lastDiag.merge_validation.cv_source} />
+                <DiagCell label="Merge Status" value={lastDiag.merge_validation.merge_status}
+                  tone={lastDiag.merge_validation.merge_status === "ok" ? "ok" : "warn"} />
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -157,3 +213,17 @@ function LifecycleBadge({ status }: { status: LifecycleStatus }) {
   return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
 }
 
+
+function DiagCell({ label, value, mono, tone }: { label: string; value: string; mono?: boolean; tone?: "ok" | "warn" }) {
+  const toneCls = tone === "ok"
+    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+    : tone === "warn"
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : "border-border bg-background";
+  return (
+    <div className={`rounded border px-2 py-1 ${toneCls}`}>
+      <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
+      <div className={`text-xs truncate ${mono ? "font-mono" : "font-medium"}`} title={value}>{value}</div>
+    </div>
+  );
+}
