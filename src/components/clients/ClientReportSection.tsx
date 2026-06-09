@@ -106,7 +106,38 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
     onReportChanged?.();
   }
 
+  async function checkStaleness(reportCreatedAt: string | null) {
+    if (!reportCreatedAt) { setStaleSources([]); return; }
+    const reportTs = new Date(reportCreatedAt).getTime();
+    const [{ data: v }, { data: notes }, { data: cand }, { data: jb }] = await Promise.all([
+      supabase.from("ai_candidate_validations")
+        .select("created_at").eq("job_id", jobId).eq("candidate_id", candidateId)
+        .eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("prepare_for_client_assessments")
+        .select("updated_at, created_at").eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+        .order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("candidates").select("updated_at").eq("id", candidateId).maybeSingle(),
+      supabase.from("jobs").select("updated_at").eq("id", jobId).maybeSingle(),
+    ]);
+    const items: { label: string; at: string }[] = [];
+    const push = (label: string, at?: string | null) => {
+      if (at && new Date(at).getTime() > reportTs) items.push({ label, at });
+    };
+    push("AI Match / Validator", (v as any)?.created_at);
+    push("Recruiter Notes", (notes as any)?.updated_at ?? (notes as any)?.created_at);
+    push("Candidate profile", (cand as any)?.updated_at);
+    push("Job", (jb as any)?.updated_at);
+    setStaleSources(items);
+    setStaleAck(false);
+  }
+
   useEffect(() => { loadVersions(); loadLiveAiMatch(); /* eslint-disable-next-line */ }, [tenantId, jobId, candidateId]);
+
+  useEffect(() => {
+    if (active) checkStaleness(active.created_at);
+    else setStaleSources([]);
+    // eslint-disable-next-line
+  }, [activeId, versions]);
 
   useEffect(() => {
     if (active) { setReport(active.report_data); setDirty(false); }
