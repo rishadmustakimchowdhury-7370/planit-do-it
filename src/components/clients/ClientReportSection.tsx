@@ -371,24 +371,23 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
 
         {/* Report Preview — mirrors the PDF template */}
         <div className="p-5 space-y-6" style={branding.primary_color ? { borderTop: `4px solid ${branding.primary_color}` } : {}}>
-          {/* Header */}
+          {/* Header — logo only on the left, Candidate Report / CONFIDENTIAL on the right */}
           <div className="flex items-start justify-between gap-4 pb-4 border-b">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center">
               {branding.logo_url ? (
-                <img src={branding.logo_url} alt="Agency logo" className="h-12 max-w-[180px] object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                <img
+                  src={branding.logo_url}
+                  alt="Agency logo"
+                  className="h-14 max-w-[220px] object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
               ) : (
-                <div className="h-12 w-12 rounded bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {(branding.company_name || "A").charAt(0)}
-                </div>
+                <div className="text-xs italic text-rose-700">No agency logo configured</div>
               )}
-              <div>
-                <div className="font-semibold">{branding.company_name || "Agency"}</div>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Client Submission Report</div>
-              </div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Candidate Report</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-rose-700 font-semibold">Confidential</div>
+              <div className="text-sm font-semibold">Candidate Report</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-rose-700 font-semibold mt-0.5">Confidential</div>
             </div>
           </div>
 
