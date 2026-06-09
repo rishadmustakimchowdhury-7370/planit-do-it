@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RecruiterAssessmentSection } from "./RecruiterAssessmentSection";
 import { ClientReportSection } from "./ClientReportSection";
 import { SubmissionPackBuilder } from "./SubmissionPackBuilder";
+import { ClientDeliveryWorkspace } from "./ClientDeliveryWorkspace";
 
 interface Props {
   open: boolean;
@@ -116,6 +117,15 @@ export function PrepareForClientDialog({
             tenantId={tenantId}
             jobId={jobId}
             candidateId={candidateId}
+          />
+
+          {/* Client Delivery Workspace — Phase 5 */}
+          <ClientDeliveryWorkspace
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+            candidateName={candidateName}
+            jobTitle={jobTitle}
           />
         </div>
 
