@@ -25,6 +25,8 @@ interface Props {
   jobTitle: string;
   /** When set, the matching pack is auto-attached on mount/update. */
   prefillAttachmentId?: string | null;
+  /** Bump to force a reload of packs/emails (e.g. after a new pack is built). */
+  refreshKey?: number;
 }
 
 type PackRow = {
