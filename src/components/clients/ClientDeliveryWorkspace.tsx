@@ -23,6 +23,8 @@ interface Props {
   candidateId: string;
   candidateName: string;
   jobTitle: string;
+  /** When set, the matching pack is auto-attached on mount/update. */
+  prefillAttachmentId?: string | null;
 }
 
 type PackRow = {
