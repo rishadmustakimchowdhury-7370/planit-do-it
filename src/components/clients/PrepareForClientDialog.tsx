@@ -118,6 +118,15 @@ export function PrepareForClientDialog({
             jobId={jobId}
             candidateId={candidateId}
           />
+
+          {/* Client Delivery Workspace — Phase 5 */}
+          <ClientDeliveryWorkspace
+            tenantId={tenantId}
+            jobId={jobId}
+            candidateId={candidateId}
+            candidateName={candidateName}
+            jobTitle={jobTitle}
+          />
         </div>
 
         <div className="border-t pt-3 flex justify-end gap-2">
