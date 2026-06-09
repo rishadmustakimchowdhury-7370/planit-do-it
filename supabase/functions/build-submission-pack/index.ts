@@ -475,19 +475,29 @@ async function tryFetchCvPdf(supa: any, candidate: any): Promise<Uint8Array | nu
   return null;
 }
 
-async function mergePdfs(parts: Uint8Array[]): Promise<Uint8Array> {
+async function countPdfPages(bytes: Uint8Array): Promise<number> {
+  try {
+    const d = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    return d.getPageCount();
+  } catch { return 0; }
+}
+
+async function mergePdfs(parts: Uint8Array[]): Promise<{ bytes: Uint8Array; failed: number[] }> {
   const out = await PDFDocument.create();
-  for (const p of parts) {
+  const failed: number[] = [];
+  for (let i = 0; i < parts.length; i++) {
     try {
-      const src = await PDFDocument.load(p, { ignoreEncryption: true });
+      const src = await PDFDocument.load(parts[i], { ignoreEncryption: true });
       const pages = await out.copyPages(src, src.getPageIndices());
       pages.forEach((pg) => out.addPage(pg));
     } catch (e) {
-      console.warn("merge skip", e);
+      console.warn(`merge skip part ${i}`, e);
+      failed.push(i);
     }
   }
-  return await out.save();
+  return { bytes: await out.save(), failed };
 }
+
 
 function jsonR(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
