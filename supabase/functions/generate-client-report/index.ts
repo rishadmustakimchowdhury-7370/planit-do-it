@@ -1,5 +1,7 @@
 // Generates an AI-powered Client Submission Report (recruiter assessment),
-// versioned per (job, candidate). No PDF in this phase — JSON only.
+// versioned per (job, candidate). Inherits scoring + evidence from AI Match
+// (validate-candidate-fit-v2) — the AI only enriches narrative; it never
+// re-scores or changes the recommendation tier.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -11,11 +13,24 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
-const REPORT_TOOL = {
+// Map validator tier -> client-facing tier (UI enum)
+const TIER_MAP: Record<string, string> = {
+  strong_match: "Strong Shortlist",
+  recommended: "Recommended",
+  transferable_match: "Transferable",
+  needs_validation: "Consider",
+  weak_match: "Consider",
+  reject: "Do Not Recommend",
+};
+
+// The AI is only allowed to produce NARRATIVE fields. Scoring/strengths/gaps
+// and the recommendation tier are inherited from the validator and overwrite
+// whatever the model returns.
+const NARRATIVE_TOOL = {
   type: "function",
   function: {
-    name: "emit_client_report",
-    description: "Emit a structured recruiter assessment report for client submission.",
+    name: "emit_report_narrative",
+    description: "Produce ONLY narrative prose for a Client Submission Report. Do not re-score.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -33,38 +48,44 @@ const REPORT_TOOL = {
           },
           required: ["compensation_expectation","availability","nationality","current_location","current_employer","current_position"],
         },
-        executive_summary: { type: "string", description: "3-6 sentence recruiter-written summary." },
-        fit_assessment: {
-          type: "array",
-          description: "One row per job requirement mapped to evidence.",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              requirement: { type: "string" },
-              evidence: { type: "string", description: "Concrete evidence from CV/notes/feedback. No hallucination." },
-              fit: { type: "string", enum: ["STRONG","GOOD","PARTIAL","WEAK","MISSING"] },
-            },
-            required: ["requirement","evidence","fit"],
-          },
-        },
-        key_strengths: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 8 },
-        considerations: { type: "array", items: { type: "string" }, description: "Honest concerns/gaps." },
-        recruiter_notes: { type: "string", description: "Professional consolidation of recruiter text notes, voice transcripts, and screening." },
-        recommendation: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            tier: { type: "string", enum: ["Strong Shortlist","Recommended","Consider","Transferable","Do Not Recommend"] },
-            reasoning: { type: "string" },
-          },
-          required: ["tier","reasoning"],
-        },
+        executive_summary: { type: "string", description: "3-6 sentences. MUST be consistent with the supplied recommendation tier, score, strengths, and gaps." },
+        recruiter_notes: { type: "string", description: "Professional consolidation of recruiter text notes, voice transcripts, and screening. Enriches but does not replace the AI Match scoring." },
+        recommendation_reasoning: { type: "string", description: "Plain-English justification for the supplied recommendation tier. Do NOT invent a different tier." },
       },
-      required: ["snapshot","executive_summary","fit_assessment","key_strengths","considerations","recruiter_notes","recommendation"],
+      required: ["snapshot","executive_summary","recruiter_notes","recommendation_reasoning"],
     },
   },
 };
+
+function asArr(x: any): string[] {
+  if (!x) return [];
+  if (Array.isArray(x)) return x.map(v => typeof v === "string" ? v : (v?.text ?? v?.label ?? v?.requirement ?? JSON.stringify(v))).filter(Boolean);
+  if (typeof x === "string") return [x];
+  return [];
+}
+
+function buildFitAssessment(validation: any): Array<{ requirement: string; evidence: string; fit: string }> {
+  const rows: Array<{ requirement: string; evidence: string; fit: string }> = [];
+  const matched = Array.isArray(validation?.mandatory_skills_matched) ? validation.mandatory_skills_matched : [];
+  for (const m of matched) {
+    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
+    const ev  = typeof m === "string" ? "Evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Evidenced in candidate profile");
+    if (req) rows.push({ requirement: req, evidence: ev, fit: "STRONG" });
+  }
+  const preferred = Array.isArray(validation?.preferred_skills_matched) ? validation.preferred_skills_matched : [];
+  for (const m of preferred) {
+    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
+    const ev  = typeof m === "string" ? "Preferred skill demonstrated" : (m?.evidence ?? m?.notes ?? "Preferred skill demonstrated");
+    if (req) rows.push({ requirement: req, evidence: ev, fit: "GOOD" });
+  }
+  const missing = Array.isArray(validation?.missing_requirements) ? validation.missing_requirements : [];
+  for (const m of missing) {
+    const req = typeof m === "string" ? m : (m?.requirement ?? m?.skill ?? m?.name ?? "");
+    const ev  = typeof m === "string" ? "Not evidenced in candidate profile" : (m?.evidence ?? m?.notes ?? "Not evidenced in candidate profile");
+    if (req) rows.push({ requirement: req, evidence: ev, fit: "MISSING" });
+  }
+  return rows;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -102,20 +123,38 @@ Deno.serve(async (req) => {
     const assessment = assessmentRes.data;
 
     if (!candidate || !job) return j({ error: "Candidate or job not found" }, 404);
+    if (!validation) {
+      return j({
+        error: "Run AI Match for this candidate first. The Client Submission Report inherits the validated scoring, strengths, and gaps from AI Match to keep both views consistent.",
+      }, 409);
+    }
+
+    // ---------- INHERITED FROM AI MATCH (single source of truth) ----------
+    const matchScore = validation.final_score ?? validation.fit_score ?? null;
+    const interviewProbability = validation.interview_probability ?? null;
+    const tierRaw = String(validation.recommendation_tier ?? validation.recommendation ?? "").toLowerCase();
+    const tier = TIER_MAP[tierRaw] ?? "Consider";
+    const inheritedStrengths = asArr(validation.strengths);
+    const inheritedConsiderations = [
+      ...asArr(validation.weaknesses),
+      ...asArr(validation.risks),
+      ...asArr(validation.missing_requirements).map(r => `Gap: ${r}`),
+    ];
+    const inheritedFit = buildFitAssessment(validation);
 
     const voiceText = Array.isArray(assessment?.voice_transcripts)
       ? assessment.voice_transcripts.map((v: any) => v?.transcript || "").filter(Boolean).join("\n\n")
       : "";
 
-    const systemPrompt = `You are an experienced executive recruiter writing a Client Submission Report.
+    // ---------- NARRATIVE-ONLY AI CALL ----------
+    const systemPrompt = `You are an experienced executive recruiter writing the NARRATIVE sections of a Client Submission Report.
 
-Style: consultative, recruiter-grade, client-safe. Avoid ATS-style blunt rejection language.
-Rules:
-- Never invent evidence. If something is unknown, mark fit as MISSING or use "Not stated".
-- Map every meaningful JD requirement to evidence from CV, notes, or recruiter feedback.
-- Be honest about gaps in the Considerations section.
-- Snapshot fields: use recruiter assessment data first, then CV. If unknown, say "Not stated".
-- Recruiter notes section must combine text notes, voice transcript, and screening observations into a professional narrative.`;
+CRITICAL RULES:
+- The Recommendation Tier, Match Score, Key Strengths, Considerations, and Fit Evidence are ALREADY DECIDED by the validated AI Match engine. They are provided below in "ai_match".
+- DO NOT re-score, contradict, or replace any of those fields. Your job is to translate them into client-safe prose.
+- Your executive_summary and recommendation_reasoning MUST be consistent with the supplied tier and score (e.g. if tier = "Strong Shortlist" and score = 85, write a confident summary; if tier = "Do Not Recommend", do not write a flattering summary).
+- Recruiter notes enrich the narrative but never override the AI Match scoring.
+- For the snapshot, use the candidate/recruiter assessment data; say "Not stated" when unknown. Never fabricate.`;
 
     const userPayload = {
       job: {
@@ -128,17 +167,18 @@ Rules:
         current_title: candidate.current_title, current_company: candidate.current_company,
         location: candidate.location, experience_years: candidate.experience_years,
         skills: candidate.skills, summary: candidate.summary,
-        work_history: candidate.work_history, education: candidate.education,
         structured_profile: candidate.structured_profile, cv_parsed_data: candidate.cv_parsed_data,
       },
-      ai_validation: validation ? {
-        final_score: validation.final_score ?? validation.fit_score,
-        recommendation_tier: validation.recommendation_tier,
-        strengths: validation.strengths, weaknesses: validation.weaknesses, risks: validation.risks,
-        mandatory_skills_matched: validation.mandatory_skills_matched,
-        missing_requirements: validation.missing_requirements,
-        explanation: validation.explanation, summary: validation.summary,
-      } : null,
+      ai_match: {
+        recommendation_tier: tier,
+        match_score: matchScore,
+        interview_probability: interviewProbability,
+        strengths: inheritedStrengths,
+        considerations: inheritedConsiderations,
+        fit_evidence: inheritedFit,
+        validator_summary: validation.summary ?? null,
+        validator_explanation: validation.explanation ?? null,
+      },
       recruiter_assessment: assessment ? {
         text_notes: assessment.text_notes,
         structured: assessment.structured_notes,
@@ -151,13 +191,13 @@ Rules:
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "gpt-4o",
-        temperature: 0.3,
+        temperature: 0.2,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: JSON.stringify(userPayload) },
         ],
-        tools: [REPORT_TOOL],
-        tool_choice: { type: "function", function: { name: "emit_client_report" } },
+        tools: [NARRATIVE_TOOL],
+        tool_choice: { type: "function", function: { name: "emit_report_narrative" } },
       }),
     });
 
@@ -168,9 +208,22 @@ Rules:
     const aiData = await aiRes.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) return j({ error: "AI returned no report" }, 500);
-    const report = JSON.parse(toolCall.function.arguments);
+    const narrative = JSON.parse(toolCall.function.arguments);
 
-    // Next version number
+    // ---------- MERGE: inherited (authoritative) + narrative ----------
+    const report = {
+      snapshot: narrative.snapshot,
+      executive_summary: narrative.executive_summary,
+      fit_assessment: inheritedFit,                    // inherited
+      key_strengths: inheritedStrengths,               // inherited
+      considerations: inheritedConsiderations,         // inherited
+      recruiter_notes: narrative.recruiter_notes,
+      recommendation: {
+        tier,                                          // inherited
+        reasoning: narrative.recommendation_reasoning,
+      },
+    };
+
     const { data: existing } = await admin
       .from("client_submission_reports")
       .select("version")
@@ -192,7 +245,15 @@ Rules:
         primary_color: brandingRes.data?.primary_color ?? null,
         footer_text: brandingRes.data?.footer_text ?? null,
       },
-      meta: { generated_at: new Date().toISOString(), validation_score: validation?.final_score ?? validation?.fit_score ?? null },
+      meta: {
+        generated_at: new Date().toISOString(),
+        source: "ai_match_v2",
+        validation_id: validation.id,
+        validation_generated_at: validation.created_at,
+        match_score: matchScore,
+        interview_probability: interviewProbability,
+        recommendation_tier_raw: validation.recommendation_tier ?? validation.recommendation ?? null,
+      },
     };
 
     const { data: inserted, error: insErr } = await admin.from("client_submission_reports").insert({
