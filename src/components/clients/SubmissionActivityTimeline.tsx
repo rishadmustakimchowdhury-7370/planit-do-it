@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
-import { CheckCircle2, Eye, FileText, MessageSquare, Sparkles, ThumbsUp, ThumbsDown, CalendarClock, RefreshCw, Activity } from "lucide-react";
+import { CheckCircle2, Eye, FileText, MessageSquare, Sparkles, ThumbsUp, ThumbsDown, CalendarClock, RefreshCw, Activity, MessageCircle } from "lucide-react";
 
 const ICONS: Record<string, any> = {
   submission_created: FileText,
@@ -17,6 +17,7 @@ const ICONS: Record<string, any> = {
   rejected: ThumbsDown,
   requested_interview: CalendarClock,
   message: MessageSquare,
+  client_feedback: MessageCircle,
 };
 
 interface Props {
@@ -91,6 +92,7 @@ function describe(a: any): string {
   switch (a.event_type) {
     case "submission_created": return "Submission created";
     case "status_changed":     return `Status: ${a.metadata?.from ?? "?"} → ${a.metadata?.to ?? "?"}`;
+    case "client_feedback":    return `Client feedback: ${a.metadata?.outcome ?? "logged"}${a.message ? ` — ${a.message}` : ""}`;
     case "pack_generated":     return "Branded submission pack generated";
     case "recipient_viewed":   return "A client recipient viewed the submission";
     case "recipient_decision": return `Recipient decision: ${a.metadata?.decision ?? "?"}`;

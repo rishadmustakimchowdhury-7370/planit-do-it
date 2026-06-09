@@ -55,6 +55,7 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
+const ClientPipelinePage = lazy(() => import("./pages/ClientPipelinePage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
@@ -187,6 +188,7 @@ const AppRoutes = () => (
       <Route path="/candidates/:id" element={<ProtectedRoute><CandidateDetailPage /></ProtectedRoute>} />
       <Route path="/candidates/:id/edit" element={<ProtectedRoute><EditCandidatePage /></ProtectedRoute>} />
       <Route path="/clients" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
+      <Route path="/pipeline" element={<ProtectedRoute><ClientPipelinePage /></ProtectedRoute>} />
       <Route path="/clients/new" element={<ProtectedRoute><AddClientPage /></ProtectedRoute>} />
       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
       <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />

@@ -4,7 +4,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Send, ExternalLink, Sparkles, FileText, Users, Activity, RefreshCw } from "lucide-react";
+import { Download, Send, ExternalLink, Sparkles, FileText, Users, Activity, RefreshCw, MessageSquare } from "lucide-react";
+import { ClientFeedbackPanel } from "@/components/clients/ClientFeedbackPanel";
 import { AIValidationCard } from "@/components/clients/AIValidationCard";
 import { SubmissionStatusBadge, SUBMISSION_STATUS_META, type SubmissionStatus } from "@/components/clients/SubmissionStatusBadge";
 import { SubmissionPipelineBar } from "@/components/clients/SubmissionPipelineBar";
@@ -111,9 +112,10 @@ export function SubmissionDetailDialog({ submissionId, open, onOpenChange }: Pro
             </div>
 
             <Tabs defaultValue="overview" className="mt-5">
-              <TabsList className="grid grid-cols-4 w-full">
+              <TabsList className="grid grid-cols-5 w-full">
                 <TabsTrigger value="overview"><Sparkles className="h-3.5 w-3.5 mr-1" />Overview</TabsTrigger>
                 <TabsTrigger value="pack"><FileText className="h-3.5 w-3.5 mr-1" />Pack</TabsTrigger>
+                <TabsTrigger value="feedback"><MessageSquare className="h-3.5 w-3.5 mr-1" />Feedback</TabsTrigger>
                 <TabsTrigger value="recipients"><Users className="h-3.5 w-3.5 mr-1" />Recipients</TabsTrigger>
                 <TabsTrigger value="activity"><Activity className="h-3.5 w-3.5 mr-1" />Activity</TabsTrigger>
               </TabsList>
@@ -147,6 +149,17 @@ export function SubmissionDetailDialog({ submissionId, open, onOpenChange }: Pro
                 {packUrl && (
                   <iframe src={packUrl} title="Submission Pack" className="w-full h-[60vh] rounded-lg border bg-muted/20" />
                 )}
+              </TabsContent>
+
+              <TabsContent value="feedback" className="mt-4">
+                <ClientFeedbackPanel
+                  submissionId={data.id}
+                  tenantId={data.tenant_id}
+                  clientOrgId={data.client_org_id}
+                  jobId={data.job_id}
+                  candidateId={data.candidate_id}
+                  onLogged={load}
+                />
               </TabsContent>
 
               <TabsContent value="recipients" className="mt-4">
