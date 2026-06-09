@@ -3,6 +3,7 @@
 // (validate-candidate-fit-v2) — the AI only enriches narrative; it never
 // re-scores or changes the recommendation tier.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { expandImpliedSkillTokens } from "../_shared/skill-inference.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,39 +65,115 @@ function asArr(x: any): string[] {
   return [];
 }
 
-function buildFitAssessment(validation: any): Array<{ requirement: string; evidence: string; fit: string }> {
+const NORM = (s: unknown) =>
+  String(s ?? "").toLowerCase().replace(/[^a-z0-9+#./ -]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Collect every skill/title-ish string we can find on the candidate so we
+ * can reason about implied competencies (React Dev => JS/HTML/CSS, etc.). */
+function collectCandidateSignals(candidate: any): { tokens: string[]; rawTitles: string[]; rawSkills: string[] } {
+  const skills: string[] = [];
+  const titles: string[] = [];
+  const pushArr = (arr: any) => {
+    if (!arr) return;
+    if (Array.isArray(arr)) for (const v of arr) {
+      if (typeof v === "string") skills.push(v);
+      else if (v && typeof v === "object") {
+        if (v.name) skills.push(String(v.name));
+        for (const a of v.aliases ?? []) skills.push(String(a));
+      }
+    }
+    else if (typeof arr === "string") for (const v of arr.split(/[,;\n]/)) skills.push(v.trim());
+  };
+  pushArr(candidate?.skills);
+  pushArr(candidate?.structured_profile?.skills);
+  pushArr(candidate?.cv_parsed_data?.skills);
+  if (candidate?.current_title) titles.push(String(candidate.current_title));
+  const sp = candidate?.structured_profile;
+  if (sp?.current_title?.canonical) titles.push(String(sp.current_title.canonical));
+  for (const a of sp?.current_title?.aliases ?? []) titles.push(String(a));
+  for (const r of sp?.work_history ?? []) {
+    if (r?.title) titles.push(String(r.title));
+    if (r?.normalized_title) titles.push(String(r.normalized_title));
+    for (const a of r?.title_aliases ?? []) titles.push(String(a));
+  }
+  const tokens = [...skills, ...titles].filter(Boolean);
+  return { tokens, rawTitles: titles.filter(Boolean), rawSkills: skills.filter(Boolean) };
+}
+
+function buildFitAssessment(validation: any, candidate: any): Array<{ requirement: string; evidence: string; fit: string }> {
+  const signals = collectCandidateSignals(candidate);
+  const implied = expandImpliedSkillTokens(signals.tokens); // includes direct tokens + parents
+  const directSet = new Set(signals.tokens.map(NORM));
+
+  // Try to explain why a requirement is satisfied — direct skill, then
+  // implied via role/parent skill, then heuristic from any title.
+  const explainEvidence = (req: string, fallback: string): { evidence: string; via: "direct" | "implied" | "fallback" } => {
+    const r = NORM(req);
+    if (!r) return { evidence: fallback, via: "fallback" };
+    // direct listed skill or alias
+    for (const s of signals.rawSkills) {
+      if (NORM(s) === r) return { evidence: `Listed on CV (${s}).`, via: "direct" };
+    }
+    if (directSet.has(r)) return { evidence: `Listed on CV.`, via: "direct" };
+    // implied via role/parent (e.g. React Developer => JavaScript)
+    if (implied.has(r)) {
+      // find the most plausible source — prefer a title match, else any skill that implies it
+      const sourceTitle = signals.rawTitles.find((t) => expandImpliedSkillTokens([t]).has(r));
+      if (sourceTitle) return { evidence: `Demonstrated through ${sourceTitle} experience (${req} is inherent to this role).`, via: "implied" };
+      const sourceSkill = signals.rawSkills.find((s) => expandImpliedSkillTokens([s]).has(r));
+      if (sourceSkill) return { evidence: `Demonstrated through hands-on ${sourceSkill} work, which inherently exercises ${req}.`, via: "implied" };
+      return { evidence: `Demonstrated through related experience on the CV.`, via: "implied" };
+    }
+    return { evidence: fallback, via: "fallback" };
+  };
+
   const rows: Array<{ requirement: string; evidence: string; fit: string }> = [];
+
+  // 1. Honour validator's already-decided mandate_match if present.
   const mandate = Array.isArray(validation?.mandate_match) ? validation.mandate_match : [];
   for (const m of mandate) {
     if (!m || m.__kind) continue;
     const req = typeof m === "string" ? m : (m.requirement ?? m.required ?? m.skill ?? m.name ?? "");
-    const ev = typeof m === "string" ? "Evidenced in Validator v2" : (m.evidence ?? m.notes ?? m.reason ?? "Evidenced in Validator v2");
+    const ev = typeof m === "string" ? "" : (m.evidence ?? m.notes ?? m.reason ?? "");
     const fit = String(typeof m === "string" ? "STRONG" : (m.fit ?? "STRONG")).toUpperCase();
-    if (req) rows.push({ requirement: req, evidence: ev, fit });
+    if (req) rows.push({ requirement: req, evidence: ev || explainEvidence(req, "Evidenced in Validator v2").evidence, fit });
   }
   if (rows.length > 0) return rows;
 
   const reqOf = (m: any) => typeof m === "string" ? m : (m?.requirement ?? m?.required ?? m?.skill ?? m?.name ?? m?.label ?? "");
   const evOf = (m: any, fallback: string) => typeof m === "string" ? fallback : (m?.evidence ?? m?.notes ?? m?.reason ?? (m?.candidate_skill ? `Matched candidate evidence: ${m.candidate_skill}` : fallback));
+
+  // 2. Validator-matched mandatory skills → STRONG (enrich evidence wording).
   const matched = Array.isArray(validation?.mandatory_skills_matched) ? validation.mandatory_skills_matched : [];
   for (const m of matched) {
     if (m && typeof m === "object" && m.matched === false) continue;
-    const req = reqOf(m);
-    const ev  = evOf(m, "Matched by Validator v2");
-    if (req) rows.push({ requirement: req, evidence: ev, fit: "STRONG" });
+    const req = reqOf(m); if (!req) continue;
+    const via = String(m?.via ?? "");
+    if (via.startsWith("implied:")) {
+      rows.push({ requirement: req, evidence: explainEvidence(req, evOf(m, "Inferred from candidate background.")).evidence, fit: "STRONG" });
+    } else {
+      rows.push({ requirement: req, evidence: evOf(m, explainEvidence(req, "Matched by Validator v2.").evidence), fit: "STRONG" });
+    }
   }
+
+  // 3. Preferred matches → GOOD.
   const preferred = Array.isArray(validation?.preferred_skills_matched) ? validation.preferred_skills_matched : [];
   for (const m of preferred) {
     if (m && typeof m === "object" && m.matched === false) continue;
-    const req = reqOf(m);
-    const ev  = evOf(m, "Preferred requirement matched by Validator v2");
-    if (req) rows.push({ requirement: req, evidence: ev, fit: "GOOD" });
+    const req = reqOf(m); if (!req) continue;
+    rows.push({ requirement: req, evidence: evOf(m, explainEvidence(req, "Preferred requirement matched.").evidence), fit: "GOOD" });
   }
+
+  // 4. Validator-missing requirements → try implied-evidence rescue before
+  //    declaring MISSING. This is the recruiter-style evidence layer.
   const missing = Array.isArray(validation?.missing_requirements) ? validation.missing_requirements : [];
   for (const m of missing) {
-    const req = reqOf(m);
-    const ev  = evOf(m, "Marked missing by Validator v2");
-    if (req) rows.push({ requirement: req, evidence: ev, fit: "MISSING" });
+    const req = reqOf(m); if (!req) continue;
+    const cleaned = req.replace(/^(Mandatory skill|Preferred skill|Domain|Industry|Experience|Education|Functional role):\s*/i, "");
+    const { evidence, via } = explainEvidence(cleaned, evOf(m, "Not explicitly evidenced on the CV."));
+    if (via === "direct") rows.push({ requirement: cleaned, evidence, fit: "STRONG" });
+    else if (via === "implied") rows.push({ requirement: cleaned, evidence, fit: "TRANSFERABLE" });
+    else rows.push({ requirement: cleaned, evidence, fit: "MISSING" });
   }
   return rows;
 }
@@ -253,7 +330,7 @@ Deno.serve(async (req) => {
       ...asArr(validation.risks),
       ...asArr(validation.missing_requirements).map(r => `Gap: ${r}`),
     ];
-    const inheritedFit = buildFitAssessment(validation);
+    const inheritedFit = buildFitAssessment(validation, candidate);
 
     const voiceText = Array.isArray(assessment?.voice_transcripts)
       ? assessment.voice_transcripts.map((v: any) => v?.transcript || "").filter(Boolean).join("\n\n")
@@ -269,6 +346,8 @@ CRITICAL RULES:
 - Your executive_summary and recommendation_reasoning MUST be consistent with the supplied tier and score.
 - Recruiter notes enrich the narrative but never override the AI Match scoring.
 - For the snapshot, use the candidate/recruiter assessment data; say "Not stated" when unknown. Never fabricate.
+- EVIDENCE-BASED REASONING (not keyword matching): when describing fit, treat foundational/prerequisite skills as demonstrated by the role or stack the candidate has worked in. Examples: a React/Next.js developer demonstrably knows JavaScript, HTML and CSS; a TypeScript engineer knows the JavaScript ecosystem; a SOC Analyst demonstrates Security Operations and Incident Response; a Compliance Officer demonstrates Regulatory Compliance. The "fit_evidence" array already reflects this — describe requirements as STRONG/TRANSFERABLE when evidence (direct or inherent to the candidate's role) exists, and only call something MISSING if neither the CV nor the candidate's roles credibly evidence it.
+- Answer "Why is this candidate suitable?" — not "Did I find the exact keyword?".
 ${useEdits ? `
 RECRUITER EDIT MODE — PRESERVE THE RECRUITER'S EDITS:
 - "previous_report" contains the recruiter's edited version. Treat it as ground truth for tone, factual snapshot fields, and phrasing the recruiter has chosen.
