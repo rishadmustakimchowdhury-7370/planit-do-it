@@ -165,6 +165,9 @@ export default function SettingsPage() {
     avatar_url: '',
     linkedin_url: '',
     email_signature: '',
+    signature_agency: '',
+    signature_website: '',
+    signature_linkedin: '',
   });
 
   const [tenantData, setTenantData] = useState({
@@ -181,8 +184,11 @@ export default function SettingsPage() {
         phone: profile.phone || '',
         job_title: profile.job_title || '',
         avatar_url: profile.avatar_url || '',
-        linkedin_url: '',
+        linkedin_url: (profile as any).signature_linkedin || '',
         email_signature: profile.email_signature || '',
+        signature_agency: (profile as any).signature_agency || '',
+        signature_website: (profile as any).signature_website || '',
+        signature_linkedin: (profile as any).signature_linkedin || '',
       });
 
       // Load notification preferences if they exist
@@ -402,7 +408,10 @@ export default function SettingsPage() {
           job_title: profileData.job_title || null,
           avatar_url: profileData.avatar_url || null,
           email_signature: profileData.email_signature || null,
-        })
+          signature_agency: profileData.signature_agency || null,
+          signature_website: profileData.signature_website || null,
+          signature_linkedin: profileData.signature_linkedin || null,
+        } as any)
         .eq('id', profile.id);
 
       if (error) throw error;
