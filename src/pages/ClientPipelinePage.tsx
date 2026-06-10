@@ -189,7 +189,12 @@ export default function ClientPipelinePage() {
                 {[1,2,3,4,5].map(i => <Skeleton key={i} className="w-72 h-64 shrink-0" />)}
               </div>
             ) : (
-              <SubmissionKanban rows={filtered} onMove={handleMove} onOpen={setOpenId} />
+              <SubmissionKanban
+                rows={filtered as any}
+                onMove={handleMove}
+                onOpen={setOpenId}
+                onPlacementCreated={load}
+              />
             )}
           </TabsContent>
           <TabsContent value="list" className="mt-4">
