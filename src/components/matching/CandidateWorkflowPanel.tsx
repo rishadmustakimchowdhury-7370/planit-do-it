@@ -36,6 +36,7 @@ interface CandidateWorkflowPanelProps {
   jobId: string;
   jobTitle: string;
   onAddedToPipeline?: () => void;
+  onPrepared?: () => void;
   onDismiss?: () => void;
 }
 
