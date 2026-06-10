@@ -3992,6 +3992,109 @@ export type Database = {
         }
         Relationships: []
       }
+      placements: {
+        Row: {
+          candidate_id: string
+          client_id: string | null
+          client_org_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          placement_date: string
+          placement_fee: number | null
+          recruiter_user_id: string | null
+          salary: number | null
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          client_id?: string | null
+          client_org_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          placement_date?: string
+          placement_fee?: number | null
+          recruiter_user_id?: string | null
+          salary?: number | null
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          client_id?: string | null
+          client_org_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          placement_date?: string
+          placement_fee?: number | null
+          recruiter_user_id?: string | null
+          salary?: number | null
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "placements_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placements_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placements_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "placements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_features: {
         Row: {
           category: string | null

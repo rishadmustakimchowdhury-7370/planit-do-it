@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Loader2, Mic, Square, Trash2, Briefcase, Star, Award, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { MarkAsPlacementDialog } from '@/components/placements/MarkAsPlacementDialog';
 
 type Candidate = {
   id: string;
@@ -377,7 +378,56 @@ export function CandidateOffersTab({ candidateId }: { candidateId: string }) {
 
 /* ---------------- Placements ---------------- */
 export function CandidatePlacementsTab({ candidateId }: { candidateId: string }) {
-  return <PlacementsList candidateId={candidateId} filter={['placed', 'hired']} emptyLabel="No placements yet." />;
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('placements')
+      .select('id, placement_date, start_date, salary, placement_fee, currency, status, notes, jobs:job_id(title), clients:client_id(company_name)')
+      .eq('candidate_id', candidateId)
+      .order('placement_date', { ascending: false });
+    setRows(data ?? []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [candidateId]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <h3 className="text-sm font-medium text-muted-foreground">Placement History</h3>
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-2">
+          <Trophy className="w-4 h-4" /> Mark as Placement
+        </Button>
+      </div>
+      {loading ? <Skeleton className="h-24 w-full" /> :
+        rows.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">No placements yet.</p> :
+        rows.map((r) => (
+          <Card key={r.id}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium">{r.jobs?.title || 'Role'}</p>
+                <p className="text-sm text-muted-foreground">{r.clients?.company_name}</p>
+                <p className="text-xs text-muted-foreground mt-1">Placed {format(new Date(r.placement_date), 'PP')}</p>
+                {r.notes && <p className="text-sm mt-2">{r.notes}</p>}
+              </div>
+              <div className="text-right">
+                <Badge variant="secondary" className="capitalize">{r.status}</Badge>
+                {r.placement_fee && (
+                  <p className="text-sm font-semibold mt-2">
+                    {new Intl.NumberFormat(undefined, { style: 'currency', currency: r.currency || 'USD', maximumFractionDigits: 0 }).format(Number(r.placement_fee))}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      }
+      <MarkAsPlacementDialog open={open} onOpenChange={setOpen} candidateId={candidateId} onSaved={load} />
+    </div>
+  );
 }
 
 function PlacementsList({ candidateId, filter, emptyLabel }: { candidateId: string; filter: string[]; emptyLabel: string }) {

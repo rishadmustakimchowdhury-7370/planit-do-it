@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 import { Link } from 'react-router-dom';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Trophy } from 'lucide-react';
+import { MarkAsPlacementDialog } from '@/components/placements/MarkAsPlacementDialog';
 import { Button } from '@/components/ui/button';
 import { useRecruiterActivity, ActivityType } from '@/hooks/useRecruiterActivity';
 import {
@@ -81,6 +82,7 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
   const [draggedCandidate, setDraggedCandidate] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<KanbanCandidate | null>(null);
+  const [placementFor, setPlacementFor] = useState<KanbanCandidate | null>(null);
   const { logActivity } = useRecruiterActivity();
 
   const getCandidatesForStage = (stage: DatabasePipelineStage) => {
@@ -286,6 +288,14 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
                               )}
                             </div>
                           </Link>
+                          {jc.stage === 'hired' && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlacementFor(jc); }}
+                              className="mt-3 w-full inline-flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors"
+                            >
+                              <Trophy className="w-3.5 h-3.5" /> Mark as Placement
+                            </button>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -330,6 +340,17 @@ export function KanbanBoard({ candidates, onMoveCandidate, onRefresh }: KanbanBo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {placementFor && (
+        <MarkAsPlacementDialog
+          open={!!placementFor}
+          onOpenChange={(o) => !o && setPlacementFor(null)}
+          candidateId={placementFor.candidateId}
+          candidateName={placementFor.candidate.name}
+          jobId={placementFor.jobId}
+          onSaved={() => { setPlacementFor(null); onRefresh?.(); }}
+        />
+      )}
     </>
   );
 }
