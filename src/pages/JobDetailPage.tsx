@@ -143,7 +143,7 @@ interface JobCandidate {
   };
 }
 
-type ViewMode = 'kanban' | 'grid' | 'table';
+type ViewMode = 'grid' | 'table';
 
 const JobDetailPage = () => {
   const { id } = useParams();
