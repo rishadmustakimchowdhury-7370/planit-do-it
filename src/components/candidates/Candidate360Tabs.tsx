@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Loader2, Mic, Square, Trash2, Briefcase, Star, Award, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { MarkAsPlacementDialog } from '@/components/placements/MarkAsPlacementDialog';
 
 type Candidate = {
   id: string;
