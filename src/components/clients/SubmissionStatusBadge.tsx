@@ -17,6 +17,7 @@ export const SUBMISSION_STATUS_META: Record<SubmissionStatus, { label: string; t
   hired:               { label: "Hired",                tone: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-300", order: 10 },
   rejected:            { label: "Rejected",             tone: "bg-destructive/10 text-destructive",                  order: 11 },
   withdrawn:           { label: "Withdrawn",            tone: "bg-muted text-muted-foreground",                      order: 12 },
+  on_hold:             { label: "On Hold",              tone: "bg-slate-500/10 text-slate-700 dark:text-slate-300",  order: 13 },
 };
 
 export const PIPELINE_STAGES: SubmissionStatus[] = [
