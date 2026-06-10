@@ -856,6 +856,50 @@ export type Database = {
           },
         ]
       }
+      candidate_voice_notes: {
+        Row: {
+          audio_url: string | null
+          author_user_id: string
+          candidate_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          tenant_id: string
+          transcript: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          author_user_id: string
+          candidate_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          tenant_id: string
+          transcript?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          author_user_id?: string
+          candidate_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          tenant_id?: string
+          transcript?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_voice_notes_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           avatar_url: string | null

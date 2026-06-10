@@ -13,6 +13,14 @@ import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { CandidateSubmissionTimeline } from '@/components/candidates/CandidateSubmissionTimeline';
 import { CandidateSubmissionAssets } from '@/components/candidates/CandidateSubmissionAssets';
 import {
+  CandidateOverviewTab,
+  CandidateVoiceNotesTab,
+  CandidateClientSubmissionsTab,
+  CandidateInterviewFeedbackTab,
+  CandidateOffersTab,
+  CandidatePlacementsTab,
+} from '@/components/candidates/Candidate360Tabs';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -25,7 +33,6 @@ import {
   Mail, 
   Phone, 
   Calendar, 
-  Sparkles, 
   FileText,
   Download,
   Loader2,
@@ -37,7 +44,14 @@ import {
   Pencil,
   ChevronDown,
   FileDown,
-  Stamp
+  Stamp,
+  User,
+  Mic,
+  Send,
+  ThumbsUp,
+  Award,
+  Trophy,
+  Sparkles as SparklesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -400,37 +414,47 @@ const CandidateDetailPage = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="match" className="w-full">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="match" className="gap-2">
-            <Sparkles className="w-4 h-4" />
-            AI Match Analysis
-          </TabsTrigger>
-          <TabsTrigger value="emails" className="gap-2">
-            <Inbox className="w-4 h-4" />
-            Emails
-          </TabsTrigger>
-          <TabsTrigger value="cv" className="gap-2">
-            <FileText className="w-4 h-4" />
-            CV & Experience
-          </TabsTrigger>
-          <TabsTrigger value="notes" className="gap-2">
-            <StickyNote className="w-4 h-4" />
-            Notes
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="gap-2">
-            <Calendar className="w-4 h-4" />
-            Activity
-          </TabsTrigger>
-          <TabsTrigger value="assets" className="gap-2">
-            <FileText className="w-4 h-4" />
-            Submission Assets
-          </TabsTrigger>
-          <TabsTrigger value="client" className="gap-2">
-            <MessageCircle className="w-4 h-4" />
-            Client Collaboration
-          </TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="bg-muted/50 p-1 flex flex-wrap h-auto">
+          <TabsTrigger value="overview" className="gap-2"><User className="w-4 h-4" /> Overview</TabsTrigger>
+          <TabsTrigger value="cv" className="gap-2"><FileText className="w-4 h-4" /> CV History</TabsTrigger>
+          <TabsTrigger value="notes" className="gap-2"><StickyNote className="w-4 h-4" /> Recruiter Notes</TabsTrigger>
+          <TabsTrigger value="voice" className="gap-2"><Mic className="w-4 h-4" /> Voice Notes</TabsTrigger>
+          <TabsTrigger value="assets" className="gap-2"><FileDown className="w-4 h-4" /> Submission Assets</TabsTrigger>
+          <TabsTrigger value="submissions" className="gap-2"><Send className="w-4 h-4" /> Client Submissions</TabsTrigger>
+          <TabsTrigger value="feedback" className="gap-2"><ThumbsUp className="w-4 h-4" /> Interview Feedback</TabsTrigger>
+          <TabsTrigger value="offers" className="gap-2"><Award className="w-4 h-4" /> Offers</TabsTrigger>
+          <TabsTrigger value="placements" className="gap-2"><Trophy className="w-4 h-4" /> Placements</TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2"><Calendar className="w-4 h-4" /> Activity Timeline</TabsTrigger>
+          <TabsTrigger value="match" className="gap-2"><SparklesIcon className="w-4 h-4" /> AI Match</TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2"><Inbox className="w-4 h-4" /> Emails</TabsTrigger>
+          <TabsTrigger value="client" className="gap-2"><MessageCircle className="w-4 h-4" /> Client Collaboration</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          <CandidateOverviewTab candidate={candidate} />
+        </TabsContent>
+
+        <TabsContent value="voice" className="mt-6">
+          {tenantId && <CandidateVoiceNotesTab candidateId={candidate.id} tenantId={tenantId} />}
+        </TabsContent>
+
+        <TabsContent value="submissions" className="mt-6">
+          <CandidateClientSubmissionsTab candidateId={candidate.id} />
+        </TabsContent>
+
+        <TabsContent value="feedback" className="mt-6">
+          <CandidateInterviewFeedbackTab candidateId={candidate.id} />
+        </TabsContent>
+
+        <TabsContent value="offers" className="mt-6">
+          <CandidateOffersTab candidateId={candidate.id} />
+        </TabsContent>
+
+        <TabsContent value="placements" className="mt-6">
+          <CandidatePlacementsTab candidateId={candidate.id} />
+        </TabsContent>
+
 
         <TabsContent value="emails" className="mt-6">
           <CandidateEmailsTab 
