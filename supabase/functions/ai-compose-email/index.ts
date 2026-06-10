@@ -13,14 +13,22 @@ interface ComposeRequest {
   location?: string;
   company_name?: string;
   recruiter_name?: string;
-  purpose: 'screening_call' | 'interview_invite' | 'job_pitch' | 'follow_up' | 'offer' | 'rejection' | 'custom' | 'promotion' | 'newsletter' | 'announcement' | 'reengagement' | 'welcome' | 'upgrade';
-  tone?: 'brief' | 'formal' | 'friendly';
+  purpose: 'screening_call' | 'interview_invite' | 'job_pitch' | 'follow_up' | 'offer' | 'rejection' | 'custom' | 'promotion' | 'newsletter' | 'announcement' | 'reengagement' | 'welcome' | 'upgrade' | 'client_submission';
+  tone?: 'brief' | 'formal' | 'friendly' | 'professional';
   length?: 'short' | 'medium' | 'long';
   template_context?: string;
   custom_instructions?: string;
   customInstructions?: string;
   recipientCount?: number;
   isMarketing?: boolean;
+  // New: explicit mode + client submission context
+  mode?: 'candidate_outreach' | 'client_submission';
+  is_client_email?: boolean;
+  client_contact_name?: string;
+  candidate_summary?: string;
+  candidate_headline?: string;
+  recommendation_reason?: string;
+  attachments_summary?: string;
 }
 
 serve(async (req) => {
