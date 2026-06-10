@@ -82,13 +82,14 @@ export function SubmissionKanban({ rows, onMove, onOpen, onSendEmail, onPlacemen
         </DragOverlay>
       </DndContext>
 
-      {placementFor && (
+      {placementFor && placementFor.candidate?.id && (
         <MarkAsPlacementDialog
           open={!!placementFor}
           onOpenChange={(v) => !v && setPlacementFor(null)}
-          defaultCandidateId={placementFor.candidate?.id}
-          defaultJobId={placementFor.job?.id}
-          onSuccess={() => { setPlacementFor(null); onPlacementCreated?.(); }}
+          candidateId={placementFor.candidate.id}
+          candidateName={placementFor.candidate.full_name ?? undefined}
+          jobId={placementFor.job?.id ?? null}
+          onSaved={() => { setPlacementFor(null); onPlacementCreated?.(); }}
         />
       )}
     </>
