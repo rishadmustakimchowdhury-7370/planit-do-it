@@ -586,8 +586,9 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             <div className="pt-4 border-t text-xs text-muted-foreground text-center">{branding.footer_text}</div>
           )}
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
