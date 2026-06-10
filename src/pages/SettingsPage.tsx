@@ -65,6 +65,27 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { validatePasswordStrength } from '@/lib/email-validation';
+import { buildSignatureHtml } from '@/lib/emailSignature';
+
+function SignaturePreview({ profileData }: { profileData: any }) {
+  const html = buildSignatureHtml({
+    name: profileData.full_name,
+    title: profileData.job_title,
+    agency: profileData.signature_agency,
+    phone: profileData.phone,
+    email: profileData.email,
+    website: profileData.signature_website,
+    linkedin: profileData.signature_linkedin,
+    customHtml: profileData.email_signature,
+  });
+  if (!html) return null;
+  return (
+    <div className="p-4 rounded-lg bg-muted/50 border">
+      <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
 
 interface TeamMember {
   id: string;
@@ -165,6 +186,9 @@ export default function SettingsPage() {
     avatar_url: '',
     linkedin_url: '',
     email_signature: '',
+    signature_agency: '',
+    signature_website: '',
+    signature_linkedin: '',
   });
 
   const [tenantData, setTenantData] = useState({
@@ -181,8 +205,11 @@ export default function SettingsPage() {
         phone: profile.phone || '',
         job_title: profile.job_title || '',
         avatar_url: profile.avatar_url || '',
-        linkedin_url: '',
+        linkedin_url: (profile as any).signature_linkedin || '',
         email_signature: profile.email_signature || '',
+        signature_agency: (profile as any).signature_agency || '',
+        signature_website: (profile as any).signature_website || '',
+        signature_linkedin: (profile as any).signature_linkedin || '',
       });
 
       // Load notification preferences if they exist
@@ -402,7 +429,10 @@ export default function SettingsPage() {
           job_title: profileData.job_title || null,
           avatar_url: profileData.avatar_url || null,
           email_signature: profileData.email_signature || null,
-        })
+          signature_agency: profileData.signature_agency || null,
+          signature_website: profileData.signature_website || null,
+          signature_linkedin: profileData.signature_linkedin || null,
+        } as any)
         .eq('id', profile.id);
 
       if (error) throw error;
@@ -908,33 +938,57 @@ export default function SettingsPage() {
                     <div>
                       <h3 className="text-lg font-medium">Email Signature</h3>
                       <p className="text-sm text-muted-foreground">
-                        This signature will be automatically added to your outgoing emails
+                        Automatically appended to every outgoing client email. Uses your profile fields below.
                       </p>
                     </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Agency / Company</Label>
+                        <Input
+                          value={profileData.signature_agency}
+                          onChange={(e) => setProfileData({ ...profileData, signature_agency: e.target.value })}
+                          placeholder="Acme Recruitment"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Website</Label>
+                        <Input
+                          value={profileData.signature_website}
+                          onChange={(e) => setProfileData({ ...profileData, signature_website: e.target.value })}
+                          placeholder="https://acme.com"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>LinkedIn URL</Label>
+                        <Input
+                          value={profileData.signature_linkedin}
+                          onChange={(e) => setProfileData({ ...profileData, signature_linkedin: e.target.value, linkedin_url: e.target.value })}
+                          placeholder="https://linkedin.com/in/yourprofile"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="email_signature">Signature</Label>
+                      <Label htmlFor="email_signature">Custom HTML override (optional)</Label>
                       <Textarea
                         id="email_signature"
                         value={profileData.email_signature}
                         onChange={(e) => setProfileData({ ...profileData, email_signature: e.target.value })}
-                        placeholder="Best regards,&#10;John Doe&#10;Senior Recruiter&#10;+1 (555) 123-4567"
+                        placeholder="Leave blank to use the structured fields above. Paste custom HTML or plain text to override."
                         rows={5}
                         className="font-mono text-sm"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Tip: Use line breaks to format your signature. HTML is supported.
+                        Full HTML is supported. When set, this replaces the auto-generated signature.
                       </p>
                     </div>
-                    {profileData.email_signature && (
-                      <div className="p-4 rounded-lg bg-muted/50 border">
-                        <p className="text-xs text-muted-foreground mb-2">Preview:</p>
-                        <div 
-                          className="text-sm whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{ __html: profileData.email_signature.replace(/\n/g, '<br>') }}
-                        />
-                      </div>
-                    )}
+
+                    <SignaturePreview
+                      profileData={profileData}
+                    />
                   </div>
+
 
                   <div className="flex justify-end pt-4">
                     <Button onClick={handleSaveProfile} disabled={isSaving}>

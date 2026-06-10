@@ -4043,6 +4043,9 @@ export type Database = {
           must_reset_password: boolean | null
           notification_preferences: Json | null
           phone: string | null
+          signature_agency: string | null
+          signature_linkedin: string | null
+          signature_website: string | null
           tenant_id: string | null
           two_factor_enabled: boolean | null
           two_factor_phone: string | null
@@ -4064,6 +4067,9 @@ export type Database = {
           must_reset_password?: boolean | null
           notification_preferences?: Json | null
           phone?: string | null
+          signature_agency?: string | null
+          signature_linkedin?: string | null
+          signature_website?: string | null
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
           two_factor_phone?: string | null
@@ -4085,6 +4091,9 @@ export type Database = {
           must_reset_password?: boolean | null
           notification_preferences?: Json | null
           phone?: string | null
+          signature_agency?: string | null
+          signature_linkedin?: string | null
+          signature_website?: string | null
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
           two_factor_phone?: string | null
