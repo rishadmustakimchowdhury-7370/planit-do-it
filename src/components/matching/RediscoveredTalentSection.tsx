@@ -554,7 +554,7 @@ function RediscoveredCandidateCard({ match, index, selected, onToggleSelect, onD
         </Button>
         <Button size="sm" className="flex-1 h-8 gap-1.5" onClick={onAdd} disabled={isAdding}>
           {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
-          Pipeline
+          Prepare For Client
         </Button>
       </div>
     </motion.div>
