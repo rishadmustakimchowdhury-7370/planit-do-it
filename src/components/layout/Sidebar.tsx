@@ -23,7 +23,10 @@ import {
   Kanban,
   Trophy,
   Menu,
-  X
+  X,
+  DollarSign,
+  FileText,
+  Wallet
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
