@@ -167,7 +167,11 @@ export default function ClientPipelinePage() {
               <SelectTrigger className="md:w-56"><SelectValue placeholder="All recruiters" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All recruiters</SelectItem>
-                {recruiters.map((id) => <SelectItem key={id} value={id}>Recruiter {id.slice(0,8)}</SelectItem>)}
+                {recruiters.map((id) => {
+                  const row = (rows ?? []).find((r: any) => r.submitted_by === id);
+                  const name = (row as any)?.recruiter_name || `Recruiter ${id.slice(0,8)}`;
+                  return <SelectItem key={id} value={id}>{name}</SelectItem>;
+                })}
               </SelectContent>
             </Select>
           </CardContent>
