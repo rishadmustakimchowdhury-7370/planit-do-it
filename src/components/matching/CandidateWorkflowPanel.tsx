@@ -441,17 +441,17 @@ export function CandidateWorkflowPanel({
                       iconClass="text-green-600"
                     />
                     <ActionBtn
-                      icon={UserPlus} label="Add to pipeline"
-                      onClick={handleAddToPipeline}
-                      loading={addingPipeline}
+                      icon={Send} label="Prepare For Client"
+                      onClick={handlePrepareForClient}
+                    />
+                    <ActionBtn
+                      icon={Archive} label="Archive candidate"
+                      onClick={handleArchive}
+                      loading={archiving}
                     />
                     <ActionBtn
                       icon={Calendar} label="Schedule interview"
                       onClick={() => toast.info('Open the Events module to schedule')}
-                    />
-                    <ActionBtn
-                      icon={Share2} label="Share with client"
-                      onClick={() => toast.info('Client sharing coming next')}
                     />
                   </div>
                 </div>
