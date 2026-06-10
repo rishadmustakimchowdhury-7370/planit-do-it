@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { CandidateSubmissionTimeline } from '@/components/candidates/CandidateSubmissionTimeline';
+import { CandidateSubmissionAssets } from '@/components/candidates/CandidateSubmissionAssets';
 import {
   DropdownMenu,
   DropdownMenuContent,
