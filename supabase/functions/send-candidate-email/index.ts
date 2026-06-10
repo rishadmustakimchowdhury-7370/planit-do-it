@@ -451,7 +451,7 @@ serve(async (req) => {
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("tenant_id, full_name, email_signature, email, role")
+      .select("tenant_id, full_name, email_signature, email, role, phone, job_title, signature_agency, signature_website, signature_linkedin")
       .eq("id", user.id)
       .single();
 
@@ -647,9 +647,20 @@ serve(async (req) => {
     const senderEmail = emailAccount?.from_email || profile?.email || SUPER_ADMIN_EMAIL;
     const senderName = emailAccount?.display_name || recruiterName;
 
-    // Create email HTML with organization logo only at top
-    // Signature shows Name + Role only (no email visible to recipients)
-    const userSignature = signature ?? profile?.email_signature ?? null;
+    // Create email HTML with organization logo only at top.
+    // Auto-build a rich structured signature from profile fields when caller didn't supply one.
+    const { buildSignatureHtml } = await import("../_shared/signature.ts");
+    const autoSig = buildSignatureHtml({
+      name: profile?.full_name,
+      title: (profile as any)?.job_title,
+      agency: (profile as any)?.signature_agency,
+      phone: (profile as any)?.phone,
+      email: profile?.email,
+      website: (profile as any)?.signature_website,
+      linkedin: (profile as any)?.signature_linkedin,
+      customHtml: profile?.email_signature,
+    });
+    const userSignature = signature ?? (autoSig || profile?.email_signature) ?? null;
     const recruiterRole = profile?.role || "";
     const emailHtml = createEmailHtml(
       body_text,
