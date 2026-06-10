@@ -570,12 +570,13 @@ export function CandidateWorkflowPanel({
 
           {/* Sticky footer */}
           <div className="border-t border-border px-6 py-3 bg-card flex items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { onDismiss?.(); onOpenChange(false); }}>
-              Dismiss
+            <Button variant="ghost" size="sm" onClick={handleArchive} disabled={archiving}>
+              {archiving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Archive className="w-3.5 h-3.5 mr-1.5" />}
+              Archive
             </Button>
-            <Button size="sm" onClick={handleAddToPipeline} disabled={addingPipeline} className="gap-1.5">
-              {addingPipeline ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
-              Add to pipeline
+            <Button size="sm" onClick={handlePrepareForClient} className="gap-1.5">
+              <Send className="w-3.5 h-3.5" />
+              Prepare For Client
             </Button>
           </div>
         </SheetContent>
@@ -592,6 +593,19 @@ export function CandidateWorkflowPanel({
             email: c.email,
           } as any}
           preSelectedJobId={jobId}
+        />
+      )}
+
+      {/* Prepare For Client workspace */}
+      {candidateId && tenantId && (
+        <PrepareForClientDialog
+          open={prepareOpen}
+          onOpenChange={setPrepareOpen}
+          tenantId={tenantId}
+          jobId={jobId}
+          candidateId={candidateId}
+          candidateName={fullName}
+          jobTitle={jobTitle}
         />
       )}
     </>
