@@ -21,6 +21,7 @@ import {
   TrendingUp,
   ClipboardList,
   Kanban,
+  Trophy,
   Menu,
   X
 } from 'lucide-react';
@@ -44,6 +45,7 @@ const navigation = [
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'AI Matching', href: '/ai-match', icon: Sparkles, permission: 'can_use_ai_match' as Permission },
   { name: 'Team Performance', href: '/team/kpi', icon: TrendingUp, permission: 'can_view_reports' as Permission },
+  { name: 'Placements', href: '/placements', icon: Trophy },
   { name: 'Reports', href: '/reports', icon: BarChart3, permission: 'can_view_reports' as Permission },
   { name: 'Tutorials', href: '/tutorials', icon: Video },
 ];
