@@ -605,7 +605,7 @@ const JobDetailPage = () => {
           <TabsList className="bg-muted/50 p-1 h-auto">
             <TabsTrigger value="pipeline" className="gap-2 px-4 py-2">
               <Users className="w-4 h-4" />
-              Pipeline ({candidates.length})
+              Candidates ({candidates.length})
             </TabsTrigger>
             <TabsTrigger value="submissions" className="gap-2 px-4 py-2">
               <FileText className="w-4 h-4" />
