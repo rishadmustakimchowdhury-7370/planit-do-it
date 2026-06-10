@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle, ChevronDown, Pencil, Eraser } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PreviousReportsPanel } from "./PreviousReportsPanel";
 
 const FIT_VALUES = ["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
 const RECOMMENDATIONS = ["Strong Shortlist", "Recommended", "Consider", "Transferable", "Do Not Recommend"] as const;
