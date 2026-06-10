@@ -158,7 +158,7 @@ const JobDetailPage = () => {
   const [showAddCandidateDialog, setShowAddCandidateDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [deleteCandidate, setDeleteCandidate] = useState<JobCandidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
