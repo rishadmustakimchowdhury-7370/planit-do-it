@@ -17,19 +17,23 @@ interface Props {
   candidateId: string;
   candidateName?: string;
   jobId?: string | null;
+  clientId?: string | null;
+  clientOrgId?: string | null;
+  submissionId?: string | null;
   onSaved?: () => void;
 }
 
-export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candidateName, jobId, onSaved }: Props) {
+export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candidateName, jobId, clientId, clientOrgId, submissionId, onSaved }: Props) {
   const { tenantId, user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [jobs, setJobs] = useState<Array<{ id: string; title: string; client_id: string | null; assigned_to: string | null }>>([]);
-  const [clients, setClients] = useState<Array<{ id: string; company_name: string }>>([]);
+  const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
   const [recruiters, setRecruiters] = useState<Array<{ id: string; full_name: string | null; email: string }>>([]);
+  const [clientResolutionError, setClientResolutionError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     job_id: jobId ?? "",
-    client_id: "",
+    client_id: clientId ?? "",
     recruiter_user_id: user?.id ?? "",
     placement_date: new Date().toISOString().slice(0, 10),
     start_date: "",
@@ -58,28 +62,84 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
   useEffect(() => {
     if (!open || !tenantId) return;
     (async () => {
+      setClientResolutionError(null);
       const [j, c, p] = await Promise.all([
         supabase.from("jobs").select("id, title, client_id, assigned_to").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(200),
-        supabase.from("clients").select("id, company_name").eq("tenant_id", tenantId).order("company_name").limit(200),
+        supabase.from("clients").select("id, name").eq("tenant_id", tenantId).order("name").limit(500),
         supabase.from("profiles").select("id, full_name, email").eq("tenant_id", tenantId).eq("is_active", true).limit(200),
       ]);
+      if (c.error) console.error("[Placement] clients load error", c.error);
       setJobs((j.data ?? []) as any);
       setClients((c.data ?? []) as any);
       setRecruiters((p.data ?? []) as any);
+
+      // Resolve initial context from the submission, when provided
+      let resolvedJobId = jobId ?? "";
+      let resolvedClientId = clientId ?? "";
+      let resolvedRecruiter = user?.id ?? "";
+
+      if (submissionId) {
+        const { data: sub } = await supabase
+          .from("candidate_submissions")
+          .select("id, job_id, client_org_id, submitted_by")
+          .eq("id", submissionId)
+          .maybeSingle();
+        if (sub) {
+          resolvedJobId = resolvedJobId || sub.job_id || "";
+          resolvedRecruiter = sub.submitted_by || resolvedRecruiter;
+          if (!resolvedClientId && sub.client_org_id) {
+            const { data: org } = await supabase
+              .from("client_organizations")
+              .select("client_id")
+              .eq("id", sub.client_org_id)
+              .maybeSingle();
+            if (org?.client_id) resolvedClientId = org.client_id;
+          }
+        }
+      }
+
+      // Fall back to job.client_id, then to provided clientOrgId
+      if (!resolvedClientId && resolvedJobId) {
+        const job = (j.data ?? []).find((x: any) => x.id === resolvedJobId);
+        if (job?.client_id) resolvedClientId = job.client_id;
+      }
+      if (!resolvedClientId && clientOrgId) {
+        const { data: org } = await supabase
+          .from("client_organizations")
+          .select("client_id")
+          .eq("id", clientOrgId)
+          .maybeSingle();
+        if (org?.client_id) resolvedClientId = org.client_id;
+      }
+
+      const resolvedClientName = (c.data ?? []).find((x: any) => x.id === resolvedClientId)?.name ?? null;
+      console.log("[Placement] resolved context", {
+        submissionId: submissionId ?? null,
+        jobId: resolvedJobId || null,
+        clientId: resolvedClientId || null,
+        clientName: resolvedClientName,
+      });
+
+      if (!resolvedClientId && (resolvedJobId || submissionId)) {
+        setClientResolutionError("Client not linked to this job");
+      }
+
       setForm((f) => ({
         ...f,
-        job_id: jobId ?? f.job_id,
-        recruiter_user_id: f.recruiter_user_id || user?.id || "",
+        job_id: resolvedJobId || f.job_id,
+        client_id: resolvedClientId || f.client_id,
+        recruiter_user_id: resolvedRecruiter || f.recruiter_user_id,
       }));
     })();
-  }, [open, tenantId, jobId, user?.id]);
+  }, [open, tenantId, jobId, clientId, clientOrgId, submissionId, user?.id]);
 
-  // Auto-fill client when job changes
+  // Auto-fill client when job is changed manually
   useEffect(() => {
-    if (!form.job_id) return;
+    if (!form.job_id || form.client_id) return;
     const job = jobs.find((j) => j.id === form.job_id);
-    if (job?.client_id && !form.client_id) {
+    if (job?.client_id) {
       setForm((f) => ({ ...f, client_id: job.client_id! }));
+      setClientResolutionError(null);
     }
     if (job?.assigned_to && !form.recruiter_user_id) {
       setForm((f) => ({ ...f, recruiter_user_id: job.assigned_to! }));
