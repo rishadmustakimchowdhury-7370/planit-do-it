@@ -35,9 +35,25 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
     start_date: "",
     salary: "",
     placement_fee: "",
+    fee_pct: "",
     currency: "USD",
+    guarantee_period_days: "",
     notes: "",
   });
+
+  // Keep Fee % and Fee $ in sync when salary changes
+  useEffect(() => {
+    const sal = Number(form.salary);
+    const fee = Number(form.placement_fee);
+    const pct = Number(form.fee_pct);
+    if (sal > 0 && fee > 0 && !pct) {
+      setForm((f) => ({ ...f, fee_pct: ((fee / sal) * 100).toFixed(2) }));
+    } else if (sal > 0 && pct > 0 && !fee) {
+      setForm((f) => ({ ...f, placement_fee: ((sal * pct) / 100).toFixed(2) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.salary]);
+
 
   useEffect(() => {
     if (!open || !tenantId) return;
