@@ -65,6 +65,27 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { validatePasswordStrength } from '@/lib/email-validation';
+import { buildSignatureHtml } from '@/lib/emailSignature';
+
+function SignaturePreview({ profileData }: { profileData: any }) {
+  const html = buildSignatureHtml({
+    name: profileData.full_name,
+    title: profileData.job_title,
+    agency: profileData.signature_agency,
+    phone: profileData.phone,
+    email: profileData.email,
+    website: profileData.signature_website,
+    linkedin: profileData.signature_linkedin,
+    customHtml: profileData.email_signature,
+  });
+  if (!html) return null;
+  return (
+    <div className="p-4 rounded-lg bg-muted/50 border">
+      <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
 
 interface TeamMember {
   id: string;
