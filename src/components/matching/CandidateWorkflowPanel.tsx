@@ -11,6 +11,7 @@ import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { OutcomeCaptureBar } from '@/components/clients/OutcomeCaptureBar';
+import { PrepareForClientDialog } from '@/components/clients/PrepareForClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
@@ -22,9 +23,9 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import {
   MapPin, Mail, MessageCircle, FileText, Download, Eye, Sparkles,
-  UserPlus, Share2, Calendar, StickyNote, ChevronDown, CheckCircle2,
+  Send, Share2, Calendar, StickyNote, ChevronDown, CheckCircle2,
   AlertCircle, Linkedin, ExternalLink, Loader2, Activity, Clock,
-  Briefcase, History,
+  Briefcase, History, Archive,
 } from 'lucide-react';
 import type { RediscoveredMatch } from '@/hooks/useRediscoveredMatches';
 
