@@ -30,7 +30,7 @@ import {
   LayoutGrid,
   List,
   Table,
-  Kanban,
+  
   MoreHorizontal,
   Trash2,
   Eye,
