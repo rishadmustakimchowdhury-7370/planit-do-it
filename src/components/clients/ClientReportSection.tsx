@@ -194,25 +194,31 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   // --- Empty state ---
   if (!loading && versions.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <SectionHeader title="Client Submission Report" />
-          <p className="text-sm text-muted-foreground">
-            Generate a professional client-facing submission report from the JD, CV, your recruiter notes and any voice transcript.
-            This is independent of AI Match — you've already decided to submit this candidate.
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
-              <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
+      <div className="space-y-3">
+        <PreviousReportsPanel
+          tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+          onAfterCopy={loadVersions}
+        />
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <SectionHeader title="Client Submission Report" />
+            <p className="text-sm text-muted-foreground">
+              Generate a professional client-facing submission report from the JD, CV, your recruiter notes and any voice transcript.
+              This is independent of AI Match — you've already decided to submit this candidate.
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
+                <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
+              </div>
+              <Button onClick={() => generate("from_original")} disabled={generating}>
+                {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Generate Report
+              </Button>
             </div>
-            <Button onClick={() => generate("from_original")} disabled={generating}>
-              {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Generate Report
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
