@@ -250,9 +250,8 @@ export default function TeamKPIDashboardPage() {
         targetUserIds = [user?.id].filter(Boolean) as string[];
       }
 
-      // Fetch real recruitment activity data from multiple tables
-      const [candidatesData, jobCandidatesWithCreatorData, jobCandidatesData, eventsData] = await Promise.all([
-        // CVs uploaded (candidates created)
+      // Source of truth: candidate_submissions + placements (no job_candidates.stage)
+      const [candidatesData, submissionsData, placementsData, eventsData] = await Promise.all([
         supabase
           .from('candidates')
           .select('created_by, created_at')
@@ -260,24 +259,23 @@ export default function TeamKPIDashboardPage() {
           .in('created_by', targetUserIds)
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString()),
-        
-        // CVs submitted - count from job_candidates joined with candidates (who created the candidate)
+
         supabase
-          .from('job_candidates')
-          .select('created_at, candidate_id, candidates!inner(created_by)')
+          .from('candidate_submissions')
+          .select('submitted_by, status, created_at, last_activity_at')
           .eq('tenant_id', tenantId)
+          .in('submitted_by', targetUserIds)
           .gte('created_at', start.toISOString())
           .lte('created_at', end.toISOString()),
-        
-        // Job candidates (for stages: screening, interview, offer, hired, rejected)
+
         supabase
-          .from('job_candidates')
-          .select('stage, stage_updated_at, job_id')
+          .from('placements')
+          .select('recruiter_user_id, placement_date, created_at')
           .eq('tenant_id', tenantId)
-          .gte('stage_updated_at', start.toISOString())
-          .lte('stage_updated_at', end.toISOString()),
-        
-        // Interviews scheduled
+          .in('recruiter_user_id', targetUserIds)
+          .gte('placement_date', start.toISOString().slice(0, 10))
+          .lte('placement_date', end.toISOString().slice(0, 10)),
+
         supabase
           .from('events')
           .select('organizer_id, created_at')
@@ -288,19 +286,9 @@ export default function TeamKPIDashboardPage() {
           .lte('created_at', end.toISOString()),
       ]);
 
-      // Get job assignments to link job_candidates to users
-      const jobIds = [...new Set(jobCandidatesData.data?.map(jc => jc.job_id) || [])];
-      const { data: jobsData } = await supabase
-        .from('jobs')
-        .select('id, assigned_to')
-        .eq('tenant_id', tenantId)
-        .in('id', jobIds)
-        .in('assigned_to', targetUserIds);
-
       // Build KPI map
       const kpiMap = new Map<string, TeamMemberKPI>();
 
-      // Initialize KPI entries for all target users
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url')
@@ -323,80 +311,70 @@ export default function TeamKPIDashboardPage() {
         });
       }
 
-      // Count CVs uploaded
       for (const candidate of candidatesData.data || []) {
         if (candidate.created_by && kpiMap.has(candidate.created_by)) {
           kpiMap.get(candidate.created_by)!.cv_uploaded++;
         }
       }
 
-      // Count CVs submitted from job_candidates (candidate submissions to jobs)
-      for (const jobCandidate of jobCandidatesWithCreatorData.data || []) {
-        const createdBy = (jobCandidate.candidates as any)?.created_by;
-        if (createdBy && kpiMap.has(createdBy)) {
-          kpiMap.get(createdBy)!.cv_submitted++;
-        }
-      }
-
-      // Count interviews scheduled
       for (const event of eventsData.data || []) {
         if (event.organizer_id && kpiMap.has(event.organizer_id)) {
           kpiMap.get(event.organizer_id)!.interview_scheduled++;
         }
       }
 
-      // Count job candidate stages
-      const jobAssignmentMap = new Map(jobsData?.map(j => [j.id, j.assigned_to]) || []);
-      for (const jobCandidate of jobCandidatesData.data || []) {
-        const assignedTo = jobAssignmentMap.get(jobCandidate.job_id);
-        if (assignedTo && kpiMap.has(assignedTo)) {
-          const kpi = kpiMap.get(assignedTo)!;
-          switch (jobCandidate.stage) {
-            case 'screening':
-              kpi.screening_completed++;
-              break;
-            case 'interview':
-            case 'technical':
-              kpi.interview_completed++;
-              break;
-            case 'offer':
-              kpi.offer_sent++;
-              break;
-            case 'hired':
-              kpi.candidate_hired++;
-              break;
-            case 'rejected':
-              kpi.candidate_rejected++;
-              break;
-          }
+      // Submissions = single source of truth for pipeline stages
+      for (const sub of (submissionsData.data || []) as any[]) {
+        const uid = sub.submitted_by;
+        if (!uid || !kpiMap.has(uid)) continue;
+        const kpi = kpiMap.get(uid)!;
+        kpi.cv_submitted++;
+        switch (sub.status) {
+          case 'screening':
+            kpi.screening_completed++;
+            break;
+          case 'interview_requested':
+          case 'interview_confirmed':
+            kpi.interview_completed++;
+            break;
+          case 'offer':
+            kpi.offer_sent++;
+            break;
+          case 'rejected':
+            kpi.candidate_rejected++;
+            break;
         }
+      }
+
+      // Hired = placements (source of truth)
+      for (const p of (placementsData.data || []) as any[]) {
+        const uid = p.recruiter_user_id;
+        if (uid && kpiMap.has(uid)) kpiMap.get(uid)!.candidate_hired++;
       }
 
       setTeamKPIs(Array.from(kpiMap.values()));
 
-      // Generate trend data from all activity types
+      // Generate trend data
       const trendMap = new Map<string, any>();
-      
+
       const addToTrend = (date: Date, key: string) => {
         const dateStr = format(date, dateRange === '24_hours' ? 'HH:mm' : dateRange === '24_months' ? 'MMM yyyy' : 'MMM dd');
         if (!trendMap.has(dateStr)) {
-          trendMap.set(dateStr, { 
-            date: dateStr, 
-            cv_uploaded: 0, 
-            cv_submitted: 0, 
-            interview_scheduled: 0, 
-            candidate_hired: 0 
+          trendMap.set(dateStr, {
+            date: dateStr,
+            cv_uploaded: 0,
+            cv_submitted: 0,
+            interview_scheduled: 0,
+            candidate_hired: 0
           });
         }
         trendMap.get(dateStr)![key]++;
       };
 
       candidatesData.data?.forEach(c => addToTrend(new Date(c.created_at!), 'cv_uploaded'));
-      jobCandidatesWithCreatorData.data?.forEach(jc => addToTrend(new Date(jc.created_at!), 'cv_submitted'));
+      (submissionsData.data as any[])?.forEach(s => addToTrend(new Date(s.created_at), 'cv_submitted'));
       eventsData.data?.forEach(e => addToTrend(new Date(e.created_at!), 'interview_scheduled'));
-      jobCandidatesData.data?.filter(jc => jc.stage === 'hired').forEach(jc => 
-        addToTrend(new Date(jc.stage_updated_at), 'candidate_hired')
-      );
+      (placementsData.data as any[])?.forEach(p => addToTrend(new Date(p.placement_date), 'candidate_hired'));
 
       setTrendData(Array.from(trendMap.values()).sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
