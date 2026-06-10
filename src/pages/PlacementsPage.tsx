@@ -75,6 +75,11 @@ export default function PlacementsPage() {
         supabase.from("candidate_submissions").select("submitted_by").eq("tenant_id", tenantId),
       ]);
 
+      if (placements.error) console.error("[Placements] query error", placements.error);
+      console.log("[Placements] Dashboard loaded placements:", (placements.data ?? []).length, {
+        tenantId,
+        sample: (placements.data ?? []).slice(0, 3),
+      });
       setRows((placements.data ?? []) as any);
       const map: Record<string, string> = {};
       (profiles.data ?? []).forEach((p: any) => { map[p.id] = p.full_name || p.email; });
