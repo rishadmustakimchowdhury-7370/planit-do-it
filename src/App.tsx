@@ -209,6 +209,10 @@ const AppRoutes = () => (
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/placements" element={<ProtectedRoute><PlacementsPage /></ProtectedRoute>} />
+      <Route path="/finance" element={<ProtectedRoute><FinanceDashboardPage /></ProtectedRoute>} />
+      <Route path="/finance/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
+      <Route path="/finance/bonuses" element={<ProtectedRoute><RecruiterBonusesPage /></ProtectedRoute>} />
+      <Route path="/finance/settings" element={<ProtectedRoute><FinanceSettingsPage /></ProtectedRoute>} />
       <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
       <Route path="/email/analytics" element={<ProtectedRoute><EmailAnalyticsPage /></ProtectedRoute>} />
       <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />
