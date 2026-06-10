@@ -227,10 +227,10 @@ export function CandidateWorkflowPanel({
     setArchiving(true);
     try {
       await logActivity({
-        action_type: 'candidate_dismissed',
+        action_type: 'note_added',
         candidate_id: candidateId,
         job_id: jobId,
-        metadata: { reason: 'archived_from_ai_match' },
+        metadata: { note: 'Archived from AI Match', reason: 'archived' },
       });
       toast.success('Candidate archived');
       onDismiss?.();
