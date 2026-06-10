@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sparkles, Loader2, Save, RefreshCw, Trash2, Plus, History, CheckCircle2, Lock, AlertTriangle, ChevronDown, Pencil, Eraser } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PreviousReportsPanel } from "./PreviousReportsPanel";
 
 const FIT_VALUES = ["EXCEEDS", "STRONG", "GOOD", "PARTIAL", "WEAK", "MISSING"] as const;
 const RECOMMENDATIONS = ["Strong Shortlist", "Recommended", "Consider", "Transferable", "Do Not Recommend"] as const;
@@ -193,25 +194,31 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   // --- Empty state ---
   if (!loading && versions.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <SectionHeader title="Client Submission Report" />
-          <p className="text-sm text-muted-foreground">
-            Generate a professional client-facing submission report from the JD, CV, your recruiter notes and any voice transcript.
-            This is independent of AI Match — you've already decided to submit this candidate.
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
-              <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
+      <div className="space-y-3">
+        <PreviousReportsPanel
+          tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+          onAfterCopy={loadVersions}
+        />
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <SectionHeader title="Client Submission Report" />
+            <p className="text-sm text-muted-foreground">
+              Generate a professional client-facing submission report from the JD, CV, your recruiter notes and any voice transcript.
+              This is independent of AI Match — you've already decided to submit this candidate.
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch id="anon" checked={anonymous} onCheckedChange={setAnonymous} />
+                <Label htmlFor="anon" className="text-sm">Anonymous mode</Label>
+              </div>
+              <Button onClick={() => generate("from_original")} disabled={generating}>
+                {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Generate Report
+              </Button>
             </div>
-            <Button onClick={() => generate("from_original")} disabled={generating}>
-              {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Generate Report
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -226,8 +233,13 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const rec = report.recommendation ?? {};
 
   return (
-    <Card>
-      <CardContent className="p-0">
+    <div className="space-y-3">
+      <PreviousReportsPanel
+        tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+        onAfterCopy={loadVersions}
+      />
+      <Card>
+        <CardContent className="p-0">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
@@ -574,8 +586,9 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
             <div className="pt-4 border-t text-xs text-muted-foreground text-center">{branding.footer_text}</div>
           )}
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
