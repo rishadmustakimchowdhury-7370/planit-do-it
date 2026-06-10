@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Eye, Download, Send, RefreshCw, Pencil, Loader2, FileText,
+  Eye, Download, Send, RefreshCw, Pencil, Loader2, FileText, KanbanSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AddToPipelineDialog } from "./AddToPipelineDialog";
 
 interface Props {
   tenantId: string;
@@ -49,6 +50,7 @@ export function SubmissionPackPreview({
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [pinned, setPinned] = useState<PackRow | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -154,11 +156,23 @@ export function SubmissionPackPreview({
             <Button size="sm" variant="outline" onClick={download} disabled={!signedUrl}>
               <Download className="h-3 w-3 mr-1" />Download
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} disabled={!active}>
+              <KanbanSquare className="h-3 w-3 mr-1" />Add To Pipeline
+            </Button>
             <Button size="sm" onClick={() => active && onSendToClient?.(active.id)} disabled={!active}>
               <Send className="h-3 w-3 mr-1" />Send To Client
             </Button>
           </div>
         </div>
+
+        <AddToPipelineDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          tenantId={tenantId}
+          jobId={jobId}
+          candidateId={candidateId}
+          primaryPackId={active?.id ?? null}
+        />
 
         {/* Tabs */}
         {!pinned && (
