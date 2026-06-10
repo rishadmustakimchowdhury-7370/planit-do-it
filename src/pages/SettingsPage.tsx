@@ -917,33 +917,57 @@ export default function SettingsPage() {
                     <div>
                       <h3 className="text-lg font-medium">Email Signature</h3>
                       <p className="text-sm text-muted-foreground">
-                        This signature will be automatically added to your outgoing emails
+                        Automatically appended to every outgoing client email. Uses your profile fields below.
                       </p>
                     </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Agency / Company</Label>
+                        <Input
+                          value={profileData.signature_agency}
+                          onChange={(e) => setProfileData({ ...profileData, signature_agency: e.target.value })}
+                          placeholder="Acme Recruitment"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Website</Label>
+                        <Input
+                          value={profileData.signature_website}
+                          onChange={(e) => setProfileData({ ...profileData, signature_website: e.target.value })}
+                          placeholder="https://acme.com"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>LinkedIn URL</Label>
+                        <Input
+                          value={profileData.signature_linkedin}
+                          onChange={(e) => setProfileData({ ...profileData, signature_linkedin: e.target.value, linkedin_url: e.target.value })}
+                          placeholder="https://linkedin.com/in/yourprofile"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="email_signature">Signature</Label>
+                      <Label htmlFor="email_signature">Custom HTML override (optional)</Label>
                       <Textarea
                         id="email_signature"
                         value={profileData.email_signature}
                         onChange={(e) => setProfileData({ ...profileData, email_signature: e.target.value })}
-                        placeholder="Best regards,&#10;John Doe&#10;Senior Recruiter&#10;+1 (555) 123-4567"
+                        placeholder="Leave blank to use the structured fields above. Paste custom HTML or plain text to override."
                         rows={5}
                         className="font-mono text-sm"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Tip: Use line breaks to format your signature. HTML is supported.
+                        Full HTML is supported. When set, this replaces the auto-generated signature.
                       </p>
                     </div>
-                    {profileData.email_signature && (
-                      <div className="p-4 rounded-lg bg-muted/50 border">
-                        <p className="text-xs text-muted-foreground mb-2">Preview:</p>
-                        <div 
-                          className="text-sm whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{ __html: profileData.email_signature.replace(/\n/g, '<br>') }}
-                        />
-                      </div>
-                    )}
+
+                    <SignaturePreview
+                      profileData={profileData}
+                    />
                   </div>
+
 
                   <div className="flex justify-end pt-4">
                     <Button onClick={handleSaveProfile} disabled={isSaving}>
