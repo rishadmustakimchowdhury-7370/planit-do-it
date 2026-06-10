@@ -253,13 +253,22 @@ export function SendClientEmailModal({
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('email_signature')
+        .select('full_name,email,phone,job_title,email_signature,signature_agency,signature_website,signature_linkedin')
         .eq('id', profile.id)
         .single();
-      
-      const defaultSig = data?.email_signature || 
-        `Best regards,\n${profile?.full_name || ''}\n${profile?.job_title || 'Recruiter'}\n${profile?.email || ''}`;
-      setSignature(defaultSig);
+
+      const { buildSignatureHtml } = await import('@/lib/emailSignature');
+      const sigHtml = buildSignatureHtml({
+        name: data?.full_name,
+        title: data?.job_title,
+        agency: (data as any)?.signature_agency,
+        phone: data?.phone,
+        email: data?.email,
+        website: (data as any)?.signature_website,
+        linkedin: (data as any)?.signature_linkedin,
+        customHtml: data?.email_signature,
+      });
+      setSignature(sigHtml || `Best regards,\n${profile?.full_name || ''}`);
     } catch (error) {
       console.error('Error fetching signature:', error);
     }
