@@ -422,6 +422,10 @@ const CandidateDetailPage = () => {
             <Calendar className="w-4 h-4" />
             Activity
           </TabsTrigger>
+          <TabsTrigger value="assets" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Submission Assets
+          </TabsTrigger>
           <TabsTrigger value="client" className="gap-2">
             <MessageCircle className="w-4 h-4" />
             Client Collaboration
