@@ -151,54 +151,80 @@ CRITICAL RULES:
 Additional context/instructions: ${customPrompt || 'None provided'}
 
 Generate a professional, well-structured marketing email. Remember to suggest a subject line at the end.`;
-    } else {
-      // Recruitment or Client email generation
-      const isClientEmail = !candidate_first_name && company_name;
-      const recipientName = candidate_first_name || company_name?.split(' ')[0] || 'there';
-      const fullRecipientName = candidate_first_name 
-        ? `${candidate_first_name}${candidate_last_name ? ' ' + candidate_last_name : ''}`
-        : company_name || 'there';
-      const purposeGuide = isClientEmail ? clientPurposeGuide : recruitmentPurposeGuide;
+    } else if (resolvedMode === 'client_submission') {
+      // ============================================================
+      // MODE B — CLIENT SUBMISSION
+      // Sending a candidate to a client. Never use candidate-outreach
+      // wording (no "we have an exciting opportunity for you", no
+      // pitch to the recipient about a job for themselves).
+      // ============================================================
+      const candidateFullName = [candidate_first_name, candidate_last_name]
+        .filter(Boolean).join(' ').trim() || 'the candidate';
+      const greetingName =
+        client_contact_name?.trim()
+        || (company_name ? `${company_name} team` : 'there');
 
-      // Client outreach email prompt
-      if (isClientEmail) {
-        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional client outreach email.
+      systemPrompt = `You are a senior recruiter writing a CLIENT SUBMISSION email.
 
-CRITICAL OUTPUT FORMAT:
-You MUST separate each section with a BLANK LINE (double newline).
-DO NOT write all text in one paragraph.
+CONTEXT: You are introducing a candidate to a client/hiring manager. The recipient is the CLIENT, not the candidate. Never address the candidate. Never pitch a job to the recipient. Never write any candidate-outreach wording such as "we have an exciting opportunity for you", "would you be open to a conversation about your career", or anything implying the recipient is a job seeker.
 
-STRUCTURE (follow EXACTLY with blank lines between each section):
+TONE: ${toneGuide[tone] || toneGuide.formal}. Professional recruitment language. Confident, factual, concise.
 
-Hello ${fullRecipientName},
+OUTPUT FORMAT — follow EXACTLY, one blank line between each section:
 
-[PARAGRAPH 1 - Introduction: 2-3 sentences introducing yourself and your recruitment firm]
+Hello ${greetingName},
 
-[PARAGRAPH 2 - Value Proposition: 2-3 sentences about how you help companies with pre-vetted candidates]
+[SECTION 1 — SHORT INTRODUCTION: 1–2 sentences. Briefly state that you are pleased to submit ${candidateFullName} for the ${job_title || 'role'}${company_name ? ` at ${company_name}` : ''}.]
 
-[PARAGRAPH 3 - Call to Action: 1-2 sentences inviting for a conversation]
+[SECTION 2 — CANDIDATE SUMMARY: 2–4 sentences. A concise professional summary of the candidate: current/most recent role, years of experience, notable expertise, and any standout context. Use only the facts provided; do not invent details.]
+
+[SECTION 3 — REASON FOR RECOMMENDATION: 2–3 sentences explaining specifically why this candidate fits this role. Tie strengths to the role's requirements.]
+
+[SECTION 4 — ATTACHMENT MENTION: 1 sentence. Reference the attached submission pack / CV / AI assessment report and invite the client to review it.]
+
+[SECTION 5 — CLOSING LINE: 1 short sentence offering to arrange an interview or answer questions.]
 
 Kind regards,
 
-RULES:
-- Each paragraph must be SHORT (2-3 sentences max)
-- Leave ONE BLANK LINE between every paragraph
-- No bullet points, no emojis, no markdown
-- No bold, no italics, no HTML
-- Stop after "Kind regards," - system adds signature`;
+STRICT RULES:
+- The recipient is the CLIENT. Never write to the candidate.
+- Never use phrases like "exciting opportunity for you", "your next career move", "open to a conversation about your career", "we'd love to discuss your background" — these are candidate-outreach phrases and must NOT appear.
+- Do not invent skills, employers, certifications, or achievements that were not provided.
+- No bullet points, no emojis, no markdown, no bold/italic, no HTML.
+- One blank line between each section.
+- Stop after "Kind regards," — the system appends the recruiter signature.`;
 
-        userPrompt = `Write a client outreach email.
+      userPrompt = `Write a CLIENT SUBMISSION email.
 
-CLIENT COMPANY: ${company_name}
-INDUSTRY: ${customPrompt || 'general business'}
-RECRUITER NAME: ${recruiter_name}
-PURPOSE: ${purposeGuide[purpose] || 'exploring recruitment partnership'}
+CLIENT COMPANY: ${company_name || '(unknown)'}
+CLIENT CONTACT: ${client_contact_name || '(team)'}
+ROLE: ${job_title || '(unspecified role)'}
+${location ? `LOCATION: ${location}` : ''}
+RECRUITER: ${recruiter_name || 'the recruiter'}
 
-REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 SHORT paragraphs, then "Kind regards,"`;
+CANDIDATE NAME: ${candidateFullName}
+${candidate_headline ? `CANDIDATE HEADLINE: ${candidate_headline}` : ''}
+${candidate_summary ? `CANDIDATE SUMMARY (use as factual basis):\n${candidate_summary}` : ''}
+${recommendation_reason ? `WHY RECOMMENDED (use as factual basis):\n${recommendation_reason}` : ''}
+${attachments_summary ? `ATTACHMENTS INCLUDED: ${attachments_summary}` : 'ATTACHMENTS INCLUDED: Submission pack (CV + AI assessment report)'}
+${customPrompt ? `ADDITIONAL RECRUITER INSTRUCTIONS: ${customPrompt}` : ''}
 
-      } else {
-        // Candidate outreach email prompt
-        systemPrompt = `You are a senior recruitment communication strategist. Generate a professional candidate outreach email.
+Also propose a concise subject line on its own final line in the format:
+SUBJECT: [subject line here]
+
+Remember: this is a CLIENT SUBMISSION, not candidate outreach.`;
+    } else {
+      // ============================================================
+      // MODE A — CANDIDATE OUTREACH
+      // ============================================================
+      const recipientName = candidate_first_name || 'there';
+      const fullRecipientName = candidate_first_name
+        ? `${candidate_first_name}${candidate_last_name ? ' ' + candidate_last_name : ''}`
+        : 'there';
+
+      systemPrompt = `You are a senior recruitment communication strategist. Generate a professional CANDIDATE OUTREACH email.
+
+CONTEXT: The recipient is a CANDIDATE / passive job seeker. Never write submission wording (do not "submit", "introduce", or "recommend" the candidate to anyone — you are speaking TO the candidate directly).
 
 CRITICAL OUTPUT FORMAT:
 You MUST separate each section with a BLANK LINE (double newline).
@@ -208,32 +234,34 @@ STRUCTURE (follow EXACTLY with blank lines between each section):
 
 Hello ${recipientName},
 
-[PARAGRAPH 1 - Introduction: 2-3 sentences about why you're reaching out]
+[PARAGRAPH 1 — Introduction: 2-3 sentences about why you're reaching out]
 
-[PARAGRAPH 2 - Opportunity: 2-3 sentences about the role and what makes it compelling]
+[PARAGRAPH 2 — Opportunity: 2-3 sentences about the role and what makes it compelling]
 
-[PARAGRAPH 3 - Call to Action: 1-2 sentences inviting them for a call]
+[PARAGRAPH 3 — Call to Action: 1-2 sentences inviting them for a call]
 
 Kind regards,
 
 RULES:
+- Tone: ${toneGuide[tone] || toneGuide.friendly}
 - Each paragraph must be SHORT (2-3 sentences max)
 - Leave ONE BLANK LINE between every paragraph
 - No bullet points, no emojis, no markdown
 - No bold, no italics, no HTML
-- Stop after "Kind regards," - system adds signature`;
+- Never write submission/recommendation language — this email is TO the candidate.
+- Stop after "Kind regards," — system adds signature`;
 
-        const purposeDetails: Record<string, string> = {
-          job_pitch: `presenting an exciting ${job_title || 'career'} opportunity${company_name ? ` at ${company_name}` : ''}`,
-          screening_call: `inviting them for a phone screening for the ${job_title || 'position'}`,
-          interview_invite: `inviting them for an interview for the ${job_title || 'role'}`,
-          follow_up: `following up on their application for ${job_title || 'the position'}`,
-          offer: `extending a job offer for the ${job_title || 'position'}`,
-          rejection: `providing an update on their application for ${job_title || 'the position'} (professional decline)`,
-          custom: customPrompt || 'general candidate outreach',
-        };
+      const purposeDetails: Record<string, string> = {
+        job_pitch: `presenting an exciting ${job_title || 'career'} opportunity${company_name ? ` at ${company_name}` : ''}`,
+        screening_call: `inviting them for a phone screening for the ${job_title || 'position'}`,
+        interview_invite: `inviting them for an interview for the ${job_title || 'role'}`,
+        follow_up: `following up on their application for ${job_title || 'the position'}`,
+        offer: `extending a job offer for the ${job_title || 'position'}`,
+        rejection: `providing an update on their application for ${job_title || 'the position'} (professional decline)`,
+        custom: customPrompt || 'general candidate outreach',
+      };
 
-        userPrompt = `Write a candidate outreach email.
+      userPrompt = `Write a candidate outreach email.
 
 PURPOSE: ${purposeDetails[purpose] || 'general outreach'}
 CANDIDATE: ${fullRecipientName}
@@ -244,7 +272,6 @@ RECRUITER: ${recruiter_name}
 ${customPrompt ? `ADDITIONAL CONTEXT: ${customPrompt}` : ''}
 
 REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 SHORT paragraphs, then "Kind regards,"`;
-      }
     }
 
     console.log("Calling OpenAI API for email composition...");
