@@ -233,8 +233,13 @@ export function ClientReportSection({ tenantId, jobId, candidateId, candidateNam
   const rec = report.recommendation ?? {};
 
   return (
-    <Card>
-      <CardContent className="p-0">
+    <div className="space-y-3">
+      <PreviousReportsPanel
+        tenantId={tenantId} jobId={jobId} candidateId={candidateId}
+        onAfterCopy={loadVersions}
+      />
+      <Card>
+        <CardContent className="p-0">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b bg-muted/30">
           <div className="flex items-center gap-2">
