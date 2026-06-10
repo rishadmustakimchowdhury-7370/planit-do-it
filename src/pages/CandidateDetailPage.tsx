@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
+import { CandidateSubmissionTimeline } from '@/components/candidates/CandidateSubmissionTimeline';
 import {
   DropdownMenu,
   DropdownMenuContent,
