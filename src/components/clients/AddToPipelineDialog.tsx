@@ -112,8 +112,17 @@ export function AddToPipelineDialog({
         submissionId = inserted!.id;
       }
 
-      toast.success("Candidate added to pipeline.");
-      onAdded?.(submissionId);
+      // Verify the row actually exists before declaring success
+      const { data: verify, error: vErr } = await supabase
+        .from("candidate_submissions")
+        .select("id, status, candidate_id, job_id, client_org_id")
+        .eq("id", submissionId)
+        .maybeSingle();
+      if (vErr) throw vErr;
+      if (!verify?.id) throw new Error("Submission row was not created.");
+
+      toast.success(`Added to pipeline · Submission ${verify.id.slice(0, 8)}`);
+      onAdded?.(verify.id);
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to add to pipeline");
