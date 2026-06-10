@@ -620,15 +620,6 @@ const JobDetailPage = () => {
           {/* View Mode Switcher */}
           <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
             <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 px-3 gap-1.5"
-              onClick={() => setViewMode('kanban')}
-            >
-              <Kanban className="w-4 h-4" />
-              <span className="hidden sm:inline">Kanban</span>
-            </Button>
-            <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               className="h-8 px-3 gap-1.5"
@@ -666,26 +657,7 @@ const JobDetailPage = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {viewMode === 'kanban' && (
-                  <KanbanBoard 
-                    candidates={candidates.map(jc => ({
-                      id: jc.id,
-                      jobId: id!,
-                      candidateId: jc.candidate_id,
-                      candidate: {
-                        id: jc.candidates.id,
-                        name: jc.candidates.full_name,
-                        currentTitle: jc.candidates.current_title || '',
-                        avatar: jc.candidates.avatar_url || undefined,
-                        matchScore: jc.match_score || undefined,
-                      },
-                      stage: (jc.stage as 'applied' | 'screening' | 'interview' | 'technical' | 'offer' | 'hired' | 'rejected') || 'applied',
-                      matchScore: jc.match_score || undefined,
-                      appliedAt: new Date()
-                    }))}
-                    onRefresh={fetchJobDetails}
-                  />
-                )}
+
 
                 {viewMode === 'grid' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
