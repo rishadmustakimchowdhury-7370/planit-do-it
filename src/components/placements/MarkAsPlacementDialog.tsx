@@ -119,11 +119,13 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
           start_date: form.start_date || null,
           salary: form.salary ? Number(form.salary) : null,
           placement_fee: form.placement_fee ? Number(form.placement_fee) : null,
+          fee_pct: form.fee_pct ? Number(form.fee_pct) : null,
+          guarantee_period_days: form.guarantee_period_days ? Number(form.guarantee_period_days) : null,
           currency: form.currency,
           notes: form.notes || null,
           status: "confirmed",
           created_by: user?.id ?? null,
-        })
+        } as any)
         .select("id")
         .single();
       if (error) throw error;
