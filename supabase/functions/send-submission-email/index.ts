@@ -10,6 +10,7 @@ import {
   getOrgBranding,
 } from "../_shared/smtp-sender.ts";
 import { getAppBaseUrl } from "../_shared/app-url.ts";
+import { buildSignatureHtml, loadProfileSignatureFields } from "../_shared/signature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,6 +88,8 @@ serve(async (req) => {
 
     const branding = await getOrgBranding(admin, sub.tenant_id);
     const portalUrl = `${getAppBaseUrl(req)}/client/submissions`;
+    const signatureFields = await loadProfileSignatureFields(admin, inviter.id);
+    const signatureHtml = buildSignatureHtml(signatureFields);
 
     let sent = 0;
     const failed: string[] = [];
@@ -107,6 +110,7 @@ serve(async (req) => {
           <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
             Sent on behalf of ${orgName} via HireMetrics.
           </p>
+          ${signatureHtml}
         `, branding);
 
         await sendTeamEmail({
