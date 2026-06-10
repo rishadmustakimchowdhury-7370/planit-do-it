@@ -180,24 +180,66 @@ export function ClientDeliveryWorkspace({
   async function generateAI() {
     setAiBusy(true);
     try {
+      // Pull candidate summary + recommendation reason from the latest approved report (if any)
+      let candidate_summary: string | undefined;
+      let candidate_headline: string | undefined;
+      let recommendation_reason: string | undefined;
+      try {
+        const { data: rep } = await supabase
+          .from("client_submission_reports")
+          .select("report_data, status, version")
+          .eq("tenant_id", tenantId).eq("job_id", jobId).eq("candidate_id", candidateId)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const rd: any = (rep as any)?.report_data ?? {};
+        candidate_headline = rd?.header?.headline ?? rd?.snapshot?.headline ?? undefined;
+        const strengths: string[] = Array.isArray(rd?.key_strengths) ? rd.key_strengths : [];
+        const snapBits = [
+          rd?.snapshot?.current_title,
+          rd?.snapshot?.current_company,
+          rd?.snapshot?.years_experience ? `${rd.snapshot.years_experience} yrs experience` : null,
+          rd?.snapshot?.location,
+        ].filter(Boolean).join(" · ");
+        candidate_summary = [snapBits, strengths.slice(0, 4).map(s => `• ${s}`).join("\n")]
+          .filter(Boolean).join("\n") || undefined;
+        recommendation_reason = rd?.recommendation?.reasoning
+          ?? rd?.recommendation?.summary
+          ?? undefined;
+      } catch { /* non-fatal */ }
+
+      const attachmentNames = packs
+        .filter(p => selectedPackIds.includes(p.id))
+        .map(p => p.file_name)
+        .filter(Boolean);
+      const attachments_summary = attachmentNames.length
+        ? attachmentNames.join(", ")
+        : "Submission pack (CV + AI assessment report)";
+
       const { data, error } = await supabase.functions.invoke("ai-compose-email", {
         body: {
+          mode: "client_submission",
+          is_client_email: true,
           candidate_first_name: candidateName.split(" ")[0],
           candidate_last_name: candidateName.split(" ").slice(1).join(" "),
           job_title: jobTitle,
           company_name: client?.name ?? "",
+          client_contact_name: client?.contact_name ?? "",
           recruiter_name: profile?.full_name ?? "Recruiter",
           purpose: "client_submission",
           tone: "professional",
           length: "medium",
-          is_client_email: true,
-          custom_instructions:
-            aiPrompt ||
-            `Write a polished client submission email introducing ${candidateName} for the ${jobTitle} role. Mention the attached AI assessment and CV pack.`,
+          candidate_summary,
+          candidate_headline,
+          recommendation_reason,
+          attachments_summary,
+          custom_instructions: aiPrompt || undefined,
         },
       });
       if (error) throw error;
-      if (data?.email_subject && !subject) setSubject(data.email_subject);
+      if ((data?.email_subject || data?.suggested_subject) && !subject) {
+        setSubject(data.email_subject || data.suggested_subject);
+      }
       if (data?.email_body) setBody(data.email_body);
       toast.success("AI draft generated");
     } catch (e: any) {
