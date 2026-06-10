@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { KanbanBoard } from '@/components/pipeline/KanbanBoard';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,7 +30,7 @@ import {
   LayoutGrid,
   List,
   Table,
-  Kanban,
+  
   MoreHorizontal,
   Trash2,
   Eye,
@@ -143,7 +143,7 @@ interface JobCandidate {
   };
 }
 
-type ViewMode = 'kanban' | 'grid' | 'table';
+type ViewMode = 'grid' | 'table';
 
 const JobDetailPage = () => {
   const { id } = useParams();
@@ -158,7 +158,7 @@ const JobDetailPage = () => {
   const [showAddCandidateDialog, setShowAddCandidateDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [deleteCandidate, setDeleteCandidate] = useState<JobCandidate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -605,7 +605,7 @@ const JobDetailPage = () => {
           <TabsList className="bg-muted/50 p-1 h-auto">
             <TabsTrigger value="pipeline" className="gap-2 px-4 py-2">
               <Users className="w-4 h-4" />
-              Pipeline ({candidates.length})
+              Candidates ({candidates.length})
             </TabsTrigger>
             <TabsTrigger value="submissions" className="gap-2 px-4 py-2">
               <FileText className="w-4 h-4" />
@@ -619,15 +619,6 @@ const JobDetailPage = () => {
 
           {/* View Mode Switcher */}
           <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-8 px-3 gap-1.5"
-              onClick={() => setViewMode('kanban')}
-            >
-              <Kanban className="w-4 h-4" />
-              <span className="hidden sm:inline">Kanban</span>
-            </Button>
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
@@ -666,26 +657,7 @@ const JobDetailPage = () => {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {viewMode === 'kanban' && (
-                  <KanbanBoard 
-                    candidates={candidates.map(jc => ({
-                      id: jc.id,
-                      jobId: id!,
-                      candidateId: jc.candidate_id,
-                      candidate: {
-                        id: jc.candidates.id,
-                        name: jc.candidates.full_name,
-                        currentTitle: jc.candidates.current_title || '',
-                        avatar: jc.candidates.avatar_url || undefined,
-                        matchScore: jc.match_score || undefined,
-                      },
-                      stage: (jc.stage as 'applied' | 'screening' | 'interview' | 'technical' | 'offer' | 'hired' | 'rejected') || 'applied',
-                      matchScore: jc.match_score || undefined,
-                      appliedAt: new Date()
-                    }))}
-                    onRefresh={fetchJobDetails}
-                  />
-                )}
+
 
                 {viewMode === 'grid' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

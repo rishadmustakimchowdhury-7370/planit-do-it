@@ -30,8 +30,8 @@ export default function ClientPipelinePage() {
     if (!tenantId) return;
     const { data, error } = await supabase
       .from("candidate_submissions")
-      .select(`id, status, last_activity_at, submitted_by, client_org_id, job_id,
-        candidate:candidate_id ( id, full_name, current_title ),
+      .select(`id, status, last_activity_at, submitted_at, submitted_by, client_org_id, job_id,
+        candidate:candidate_id ( id, full_name, current_title, email ),
         job:job_id ( id, title ),
         client_org:client_org_id ( id, name )`)
       .eq("tenant_id", tenantId)
@@ -39,7 +39,18 @@ export default function ClientPipelinePage() {
       .order("last_activity_at", { ascending: false })
       .limit(500);
     if (error) { toast.error(error.message); return; }
-    setRows((data as any[]) ?? []);
+    const baseRows = (data as any[]) ?? [];
+    const recruiterIds = Array.from(new Set(baseRows.map(r => r.submitted_by).filter(Boolean)));
+    let nameMap = new Map<string, string>();
+    if (recruiterIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", recruiterIds);
+      (profs ?? []).forEach((p: any) => nameMap.set(p.id, p.full_name || p.email));
+    }
+    const enriched = baseRows.map(r => ({ ...r, recruiter_name: r.submitted_by ? nameMap.get(r.submitted_by) ?? null : null }));
+    setRows(enriched);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId]);
@@ -156,7 +167,11 @@ export default function ClientPipelinePage() {
               <SelectTrigger className="md:w-56"><SelectValue placeholder="All recruiters" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All recruiters</SelectItem>
-                {recruiters.map((id) => <SelectItem key={id} value={id}>Recruiter {id.slice(0,8)}</SelectItem>)}
+                {recruiters.map((id) => {
+                  const row = (rows ?? []).find((r: any) => r.submitted_by === id);
+                  const name = (row as any)?.recruiter_name || `Recruiter ${id.slice(0,8)}`;
+                  return <SelectItem key={id} value={id}>{name}</SelectItem>;
+                })}
               </SelectContent>
             </Select>
           </CardContent>
@@ -174,7 +189,12 @@ export default function ClientPipelinePage() {
                 {[1,2,3,4,5].map(i => <Skeleton key={i} className="w-72 h-64 shrink-0" />)}
               </div>
             ) : (
-              <SubmissionKanban rows={filtered} onMove={handleMove} onOpen={setOpenId} />
+              <SubmissionKanban
+                rows={filtered as any}
+                onMove={handleMove}
+                onOpen={setOpenId}
+                onPlacementCreated={load}
+              />
             )}
           </TabsContent>
           <TabsContent value="list" className="mt-4">

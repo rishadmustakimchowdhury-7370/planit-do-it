@@ -11,6 +11,7 @@ import { MatchScoreCircle } from '@/components/matching/MatchScoreCircle';
 
 import { SendCandidateEmailModal } from '@/components/email/SendCandidateEmailModal';
 import { OutcomeCaptureBar } from '@/components/clients/OutcomeCaptureBar';
+import { PrepareForClientDialog } from '@/components/clients/PrepareForClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
@@ -22,9 +23,9 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import {
   MapPin, Mail, MessageCircle, FileText, Download, Eye, Sparkles,
-  UserPlus, Share2, Calendar, StickyNote, ChevronDown, CheckCircle2,
+  Send, Share2, Calendar, StickyNote, ChevronDown, CheckCircle2,
   AlertCircle, Linkedin, ExternalLink, Loader2, Activity, Clock,
-  Briefcase, History,
+  Briefcase, History, Archive,
 } from 'lucide-react';
 import type { RediscoveredMatch } from '@/hooks/useRediscoveredMatches';
 
@@ -35,6 +36,7 @@ interface CandidateWorkflowPanelProps {
   jobId: string;
   jobTitle: string;
   onAddedToPipeline?: () => void;
+  onPrepared?: () => void;
   onDismiss?: () => void;
 }
 
@@ -60,19 +62,20 @@ const FACTOR_WEIGHTS: Record<string, number> = {
 const FACTOR_KEYS = ['role', 'skills', 'industry', 'seniority', 'experience', 'location'] as const;
 
 export function CandidateWorkflowPanel({
-  open, onOpenChange, match, jobId, jobTitle, onAddedToPipeline, onDismiss,
+  open, onOpenChange, match, jobId, jobTitle, onAddedToPipeline, onPrepared, onDismiss,
 }: CandidateWorkflowPanelProps) {
   const { user, tenantId } = useAuth();
   const { logActivity } = useRecruiterActivity();
   const { downloadBranded, isDownloading: isBranding } = useBrandedDownload();
 
   const [aiEmailOpen, setAiEmailOpen] = useState(false);
+  const [prepareOpen, setPrepareOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewType, setPreviewType] = useState<'original' | 'branded' | null>(null);
   const [note, setNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [addingPipeline, setAddingPipeline] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [whyOpen, setWhyOpen] = useState(true);
   const [recruiterName, setRecruiterName] = useState<string>('');
   const [cvFileUrl, setCvFileUrl] = useState<string | null>(null);
@@ -122,7 +125,7 @@ export function CandidateWorkflowPanel({
         setActivities(data ?? []);
         setActLoading(false);
       });
-  }, [candidateId, open, addingPipeline, previewType]);
+  }, [candidateId, open, prepareOpen, previewType]);
 
   // Reset on close
   useEffect(() => {
@@ -212,35 +215,30 @@ export function CandidateWorkflowPanel({
     }
   };
 
-  const handleAddToPipeline = async () => {
-    if (!tenantId) return;
-    setAddingPipeline(true);
+  const handlePrepareForClient = () => {
+    if (!tenantId || !candidateId) return;
+    setPrepareOpen(true);
+    onAddedToPipeline?.();
+    onPrepared?.();
+  };
+
+  const handleArchive = async () => {
+    if (!candidateId) return;
+    setArchiving(true);
     try {
-      // Check if already in pipeline
-      const { data: existing } = await supabase
-        .from('job_candidates')
-        .select('id')
-        .eq('job_id', jobId)
-        .eq('candidate_id', candidateId)
-        .maybeSingle();
-      if (existing) {
-        toast.info(`${fullName} is already in the pipeline`);
-        return;
-      }
-      const { error } = await supabase.from('job_candidates').insert({
-        job_id: jobId, candidate_id: candidateId, tenant_id: tenantId,
-        stage: 'applied', match_score: match.match_score,
-        match_explanation: match.ai_summary,
-        match_strengths: strengths, match_gaps: gaps,
-        match_confidence: match.ai_score,
+      await logActivity({
+        action_type: 'note_added',
+        candidate_id: candidateId,
+        job_id: jobId,
+        metadata: { note: 'Archived from AI Match', reason: 'archived' },
       });
-      if (error) throw error;
-      toast.success(`${fullName} added to pipeline`);
-      onAddedToPipeline?.();
+      toast.success('Candidate archived');
+      onDismiss?.();
+      onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to add to pipeline');
+      toast.error(e?.message ?? 'Failed to archive');
     } finally {
-      setAddingPipeline(false);
+      setArchiving(false);
     }
   };
 
@@ -443,17 +441,17 @@ export function CandidateWorkflowPanel({
                       iconClass="text-green-600"
                     />
                     <ActionBtn
-                      icon={UserPlus} label="Add to pipeline"
-                      onClick={handleAddToPipeline}
-                      loading={addingPipeline}
+                      icon={Send} label="Prepare For Client"
+                      onClick={handlePrepareForClient}
+                    />
+                    <ActionBtn
+                      icon={Archive} label="Archive candidate"
+                      onClick={handleArchive}
+                      loading={archiving}
                     />
                     <ActionBtn
                       icon={Calendar} label="Schedule interview"
                       onClick={() => toast.info('Open the Events module to schedule')}
-                    />
-                    <ActionBtn
-                      icon={Share2} label="Share with client"
-                      onClick={() => toast.info('Client sharing coming next')}
                     />
                   </div>
                 </div>
@@ -572,12 +570,13 @@ export function CandidateWorkflowPanel({
 
           {/* Sticky footer */}
           <div className="border-t border-border px-6 py-3 bg-card flex items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" onClick={() => { onDismiss?.(); onOpenChange(false); }}>
-              Dismiss
+            <Button variant="ghost" size="sm" onClick={handleArchive} disabled={archiving}>
+              {archiving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Archive className="w-3.5 h-3.5 mr-1.5" />}
+              Archive
             </Button>
-            <Button size="sm" onClick={handleAddToPipeline} disabled={addingPipeline} className="gap-1.5">
-              {addingPipeline ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
-              Add to pipeline
+            <Button size="sm" onClick={handlePrepareForClient} className="gap-1.5">
+              <Send className="w-3.5 h-3.5" />
+              Prepare For Client
             </Button>
           </div>
         </SheetContent>
@@ -594,6 +593,19 @@ export function CandidateWorkflowPanel({
             email: c.email,
           } as any}
           preSelectedJobId={jobId}
+        />
+      )}
+
+      {/* Prepare For Client workspace */}
+      {candidateId && tenantId && (
+        <PrepareForClientDialog
+          open={prepareOpen}
+          onOpenChange={setPrepareOpen}
+          tenantId={tenantId}
+          jobId={jobId}
+          candidateId={candidateId}
+          candidateName={fullName}
+          jobTitle={jobTitle}
         />
       )}
     </>
