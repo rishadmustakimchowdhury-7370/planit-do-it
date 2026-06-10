@@ -551,6 +551,10 @@ const CandidateDetailPage = () => {
           </div>
         </TabsContent>
 
+        <TabsContent value="assets" className="mt-6">
+          {tenantId && <CandidateSubmissionAssets candidateId={candidate.id} tenantId={tenantId} />}
+        </TabsContent>
+
         <TabsContent value="client" className="mt-6">
           <InternalCollaborationTab candidateId={candidate.id} />
         </TabsContent>
