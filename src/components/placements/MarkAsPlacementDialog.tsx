@@ -223,10 +223,13 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
 
           <div className="space-y-2">
             <Label>Client</Label>
-            <Select value={form.client_id} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
-              <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>)}</SelectContent>
+            <Select value={form.client_id} onValueChange={(v) => { setForm((f) => ({ ...f, client_id: v })); setClientResolutionError(null); }}>
+              <SelectTrigger><SelectValue placeholder={clientResolutionError ?? "Select a client"} /></SelectTrigger>
+              <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
+            {clientResolutionError && (
+              <p className="text-xs text-destructive">{clientResolutionError}</p>
+            )}
           </div>
 
           <div className="space-y-2">
