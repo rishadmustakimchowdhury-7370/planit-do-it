@@ -2630,6 +2630,114 @@ export type Database = {
           },
         ]
       }
+      finance_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          performed_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      finance_settings: {
+        Row: {
+          agency_address: string | null
+          agency_email: string | null
+          agency_logo_url: string | null
+          agency_name: string | null
+          agency_phone: string | null
+          agency_website: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_iban: string | null
+          bank_name: string | null
+          bank_sort_code: string | null
+          bank_swift: string | null
+          created_at: string
+          default_currency: string
+          default_payment_terms_days: number | null
+          default_tax_pct: number | null
+          default_vat_pct: number | null
+          id: string
+          invoice_footer_note: string | null
+          invoice_number_prefix: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_address?: string | null
+          agency_email?: string | null
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          agency_phone?: string | null
+          agency_website?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_sort_code?: string | null
+          bank_swift?: string | null
+          created_at?: string
+          default_currency?: string
+          default_payment_terms_days?: number | null
+          default_tax_pct?: number | null
+          default_vat_pct?: number | null
+          id?: string
+          invoice_footer_note?: string | null
+          invoice_number_prefix?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_address?: string | null
+          agency_email?: string | null
+          agency_logo_url?: string | null
+          agency_name?: string | null
+          agency_phone?: string | null
+          agency_website?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_sort_code?: string | null
+          bank_swift?: string | null
+          created_at?: string
+          default_currency?: string
+          default_payment_terms_days?: number | null
+          default_tax_pct?: number | null
+          default_vat_pct?: number | null
+          id?: string
+          invoice_footer_note?: string | null
+          invoice_number_prefix?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       import_jobs: {
         Row: {
           completed_at: string | null
@@ -2762,71 +2870,240 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          recorded_by: string | null
+          reference: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          invoice_id: string
+          notes: string | null
+          tenant_id: string
+          to_status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          tenant_id: string
+          to_status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          tenant_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_status_history_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
+          amount_paid: number | null
+          balance: number | null
+          bank_details: Json | null
+          client_id: string | null
+          client_org_id: string | null
           company_address: string | null
           company_logo: string | null
           company_name: string | null
           company_phone: string | null
           created_at: string | null
+          created_by: string | null
           currency: string | null
           due_date: string | null
           id: string
           invoice_number: string
+          issue_date: string | null
           line_items: Json | null
           notes: string | null
           paid_at: string | null
+          payment_terms: string | null
+          pdf_storage_path: string | null
           pdf_url: string | null
+          placement_id: string | null
           sent_at: string | null
+          sent_by: string | null
+          sent_to_email: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           stripe_invoice_id: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          tax_pct: number | null
           tenant_id: string
+          total_amount: number | null
           updated_at: string | null
+          vat_amount: number | null
+          vat_pct: number | null
         }
         Insert: {
           amount: number
+          amount_paid?: number | null
+          balance?: number | null
+          bank_details?: Json | null
+          client_id?: string | null
+          client_org_id?: string | null
           company_address?: string | null
           company_logo?: string | null
           company_name?: string | null
           company_phone?: string | null
           created_at?: string | null
+          created_by?: string | null
           currency?: string | null
           due_date?: string | null
           id?: string
           invoice_number: string
+          issue_date?: string | null
           line_items?: Json | null
           notes?: string | null
           paid_at?: string | null
+          payment_terms?: string | null
+          pdf_storage_path?: string | null
           pdf_url?: string | null
+          placement_id?: string | null
           sent_at?: string | null
+          sent_by?: string | null
+          sent_to_email?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           stripe_invoice_id?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_pct?: number | null
           tenant_id: string
+          total_amount?: number | null
           updated_at?: string | null
+          vat_amount?: number | null
+          vat_pct?: number | null
         }
         Update: {
           amount?: number
+          amount_paid?: number | null
+          balance?: number | null
+          bank_details?: Json | null
+          client_id?: string | null
+          client_org_id?: string | null
           company_address?: string | null
           company_logo?: string | null
           company_name?: string | null
           company_phone?: string | null
           created_at?: string | null
+          created_by?: string | null
           currency?: string | null
           due_date?: string | null
           id?: string
           invoice_number?: string
+          issue_date?: string | null
           line_items?: Json | null
           notes?: string | null
           paid_at?: string | null
+          payment_terms?: string | null
+          pdf_storage_path?: string | null
           pdf_url?: string | null
+          placement_id?: string | null
           sent_at?: string | null
+          sent_by?: string | null
+          sent_to_email?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           stripe_invoice_id?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_pct?: number | null
           tenant_id?: string
+          total_amount?: number | null
           updated_at?: string | null
+          vat_amount?: number | null
+          vat_pct?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_client_org_id_fkey"
+            columns: ["client_org_id"]
+            isOneToOne: false
+            referencedRelation: "client_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_placement_id_fkey"
+            columns: ["placement_id"]
+            isOneToOne: false
+            referencedRelation: "placements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4551,6 +4828,77 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recruiter_bonuses: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          bonus_amount: number
+          bonus_fixed: number | null
+          bonus_pct: number | null
+          bonus_type: Database["public"]["Enums"]["bonus_type"]
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          placement_id: string
+          recruiter_user_id: string
+          status: Database["public"]["Enums"]["bonus_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bonus_amount?: number
+          bonus_fixed?: number | null
+          bonus_pct?: number | null
+          bonus_type?: Database["public"]["Enums"]["bonus_type"]
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          placement_id: string
+          recruiter_user_id: string
+          status?: Database["public"]["Enums"]["bonus_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          bonus_amount?: number
+          bonus_fixed?: number | null
+          bonus_pct?: number | null
+          bonus_type?: Database["public"]["Enums"]["bonus_type"]
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          placement_id?: string
+          recruiter_user_id?: string
+          status?: Database["public"]["Enums"]["bonus_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruiter_bonuses_placement_id_fkey"
+            columns: ["placement_id"]
+            isOneToOne: false
+            referencedRelation: "placements"
             referencedColumns: ["id"]
           },
         ]
@@ -6549,6 +6897,8 @@ export type Database = {
         | "owner"
         | "client_user"
         | "hiring_manager"
+      bonus_status: "pending" | "approved" | "paid" | "cancelled"
+      bonus_type: "percent" | "fixed"
       candidate_status:
         | "new"
         | "screening"
@@ -6748,6 +7098,8 @@ export const Constants = {
         "client_user",
         "hiring_manager",
       ],
+      bonus_status: ["pending", "approved", "paid", "cancelled"],
+      bonus_type: ["percent", "fixed"],
       candidate_status: [
         "new",
         "screening",
