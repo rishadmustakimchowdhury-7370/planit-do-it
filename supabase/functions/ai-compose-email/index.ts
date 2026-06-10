@@ -309,14 +309,20 @@ REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 S
     const data = await response.json();
     let generatedText = data.choices?.[0]?.message?.content || "";
 
-    // Extract subject line for marketing emails
+    // Extract subject line (marketing + client submission both propose one)
     let suggestedSubject = '';
-    if (isMarketing) {
+    {
       const subjectMatch = generatedText.match(/SUBJECT:\s*(.+?)(?:\n|$)/i);
       if (subjectMatch) {
         suggestedSubject = subjectMatch[1].trim();
         generatedText = generatedText.replace(/SUBJECT:\s*.+?(?:\n|$)/i, '').trim();
       }
+    }
+    if (!suggestedSubject && resolvedMode === 'client_submission') {
+      const candidateFullName = [candidate_first_name, candidate_last_name].filter(Boolean).join(' ').trim();
+      suggestedSubject = candidateFullName
+        ? `Candidate submission: ${candidateFullName}${job_title ? ` — ${job_title}` : ''}`
+        : `Candidate submission${job_title ? ` — ${job_title}` : ''}`;
     }
 
     // Clean up and ensure proper paragraph formatting
@@ -326,12 +332,14 @@ REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 S
       .replace(/\n{3,}/g, '\n\n')
       .replace(/^(Hi [^,]+,)\s*\n?/i, '$1\n\n');
 
-    console.log("Email generated successfully");
+    console.log("Email generated successfully", { mode: resolvedMode });
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         email_body: generatedText,
+        email_subject: suggestedSubject || undefined,
         suggested_subject: suggestedSubject || undefined,
+        mode: resolvedMode,
         ai_generated: true,
         purpose,
         tone,
