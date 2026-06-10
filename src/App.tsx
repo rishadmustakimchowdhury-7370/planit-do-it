@@ -57,6 +57,10 @@ const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 const ClientPipelinePage = lazy(() => import("./pages/ClientPipelinePage"));
 const PlacementsPage = lazy(() => import("./pages/PlacementsPage"));
+const FinanceDashboardPage = lazy(() => import("./pages/FinanceDashboardPage"));
+const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
+const FinanceSettingsPage = lazy(() => import("./pages/FinanceSettingsPage"));
+const RecruiterBonusesPage = lazy(() => import("./pages/RecruiterBonusesPage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
@@ -205,6 +209,10 @@ const AppRoutes = () => (
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/placements" element={<ProtectedRoute><PlacementsPage /></ProtectedRoute>} />
+      <Route path="/finance" element={<ProtectedRoute><FinanceDashboardPage /></ProtectedRoute>} />
+      <Route path="/finance/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
+      <Route path="/finance/bonuses" element={<ProtectedRoute><RecruiterBonusesPage /></ProtectedRoute>} />
+      <Route path="/finance/settings" element={<ProtectedRoute><FinanceSettingsPage /></ProtectedRoute>} />
       <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
       <Route path="/email/analytics" element={<ProtectedRoute><EmailAnalyticsPage /></ProtectedRoute>} />
       <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />

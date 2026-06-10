@@ -23,7 +23,10 @@ import {
   Kanban,
   Trophy,
   Menu,
-  X
+  X,
+  DollarSign,
+  FileText,
+  Wallet
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -267,7 +270,54 @@ function SidebarContent({
             )}
           </>
         )}
+
+        {/* Finance Section */}
+        {(isOwner || isManager || isRecruiter) && (
+          <>
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.p
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40"
+                >
+                  Finance
+                </motion.p>
+              )}
+            </AnimatePresence>
+            {[
+              ...(isOwner || isManager ? [
+                { name: 'Finance Dashboard', href: '/finance', icon: DollarSign },
+                { name: 'Invoices', href: '/finance/invoices', icon: FileText },
+              ] : []),
+              { name: isOwner || isManager ? 'Recruiter Bonuses' : 'My Bonuses', href: '/finance/bonuses', icon: Wallet },
+              ...(isOwner || isManager ? [
+                { name: 'Finance Settings', href: '/finance/settings', icon: Settings },
+              ] : []),
+            ].map(item => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link key={item.name} to={item.href} onClick={handleNavClick}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
+                    isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                    collapsed && 'justify-center'
+                  )}>
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="text-sm whitespace-nowrap">
+                        {item.name}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
+
 
       {/* Bottom Navigation */}
       <div className="py-3 px-3 space-y-1 border-t border-sidebar-border/50">
