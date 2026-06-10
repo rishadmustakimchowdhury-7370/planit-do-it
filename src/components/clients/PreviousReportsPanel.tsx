@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  History, Copy, Pencil, GitBranch, CheckCircle2, FileText, Loader2, ChevronDown, ChevronUp,
+  History, Copy, Pencil, GitBranch, CheckCircle2, FileText, Loader2,
+  ChevronDown, ChevronUp, Download, Eye, Package, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { SubmitToAnotherClientDialog } from "./SubmitToAnotherClientDialog";
 
 type Row = {
   id: string;
@@ -17,16 +19,19 @@ type Row = {
   report_data: any;
   created_at: string;
   job_id: string;
+  recruiter_id: string | null;
   job?: { id: string; title: string | null; client_id?: string | null } | null;
   client?: { id: string; name: string | null } | null;
+  recruiter_name?: string | null;
+  pack_file?: { id: string; storage_path: string; file_name: string } | null;
 };
 
 interface Props {
   tenantId: string;
-  jobId: string;          // current job
+  jobId: string;
   candidateId: string;
-  onAfterCopy?: () => void;       // refresh parent versions
-  onEditAfterCopy?: () => void;   // scroll to editor
+  onAfterCopy?: () => void;
+  onEditAfterCopy?: () => void;
 }
 
 export function PreviousReportsPanel({
@@ -35,23 +40,23 @@ export function PreviousReportsPanel({
   const [rows, setRows] = useState<Row[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [submitTo, setSubmitTo] = useState<Row | null>(null);
 
   async function load() {
     const { data, error } = await supabase
       .from("client_submission_reports")
-      .select(`id, version, status, report_data, created_at, job_id,
+      .select(`id, version, status, report_data, created_at, job_id, recruiter_id,
         job:job_id ( id, title, client_id )`)
       .eq("tenant_id", tenantId)
       .eq("candidate_id", candidateId)
-      .neq("job_id", jobId)
       .order("created_at", { ascending: false })
-      .limit(25);
+      .limit(50);
     if (error) { toast.error(error.message); setRows([]); return; }
 
     const list = ((data as any[]) ?? []) as Row[];
-    const clientIds = Array.from(new Set(
-      list.map(r => r.job?.client_id).filter(Boolean) as string[]
-    ));
+
+    // Resolve client names
+    const clientIds = Array.from(new Set(list.map(r => r.job?.client_id).filter(Boolean) as string[]));
     if (clientIds.length) {
       const { data: clients } = await supabase
         .from("clients").select("id, name").in("id", clientIds);
@@ -61,6 +66,31 @@ export function PreviousReportsPanel({
         if (cid && map.has(cid)) r.client = map.get(cid) as any;
       });
     }
+
+    // Resolve recruiter names
+    const recruiterIds = Array.from(new Set(list.map(r => r.recruiter_id).filter(Boolean) as string[]));
+    if (recruiterIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles").select("id, full_name, email").in("id", recruiterIds);
+      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name || p.email]));
+      list.forEach(r => { if (r.recruiter_id) r.recruiter_name = pMap.get(r.recruiter_id) ?? null; });
+    }
+
+    // Resolve combined pack files
+    const reportIds = list.map(r => r.id);
+    if (reportIds.length) {
+      const { data: files } = await supabase
+        .from("client_submission_pack_files")
+        .select("id, report_id, storage_path, file_name, pack_option, created_at")
+        .in("report_id", reportIds)
+        .order("created_at", { ascending: false });
+      const byReport = new Map<string, any>();
+      (files ?? []).forEach((f: any) => {
+        if (!byReport.has(f.report_id)) byReport.set(f.report_id, f);
+      });
+      list.forEach(r => { r.pack_file = byReport.get(r.id) ?? null; });
+    }
+
     setRows(list);
   }
 
@@ -103,12 +133,21 @@ export function PreviousReportsPanel({
     }
   }
 
-  if (rows === null) {
-    return <Skeleton className="h-24" />;
+  async function openFile(row: Row, mode: "view" | "download") {
+    if (!row.pack_file) { toast.error("No combined pack found for this report"); return; }
+    const { data, error } = await supabase.storage
+      .from("submission-packs")
+      .createSignedUrl(row.pack_file.storage_path, 3600,
+        mode === "download" ? { download: row.pack_file.file_name } : undefined);
+    if (error || !data?.signedUrl) { toast.error(error?.message ?? "Could not open file"); return; }
+    window.open(data.signedUrl, "_blank");
   }
+
+  if (rows === null) return <Skeleton className="h-24" />;
   if (!rows.length) return null;
 
   return (
+    <>
     <Card className="border-primary/20">
       <CardContent className="p-3 space-y-3">
         <button
@@ -120,7 +159,7 @@ export function PreviousReportsPanel({
           <span className="text-sm font-semibold">Previous Reports for This Candidate</span>
           <Badge variant="outline" className="text-[10px]">{rows.length}</Badge>
           <span className="text-[11px] text-muted-foreground ml-1">
-            Submit to a new client without regenerating
+            Reuse, clone or re-submit to another client — no regeneration needed
           </span>
           <span className="ml-auto text-muted-foreground">
             {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -131,6 +170,7 @@ export function PreviousReportsPanel({
           <div className="space-y-2">
             {rows.map((r) => {
               const busy = busyId === r.id;
+              const isCurrentJob = r.job_id === jobId;
               return (
                 <div
                   key={r.id}
@@ -147,13 +187,19 @@ export function PreviousReportsPanel({
                       <Badge variant="secondary" className="text-[10px]">v{r.version}</Badge>
                       <Badge
                         variant={r.status === "approved" ? "default" : "outline"}
-                        className="text-[10px]"
+                        className="text-[10px] capitalize"
                       >
                         {r.status}
                       </Badge>
+                      {isCurrentJob && <Badge variant="outline" className="text-[10px]">this job</Badge>}
                       {r.client?.name && (
                         <span className="text-[11px] text-muted-foreground">
                           · for {r.client.name}
+                        </span>
+                      )}
+                      {r.recruiter_name && (
+                        <span className="text-[11px] text-muted-foreground">
+                          · by {r.recruiter_name}
                         </span>
                       )}
                     </div>
@@ -163,48 +209,58 @@ export function PreviousReportsPanel({
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {r.pack_file && (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => openFile(r, "view")}
+                          title="View combined CV + report pack">
+                          <Eye className="h-3 w-3 mr-1" /> View Pack
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openFile(r, "download")}
+                          title="Download combined pack">
+                          <Download className="h-3 w-3 mr-1" /> Download
+                        </Button>
+                      </>
+                    )}
+                    {!isCurrentJob && (
+                      <>
+                        <Button
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => copyInto(r, { status: "approved", toastMsg: "Report reused — approved and ready to send" })}
+                          title="Copy as-is into this job and mark Approved"
+                        >
+                          {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
+                          Reuse
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" disabled={busy}
+                          onClick={() => copyInto(r, { status: "draft", toastMsg: "Report cloned as draft for this job" })}
+                          title="Copy as a draft so you can review before sending"
+                        >
+                          <Copy className="h-3 w-3 mr-1" /> Clone
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" disabled={busy}
+                          onClick={() => copyInto(r, { status: "draft", toastMsg: "Report copied — opened for editing", thenEdit: true })}
+                          title="Copy as draft and jump to the editor"
+                        >
+                          <Pencil className="h-3 w-3 mr-1" /> Edit
+                        </Button>
+                        <Button
+                          size="sm" variant="ghost" disabled={busy}
+                          onClick={() => copyInto(r, { status: "draft", toastMsg: "New version created from this report" })}
+                          title="Create a new draft version on this job"
+                        >
+                          <GitBranch className="h-3 w-3 mr-1" /> New Version
+                        </Button>
+                      </>
+                    )}
                     <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => copyInto(r, {
-                        status: "approved",
-                        toastMsg: "Report reused — approved and ready to send",
-                      })}
-                      title="Copy as-is into this job and mark Approved"
+                      size="sm" variant="secondary"
+                      onClick={() => setSubmitTo(r)}
+                      title="Submit this report to another client / job"
                     >
-                      {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
-                      Reuse
-                    </Button>
-                    <Button
-                      size="sm" variant="outline" disabled={busy}
-                      onClick={() => copyInto(r, {
-                        status: "draft",
-                        toastMsg: "Report cloned as draft for this job",
-                      })}
-                      title="Copy as a draft so you can review before sending"
-                    >
-                      <Copy className="h-3 w-3 mr-1" /> Clone
-                    </Button>
-                    <Button
-                      size="sm" variant="outline" disabled={busy}
-                      onClick={() => copyInto(r, {
-                        status: "draft",
-                        toastMsg: "Report copied — opened for editing",
-                        thenEdit: true,
-                      })}
-                      title="Copy as draft and jump to the editor"
-                    >
-                      <Pencil className="h-3 w-3 mr-1" /> Edit
-                    </Button>
-                    <Button
-                      size="sm" variant="ghost" disabled={busy}
-                      onClick={() => copyInto(r, {
-                        status: "draft",
-                        toastMsg: "New version created from this report",
-                      })}
-                      title="Create a new draft version on this job from this report"
-                    >
-                      <GitBranch className="h-3 w-3 mr-1" /> New Version
+                      <Send className="h-3 w-3 mr-1" /> Submit To Another Client
                     </Button>
                   </div>
                 </div>
@@ -214,5 +270,16 @@ export function PreviousReportsPanel({
         )}
       </CardContent>
     </Card>
+
+    {submitTo && (
+      <SubmitToAnotherClientDialog
+        open={!!submitTo}
+        onOpenChange={(v) => { if (!v) setSubmitTo(null); }}
+        tenantId={tenantId}
+        candidateId={candidateId}
+        sourceReportData={submitTo.report_data}
+      />
+    )}
+    </>
   );
 }
