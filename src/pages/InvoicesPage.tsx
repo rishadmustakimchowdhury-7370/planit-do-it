@@ -59,7 +59,7 @@ export default function InvoicesPage() {
   });
 
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("invoices").update({ status, sent_at: status === "sent" ? new Date().toISOString() : undefined, sent_by: status === "sent" ? user?.id : undefined }).eq("id", id);
+    const { error } = await supabase.from("invoices").update({ status: status as any, sent_at: status === "sent" ? new Date().toISOString() : undefined, sent_by: status === "sent" ? user?.id : undefined }).eq("id", id);
     if (error) { toast({ title: "Failed", description: error.message, variant: "destructive" }); return; }
     await supabase.from("invoice_status_history").insert({ tenant_id: tenantId!, invoice_id: id, to_status: status, changed_by: user?.id });
     await supabase.from("finance_audit_log").insert({ tenant_id: tenantId!, entity_type: "invoice", entity_id: id, action: `status:${status}`, performed_by: user?.id });
