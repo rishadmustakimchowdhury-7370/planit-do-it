@@ -62,19 +62,20 @@ const FACTOR_WEIGHTS: Record<string, number> = {
 const FACTOR_KEYS = ['role', 'skills', 'industry', 'seniority', 'experience', 'location'] as const;
 
 export function CandidateWorkflowPanel({
-  open, onOpenChange, match, jobId, jobTitle, onAddedToPipeline, onDismiss,
+  open, onOpenChange, match, jobId, jobTitle, onAddedToPipeline, onPrepared, onDismiss,
 }: CandidateWorkflowPanelProps) {
   const { user, tenantId } = useAuth();
   const { logActivity } = useRecruiterActivity();
   const { downloadBranded, isDownloading: isBranding } = useBrandedDownload();
 
   const [aiEmailOpen, setAiEmailOpen] = useState(false);
+  const [prepareOpen, setPrepareOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewType, setPreviewType] = useState<'original' | 'branded' | null>(null);
   const [note, setNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [addingPipeline, setAddingPipeline] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [whyOpen, setWhyOpen] = useState(true);
   const [recruiterName, setRecruiterName] = useState<string>('');
   const [cvFileUrl, setCvFileUrl] = useState<string | null>(null);
