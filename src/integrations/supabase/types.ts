@@ -762,6 +762,7 @@ export type Database = {
           reply_date: string | null
           reply_summary: string | null
           sent_at: string | null
+          source: string
           status: Database["public"]["Enums"]["submission_status"]
           structured_notes: Json
           submission_message: string | null
@@ -798,6 +799,7 @@ export type Database = {
           reply_date?: string | null
           reply_summary?: string | null
           sent_at?: string | null
+          source?: string
           status?: Database["public"]["Enums"]["submission_status"]
           structured_notes?: Json
           submission_message?: string | null
@@ -834,6 +836,7 @@ export type Database = {
           reply_date?: string | null
           reply_summary?: string | null
           sent_at?: string | null
+          source?: string
           status?: Database["public"]["Enums"]["submission_status"]
           structured_notes?: Json
           submission_message?: string | null
@@ -6402,6 +6405,7 @@ export type Database = {
         | "hired"
         | "rejected"
         | "withdrawn"
+        | "on_hold"
       subscription_status:
         | "trial"
         | "active"
@@ -6605,6 +6609,7 @@ export const Constants = {
         "hired",
         "rejected",
         "withdrawn",
+        "on_hold",
       ],
       subscription_status: [
         "trial",
