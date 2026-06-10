@@ -190,6 +190,19 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
         .single();
       if (error) throw error;
 
+      console.log("[Placement] inserted", {
+        placement_id: inserted.id,
+        candidate_id: candidateId,
+        job_id: form.job_id || null,
+        client_id: form.client_id || null,
+        client_org_id: clientOrgId,
+        recruiter_id: form.recruiter_user_id || null,
+        tenant_id: tenantId,
+        placement_date: form.placement_date,
+        salary: form.salary,
+        placement_fee: form.placement_fee,
+      });
+
       toast.success(`Placement recorded · ${inserted.id.slice(0, 8)}`);
       onOpenChange(false);
       onSaved?.();

@@ -38,7 +38,7 @@ interface PlacementRow {
   recruiter_user_id: string | null;
   candidates?: { full_name: string } | null;
   jobs?: { title: string } | null;
-  clients?: { company_name: string; industry?: string | null } | null;
+  clients?: { name: string; industry?: string | null } | null;
 }
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#EC4899", "#84CC16"];
@@ -66,7 +66,7 @@ export default function PlacementsPage() {
             currency, status, candidate_id, job_id, client_id, recruiter_user_id,
             candidates:candidate_id ( full_name ),
             jobs:job_id ( title ),
-            clients:client_id ( company_name, industry )
+            clients:client_id ( name, industry )
           `)
           .eq("tenant_id", tenantId)
           .order("placement_date", { ascending: false }),
@@ -75,6 +75,11 @@ export default function PlacementsPage() {
         supabase.from("candidate_submissions").select("submitted_by").eq("tenant_id", tenantId),
       ]);
 
+      if (placements.error) console.error("[Placements] query error", placements.error);
+      console.log("[Placements] Dashboard loaded placements:", (placements.data ?? []).length, {
+        tenantId,
+        sample: (placements.data ?? []).slice(0, 3),
+      });
       setRows((placements.data ?? []) as any);
       const map: Record<string, string> = {};
       (profiles.data ?? []).forEach((p: any) => { map[p.id] = p.full_name || p.email; });
@@ -159,7 +164,7 @@ export default function PlacementsPage() {
     const agg: Record<string, { placements: number; revenue: number; name: string }> = {};
     filtered.forEach((r) => {
       const id = r.client_id; if (!id) return;
-      if (!agg[id]) agg[id] = { placements: 0, revenue: 0, name: r.clients?.company_name || "Client" };
+      if (!agg[id]) agg[id] = { placements: 0, revenue: 0, name: r.clients?.name || "Client" };
       agg[id].placements++;
       agg[id].revenue += Number(r.placement_fee || 0);
     });
@@ -198,7 +203,7 @@ export default function PlacementsPage() {
   );
   const clientOptions = useMemo(
     () => Array.from(
-      new Map(rows.filter((r) => r.client_id).map((r) => [r.client_id!, r.clients?.company_name || "Client"]))
+      new Map(rows.filter((r) => r.client_id).map((r) => [r.client_id!, r.clients?.name || "Client"]))
     ),
     [rows]
   );
@@ -228,7 +233,7 @@ export default function PlacementsPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filtered.map((r) => ({
       Candidate: r.candidates?.full_name ?? "",
-      Client: r.clients?.company_name ?? "",
+      Client: r.clients?.name ?? "",
       Job: r.jobs?.title ?? "",
       Recruiter: r.recruiter_user_id ? recruitersMap[r.recruiter_user_id] ?? "" : "",
       PlacementDate: r.placement_date,
@@ -257,7 +262,7 @@ export default function PlacementsPage() {
   function exportPlacementsCSV() {
     downloadCSV(filtered.map((r) => ({
       candidate: r.candidates?.full_name ?? "",
-      client: r.clients?.company_name ?? "",
+      client: r.clients?.name ?? "",
       job: r.jobs?.title ?? "",
       recruiter: r.recruiter_user_id ? recruitersMap[r.recruiter_user_id] ?? "" : "",
       placement_date: r.placement_date,
@@ -484,7 +489,7 @@ export default function PlacementsPage() {
                           {r.candidates?.full_name || "—"}
                         </Link>
                       </TableCell>
-                      <TableCell>{r.clients?.company_name || "—"}</TableCell>
+                      <TableCell>{r.clients?.name || "—"}</TableCell>
                       <TableCell>{r.jobs?.title || "—"}</TableCell>
                       <TableCell>{r.recruiter_user_id ? recruitersMap[r.recruiter_user_id] || "—" : "—"}</TableCell>
                       <TableCell>{format(new Date(r.placement_date), "dd MMM yyyy")}</TableCell>
