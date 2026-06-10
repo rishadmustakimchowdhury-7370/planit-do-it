@@ -13,6 +13,14 @@ import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
 import { CandidateSubmissionTimeline } from '@/components/candidates/CandidateSubmissionTimeline';
 import { CandidateSubmissionAssets } from '@/components/candidates/CandidateSubmissionAssets';
 import {
+  CandidateOverviewTab,
+  CandidateVoiceNotesTab,
+  CandidateClientSubmissionsTab,
+  CandidateInterviewFeedbackTab,
+  CandidateOffersTab,
+  CandidatePlacementsTab,
+} from '@/components/candidates/Candidate360Tabs';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -37,7 +45,14 @@ import {
   Pencil,
   ChevronDown,
   FileDown,
-  Stamp
+  Stamp,
+  User,
+  Mic,
+  Send,
+  ThumbsUp,
+  Award,
+  Trophy,
+  Sparkles as SparklesIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
