@@ -58,15 +58,27 @@ serve(async (req) => {
       customInstructions,
       recipientCount,
       isMarketing,
+      mode,
+      is_client_email,
+      client_contact_name,
+      candidate_summary,
+      candidate_headline,
+      recommendation_reason,
+      attachments_summary,
     } = body;
 
     const customPrompt = customInstructions || custom_instructions;
 
-    // Build the AI prompt with strict structure enforcement
+    // Resolve mode (explicit > derived)
+    const resolvedMode: 'candidate_outreach' | 'client_submission' =
+      mode
+        ?? (purpose === 'client_submission' || is_client_email ? 'client_submission' : 'candidate_outreach');
+
     const toneGuide: Record<string, string> = {
       brief: 'concise and to-the-point, no fluff',
       formal: 'professional and polished business tone',
       friendly: 'warm, personable, and approachable',
+      professional: 'professional and polished business tone',
     };
 
     // Marketing email purposes
