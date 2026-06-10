@@ -50,6 +50,7 @@ export function SubmissionPackPreview({
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [pinned, setPinned] = useState<PackRow | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function load() {
     setLoading(true);
