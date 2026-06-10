@@ -89,6 +89,8 @@ export function SubmissionKanban({ rows, onMove, onOpen, onSendEmail, onPlacemen
           candidateId={placementFor.candidate.id}
           candidateName={placementFor.candidate.full_name ?? undefined}
           jobId={placementFor.job?.id ?? null}
+          clientOrgId={placementFor.client_org?.id ?? null}
+          submissionId={placementFor.id}
           onSaved={() => { setPlacementFor(null); onPlacementCreated?.(); }}
         />
       )}
