@@ -145,42 +145,48 @@ const ReportsPage = () => {
         }
       }
 
-      // Build query based on role and selected member
-      let candidateQuery = supabase
-        .from('job_candidates')
-        .select('stage, created_at, stage_updated_at, candidates(created_by)')
+      // Source of truth: candidate_submissions + placements
+      let submissionsQuery = supabase
+        .from('candidate_submissions')
+        .select('status, created_at, submitted_by')
         .eq('tenant_id', tenantId)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
-      // Filter by selected team member if applicable
+      let placementsQuery = supabase
+        .from('placements')
+        .select('placement_date, recruiter_user_id')
+        .eq('tenant_id', tenantId)
+        .gte('placement_date', startDate.toISOString().slice(0, 10))
+        .lte('placement_date', endDate.toISOString().slice(0, 10));
+
       if (selectedMember && (userRole === 'owner' || userRole === 'manager')) {
-        candidateQuery = candidateQuery.eq('candidates.created_by', selectedMember);
+        submissionsQuery = submissionsQuery.eq('submitted_by', selectedMember);
+        placementsQuery = placementsQuery.eq('recruiter_user_id', selectedMember);
       }
 
-      const { data: jobCandidates, error: jcError } = await candidateQuery;
+      const [submissionsResp, placementsResp] = await Promise.all([submissionsQuery, placementsQuery]);
+      if (submissionsResp.error) throw submissionsResp.error;
 
-      if (jcError) throw jcError;
-
-      // Fetch totals (filtered by member if selected)
+      // Totals
       let candidatesQuery = supabase.from('candidates').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
       let jobsQuery = supabase.from('jobs').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
-      let submissionsQuery = supabase.from('cv_submissions').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
+      let submissionsCountQuery = supabase.from('candidate_submissions').select('id', { count: 'exact' }).eq('tenant_id', tenantId);
 
       if (selectedMember && (userRole === 'owner' || userRole === 'manager')) {
         candidatesQuery = candidatesQuery.eq('created_by', selectedMember);
-        submissionsQuery = submissionsQuery.eq('submitted_by', selectedMember);
+        submissionsCountQuery = submissionsCountQuery.eq('submitted_by', selectedMember);
       }
 
       const [candidatesRes, jobsRes, submissionsRes] = await Promise.all([
         candidatesQuery,
         jobsQuery,
-        submissionsQuery,
+        submissionsCountQuery,
       ]);
 
       // Process monthly data
       const monthlyMap = new Map<string, MonthlyData>();
-      
+
       for (let i = 0; i < months; i++) {
         const monthDate = subMonths(new Date(), months - 1 - i);
         const monthKey = format(monthDate, 'MMM yyyy');
@@ -194,64 +200,70 @@ const ReportsPage = () => {
         });
       }
 
-      // Count by stage and month
-      const stageCounts: Record<string, number> = {
+      const statusCounts: Record<string, number> = {
         applied: 0,
         screening: 0,
         interview: 0,
-        technical: 0,
         offer: 0,
         hired: 0,
         rejected: 0,
       };
 
-      jobCandidates?.forEach((jc) => {
-        const monthKey = format(parseISO(jc.created_at), 'MMM yyyy');
+      (submissionsResp.data as any[] | null)?.forEach((s) => {
+        const monthKey = format(parseISO(s.created_at), 'MMM yyyy');
         const monthData = monthlyMap.get(monthKey);
-        
         if (monthData) {
-          switch (jc.stage) {
-            case 'hired':
-              monthData.hired++;
-              break;
-            case 'interview':
-            case 'technical':
+          switch (s.status) {
+            case 'interview_requested':
+            case 'interview_confirmed':
               monthData.interviewing++;
+              statusCounts.interview++;
               break;
             case 'rejected':
               monthData.rejected++;
+              statusCounts.rejected++;
               break;
             case 'offer':
               monthData.offered++;
+              statusCounts.offer++;
+              break;
+            case 'screening':
+              monthData.applied++;
+              statusCounts.screening++;
               break;
             default:
               monthData.applied++;
+              statusCounts.applied++;
           }
-        }
-
-        if (jc.stage) {
-          stageCounts[jc.stage] = (stageCounts[jc.stage] || 0) + 1;
         }
       });
 
-      const totalHired = stageCounts.hired || 0;
-      const totalApplications = jobCandidates?.length || 1;
+      // Placements = source of truth for hired
+      (placementsResp.data as any[] | null)?.forEach((p) => {
+        const monthKey = format(parseISO(p.placement_date), 'MMM yyyy');
+        const monthData = monthlyMap.get(monthKey);
+        if (monthData) monthData.hired++;
+        statusCounts.hired++;
+      });
+
+      const totalHired = statusCounts.hired || 0;
+      const totalApplications = (submissionsResp.data?.length || 0) || 1;
 
       setMonthlyData(Array.from(monthlyMap.values()));
       setStatusCounts([
-        { name: 'Applied', value: stageCounts.applied + stageCounts.screening, color: COLORS.applied },
-        { name: 'Interviewing', value: stageCounts.interview + stageCounts.technical, color: COLORS.interviewing },
-        { name: 'Offered', value: stageCounts.offer, color: COLORS.offered },
-        { name: 'Hired', value: stageCounts.hired, color: COLORS.hired },
-        { name: 'Rejected', value: stageCounts.rejected, color: COLORS.rejected },
+        { name: 'Applied', value: statusCounts.applied + statusCounts.screening, color: COLORS.applied },
+        { name: 'Interviewing', value: statusCounts.interview, color: COLORS.interviewing },
+        { name: 'Offered', value: statusCounts.offer, color: COLORS.offered },
+        { name: 'Hired', value: statusCounts.hired, color: COLORS.hired },
+        { name: 'Rejected', value: statusCounts.rejected, color: COLORS.rejected },
       ]);
-      
+
       setStats({
         totalCandidates: candidatesRes.count || 0,
         totalJobs: jobsRes.count || 0,
         totalHired,
         conversionRate: Math.round((totalHired / totalApplications) * 100),
-        avgTimeToHire: 14, // Placeholder - would need actual calculation
+        avgTimeToHire: 14,
         totalSubmissions: submissionsRes.count || 0,
       });
 
