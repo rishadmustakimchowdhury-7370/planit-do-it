@@ -125,7 +125,7 @@ export function CandidateWorkflowPanel({
         setActivities(data ?? []);
         setActLoading(false);
       });
-  }, [candidateId, open, addingPipeline, previewType]);
+  }, [candidateId, open, prepareOpen, previewType]);
 
   // Reset on close
   useEffect(() => {
