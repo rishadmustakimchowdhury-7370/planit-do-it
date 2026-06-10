@@ -156,11 +156,23 @@ export function SubmissionPackPreview({
             <Button size="sm" variant="outline" onClick={download} disabled={!signedUrl}>
               <Download className="h-3 w-3 mr-1" />Download
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} disabled={!active}>
+              <KanbanSquare className="h-3 w-3 mr-1" />Add To Pipeline
+            </Button>
             <Button size="sm" onClick={() => active && onSendToClient?.(active.id)} disabled={!active}>
               <Send className="h-3 w-3 mr-1" />Send To Client
             </Button>
           </div>
         </div>
+
+        <AddToPipelineDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          tenantId={tenantId}
+          jobId={jobId}
+          candidateId={candidateId}
+          primaryPackId={active?.id ?? null}
+        />
 
         {/* Tabs */}
         {!pinned && (
