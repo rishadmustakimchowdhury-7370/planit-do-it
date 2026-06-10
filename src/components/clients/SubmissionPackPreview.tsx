@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Eye, Download, Send, RefreshCw, Pencil, Loader2, FileText,
+  Eye, Download, Send, RefreshCw, Pencil, Loader2, FileText, KanbanSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AddToPipelineDialog } from "./AddToPipelineDialog";
 
 interface Props {
   tenantId: string;
