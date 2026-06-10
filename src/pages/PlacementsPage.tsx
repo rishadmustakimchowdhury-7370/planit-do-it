@@ -65,7 +65,7 @@ export default function PlacementsPage() {
             id, placement_date, start_date, salary, placement_fee, fee_pct, guarantee_period_days,
             currency, status, candidate_id, job_id, client_id, recruiter_user_id,
             candidates:candidate_id ( full_name ),
-            jobs:job_id ( title, industry ),
+            jobs:job_id ( title ),
             clients:client_id ( company_name, industry )
           `)
           .eq("tenant_id", tenantId)
