@@ -30,8 +30,8 @@ export default function ClientPipelinePage() {
     if (!tenantId) return;
     const { data, error } = await supabase
       .from("candidate_submissions")
-      .select(`id, status, last_activity_at, submitted_by, client_org_id, job_id,
-        candidate:candidate_id ( id, full_name, current_title ),
+      .select(`id, status, last_activity_at, submitted_at, submitted_by, client_org_id, job_id,
+        candidate:candidate_id ( id, full_name, current_title, email ),
         job:job_id ( id, title ),
         client_org:client_org_id ( id, name )`)
       .eq("tenant_id", tenantId)
@@ -39,7 +39,18 @@ export default function ClientPipelinePage() {
       .order("last_activity_at", { ascending: false })
       .limit(500);
     if (error) { toast.error(error.message); return; }
-    setRows((data as any[]) ?? []);
+    const baseRows = (data as any[]) ?? [];
+    const recruiterIds = Array.from(new Set(baseRows.map(r => r.submitted_by).filter(Boolean)));
+    let nameMap = new Map<string, string>();
+    if (recruiterIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", recruiterIds);
+      (profs ?? []).forEach((p: any) => nameMap.set(p.id, p.full_name || p.email));
+    }
+    const enriched = baseRows.map(r => ({ ...r, recruiter_name: r.submitted_by ? nameMap.get(r.submitted_by) ?? null : null }));
+    setRows(enriched);
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [tenantId]);
