@@ -33,7 +33,6 @@ import {
   Mail, 
   Phone, 
   Calendar, 
-  Calendar as CalendarIcon2, 
   FileText,
   Download,
   Loader2,
