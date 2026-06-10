@@ -33,7 +33,7 @@ import {
   Mail, 
   Phone, 
   Calendar, 
-  Sparkles as SparklesAlias, 
+  Calendar as CalendarIcon2, 
   FileText,
   Download,
   Loader2,
