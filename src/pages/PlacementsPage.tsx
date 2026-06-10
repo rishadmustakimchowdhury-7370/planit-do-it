@@ -186,7 +186,7 @@ export default function PlacementsPage() {
   const placementsByIndustry = useMemo(() => {
     const agg: Record<string, number> = {};
     filtered.forEach((r) => {
-      const ind = r.jobs?.industry || r.clients?.industry || "Other";
+      const ind = r.clients?.industry || "Other";
       agg[ind] = (agg[ind] || 0) + 1;
     });
     return Object.entries(agg).map(([name, value]) => ({ name, value }));
