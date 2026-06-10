@@ -37,7 +37,7 @@ interface PlacementRow {
   client_id: string | null;
   recruiter_user_id: string | null;
   candidates?: { full_name: string } | null;
-  jobs?: { title: string; industry?: string | null } | null;
+  jobs?: { title: string } | null;
   clients?: { company_name: string; industry?: string | null } | null;
 }
 
