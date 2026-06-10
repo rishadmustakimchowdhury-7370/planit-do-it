@@ -166,34 +166,37 @@ const createEmailHtml = (
 
   if (includeSignature && !hasFullSignatureInBody) {
     if (signature && signature.trim()) {
-      // User's custom signature - extract Name + Role only
-      const signatureLines = signature.split('\n').filter(line => line.trim());
-
-      // If body already contains a sign-off phrase, remove any sign-off line from the signature
-      // to avoid showing it twice.
-      const filteredLines = signatureLines
-        .map(l => l.trim())
-        .filter(Boolean)
-        .filter(line => {
-          const lower = line.toLowerCase();
-          if (hasSignOffPhrase && (lower.includes('regards') || lower.includes('sincerely') || lower.includes('thanks'))) {
-            return false;
-          }
-          // Skip lines with email addresses or phone patterns
-          return !lower.includes('@') &&
-            !lower.match(/^\+?[\d\s\-().]+$/) &&
-            !lower.match(/^tel:|^phone:|^mobile:/i);
-        });
-
-      signatureHtml = `
-        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-          ${filteredLines.map((line, index) => {
-            if (index === 0) {
-              return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${line}</p>`;
+      const sigTrim = signature.trim();
+      // If signature already contains HTML markup, embed it verbatim so structured
+      // signatures (name, title, agency, phone, email, website, linkedin) render fully.
+      if (/<[a-z][\s\S]*>/i.test(sigTrim)) {
+        signatureHtml = sigTrim;
+      } else {
+        // Plain-text fallback: extract Name + Role only.
+        const signatureLines = sigTrim.split('\n').filter(line => line.trim());
+        const filteredLines = signatureLines
+          .map(l => l.trim())
+          .filter(Boolean)
+          .filter(line => {
+            const lower = line.toLowerCase();
+            if (hasSignOffPhrase && (lower.includes('regards') || lower.includes('sincerely') || lower.includes('thanks'))) {
+              return false;
             }
-            return `<p style="margin: 0; color: #6b7280; font-size: 14px;">${line}</p>`;
-          }).join('')}
-        </div>`;
+            return !lower.includes('@') &&
+              !lower.match(/^\+?[\d\s\-().]+$/) &&
+              !lower.match(/^tel:|^phone:|^mobile:/i);
+          });
+
+        signatureHtml = `
+          <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+            ${filteredLines.map((line, index) => {
+              if (index === 0) {
+                return `<p style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 600;">${line}</p>`;
+              }
+              return `<p style="margin: 0; color: #6b7280; font-size: 14px;">${line}</p>`;
+            }).join('')}
+          </div>`;
+      }
     } else {
       // Default signature with name and role only - no email
       signatureHtml = `
@@ -203,6 +206,7 @@ const createEmailHtml = (
         </div>`;
     }
   }
+
 
   let attachmentsHtml = '';
   if (attachmentLinks && attachmentLinks.length > 0) {
