@@ -4000,6 +4000,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string | null
+          fee_pct: number | null
+          guarantee_period_days: number | null
           id: string
           job_id: string | null
           notes: string | null
@@ -4019,6 +4021,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string | null
+          fee_pct?: number | null
+          guarantee_period_days?: number | null
           id?: string
           job_id?: string | null
           notes?: string | null
@@ -4038,6 +4042,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string | null
+          fee_pct?: number | null
+          guarantee_period_days?: number | null
           id?: string
           job_id?: string | null
           notes?: string | null

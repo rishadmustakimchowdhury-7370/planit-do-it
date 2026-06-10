@@ -35,9 +35,25 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
     start_date: "",
     salary: "",
     placement_fee: "",
+    fee_pct: "",
     currency: "USD",
+    guarantee_period_days: "",
     notes: "",
   });
+
+  // Keep Fee % and Fee $ in sync when salary changes
+  useEffect(() => {
+    const sal = Number(form.salary);
+    const fee = Number(form.placement_fee);
+    const pct = Number(form.fee_pct);
+    if (sal > 0 && fee > 0 && !pct) {
+      setForm((f) => ({ ...f, fee_pct: ((fee / sal) * 100).toFixed(2) }));
+    } else if (sal > 0 && pct > 0 && !fee) {
+      setForm((f) => ({ ...f, placement_fee: ((sal * pct) / 100).toFixed(2) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.salary]);
+
 
   useEffect(() => {
     if (!open || !tenantId) return;
@@ -103,11 +119,13 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
           start_date: form.start_date || null,
           salary: form.salary ? Number(form.salary) : null,
           placement_fee: form.placement_fee ? Number(form.placement_fee) : null,
+          fee_pct: form.fee_pct ? Number(form.fee_pct) : null,
+          guarantee_period_days: form.guarantee_period_days ? Number(form.guarantee_period_days) : null,
           currency: form.currency,
           notes: form.notes || null,
           status: "confirmed",
           created_by: user?.id ?? null,
-        })
+        } as any)
         .select("id")
         .single();
       if (error) throw error;
@@ -176,7 +194,28 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
 
           <div className="space-y-2">
             <Label>Placement Fee</Label>
-            <Input type="number" min="0" step="0.01" placeholder="e.g. 15000" value={form.placement_fee} onChange={(e) => setForm((f) => ({ ...f, placement_fee: e.target.value }))} />
+            <Input type="number" min="0" step="0.01" placeholder="e.g. 15000" value={form.placement_fee}
+              onChange={(e) => {
+                const fee = e.target.value;
+                const sal = Number(form.salary);
+                setForm((f) => ({
+                  ...f, placement_fee: fee,
+                  fee_pct: sal > 0 && fee ? ((Number(fee) / sal) * 100).toFixed(2) : f.fee_pct,
+                }));
+              }} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Fee %</Label>
+            <Input type="number" min="0" step="0.01" placeholder="e.g. 20" value={form.fee_pct}
+              onChange={(e) => {
+                const pct = e.target.value;
+                const sal = Number(form.salary);
+                setForm((f) => ({
+                  ...f, fee_pct: pct,
+                  placement_fee: sal > 0 && pct ? ((sal * Number(pct)) / 100).toFixed(2) : f.placement_fee,
+                }));
+              }} />
           </div>
 
           <div className="space-y-2">
@@ -187,6 +226,12 @@ export function MarkAsPlacementDialog({ open, onOpenChange, candidateId, candida
                 {currencies.map((c) => <SelectItem key={c.code} value={c.code}>{c.code} — {c.name}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Guarantee Period (days)</Label>
+            <Input type="number" min="0" step="1" placeholder="e.g. 90" value={form.guarantee_period_days}
+              onChange={(e) => setForm((f) => ({ ...f, guarantee_period_days: e.target.value }))} />
           </div>
 
           <div className="space-y-2 md:col-span-2">
