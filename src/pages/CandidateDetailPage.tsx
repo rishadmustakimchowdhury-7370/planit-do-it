@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GmailComposeModal } from '@/components/email/GmailComposeModal';
 import { CandidateEmailsTab } from '@/components/email/CandidateEmailsTab';
+import { CandidateSubmissionTimeline } from '@/components/candidates/CandidateSubmissionTimeline';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -538,25 +539,8 @@ const CandidateDetailPage = () => {
               animate={{ opacity: 1 }}
               className="bg-card rounded-xl border border-border p-6 shadow-sm"
             >
-              <h3 className="text-lg font-semibold mb-4">Activity Timeline</h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-accent mt-2" />
-                  <div>
-                    <p className="text-sm font-medium">Status: {candidate.status}</p>
-                    <p className="text-xs text-muted-foreground">Current status</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-success mt-2" />
-                  <div>
-                    <p className="text-sm font-medium">Candidate added</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(candidate.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-lg font-semibold mb-4">Pipeline Movement History</h3>
+              <CandidateSubmissionTimeline candidateId={candidate.id} />
             </motion.div>
 
           </div>
