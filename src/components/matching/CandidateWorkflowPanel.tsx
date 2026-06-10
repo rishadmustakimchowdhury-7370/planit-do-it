@@ -215,35 +215,30 @@ export function CandidateWorkflowPanel({
     }
   };
 
-  const handleAddToPipeline = async () => {
-    if (!tenantId) return;
-    setAddingPipeline(true);
+  const handlePrepareForClient = () => {
+    if (!tenantId || !candidateId) return;
+    setPrepareOpen(true);
+    onAddedToPipeline?.();
+    onPrepared?.();
+  };
+
+  const handleArchive = async () => {
+    if (!candidateId) return;
+    setArchiving(true);
     try {
-      // Check if already in pipeline
-      const { data: existing } = await supabase
-        .from('job_candidates')
-        .select('id')
-        .eq('job_id', jobId)
-        .eq('candidate_id', candidateId)
-        .maybeSingle();
-      if (existing) {
-        toast.info(`${fullName} is already in the pipeline`);
-        return;
-      }
-      const { error } = await supabase.from('job_candidates').insert({
-        job_id: jobId, candidate_id: candidateId, tenant_id: tenantId,
-        stage: 'applied', match_score: match.match_score,
-        match_explanation: match.ai_summary,
-        match_strengths: strengths, match_gaps: gaps,
-        match_confidence: match.ai_score,
+      await logActivity({
+        action_type: 'candidate_dismissed',
+        candidate_id: candidateId,
+        job_id: jobId,
+        metadata: { reason: 'archived_from_ai_match' },
       });
-      if (error) throw error;
-      toast.success(`${fullName} added to pipeline`);
-      onAddedToPipeline?.();
+      toast.success('Candidate archived');
+      onDismiss?.();
+      onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to add to pipeline');
+      toast.error(e?.message ?? 'Failed to archive');
     } finally {
-      setAddingPipeline(false);
+      setArchiving(false);
     }
   };
 
