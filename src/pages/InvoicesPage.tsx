@@ -11,11 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatMoney, INVOICE_STATUS_COLORS } from "@/lib/finance";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2, FileText, MoreVertical, DollarSign, Send, Download, Trash2, Edit } from "lucide-react";
+import { Plus, Loader2, FileText, MoreVertical, DollarSign, Send, Download, Trash2, Edit, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Navigate } from "react-router-dom";
 import { InvoiceEditorDialog } from "@/components/finance/InvoiceEditorDialog";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { SendInvoiceDialog } from "@/components/finance/SendInvoiceDialog";
+import { InvoiceTimelineDialog } from "@/components/finance/InvoiceTimelineDialog";
 import { toast } from "@/hooks/use-toast";
 
 export default function InvoicesPage() {
@@ -27,13 +29,15 @@ export default function InvoicesPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<any | null>(null);
+  const [sendInvoice, setSendInvoice] = useState<any | null>(null);
+  const [timelineInvoice, setTimelineInvoice] = useState<any | null>(null);
 
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("invoices")
-      .select("*, clients(name), placements(id, candidates(full_name), jobs(title))")
+      .select("*, clients(name,contact_name,contact_email), placements(id, candidates(full_name), jobs(title))")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     if (error) console.error("[invoices] load error", error);
@@ -196,8 +200,12 @@ export default function InvoicesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setEditingId(r.id); setEditorOpen(true); }}><Edit className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => printInvoice(r)}><Download className="w-4 h-4 mr-2" />Print / PDF</DropdownMenuItem>
-                            {r.status !== "sent" && r.status !== "paid" && <DropdownMenuItem onClick={() => updateStatus(r.id, "sent")}><Send className="w-4 h-4 mr-2" />Mark as Sent</DropdownMenuItem>}
+                            {r.status !== "paid" && r.status !== "canceled" && (
+                              <DropdownMenuItem onClick={() => setSendInvoice(r)}><Send className="w-4 h-4 mr-2" />Send Invoice (Email + PDF)</DropdownMenuItem>
+                            )}
+                            {r.status !== "sent" && r.status !== "paid" && <DropdownMenuItem onClick={() => updateStatus(r.id, "sent")}>Mark as Sent</DropdownMenuItem>}
                             {r.status !== "paid" && r.balance > 0 && <DropdownMenuItem onClick={() => setPaymentInvoice(r)}><DollarSign className="w-4 h-4 mr-2" />Record Payment</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => setTimelineInvoice(r)}><Clock className="w-4 h-4 mr-2" />View Timeline</DropdownMenuItem>
                             {r.status !== "canceled" && <DropdownMenuItem onClick={() => updateStatus(r.id, "canceled")}>Cancel invoice</DropdownMenuItem>}
                             <DropdownMenuItem className="text-destructive" onClick={() => deleteInvoice(r.id)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
@@ -220,6 +228,14 @@ export default function InvoicesPage() {
             onSaved={load}
           />
         )}
+        <SendInvoiceDialog
+          open={!!sendInvoice} onOpenChange={(o) => !o && setSendInvoice(null)}
+          invoice={sendInvoice} onSent={load}
+        />
+        <InvoiceTimelineDialog
+          open={!!timelineInvoice} onOpenChange={(o) => !o && setTimelineInvoice(null)}
+          invoiceId={timelineInvoice?.id || null} invoiceNumber={timelineInvoice?.invoice_number}
+        />
       </div>
     </AppLayout>
   );
