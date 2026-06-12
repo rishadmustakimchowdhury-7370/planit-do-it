@@ -71,7 +71,7 @@ serve(async (req) => {
       admin.from("finance_settings").select("*").eq("tenant_id", inv.tenant_id).maybeSingle(),
       admin.from("profiles").select("full_name,email").eq("id", sender.id).maybeSingle(),
     ]);
-    const branding = await getOrgBranding(admin, inv.tenant_id);
+    const branding = await getOrgBranding(inv.tenant_id);
     const signatureFields = await loadProfileSignatureFields(admin, sender.id);
     const signatureHtml = buildSignatureHtml(signatureFields);
 
