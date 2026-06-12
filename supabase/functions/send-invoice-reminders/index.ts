@@ -60,7 +60,7 @@ serve(async (req) => {
         const [{ data: settings }] = await Promise.all([
           supabase.from("finance_settings").select("*").eq("tenant_id", inv.tenant_id).maybeSingle(),
         ]);
-        const branding = await getOrgBranding(supabase, inv.tenant_id);
+        const branding = await getOrgBranding(inv.tenant_id);
         const candidateName = inv.placements?.candidates?.full_name;
 
         const subjMap: Record<string, string> = {
