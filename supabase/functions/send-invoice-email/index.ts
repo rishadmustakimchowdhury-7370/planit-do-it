@@ -105,7 +105,7 @@ serve(async (req) => {
         bank_iban: settings?.bank_iban,
         bank_swift: settings?.bank_swift,
       },
-      agency_name: settings?.agency_name || branding?.organizationName,
+      agency_name: settings?.agency_name || branding?.companyName,
       agency_logo_url: settings?.agency_logo_url || branding?.logoUrl,
       agency_address: settings?.agency_address,
       agency_phone: settings?.agency_phone,
