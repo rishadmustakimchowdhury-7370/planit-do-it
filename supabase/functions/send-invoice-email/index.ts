@@ -75,8 +75,7 @@ serve(async (req) => {
     const signatureFields = await loadProfileSignatureFields(admin, sender.id);
     const signatureHtml = buildSignatureHtml(signatureFields);
 
-    const candidateName = inv.placements?.candidates?.full_name
-      || [inv.placements?.candidates?.first_name, inv.placements?.candidates?.last_name].filter(Boolean).join(" ");
+    const candidateName = inv.placements?.candidates?.full_name;
     const jobTitle = inv.placements?.jobs?.title;
 
     // Build PDF
