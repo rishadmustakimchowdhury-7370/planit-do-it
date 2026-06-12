@@ -41,7 +41,7 @@ serve(async (req) => {
   for (const t of targets) {
     const { data: invoices, error } = await supabase
       .from("invoices")
-      .select("*, clients(name,email,address,city,country), placements(start_date, annual_salary, fee_percent, candidates(first_name,last_name,full_name), jobs(title))")
+      .select("*, clients(name,contact_email,address,city,country), placements(start_date, salary, fee_pct, candidates(full_name), jobs(title))")
       .eq("due_date", t.date)
       .in("status", ["sent", "overdue", "pending"])
       .gt("balance", 0);
