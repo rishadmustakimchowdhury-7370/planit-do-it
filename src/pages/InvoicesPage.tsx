@@ -29,6 +29,8 @@ export default function InvoicesPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<any | null>(null);
+  const [sendInvoice, setSendInvoice] = useState<any | null>(null);
+  const [timelineInvoice, setTimelineInvoice] = useState<any | null>(null);
 
   const load = async () => {
     if (!tenantId) return;
