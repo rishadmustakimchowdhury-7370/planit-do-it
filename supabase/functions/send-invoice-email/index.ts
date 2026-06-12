@@ -112,13 +112,13 @@ serve(async (req) => {
       agency_email: settings?.agency_email,
       agency_website: settings?.agency_website,
       client_name: inv.clients?.name,
-      client_email: inv.clients?.email,
+      client_email: inv.clients?.contact_email,
       client_address: [inv.clients?.address, inv.clients?.city, inv.clients?.country].filter(Boolean).join(", "),
       candidate_name: candidateName,
       job_title: jobTitle,
       placement_start_date: inv.placements?.start_date,
-      annual_salary: inv.placements?.annual_salary ? Number(inv.placements.annual_salary) : null,
-      fee_percent: inv.placements?.fee_percent ? Number(inv.placements.fee_percent) : null,
+      annual_salary: inv.placements?.salary ? Number(inv.placements.salary) : null,
+      fee_percent: inv.placements?.fee_pct ? Number(inv.placements.fee_pct) : null,
     });
 
     // Tracking pixel
