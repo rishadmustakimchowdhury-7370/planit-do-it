@@ -200,8 +200,12 @@ export default function InvoicesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => { setEditingId(r.id); setEditorOpen(true); }}><Edit className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => printInvoice(r)}><Download className="w-4 h-4 mr-2" />Print / PDF</DropdownMenuItem>
-                            {r.status !== "sent" && r.status !== "paid" && <DropdownMenuItem onClick={() => updateStatus(r.id, "sent")}><Send className="w-4 h-4 mr-2" />Mark as Sent</DropdownMenuItem>}
+                            {r.status !== "paid" && r.status !== "canceled" && (
+                              <DropdownMenuItem onClick={() => setSendInvoice(r)}><Send className="w-4 h-4 mr-2" />Send Invoice (Email + PDF)</DropdownMenuItem>
+                            )}
+                            {r.status !== "sent" && r.status !== "paid" && <DropdownMenuItem onClick={() => updateStatus(r.id, "sent")}>Mark as Sent</DropdownMenuItem>}
                             {r.status !== "paid" && r.balance > 0 && <DropdownMenuItem onClick={() => setPaymentInvoice(r)}><DollarSign className="w-4 h-4 mr-2" />Record Payment</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => setTimelineInvoice(r)}><Clock className="w-4 h-4 mr-2" />View Timeline</DropdownMenuItem>
                             {r.status !== "canceled" && <DropdownMenuItem onClick={() => updateStatus(r.id, "canceled")}>Cancel invoice</DropdownMenuItem>}
                             <DropdownMenuItem className="text-destructive" onClick={() => deleteInvoice(r.id)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
