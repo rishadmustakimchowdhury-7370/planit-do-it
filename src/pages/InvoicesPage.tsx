@@ -37,7 +37,7 @@ export default function InvoicesPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("invoices")
-      .select("*, clients(name), placements(id, candidates(full_name), jobs(title))")
+      .select("*, clients(name,contact_name,contact_email), placements(id, candidates(full_name), jobs(title))")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     if (error) console.error("[invoices] load error", error);
