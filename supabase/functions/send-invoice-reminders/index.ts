@@ -61,8 +61,7 @@ serve(async (req) => {
           supabase.from("finance_settings").select("*").eq("tenant_id", inv.tenant_id).maybeSingle(),
         ]);
         const branding = await getOrgBranding(supabase, inv.tenant_id);
-        const candidateName = inv.placements?.candidates?.full_name
-          || [inv.placements?.candidates?.first_name, inv.placements?.candidates?.last_name].filter(Boolean).join(" ");
+        const candidateName = inv.placements?.candidates?.full_name;
 
         const subjMap: Record<string, string> = {
           pre_due_3d: `Friendly reminder: Invoice ${inv.invoice_number} due in 3 days`,
