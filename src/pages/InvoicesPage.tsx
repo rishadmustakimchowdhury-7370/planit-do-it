@@ -228,6 +228,14 @@ export default function InvoicesPage() {
             onSaved={load}
           />
         )}
+        <SendInvoiceDialog
+          open={!!sendInvoice} onOpenChange={(o) => !o && setSendInvoice(null)}
+          invoice={sendInvoice} onSent={load}
+        />
+        <InvoiceTimelineDialog
+          open={!!timelineInvoice} onOpenChange={(o) => !o && setTimelineInvoice(null)}
+          invoiceId={timelineInvoice?.id || null} invoiceNumber={timelineInvoice?.invoice_number}
+        />
       </div>
     </AppLayout>
   );
