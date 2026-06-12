@@ -11,11 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { formatMoney, INVOICE_STATUS_COLORS } from "@/lib/finance";
 import { cn } from "@/lib/utils";
-import { Plus, Loader2, FileText, MoreVertical, DollarSign, Send, Download, Trash2, Edit } from "lucide-react";
+import { Plus, Loader2, FileText, MoreVertical, DollarSign, Send, Download, Trash2, Edit, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Navigate } from "react-router-dom";
 import { InvoiceEditorDialog } from "@/components/finance/InvoiceEditorDialog";
 import { RecordPaymentDialog } from "@/components/finance/RecordPaymentDialog";
+import { SendInvoiceDialog } from "@/components/finance/SendInvoiceDialog";
+import { InvoiceTimelineDialog } from "@/components/finance/InvoiceTimelineDialog";
 import { toast } from "@/hooks/use-toast";
 
 export default function InvoicesPage() {
