@@ -2870,6 +2870,53 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_email_logs: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          invoice_id: string
+          metadata: Json | null
+          performed_by: string | null
+          recipient_email: string | null
+          reminder_kind: string | null
+          subject: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          invoice_id: string
+          metadata?: Json | null
+          performed_by?: string | null
+          recipient_email?: string | null
+          reminder_kind?: string | null
+          subject?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          invoice_id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          recipient_email?: string | null
+          reminder_kind?: string | null
+          subject?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_email_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_payments: {
         Row: {
           amount: number
@@ -2980,11 +3027,15 @@ export type Database = {
           created_by: string | null
           currency: string | null
           due_date: string | null
+          first_opened_at: string | null
           id: string
           invoice_number: string
           issue_date: string | null
+          last_reminder_kind: string | null
+          last_reminder_sent_at: string | null
           line_items: Json | null
           notes: string | null
+          open_count: number
           paid_at: string | null
           payment_terms: string | null
           pdf_storage_path: string | null
@@ -3019,11 +3070,15 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           due_date?: string | null
+          first_opened_at?: string | null
           id?: string
           invoice_number: string
           issue_date?: string | null
+          last_reminder_kind?: string | null
+          last_reminder_sent_at?: string | null
           line_items?: Json | null
           notes?: string | null
+          open_count?: number
           paid_at?: string | null
           payment_terms?: string | null
           pdf_storage_path?: string | null
@@ -3058,11 +3113,15 @@ export type Database = {
           created_by?: string | null
           currency?: string | null
           due_date?: string | null
+          first_opened_at?: string | null
           id?: string
           invoice_number?: string
           issue_date?: string | null
+          last_reminder_kind?: string | null
+          last_reminder_sent_at?: string | null
           line_items?: Json | null
           notes?: string | null
+          open_count?: number
           paid_at?: string | null
           payment_terms?: string | null
           pdf_storage_path?: string | null
