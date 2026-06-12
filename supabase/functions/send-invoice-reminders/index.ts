@@ -89,12 +89,12 @@ serve(async (req) => {
           agency_name: settings?.agency_name, agency_logo_url: settings?.agency_logo_url,
           agency_address: settings?.agency_address, agency_phone: settings?.agency_phone,
           agency_email: settings?.agency_email, agency_website: settings?.agency_website,
-          client_name: inv.clients?.name, client_email: inv.clients?.email,
+          client_name: inv.clients?.name, client_email: inv.clients?.contact_email,
           client_address: [inv.clients?.address, inv.clients?.city, inv.clients?.country].filter(Boolean).join(", "),
           candidate_name: candidateName, job_title: inv.placements?.jobs?.title,
           placement_start_date: inv.placements?.start_date,
-          annual_salary: inv.placements?.annual_salary ? Number(inv.placements.annual_salary) : null,
-          fee_percent: inv.placements?.fee_percent ? Number(inv.placements.fee_percent) : null,
+          annual_salary: inv.placements?.salary ? Number(inv.placements.salary) : null,
+          fee_percent: inv.placements?.fee_pct ? Number(inv.placements.fee_pct) : null,
         });
 
         const trackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-invoice-email?id=${inv.id}`;
