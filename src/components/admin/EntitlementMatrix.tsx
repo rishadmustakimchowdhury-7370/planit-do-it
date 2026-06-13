@@ -86,7 +86,7 @@ export function EntitlementMatrix() {
       feature_name: nf.feature_name,
       description: nf.description || null,
       category: nf.category || null,
-      sort_order: (features.at(-1)?.sort_order ?? 0) + 10,
+      sort_order: (features.length ? features[features.length - 1].sort_order : 0) + 10,
     });
     if (error) return toast.error(error.message);
     setNewOpen(false);
