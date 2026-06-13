@@ -28,7 +28,7 @@ export function useEntitlement(featureKey: string | null) {
       _tenant_id: tenantId,
       _feature_key: featureKey,
     });
-    if (!error && row) setData(row as unknown as Entitlement);
+    if (!error && row) setData((row as unknown) as Entitlement);
     setLoading(false);
   }, [tenantId, featureKey, isSuperAdmin]);
 
