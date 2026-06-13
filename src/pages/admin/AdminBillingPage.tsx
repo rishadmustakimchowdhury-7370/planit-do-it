@@ -70,7 +70,7 @@ export default function AdminBillingPage() {
   const [invoiceForm, setInvoiceForm] = useState({
     tenant_id: '',
     amount: '',
-    currency: 'GBP',
+    currency: 'USD',
     due_date: '',
     notes: '',
     line_items: [] as Array<{description: string, quantity: number, rate: number, amount: number}>,
@@ -208,7 +208,7 @@ export default function AdminBillingPage() {
 
       toast.success('Invoice created');
       setShowCreateDialog(false);
-      setInvoiceForm({ tenant_id: '', amount: '', currency: 'GBP', due_date: '', notes: '', line_items: [] });
+      setInvoiceForm({ tenant_id: '', amount: '', currency: 'USD', due_date: '', notes: '', line_items: [] });
       setSelectedTenantBranding(null);
       fetchData();
     } catch (error: any) {
@@ -520,7 +520,7 @@ export default function AdminBillingPage() {
                   <SelectContent>
                     <SelectItem value="USD">USD</SelectItem>
                     <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
