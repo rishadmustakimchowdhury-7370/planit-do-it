@@ -4572,8 +4572,6 @@ export type Database = {
           signature_website: string | null
           tenant_id: string | null
           two_factor_enabled: boolean | null
-          two_factor_phone: string | null
-          two_factor_secret: string | null
           updated_at: string | null
         }
         Insert: {
@@ -4596,8 +4594,6 @@ export type Database = {
           signature_website?: string | null
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
-          two_factor_phone?: string | null
-          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -4620,8 +4616,6 @@ export type Database = {
           signature_website?: string | null
           tenant_id?: string | null
           two_factor_enabled?: boolean | null
-          two_factor_phone?: string | null
-          two_factor_secret?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -6245,6 +6239,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_mfa_secrets: {
+        Row: {
+          created_at: string
+          phone: string | null
+          totp_secret: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          phone?: string | null
+          totp_secret?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          phone?: string | null
+          totp_secret?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_permissions: {
         Row: {
