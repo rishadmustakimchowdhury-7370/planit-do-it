@@ -12,7 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Package, Loader2, Check, Settings2, ListChecks } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Loader2, Check, Settings2, ListChecks, Grid3x3 } from 'lucide-react';
+import { EntitlementMatrix } from '@/components/admin/EntitlementMatrix';
 
 interface SubscriptionPlan {
   id: string;
