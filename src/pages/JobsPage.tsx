@@ -37,6 +37,7 @@ import {
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { toast } from 'sonner';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 
 interface Job {
   id: string;
