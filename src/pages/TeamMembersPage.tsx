@@ -104,6 +104,7 @@ export default function TeamMembersPage() {
   const [planName, setPlanName] = useState('Starter');
   const [searchQuery, setSearchQuery] = useState('');
   const { checkLimit, showLimitError } = useUsageLimits();
+  const enforce = useEnforceFeature();
   
   // Dialog states
   const [showInviteDialog, setShowInviteDialog] = useState(false);
