@@ -97,14 +97,10 @@ export function useSiteBranding(): SiteSettings {
         }
 
         // Fetch SEO settings
-        const { data: seoData } = await supabase
-          .from('platform_settings')
-          .select('*')
-          .eq('key', 'seo_settings')
-          .maybeSingle();
+        const { data: seoData } = await supabase.rpc('get_public_platform_setting', { _key: 'seo_settings' });
 
-        if (seoData?.value) {
-          setSeo(seoData.value as unknown as SEOSettings);
+        if (seoData) {
+          setSeo(seoData as unknown as SEOSettings);
         }
       } catch (error) {
         console.error('Failed to fetch site settings:', error);
