@@ -27,6 +27,7 @@ import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/currencies';
 import { format } from 'date-fns';
 import { ManageSubscriptionDialog } from '@/components/billing/ManageSubscriptionDialog';
+import { UsageMetersCard } from '@/components/billing/UsageMetersCard';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface Invoice {
@@ -210,6 +211,7 @@ export default function BillingPage() {
   return (
     <AppLayout title="Billing" subtitle="Manage your subscription and invoices">
       <div className="space-y-6">
+        <UsageMetersCard />
         {/* Current Plan Overview */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

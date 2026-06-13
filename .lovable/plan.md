@@ -1,58 +1,69 @@
-# Phase 6 — Client Submission Pipeline & Kanban
+# Subscription Feature Entitlement System
 
-## Current state (already shipped)
-- DB: `candidate_submissions` (with full status enum incl. all 10 stages), `submission_activity`, `client_feedback_log`, `submission_recipients`.
-- UI: `SubmissionStatusBadge`, `SubmissionPipelineBar`, `SubmissionActivityTimeline`, `SubmissionDetailDialog`, client-side `ClientSubmissionsPage`.
-- Recruiter "Prepare For Client" wizard creates submissions and sets status (draft → prepared → submitted).
+This is a large, cross-cutting build. Below is the plan I will execute on approval. Nothing is built yet.
 
-## Gap
-No **recruiter-facing** pipeline dashboard. We have a per-job submissions tab, but no global Kanban board, no aggregated counters/metrics, no drag-and-drop, no manual feedback panel, no audit log of stage changes, no email-reply schema.
+## Phase 1 — Feature Catalog
+New table `public.subscription_features`:
+- `id uuid pk`, `feature_key text unique`, `feature_name text`, `description text`, `category text`, `sort_order int`, timestamps.
+- Seed: `core_crm, ai_match, client_reports, client_pipeline, placement_tracking, invoice_management, finance_dashboard, recruiter_bonus_tracking, custom_branding, api_access, priority_support, email_templates, advanced_analytics`.
+- RLS: `SELECT` for `authenticated`; write only `is_super_admin(auth.uid())`.
 
-## Plan
+## Phase 2 — Plan ↔ Feature Mapping
+New table `public.subscription_plan_features`:
+- `plan_id uuid → subscription_plans`, `feature_id uuid → subscription_features`, `enabled bool`, `limit_value int null` (`null` = unlimited).
+- Unique `(plan_id, feature_id)`.
+- Seed rows for Starter / Pro / Agency per the matrix in the request.
+- Numeric limits (`active_jobs`, `candidates`, `team_members`, `ai_matches_monthly`) stored as feature rows with `limit_value`; existing `subscription_plans.max_*` columns kept in sync via trigger so legacy code keeps working during rollout.
 
-### 1. DB migration (additive)
-- Add columns to `candidate_submissions`: `email_replied bool default false`, `reply_date timestamptz`, `reply_summary text`.
-- New table `submission_stage_audit` (id, submission_id, tenant_id, from_status, to_status, changed_by, changed_at, source text, note text) + RLS + grants.
-- Trigger on `candidate_submissions` status change → insert into `submission_stage_audit` AND `submission_activity` (event_type `status_changed`).
-- Trigger on `client_feedback_log` insert → append to `submission_activity` (event_type `client_feedback`).
-- Helper RPC `set_submission_status(_submission_id, _to_status, _note)` that validates tenant membership and updates status (so client-side drag triggers fire via single call, captures actor).
+## Phase 3 — Auto Provisioning
+- Existing `check-subscription` / `stripe-webhook` edge function path: on `checkout.session.completed` / `customer.subscription.updated`, resolve plan by Stripe price → set `tenants.subscription_plan_id`.
+- Entitlements are derived (not copied), so "assignment" is automatic: any read of `get_tenant_feature` returns whatever the plan currently grants. No per-tenant feature rows needed.
 
-### 2. Pipeline page (new)
-`src/pages/ClientPipelinePage.tsx` at route `/pipeline` (sidebar entry "Client Pipeline"):
-- Top counter row: Submitted / Viewed / Screening / Interview Requested / Interview Confirmed / Offer / Hired (live via realtime channel on `candidate_submissions`).
-- Metrics strip: Total Submitted, Interview Rate, Offer Rate, Hire Rate (computed from current tenant filter).
-- Filters: recruiter, client, job, date range.
-- Kanban board: 10 columns (Submitted → Withdrawn), drag-and-drop using `@dnd-kit/core` (already installed via shadcn? confirm; otherwise `bun add @dnd-kit/core @dnd-kit/sortable`).
-- Each card: candidate avatar+name, job title, client name, days-in-stage, last activity, status badge.
-- Drag onto column → call `set_submission_status` RPC → optimistic update + toast.
-- Click card → opens existing `SubmissionDetailDialog` (extended).
+## Phase 4 — Feature Enforcement
+- New SECURITY DEFINER fn `public.get_tenant_feature(_tenant_id uuid, _feature_key text)` returns `{enabled, limit_value, usage, remaining}` (jsonb). Usage queries reuse current counters used by `get-usage-stats`.
+- Client hook `useFeature(key)` wraps it; existing `useUsageLimits` refactored to call it.
+- Guard rails added at write sites: AddJob, InviteTeamMember, AI Match button → block + show upgrade dialog when `remaining <= 0`.
+- Server-side: edge functions `create-job`, `invite-team-member`, `ai-match` re-check via the same RPC (defence in depth).
 
-### 3. SubmissionDetailDialog upgrades
-- New "Feedback" tab: list past `client_feedback_log` entries + form to log new feedback (interested / need_more_info / not_suitable / interview_requested / offer_pending / rejected + optional note). Insert via supabase; trigger pushes to timeline.
-- New "Audit" sub-section in Activity tab pulling from `submission_stage_audit`.
-- Existing Overview/Pack/Recipients tabs preserved.
+## Phase 5 — Admin Management
+- `AdminPackagesPage` gains two tabs:
+  - **Features** — CRUD on `subscription_features` (name, key, description, category, sort).
+  - **Plan Features** — matrix: rows = features, columns = plans, cells = `enabled` toggle + optional limit input. Inline save via upsert.
+- Reorder via drag handle on Features tab → updates `sort_order`.
+- All writes gated by `is_super_admin`.
 
-### 4. Wire "Send to Client"
-Verify `SubmissionWizard` / "Send to Client" action sets status to `submitted` and writes activity event (most likely already done; confirm and patch if not).
+## Phase 6 — UI (matrix + usage meters)
+- Matrix UI as above (checkbox + optional number input per cell).
+- `BillingPage`: usage meters card showing `used / limit` for jobs, candidates, team members, AI matches, reports generated, each with progress bar + upgrade CTA at ≥80%.
 
-### 5. Sidebar nav
-Add "Client Pipeline" link in `src/components/layout/Sidebar.tsx` (icon: Kanban/Columns).
+## Phase 7 — Tenant Entitlements
+- Single helper `get_tenant_feature(feature_key)` is the only allowed entry point in app code. Internal lookups go through it.
+- Convenience client wrapper `useEntitlement(key)` returns the same shape with React Query caching + realtime invalidation on `subscription_plan_features` change.
 
-### 6. Metrics per recruiter/client
-On pipeline page, group view toggle: by recruiter, by client. Same metrics row recomputed for selected grouping. Pure client-side aggregation from loaded rows.
+## Phase 8 — Usage Tracking
+- Counters (same sources `get-usage-stats` already uses): active jobs, candidates, profiles (team), `ai_usage` rows this month, `client_submission_reports` rows this month.
+- `BillingPage` and a new `UsageMetersCard` consume `get_tenant_feature` per key.
 
-## Files
-- New: `supabase/migrations/<ts>_submission_pipeline.sql`
-- New: `src/pages/ClientPipelinePage.tsx`
-- New: `src/components/clients/SubmissionKanban.tsx`
-- New: `src/components/clients/SubmissionMetricsBar.tsx`
-- New: `src/components/clients/ClientFeedbackPanel.tsx`
-- Edit: `src/components/clients/SubmissionDetailDialog.tsx` (+Feedback tab, +Audit)
-- Edit: `src/App.tsx` (route)
-- Edit: `src/components/layout/Sidebar.tsx` (nav link)
+## Phase 9 — Stripe Sync
+- On `customer.subscription.updated`:
+  1. Update `tenants.subscription_plan_id`.
+  2. Insert `audit_log` row `{action: 'plan_changed', from, to}`.
+  3. No usage reset — historical usage preserved; only monthly-windowed counters naturally roll over.
+- Entitlements automatically recalc because they're derived from `subscription_plan_features`.
 
-## Out of scope
-- Real email-reply ingestion (schema only, per spec).
-- Changing the existing "Prepare For Client" report-creation wizard.
+## Deliverables you'll get
+1. **Database schema** — 1 migration creating both tables, seed rows, RLS, GRANTs, `get_tenant_feature` RPC, audit trigger.
+2. **RLS policies** — read-for-authenticated, write-for-super-admin on both tables; RPC is SECURITY DEFINER scoped to caller's tenant or super admin.
+3. **Admin UI** — new Features + Plan Features tabs in `AdminPackagesPage`.
+4. **Stripe webhook changes** — plan resolution + audit log entry in existing webhook function.
+5. **Enforcement** — `useEntitlement` hook + guards in AddJob / TeamMembers / AI Match flows + matching server checks.
+6. **Usage tracking** — `UsageMetersCard` on `BillingPage`, fed by `get_tenant_feature`.
+7. **Migration plan** — backfill: existing tenants keep current `subscription_plan_id`; mapping table seeded so they immediately get correct entitlements. No data loss; legacy `max_*` columns kept until all call sites migrate.
 
-Confirm and I will proceed with the migration first, then UI.
+## Technical notes
+- `limit_value IS NULL` = unlimited (matches existing `-1` convention internally).
+- All new tables get `GRANT SELECT ... TO authenticated` + `GRANT ALL ... TO service_role`; writes denied to `anon`.
+- Currency / pricing untouched (USD per project memory).
+- No changes to RBAC; super admin gate uses existing `is_super_admin()`.
+
+Reply **approve** to proceed, or tell me what to adjust (e.g. skip server-side guards, defer the matrix UI, change seed limits).

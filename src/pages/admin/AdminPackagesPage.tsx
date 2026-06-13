@@ -12,7 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Package, Loader2, Check, Settings2, ListChecks } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Loader2, Check, Settings2, ListChecks, Grid3x3 } from 'lucide-react';
+import { EntitlementMatrix } from '@/components/admin/EntitlementMatrix';
 
 interface SubscriptionPlan {
   id: string;
@@ -305,6 +306,10 @@ export default function AdminPackagesPage() {
               <TabsTrigger value="features" className="gap-2">
                 <ListChecks className="h-4 w-4" />
                 Features
+              </TabsTrigger>
+              <TabsTrigger value="entitlements" className="gap-2">
+                <Grid3x3 className="h-4 w-4" />
+                Entitlements
               </TabsTrigger>
             </TabsList>
 
@@ -655,6 +660,10 @@ export default function AdminPackagesPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="entitlements" className="mt-6">
+            <EntitlementMatrix />
           </TabsContent>
         </Tabs>
       </div>
