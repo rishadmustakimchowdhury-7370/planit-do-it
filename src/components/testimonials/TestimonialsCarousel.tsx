@@ -44,7 +44,21 @@ const defaultTestimonials: Testimonial[] = [
 ];
 
 export function TestimonialsCarousel() {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+  const { data: fetched } = useQuery({
+    queryKey: ['public-testimonials'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('testimonials')
+        .select('id, quote, author_name, author_role, author_avatar, rating')
+        .eq('is_active', true)
+        .eq('status', 'approved')
+        .order('order_index', { ascending: true });
+      return data ?? [];
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+  });
+  const testimonials: Testimonial[] = (fetched && fetched.length > 0) ? (fetched as Testimonial[]) : defaultTestimonials;
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
     align: 'start',
