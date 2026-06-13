@@ -610,7 +610,10 @@ const JobsPage = () => {
               <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
-          <Button className="gap-2 shadow-sm" onClick={() => navigate('/jobs/new')}>
+          <Button
+            className="gap-2 shadow-sm"
+            onClick={() => enforce.guard('active_jobs', async () => navigate('/jobs/new'))}
+          >
             <Plus className="w-4 h-4" />
             Add Job
           </Button>
