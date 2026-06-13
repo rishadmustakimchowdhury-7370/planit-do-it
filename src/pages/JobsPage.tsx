@@ -730,6 +730,7 @@ const JobsPage = () => {
           }}
         />
       )}
+      {enforce.dialog}
     </AppLayout>
   );
 };
