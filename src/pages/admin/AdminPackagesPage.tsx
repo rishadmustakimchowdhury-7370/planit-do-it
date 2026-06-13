@@ -661,6 +661,10 @@ export default function AdminPackagesPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="entitlements" className="mt-6">
+            <EntitlementMatrix />
+          </TabsContent>
         </Tabs>
       </div>
     </AdminLayout>
