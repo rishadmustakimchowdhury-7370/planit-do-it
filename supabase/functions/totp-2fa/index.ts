@@ -252,13 +252,13 @@ serve(async (req) => {
       let secretToVerify = secret;
       
       if (!secretToVerify) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("two_factor_secret")
-          .eq("id", user.id)
-          .single();
-        
-        secretToVerify = profile?.two_factor_secret;
+        const { data: mfa } = await supabase
+          .from("user_mfa_secrets")
+          .select("totp_secret")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        secretToVerify = mfa?.totp_secret;
       }
 
       if (!secretToVerify) {
