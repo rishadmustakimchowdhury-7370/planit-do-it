@@ -60,6 +60,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 
 interface Candidate {
   id: string;
