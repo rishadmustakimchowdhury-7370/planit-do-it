@@ -86,6 +86,20 @@ function SidebarContent({
   const navigate = useNavigate();
   const { profile, signOut, isOwner, isManager, isRecruiter, isSuperAdmin } = useAuth();
   const { hasPermission } = usePermissions();
+  const { entitlements } = useEntitlements(GATED_FEATURES);
+
+  // Returns 'show' | 'lock' | 'hide' for a nav href
+  const gateFor = (href: string): 'show' | 'lock' | 'hide' => {
+    const fk = FEATURE_BY_HREF[href];
+    if (!fk) return 'show';
+    const ent = entitlements[fk];
+    if (!ent) return 'show'; // not loaded yet → don't flash
+    if (ent.enabled) return 'show';
+    // Disabled on current plan
+    if (isOwner || isManager) return 'lock';
+    return 'hide';
+  };
+
   
   // Calculate if current route is a team route
   const isOnTeamRoute = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || 
