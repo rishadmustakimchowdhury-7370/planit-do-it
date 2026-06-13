@@ -72,6 +72,7 @@ const JobsPage = () => {
   const navigate = useNavigate();
   const { tenantId, user, isOwner, isManager } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const enforce = useEnforceFeature();
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
