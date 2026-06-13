@@ -281,6 +281,7 @@ export default function TeamMembersPage() {
       fetchTeamData();
     } catch (error: any) {
       console.error('Error inviting member:', error);
+      if (enforce.handleError(error)) return;
       toast.error(error.message || 'Failed to send invitation');
     } finally {
       setIsInviting(false);
