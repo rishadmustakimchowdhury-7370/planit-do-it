@@ -335,13 +335,13 @@ serve(async (req) => {
       }
 
       // Get existing secret
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("two_factor_secret")
-        .eq("id", user.id)
-        .single();
+      const { data: mfa } = await supabase
+        .from("user_mfa_secrets")
+        .select("totp_secret")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (!profile?.two_factor_secret) {
+      if (!mfa?.totp_secret) {
         return new Response(JSON.stringify({ error: "2FA is not enabled" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -349,8 +349,8 @@ serve(async (req) => {
       }
 
       // Verify the code
-      const isValid = await verifyTOTP(profile.two_factor_secret, code);
-      
+      const isValid = await verifyTOTP(mfa.totp_secret, code);
+
       if (!isValid) {
         return new Response(JSON.stringify({ error: "Invalid verification code" }), {
           status: 400,
@@ -358,17 +358,19 @@ serve(async (req) => {
         });
       }
 
-      // Disable 2FA
+      // Disable 2FA: remove secret + clear flag
+      const { error: secretError } = await supabase
+        .from("user_mfa_secrets")
+        .delete()
+        .eq("user_id", user.id);
+
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ 
-          two_factor_enabled: false,
-          two_factor_secret: null 
-        })
+        .update({ two_factor_enabled: false })
         .eq("id", user.id);
 
-      if (updateError) {
-        console.error("Error disabling 2FA:", updateError);
+      if (secretError || updateError) {
+        console.error("Error disabling 2FA:", secretError || updateError);
         return new Response(JSON.stringify({ error: "Failed to disable 2FA" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
