@@ -27,6 +27,7 @@ import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/currencies';
 import { format } from 'date-fns';
 import { ManageSubscriptionDialog } from '@/components/billing/ManageSubscriptionDialog';
+import { UsageMetersCard } from '@/components/billing/UsageMetersCard';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface Invoice {
