@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,21 @@ const defaultTestimonials: Testimonial[] = [
 ];
 
 export function TestimonialsCarousel() {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials);
+  const { data: fetched } = useQuery({
+    queryKey: ['public-testimonials'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('testimonials')
+        .select('id, quote, author_name, author_role, author_avatar, rating')
+        .eq('is_active', true)
+        .eq('status', 'approved')
+        .order('order_index', { ascending: true });
+      return data ?? [];
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+  });
+  const testimonials: Testimonial[] = (fetched && fetched.length > 0) ? (fetched as Testimonial[]) : defaultTestimonials;
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
     align: 'start',
@@ -76,22 +91,6 @@ export function TestimonialsCarousel() {
     };
   }, [emblaApi, onSelect]);
 
-  useEffect(() => {
-    const fetchTestimonials = async () => {
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('id, quote, author_name, author_role, author_avatar, rating')
-        .eq('is_active', true)
-        .eq('status', 'approved')
-        .order('order_index', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        setTestimonials(data);
-      }
-    };
-
-    fetchTestimonials();
-  }, []);
 
   return (
     <div className="relative">

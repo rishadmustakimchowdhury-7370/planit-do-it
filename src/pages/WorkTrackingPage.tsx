@@ -21,9 +21,9 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 
 export default function WorkTrackingPage() {
-  const { user, tenantId } = useAuth();
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [isLoadingRole, setIsLoadingRole] = useState(true);
+  const { user, tenantId, isOwner, isManager, isLoading: authLoading } = useAuth();
+  const userRole = isOwner ? 'owner' : isManager ? 'manager' : 'recruiter';
+  const isLoadingRole = authLoading;
   const [workSettings, setWorkSettings] = useState({
     auto_end_time: '23:59',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -32,28 +32,11 @@ export default function WorkTrackingPage() {
 
   useEffect(() => {
     if (user?.id && tenantId) {
-      fetchUserRole();
       fetchWorkSettings();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, tenantId]);
 
-  const fetchUserRole = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user?.id)
-        .eq('tenant_id', tenantId)
-        .single();
-
-      setUserRole(data?.role || 'recruiter');
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-      setUserRole('recruiter');
-    } finally {
-      setIsLoadingRole(false);
-    }
-  };
 
   const fetchWorkSettings = async () => {
     try {
