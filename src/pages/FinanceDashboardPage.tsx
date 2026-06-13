@@ -36,9 +36,6 @@ export default function FinanceDashboardPage() {
     })();
   }, [tenantId]);
 
-  if (authLoading) return <AppLayout><Loader2 className="animate-spin m-6" /></AppLayout>;
-  if (!isOwner && !isManager) return <Navigate to="/dashboard" replace />;
-
   const periodStart = useMemo(() => {
     const now = new Date();
     if (period === "month") return startOfMonth(now);
@@ -47,7 +44,10 @@ export default function FinanceDashboardPage() {
     return new Date(0);
   }, [period]);
 
-  const inPeriod = invoices.filter(i => i.issue_date && new Date(i.issue_date) >= periodStart);
+  const inPeriod = useMemo(
+    () => invoices.filter(i => i.issue_date && new Date(i.issue_date) >= periodStart),
+    [invoices, periodStart]
+  );
 
   const totalRevenue = inPeriod.filter(i => i.status === "paid").reduce((s, i) => s + Number(i.total_amount || 0), 0);
   const outstanding = invoices.filter(i => ["sent", "overdue"].includes(i.status)).reduce((s, i) => s + Number(i.balance || 0), 0);
@@ -74,6 +74,10 @@ export default function FinanceDashboardPage() {
     });
     return Array.from(m.entries()).slice(-12).map(([month, revenue]) => ({ month, revenue }));
   }, [invoices]);
+
+  if (authLoading) return <AppLayout><Loader2 className="animate-spin m-6" /></AppLayout>;
+  if (!isOwner && !isManager) return <Navigate to="/dashboard" replace />;
+
 
   const exportXLSX = () => {
     const ws = XLSX.utils.json_to_sheet(invoices.map(i => ({
