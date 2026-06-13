@@ -42,6 +42,14 @@ export function usePermissions(userId?: string) {
         return;
       }
 
+      // Skip the DB call when checking self and we already know the role grants
+      // permissions via the role-based defaults (owner / manager).
+      const isSelf = !userId || userId === user?.id;
+      if (isSelf && (isOwner || isManager)) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from('user_permissions')
@@ -60,7 +68,7 @@ export function usePermissions(userId?: string) {
     }
 
     fetchPermissions();
-  }, [userId, user?.id, tenantId]);
+  }, [userId, user?.id, tenantId, isOwner, isManager]);
 
   // Combine role-based permissions with explicit permissions
   const permissions: Permission[] = (() => {
