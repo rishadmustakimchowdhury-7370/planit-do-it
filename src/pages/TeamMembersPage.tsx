@@ -29,6 +29,8 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
+import { parseEntitlementError, assertFeature } from '@/lib/entitlements';
 import { AssignAICreditsDialog } from '@/components/team/AssignAICreditsDialog';
 import { ManagePermissionsDialog } from '@/components/team/ManagePermissionsDialog';
 import {
