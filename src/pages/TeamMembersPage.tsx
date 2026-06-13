@@ -29,6 +29,8 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
+import { parseEntitlementError, assertFeature } from '@/lib/entitlements';
 import { AssignAICreditsDialog } from '@/components/team/AssignAICreditsDialog';
 import { ManagePermissionsDialog } from '@/components/team/ManagePermissionsDialog';
 import {
@@ -102,6 +104,7 @@ export default function TeamMembersPage() {
   const [planName, setPlanName] = useState('Starter');
   const [searchQuery, setSearchQuery] = useState('');
   const { checkLimit, showLimitError } = useUsageLimits();
+  const enforce = useEnforceFeature();
   
   // Dialog states
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -210,9 +213,11 @@ export default function TeamMembersPage() {
       return;
     }
 
-    // Check team member limit
-    if (checkLimit('teamMembers')) {
-      showLimitError('team members');
+    // Entitlement pre-check (DB trigger is the source of truth)
+    try {
+      await assertFeature(tenantId, 'team_members', 1);
+    } catch (e) {
+      enforce.handleError(e);
       return;
     }
 
@@ -276,6 +281,7 @@ export default function TeamMembersPage() {
       fetchTeamData();
     } catch (error: any) {
       console.error('Error inviting member:', error);
+      if (enforce.handleError(error)) return;
       toast.error(error.message || 'Failed to send invitation');
     } finally {
       setIsInviting(false);
@@ -892,6 +898,7 @@ export default function TeamMembersPage() {
           />
         )}
       </div>
+      {enforce.dialog}
     </AppLayout>
   );
 }

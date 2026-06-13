@@ -37,6 +37,7 @@ import {
 import { AssignJobDialog } from '@/components/jobs/AssignJobDialog';
 import { toast } from 'sonner';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 
 interface Job {
   id: string;
@@ -71,6 +72,7 @@ const JobsPage = () => {
   const navigate = useNavigate();
   const { tenantId, user, isOwner, isManager } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const enforce = useEnforceFeature();
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -608,7 +610,10 @@ const JobsPage = () => {
               <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
-          <Button className="gap-2 shadow-sm" onClick={() => navigate('/jobs/new')}>
+          <Button
+            className="gap-2 shadow-sm"
+            onClick={() => enforce.guard('active_jobs', async () => navigate('/jobs/new'))}
+          >
             <Plus className="w-4 h-4" />
             Add Job
           </Button>
@@ -725,6 +730,7 @@ const JobsPage = () => {
           }}
         />
       )}
+      {enforce.dialog}
     </AppLayout>
   );
 };

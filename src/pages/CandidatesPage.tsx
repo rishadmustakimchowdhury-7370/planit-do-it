@@ -60,6 +60,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 
 interface Candidate {
   id: string;
@@ -168,6 +169,7 @@ const CandidatesPage = () => {
   const navigate = useNavigate();
   const { tenantId, user } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const enforce = useEnforceFeature();
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -937,15 +939,15 @@ const CandidatesPage = () => {
             onFiltersChange={setAdvancedFilters}
             onReset={() => setAdvancedFilters(defaultAdvancedFilters)}
           />
-          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=bulk')}>
+          <Button variant="outline" size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new?tab=bulk'))}>
             <Upload className="w-4 h-4 mr-2" />
             Bulk Upload
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=cv')}>
+          <Button variant="outline" size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new?tab=cv'))}>
             <Upload className="w-4 h-4 mr-2" />
             Upload CV
           </Button>
-          <Button size="sm" onClick={() => navigate('/candidates/new')}>
+          <Button size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new'))}>
             <Plus className="w-4 h-4 mr-2" />
             Add Candidate
           </Button>
@@ -1013,7 +1015,7 @@ const CandidatesPage = () => {
               ? "Try adjusting your search or filter criteria" 
               : "Start building your talent pool by adding candidates"}
           </p>
-          <Button onClick={() => navigate('/candidates/new')}>
+          <Button onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new'))}>
             <Plus className="w-4 h-4 mr-2" />
             Add Your First Candidate
           </Button>
@@ -1113,6 +1115,7 @@ const CandidatesPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {enforce.dialog}
     </AppLayout>
   );
 };
