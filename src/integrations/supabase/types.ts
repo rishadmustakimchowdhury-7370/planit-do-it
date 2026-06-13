@@ -5776,6 +5776,39 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_usage_log: {
+        Row: {
+          action: string
+          created_at: string
+          delta: number
+          feature_key: string
+          id: string
+          metadata: Json
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          delta?: number
+          feature_key: string
+          id?: string
+          metadata?: Json
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          delta?: number
+          feature_key?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount: number | null
@@ -6878,6 +6911,10 @@ export type Database = {
         }
         Returns: string
       }
+      consume_ai_match: {
+        Args: { _action?: string; _tenant_id: string; _user_id: string }
+        Returns: Json
+      }
       create_chat_conversation: {
         Args: {
           p_visitor_email?: string
@@ -6905,6 +6942,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      enforce_feature_limit: {
+        Args: { _feature_key: string; _increment?: number; _tenant_id: string }
+        Returns: Json
       }
       fix_invited_user_profile: {
         Args: { p_email: string; p_invitation_id: string; p_user_id: string }
