@@ -26,7 +26,8 @@ import {
   X,
   DollarSign,
   FileText,
-  Wallet
+  Wallet,
+  Lock
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,20 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/brand/Logo';
 import { usePermissions, Permission } from '@/hooks/usePermissions';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+
+// Map nav hrefs to feature keys for entitlement gating
+const FEATURE_BY_HREF: Record<string, string> = {
+  '/reports': 'advanced_analytics',
+  '/finance': 'finance_dashboard',
+  '/finance/invoices': 'invoice_management',
+  '/finance/bonuses': 'recruiter_bonus_tracking',
+  '/finance/settings': 'finance_dashboard',
+  '/branding': 'custom_branding',
+};
+const GATED_FEATURES = Array.from(new Set(Object.values(FEATURE_BY_HREF)));
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -72,6 +86,20 @@ function SidebarContent({
   const navigate = useNavigate();
   const { profile, signOut, isOwner, isManager, isRecruiter, isSuperAdmin } = useAuth();
   const { hasPermission } = usePermissions();
+  const { entitlements } = useEntitlements(GATED_FEATURES);
+
+  // Returns 'show' | 'lock' | 'hide' for a nav href
+  const gateFor = (href: string): 'show' | 'lock' | 'hide' => {
+    const fk = FEATURE_BY_HREF[href];
+    if (!fk) return 'show';
+    const ent = entitlements[fk];
+    if (!ent) return 'show'; // not loaded yet → don't flash
+    if (ent.enabled) return 'show';
+    // Disabled on current plan
+    if (isOwner || isManager) return 'lock';
+    return 'hide';
+  };
+
   
   // Calculate if current route is a team route
   const isOnTeamRoute = (location.pathname.startsWith('/team') && location.pathname !== '/team/kpi') || 
@@ -148,25 +176,30 @@ function SidebarContent({
         {navigation.map((item) => {
           // Hide certain items from recruiters who don't have permissions
           if (isRecruiter && !isOwner && !isManager) {
-            // If item requires permission, check it
             if (item.permission && !hasPermission(item.permission)) {
               return null;
             }
           }
 
-          const isActive = location.pathname === item.href || 
+          const gate = gateFor(item.href);
+          if (gate === 'hide') return null;
+          const locked = gate === 'lock';
+
+          const isActive = location.pathname === item.href ||
             (item.href !== '/' && location.pathname.startsWith(item.href));
-          
+
           return (
             <Link
               key={item.name}
-              to={item.href}
+              to={locked ? '/billing' : item.href}
               onClick={handleNavClick}
+              title={locked ? `${item.name} — upgrade required` : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
                 isActive
                   ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                locked && 'opacity-60'
               )}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -177,9 +210,10 @@ function SidebarContent({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="text-sm whitespace-nowrap"
+                    className="text-sm whitespace-nowrap flex-1 flex items-center gap-2"
                   >
                     {item.name}
+                    {locked && <Lock className="w-3.5 h-3.5 ml-auto opacity-70" />}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -272,50 +306,61 @@ function SidebarContent({
         )}
 
         {/* Finance Section */}
-        {(isOwner || isManager || isRecruiter) && (
-          <>
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.p
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40"
-                >
-                  Finance
-                </motion.p>
-              )}
-            </AnimatePresence>
-            {[
-              ...(isOwner || isManager ? [
-                { name: 'Finance Dashboard', href: '/finance', icon: DollarSign },
-                { name: 'Invoices', href: '/finance/invoices', icon: FileText },
-              ] : []),
-              { name: isOwner || isManager ? 'Recruiter Bonuses' : 'My Bonuses', href: '/finance/bonuses', icon: Wallet },
-              ...(isOwner || isManager ? [
-                { name: 'Finance Settings', href: '/finance/settings', icon: Settings },
-              ] : []),
-            ].map(item => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link key={item.name} to={item.href} onClick={handleNavClick}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
-                    isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                    collapsed && 'justify-center'
-                  )}>
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="text-sm whitespace-nowrap">
-                        {item.name}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </Link>
-              );
-            })}
-          </>
-        )}
+        {(() => {
+          const rawFinance = [
+            ...(isOwner || isManager ? [
+              { name: 'Finance Dashboard', href: '/finance', icon: DollarSign },
+              { name: 'Invoices', href: '/finance/invoices', icon: FileText },
+            ] : []),
+            { name: isOwner || isManager ? 'Recruiter Bonuses' : 'My Bonuses', href: '/finance/bonuses', icon: Wallet },
+            ...(isOwner || isManager ? [
+              { name: 'Finance Settings', href: '/finance/settings', icon: Settings },
+            ] : []),
+          ];
+          const financeItems = rawFinance
+            .map(it => ({ ...it, gate: gateFor(it.href) }))
+            .filter(it => it.gate !== 'hide');
+          if (financeItems.length === 0) return null;
+          return (
+            <>
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.p
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40"
+                  >
+                    Finance
+                  </motion.p>
+                )}
+              </AnimatePresence>
+              {financeItems.map(item => {
+                const isActive = location.pathname === item.href;
+                const locked = item.gate === 'lock';
+                return (
+                  <Link key={item.name} to={locked ? '/billing' : item.href} onClick={handleNavClick}
+                    title={locked ? `${item.name} — upgrade required` : undefined}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
+                      isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                      collapsed && 'justify-center',
+                      locked && 'opacity-60'
+                    )}>
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <AnimatePresence>
+                      {!collapsed && (
+                        <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="text-sm whitespace-nowrap flex-1 flex items-center gap-2">
+                          {item.name}
+                          {locked && <Lock className="w-3.5 h-3.5 ml-auto opacity-70" />}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </Link>
+                );
+              })}
+            </>
+          );
+        })()}
       </nav>
 
 
