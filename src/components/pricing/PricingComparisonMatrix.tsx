@@ -103,8 +103,8 @@ export function PricingComparisonMatrix() {
               const rows = byCategory.get(cat.key) ?? [];
               if (rows.length === 0) return null;
               return (
-                <>
-                  <tr key={`h-${cat.key}`} className="bg-muted/20 border-t border-border">
+                <React.Fragment key={cat.key}>
+                  <tr className="bg-muted/20 border-t border-border">
                     <td colSpan={plans.length + 1} className="p-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       {cat.label}
                     </td>
@@ -129,7 +129,7 @@ export function PricingComparisonMatrix() {
                       </tr>
                     );
                   })}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
