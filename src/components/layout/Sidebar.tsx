@@ -40,7 +40,7 @@ import { Logo } from '@/components/brand/Logo';
 import { usePermissions, Permission } from '@/hooks/usePermissions';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 // Map nav hrefs to feature keys for entitlement gating
 const FEATURE_BY_HREF: Record<string, string> = {
