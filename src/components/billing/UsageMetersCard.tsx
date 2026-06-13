@@ -29,7 +29,7 @@ export function UsageMetersCard() {
       const results = await Promise.all(
         METERS.map(m => supabase.rpc('get_tenant_feature', { _tenant_id: tenantId, _feature_key: m.key })),
       );
-      setRows(results.map((r, i) => (r.data as Row) ?? { feature_key: METERS[i].key, enabled: false, limit: 0, usage: 0, remaining: 0, unlimited: false }));
+      setRows(results.map((r, i) => ((r.data as unknown) as Row) ?? { feature_key: METERS[i].key, enabled: false, limit: 0, usage: 0, remaining: 0, unlimited: false }));
       setLoading(false);
     })();
   }, [tenantId]);
