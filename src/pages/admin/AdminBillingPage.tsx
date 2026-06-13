@@ -70,7 +70,7 @@ export default function AdminBillingPage() {
   const [invoiceForm, setInvoiceForm] = useState({
     tenant_id: '',
     amount: '',
-    currency: 'GBP',
+    currency: 'USD',
     due_date: '',
     notes: '',
     line_items: [] as Array<{description: string, quantity: number, rate: number, amount: number}>,
@@ -208,7 +208,7 @@ export default function AdminBillingPage() {
 
       toast.success('Invoice created');
       setShowCreateDialog(false);
-      setInvoiceForm({ tenant_id: '', amount: '', currency: 'GBP', due_date: '', notes: '', line_items: [] });
+      setInvoiceForm({ tenant_id: '', amount: '', currency: 'USD', due_date: '', notes: '', line_items: [] });
       setSelectedTenantBranding(null);
       fetchData();
     } catch (error: any) {
@@ -233,7 +233,7 @@ export default function AdminBillingPage() {
       const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
           to: tenantEmail,
-          subject: `Invoice ${invoice.invoice_number} - £${Number(invoice.amount).toLocaleString()}`,
+          subject: `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
@@ -255,7 +255,7 @@ export default function AdminBillingPage() {
               <p>Please find your invoice details below:</p>
               <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p><strong>Invoice Number:</strong> ${invoice.invoice_number}</p>
-                <p><strong>Amount:</strong> £${Number(invoice.amount).toLocaleString()}</p>
+                <p><strong>Amount:</strong> $${Number(invoice.amount).toLocaleString()}</p>
                 <p><strong>Due Date:</strong> ${invoice.due_date ? format(new Date(invoice.due_date), 'MMMM d, yyyy') : 'Upon receipt'}</p>
                 ${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}
               </div>
@@ -315,7 +315,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">MRR</p>
-                  <p className="text-2xl font-bold">£{stats.mrr.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${stats.mrr.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -328,7 +328,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold">£{stats.totalRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -341,7 +341,7 @@ export default function AdminBillingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-2xl font-bold">£{stats.pendingInvoices.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">${stats.pendingInvoices.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -415,7 +415,7 @@ export default function AdminBillingPage() {
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <p className="font-medium">
-                          £{Number(invoice.amount).toLocaleString()}
+                          ${Number(invoice.amount).toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {invoice.due_date ? format(new Date(invoice.due_date), 'MMM d, yyyy') : 'No due date'}
@@ -500,7 +500,7 @@ export default function AdminBillingPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Amount (£) *</Label>
+                <Label>Amount ($) *</Label>
                 <Input
                   type="number"
                   value={invoiceForm.amount}
@@ -520,7 +520,7 @@ export default function AdminBillingPage() {
                   <SelectContent>
                     <SelectItem value="USD">USD</SelectItem>
                     <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

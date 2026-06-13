@@ -561,8 +561,8 @@ export default function AdminDashboardPage() {
     { title: 'Total Users', value: metrics?.totalUsers, icon: Users, color: 'text-blue-500' },
     { title: 'Active Tenants', value: metrics?.activeTenants, icon: Building2, color: 'text-green-500' },
     { title: 'Active Subscriptions', value: metrics?.activeSubscriptions, icon: CreditCard, color: 'text-purple-500' },
-    { title: 'MRR', value: `£${metrics?.mrr?.toLocaleString() || 0}`, icon: TrendingUp, color: 'text-emerald-500' },
-    { title: 'Total Revenue (YTD)', value: `£${metrics?.totalRevenue?.toLocaleString() || 0}`, icon: DollarSign, color: 'text-amber-500' },
+    { title: 'MRR', value: `$${metrics?.mrr?.toLocaleString() || 0}`, icon: TrendingUp, color: 'text-emerald-500' },
+    { title: 'Total Revenue (YTD)', value: `$${metrics?.totalRevenue?.toLocaleString() || 0}`, icon: DollarSign, color: 'text-amber-500' },
     { title: 'Expiring (30 days)', value: metrics?.expiringSubscriptions, icon: Clock, color: 'text-orange-500' },
     { title: 'Paused Accounts', value: metrics?.pausedAccounts, icon: PauseCircle, color: 'text-red-500' },
     { title: 'Trial Accounts', value: metrics?.trialAccounts, icon: AlertTriangle, color: 'text-yellow-500' },
@@ -657,13 +657,13 @@ export default function AdminDashboardPage() {
                 <AreaChart data={mrrData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(value) => `£${value}`} />
+                  <YAxis className="text-xs" tickFormatter={(value) => `$${value}`} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))' 
                     }}
-                    formatter={(value: number) => [`£${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
                   />
                   <Area
                     type="monotone"
@@ -783,7 +783,7 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">Total Revenue</p>
-              <p className="text-2xl font-bold text-emerald-600">£{filteredRevenueSummary().total.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-emerald-600">${filteredRevenueSummary().total.toLocaleString()}</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">Transactions</p>
@@ -816,7 +816,7 @@ export default function AdminDashboardPage() {
                       </Badge>
                     )}
                   </div>
-                  <span className="font-semibold text-emerald-600">£{entry.amount.toLocaleString()}</span>
+                  <span className="font-semibold text-emerald-600">${entry.amount.toLocaleString()}</span>
                 </div>
               ))}
               {filteredRevenueData().length > 20 && (

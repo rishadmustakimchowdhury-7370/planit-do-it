@@ -44,7 +44,7 @@ export default function AdminPromoCodesPage() {
     description: '',
     discount_type: 'percentage',
     discount_value: 10,
-    currency: 'GBP',
+    currency: 'USD',
     max_uses: '',
     valid_until: '',
     is_active: true,
@@ -94,7 +94,7 @@ export default function AdminPromoCodesPage() {
         description: '',
         discount_type: 'percentage',
         discount_value: 10,
-        currency: 'GBP',
+        currency: 'USD',
         max_uses: '',
         valid_until: '',
         is_active: true,
@@ -330,7 +330,7 @@ export default function AdminPromoCodesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="fixed">Fixed Amount (£)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
