@@ -939,15 +939,15 @@ const CandidatesPage = () => {
             onFiltersChange={setAdvancedFilters}
             onReset={() => setAdvancedFilters(defaultAdvancedFilters)}
           />
-          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=bulk')}>
+          <Button variant="outline" size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new?tab=bulk'))}>
             <Upload className="w-4 h-4 mr-2" />
             Bulk Upload
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate('/candidates/new?tab=cv')}>
+          <Button variant="outline" size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new?tab=cv'))}>
             <Upload className="w-4 h-4 mr-2" />
             Upload CV
           </Button>
-          <Button size="sm" onClick={() => navigate('/candidates/new')}>
+          <Button size="sm" onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new'))}>
             <Plus className="w-4 h-4 mr-2" />
             Add Candidate
           </Button>
