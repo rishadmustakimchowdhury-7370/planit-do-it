@@ -38,7 +38,20 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Logo } from '@/components/brand/Logo';
 import { usePermissions, Permission } from '@/hooks/usePermissions';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// Map nav hrefs to feature keys for entitlement gating
+const FEATURE_BY_HREF: Record<string, string> = {
+  '/reports': 'advanced_analytics',
+  '/finance': 'finance_dashboard',
+  '/finance/invoices': 'invoice_management',
+  '/finance/bonuses': 'recruiter_bonus_tracking',
+  '/finance/settings': 'finance_dashboard',
+  '/branding': 'custom_branding',
+};
+const GATED_FEATURES = Array.from(new Set(Object.values(FEATURE_BY_HREF)));
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
