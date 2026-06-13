@@ -1015,7 +1015,7 @@ const CandidatesPage = () => {
               ? "Try adjusting your search or filter criteria" 
               : "Start building your talent pool by adding candidates"}
           </p>
-          <Button onClick={() => navigate('/candidates/new')}>
+          <Button onClick={() => enforce.guard('candidates', async () => navigate('/candidates/new'))}>
             <Plus className="w-4 h-4 mr-2" />
             Add Your First Candidate
           </Button>
