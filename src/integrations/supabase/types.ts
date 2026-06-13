@@ -5638,6 +5638,84 @@ export type Database = {
           },
         ]
       }
+      subscription_features: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          feature_key: string
+          feature_name: string
+          id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          feature_key: string
+          feature_name: string
+          id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          feature_key?: string
+          feature_name?: string
+          id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_plan_features: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_id: string
+          id: string
+          limit_value: number | null
+          plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature_id: string
+          id?: string
+          limit_value?: number | null
+          plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_id?: string
+          id?: string
+          limit_value?: number | null
+          plan_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plan_features_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_features"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string | null
@@ -6870,6 +6948,10 @@ export type Database = {
       get_public_billing_setting: { Args: { _key: string }; Returns: Json }
       get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
       get_public_platform_setting: { Args: { _key: string }; Returns: Json }
+      get_tenant_feature: {
+        Args: { _feature_key: string; _tenant_id: string }
+        Returns: Json
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
