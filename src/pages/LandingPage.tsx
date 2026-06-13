@@ -114,13 +114,9 @@ export default function LandingPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('platform_settings')
-        .select('value')
-        .eq('key', 'demo_video_url')
-        .single();
-      if (data?.value) {
-        const url = typeof data.value === 'string' ? data.value.replace(/^"|"$/g, '') : String(data.value);
+      const { data } = await supabase.rpc('get_public_platform_setting', { _key: 'demo_video_url' });
+      if (data) {
+        const url = typeof data === 'string' ? data.replace(/^"|"$/g, '') : String(data);
         setDemoVideoUrl(url || null);
       }
     })();
