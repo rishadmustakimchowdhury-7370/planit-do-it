@@ -8,6 +8,7 @@ import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { PublicPromoBanner } from '@/components/promo/PublicPromoBanner';
 import { usePublicPricingPlans } from '@/hooks/usePublicPricingPlans';
+import { PricingComparisonMatrix } from '@/components/pricing/PricingComparisonMatrix';
 import {
   ArrowRight, Brain, Users, Mail, Calendar, BarChart3,
   Sparkles, CheckCircle2, Play, Menu, X, Activity,
@@ -637,6 +638,15 @@ export default function LandingPage() {
                 </motion.div>
               );
             })}
+          </div>
+
+          {/* Feature comparison matrix */}
+          <div className="mt-16 max-w-6xl mx-auto">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl md:text-3xl font-bold tracking-tight">Compare plans</h3>
+              <p className="text-muted-foreground mt-2 text-sm">Every feature, every limit — straight from our entitlement system.</p>
+            </div>
+            <PricingComparisonMatrix />
           </div>
         </div>
       </section>
