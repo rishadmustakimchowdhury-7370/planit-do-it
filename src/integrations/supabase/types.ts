@@ -6849,7 +6849,9 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_public_billing_setting: { Args: { _key: string }; Returns: Json }
       get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
+      get_public_platform_setting: { Args: { _key: string }; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
