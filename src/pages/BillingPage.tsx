@@ -211,6 +211,7 @@ export default function BillingPage() {
   return (
     <AppLayout title="Billing" subtitle="Manage your subscription and invoices">
       <div className="space-y-6">
+        <UsageMetersCard />
         {/* Current Plan Overview */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
