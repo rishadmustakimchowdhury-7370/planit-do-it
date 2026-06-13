@@ -307,6 +307,10 @@ export default function AdminPackagesPage() {
                 <ListChecks className="h-4 w-4" />
                 Features
               </TabsTrigger>
+              <TabsTrigger value="entitlements" className="gap-2">
+                <Grid3x3 className="h-4 w-4" />
+                Entitlements
+              </TabsTrigger>
             </TabsList>
 
             {activeTab === 'plans' && (
