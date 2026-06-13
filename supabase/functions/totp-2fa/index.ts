@@ -302,17 +302,18 @@ serve(async (req) => {
         });
       }
 
-      // Save the secret and enable 2FA
+      // Save the secret in user_mfa_secrets and flip the flag on profiles
+      const { error: secretError } = await supabase
+        .from("user_mfa_secrets")
+        .upsert({ user_id: user.id, totp_secret: secret }, { onConflict: "user_id" });
+
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ 
-          two_factor_enabled: true,
-          two_factor_secret: secret 
-        })
+        .update({ two_factor_enabled: true })
         .eq("id", user.id);
 
-      if (updateError) {
-        console.error("Error enabling 2FA:", updateError);
+      if (secretError || updateError) {
+        console.error("Error enabling 2FA:", secretError || updateError);
         return new Response(JSON.stringify({ error: "Failed to enable 2FA" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
