@@ -639,6 +639,15 @@ export default function LandingPage() {
               );
             })}
           </div>
+
+          {/* Feature comparison matrix */}
+          <div className="mt-16 max-w-6xl mx-auto">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl md:text-3xl font-bold tracking-tight">Compare plans</h3>
+              <p className="text-muted-foreground mt-2 text-sm">Every feature, every limit — straight from our entitlement system.</p>
+            </div>
+            <PricingComparisonMatrix />
+          </div>
         </div>
       </section>
 
