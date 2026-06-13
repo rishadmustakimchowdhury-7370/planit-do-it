@@ -898,6 +898,7 @@ export default function TeamMembersPage() {
           />
         )}
       </div>
+      {enforce.dialog}
     </AppLayout>
   );
 }
