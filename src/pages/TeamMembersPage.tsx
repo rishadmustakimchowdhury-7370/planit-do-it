@@ -213,9 +213,11 @@ export default function TeamMembersPage() {
       return;
     }
 
-    // Check team member limit
-    if (checkLimit('teamMembers')) {
-      showLimitError('team members');
+    // Entitlement pre-check (DB trigger is the source of truth)
+    try {
+      await assertFeature(tenantId, 'team_members', 1);
+    } catch (e) {
+      enforce.handleError(e);
       return;
     }
 
