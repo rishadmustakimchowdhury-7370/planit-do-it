@@ -91,22 +91,6 @@ export function TestimonialsCarousel() {
     };
   }, [emblaApi, onSelect]);
 
-  useEffect(() => {
-    const fetchTestimonials = async () => {
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('id, quote, author_name, author_role, author_avatar, rating')
-        .eq('is_active', true)
-        .eq('status', 'approved')
-        .order('order_index', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        setTestimonials(data);
-      }
-    };
-
-    fetchTestimonials();
-  }, []);
 
   return (
     <div className="relative">
