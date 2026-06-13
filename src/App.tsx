@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { CookieConsentProvider } from "@/lib/cookie-consent";
 import { DynamicHead } from "@/components/DynamicHead";
 import { CookieConsentBanner } from "@/components/cookie/CookieConsentBanner";
+import { FeatureRoute } from "@/components/routing/FeatureRoute";
 import { Loader2 } from "lucide-react";
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
