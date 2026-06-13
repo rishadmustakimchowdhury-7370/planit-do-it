@@ -73,7 +73,7 @@ export function PromoBanner({ variant = 'landing' }: PromoBannerProps) {
     if (promo.discount_type === 'percentage') {
       return `${promo.discount_value}% OFF`;
     }
-    return `£${promo.discount_value} OFF`;
+    return `$${promo.discount_value} OFF`;
   };
 
   const copyCode = () => {

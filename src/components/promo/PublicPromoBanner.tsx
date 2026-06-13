@@ -44,7 +44,7 @@ export function PublicPromoBanner() {
   const discountText = useMemo(() => {
     if (!promo) return "";
     if (promo.discount_type === "percentage") return `${promo.discount_value}% OFF`;
-    return `£${promo.discount_value} OFF`;
+    return `$${promo.discount_value} OFF`;
   }, [promo]);
 
   const message = useMemo(() => {

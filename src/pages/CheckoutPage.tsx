@@ -188,7 +188,7 @@ export default function CheckoutPage() {
         discount_amount: discountAmount,
       });
       
-      toast.success(`Promo code applied! You save £${discountAmount.toFixed(2)}`);
+      toast.success(`Promo code applied! You save $${discountAmount.toFixed(2)}`);
     } catch (error: any) {
       toast.error('Failed to validate promo code');
     } finally {
@@ -345,7 +345,7 @@ export default function CheckoutPage() {
                           </div>
                         )}
                         <div className="text-sm text-muted-foreground mt-1">
-                          £{(plan!.price_monthly * (1 - option.discount / 100)).toFixed(2)}/mo
+                          ${(plan!.price_monthly * (1 - option.discount / 100)).toFixed(2)}/mo
                         </div>
                       </button>
                     ))}
@@ -429,7 +429,7 @@ export default function CheckoutPage() {
                       <Tag className="h-4 w-4 text-success" />
                       <span className="text-sm font-medium text-success">{appliedPromo.code}</span>
                       <span className="text-sm text-muted-foreground">
-                        -{appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}%` : `£${appliedPromo.discount_value}`}
+                        -{appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}%` : `$${appliedPromo.discount_value}`}
                       </span>
                       <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={removePromoCode}>
                         <X className="h-3 w-3" />
@@ -460,18 +460,18 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>{plan.name} Plan × {selectedBilling} month{selectedBilling > 1 ? 's' : ''}</span>
-                    <span>£{basePrice.toFixed(2)}</span>
+                    <span>${basePrice.toFixed(2)}</span>
                   </div>
                   {selectedOption.discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Duration Discount ({selectedOption.discount}%)</span>
-                      <span>-£{billingDiscount.toFixed(2)}</span>
+                      <span>-${billingDiscount.toFixed(2)}</span>
                     </div>
                   )}
                   {appliedPromo && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Promo ({appliedPromo.code})</span>
-                      <span>-£{promoDiscount.toFixed(2)}</span>
+                      <span>-${promoDiscount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -481,9 +481,9 @@ export default function CheckoutPage() {
                 <div className="flex justify-between font-semibold text-lg">
                   <span>Total</span>
                   <div className="text-right">
-                    <div>£{finalPrice.toFixed(2)} GBP</div>
+                    <div>${finalPrice.toFixed(2)} USD</div>
                     <div className="text-xs text-muted-foreground font-normal">
-                      (£{(finalPrice / selectedBilling).toFixed(2)}/month)
+                      (${(finalPrice / selectedBilling).toFixed(2)}/month)
                     </div>
                   </div>
                 </div>

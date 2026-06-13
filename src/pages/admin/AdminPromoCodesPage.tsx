@@ -330,7 +330,7 @@ export default function AdminPromoCodesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="fixed">Fixed Amount (£)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
