@@ -1115,6 +1115,7 @@ const CandidatesPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {enforce.dialog}
     </AppLayout>
   );
 };
