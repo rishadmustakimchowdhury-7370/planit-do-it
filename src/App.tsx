@@ -207,14 +207,14 @@ const AppRoutes = () => (
       <Route path="/team/manager-dashboard" element={<ProtectedRoute><ManagerWorkDashboardPage /></ProtectedRoute>} />
       <Route path="/team/usage" element={<ProtectedRoute><TeamUsagePage /></ProtectedRoute>} />
       
-      <Route path="/branding" element={<ProtectedRoute><BrandingSettingsPage /></ProtectedRoute>} />
+      <Route path="/branding" element={<ProtectedRoute><FeatureRoute featureKey="custom_branding"><BrandingSettingsPage /></FeatureRoute></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><FeatureRoute featureKey="advanced_analytics"><ReportsPage /></FeatureRoute></ProtectedRoute>} />
       <Route path="/placements" element={<ProtectedRoute><PlacementsPage /></ProtectedRoute>} />
-      <Route path="/finance" element={<ProtectedRoute><FinanceDashboardPage /></ProtectedRoute>} />
-      <Route path="/finance/invoices" element={<ProtectedRoute><InvoicesPage /></ProtectedRoute>} />
-      <Route path="/finance/bonuses" element={<ProtectedRoute><RecruiterBonusesPage /></ProtectedRoute>} />
-      <Route path="/finance/settings" element={<ProtectedRoute><FinanceSettingsPage /></ProtectedRoute>} />
+      <Route path="/finance" element={<ProtectedRoute><FeatureRoute featureKey="finance_dashboard"><FinanceDashboardPage /></FeatureRoute></ProtectedRoute>} />
+      <Route path="/finance/invoices" element={<ProtectedRoute><FeatureRoute featureKey="invoice_management"><InvoicesPage /></FeatureRoute></ProtectedRoute>} />
+      <Route path="/finance/bonuses" element={<ProtectedRoute><FeatureRoute featureKey="recruiter_bonus_tracking"><RecruiterBonusesPage /></FeatureRoute></ProtectedRoute>} />
+      <Route path="/finance/settings" element={<ProtectedRoute><FeatureRoute featureKey="finance_dashboard"><FinanceSettingsPage /></FeatureRoute></ProtectedRoute>} />
       <Route path="/tutorials" element={<ProtectedRoute><TutorialVideosPage /></ProtectedRoute>} />
       <Route path="/email/analytics" element={<ProtectedRoute><EmailAnalyticsPage /></ProtectedRoute>} />
       <Route path="/email/accounts" element={<ProtectedRoute><EmailAccountsPage /></ProtectedRoute>} />
