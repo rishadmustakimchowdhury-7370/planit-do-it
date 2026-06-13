@@ -164,18 +164,28 @@ serve(async (req) => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("two_factor_secret, two_factor_enabled")
+        .select("id, two_factor_enabled")
         .eq("email", email)
         .single();
 
-      if (!profile?.two_factor_enabled || !profile?.two_factor_secret) {
+      let storedSecret: string | null = null;
+      if (profile?.id) {
+        const { data: mfa } = await supabase
+          .from("user_mfa_secrets")
+          .select("totp_secret")
+          .eq("user_id", profile.id)
+          .maybeSingle();
+        storedSecret = mfa?.totp_secret ?? null;
+      }
+
+      if (!profile?.two_factor_enabled || !storedSecret) {
         return new Response(JSON.stringify({ error: "2FA not enabled for this user" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const isValid = await verifyTOTP(profile.two_factor_secret, code);
+      const isValid = await verifyTOTP(storedSecret, code);
       
       if (!isValid) {
         console.log("Invalid TOTP code for login");
