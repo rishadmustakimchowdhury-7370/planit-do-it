@@ -91,14 +91,10 @@ export default function CheckoutPage() {
 
   const fetchDiscounts = async () => {
     try {
-      const { data } = await supabase
-        .from('billing_settings')
-        .select('setting_value')
-        .eq('setting_key', 'multi_month_discounts')
-        .single();
-      
-      if (data?.setting_value) {
-        const value = data.setting_value as Record<string, number>;
+      const { data } = await supabase.rpc('get_public_billing_setting', { _key: 'multi_month_discounts' });
+
+      if (data) {
+        const value = data as Record<string, number>;
         setDiscounts({
           1: 0,
           3: value['3'] ?? 5,
