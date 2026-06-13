@@ -168,6 +168,7 @@ const CandidatesPage = () => {
   const navigate = useNavigate();
   const { tenantId, user } = useAuth();
   const { logActivity } = useRecruiterActivity();
+  const enforce = useEnforceFeature();
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
