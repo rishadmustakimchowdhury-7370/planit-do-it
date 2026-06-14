@@ -780,14 +780,13 @@ export default function LandingPage() {
         <div className="relative container mx-auto max-w-4xl text-center">
           <Eyebrow dark>Get Started</Eyebrow>
           <h2 className="text-3xl md:text-5xl lg:text-[56px] font-bold tracking-tight mt-5 leading-[1.08]">
-            Built For Recruitment Agencies{' '}
+            Ready To Scale Your{' '}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Ready To Scale
+              Recruitment Agency?
             </span>
           </h2>
           <p className="text-white/70 text-lg mt-6 max-w-2xl mx-auto leading-relaxed">
-            Replace spreadsheets, disconnected tools, and manual recruitment workflows with one
-            AI-powered recruitment operating system.
+            Everything you need to recruit, submit, place and grow — in one AI-powered platform.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-9">
