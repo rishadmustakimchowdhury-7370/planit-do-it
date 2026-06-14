@@ -20,10 +20,12 @@ interface Props {
 export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
   const { tenantId, user } = useAuth();
   const [placements, setPlacements] = useState<any[]>([]);
+  const [recruiters, setRecruiters] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({
     placement_id: "",
+    recruiter_user_id: "",
     bonus_type: "percent",
     bonus_pct: 10,
     bonus_fixed: 0,
@@ -35,12 +37,25 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
     if (!open || !tenantId) return;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("placements")
-        .select("id, placement_date, placement_fee, currency, recruiter_user_id, candidates(full_name), jobs(title)")
-        .eq("tenant_id", tenantId)
-        .order("placement_date", { ascending: false });
-      setPlacements(data || []);
+      const [{ data: pls }, { data: roles }] = await Promise.all([
+        supabase
+          .from("placements")
+          .select("id, placement_date, placement_fee, currency, recruiter_user_id, candidates(full_name), jobs(title)")
+          .eq("tenant_id", tenantId)
+          .order("placement_date", { ascending: false }),
+        supabase
+          .from("user_roles")
+          .select("user_id, role, profiles!inner(id, full_name, email, is_active)")
+          .eq("tenant_id", tenantId)
+          .in("role", ["recruiter", "manager", "owner"]),
+      ]);
+      setPlacements(pls || []);
+      const seen = new Set<string>();
+      const recs = (roles || [])
+        .map((r: any) => r.profiles)
+        .filter((p: any) => p && p.is_active && !seen.has(p.id) && seen.add(p.id))
+        .sort((a: any, b: any) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || ""));
+      setRecruiters(recs);
       setLoading(false);
     })();
   }, [open, tenantId]);
@@ -52,20 +67,21 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
     : Number(form.bonus_fixed || 0);
 
   const handleSave = async () => {
-    if (!tenantId || !user || !selectedPlacement) {
-      toast({ title: "Select a placement", variant: "destructive" });
+    if (!tenantId || !user) return;
+    if (!form.recruiter_user_id) {
+      toast({ title: "Select a recruiter", variant: "destructive" });
       return;
     }
     setSaving(true);
     const { error, data } = await supabase.from("recruiter_bonuses").insert({
       tenant_id: tenantId,
-      placement_id: selectedPlacement.id,
-      recruiter_user_id: selectedPlacement.recruiter_user_id,
+      placement_id: selectedPlacement?.id || null,
+      recruiter_user_id: form.recruiter_user_id,
       bonus_type: form.bonus_type,
       bonus_pct: form.bonus_type === "percent" ? form.bonus_pct : null,
       bonus_fixed: form.bonus_type === "fixed" ? form.bonus_fixed : null,
       bonus_amount: calcAmount,
-      currency: selectedPlacement.currency || form.currency,
+      currency: selectedPlacement?.currency || form.currency,
       status: "pending",
       notes: form.notes,
       created_by: user.id,
@@ -93,8 +109,15 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
         {loading ? <Loader2 className="animate-spin" /> : (
           <div className="space-y-4">
             <div>
-              <Label>Placement</Label>
-              <Select value={form.placement_id} onValueChange={v => setForm({ ...form, placement_id: v })}>
+              <Label>Placement (optional)</Label>
+              <Select value={form.placement_id} onValueChange={v => {
+                const p = placements.find(x => x.id === v);
+                setForm({
+                  ...form,
+                  placement_id: v,
+                  recruiter_user_id: p?.recruiter_user_id || form.recruiter_user_id,
+                });
+              }}>
                 <SelectTrigger><SelectValue placeholder="Select placement" /></SelectTrigger>
                 <SelectContent>
                   {placements.map(p => (
@@ -104,6 +127,25 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Recruiter <span className="text-destructive">*</span></Label>
+              <Select value={form.recruiter_user_id} onValueChange={v => setForm({ ...form, recruiter_user_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
+                <SelectContent>
+                  {recruiters.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <div className="flex flex-col">
+                        <span>{r.full_name || r.email}</span>
+                        {r.full_name && r.email && <span className="text-xs text-muted-foreground">{r.email}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPlacement && form.recruiter_user_id === selectedPlacement.recruiter_user_id && (
+                <p className="text-xs text-muted-foreground mt-1">Auto-selected from placement. You can override.</p>
+              )}
             </div>
             <div>
               <Label>Bonus type</Label>

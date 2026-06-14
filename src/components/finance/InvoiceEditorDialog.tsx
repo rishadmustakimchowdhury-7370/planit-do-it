@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { SUPPORTED_CURRENCIES, formatMoney } from "@/lib/finance";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
 interface Props {
@@ -60,7 +63,11 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
       setLoading(true);
       const [{ data: s }, { data: cl }, { data: pls }] = await Promise.all([
         supabase.from("finance_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
-        supabase.from("clients").select("id, name, client_org_id").eq("tenant_id", tenantId).order("name"),
+        supabase.from("clients")
+          .select("id, name, contact_name, contact_email, address, address_line1, address_line2, city, state, postal_code, country, is_active")
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .order("name"),
         supabase.from("placements").select("id, candidate_id, job_id, client_id, client_org_id, placement_fee, currency, salary, candidates(full_name), jobs(title), clients(name)").eq("tenant_id", tenantId).order("placement_date", { ascending: false }),
       ]);
       setSettings(s);
@@ -216,13 +223,19 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
               <div><Label>Due date</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
               <div>
                 <Label>Client</Label>
-                <Select value={form.client_id || ""} onValueChange={v => {
-                  const c = clients.find(x => x.id === v);
-                  setForm({ ...form, client_id: v, client_org_id: c?.client_org_id || null });
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <ClientCombobox
+                  clients={clients}
+                  value={form.client_id}
+                  onChange={(c) => {
+                    const composedAddress = [c?.address_line1, c?.address_line2, [c?.city, c?.state, c?.postal_code].filter(Boolean).join(" "), c?.country].filter(Boolean).join(", ") || c?.address || "";
+                    setForm({
+                      ...form,
+                      client_id: c?.id || null,
+                      client_org_id: null,
+                      notes: form.notes || (composedAddress ? `Bill to: ${c?.name}\n${composedAddress}` : form.notes),
+                    });
+                  }}
+                />
               </div>
               <div>
                 <Label>Placement (optional)</Label>
@@ -299,5 +312,43 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ClientCombobox({ clients, value, onChange }: { clients: any[]; value: string | null; onChange: (c: any | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = clients.find(c => c.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground")}>
+          {selected ? selected.name : "Select client"}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search clients..." />
+          <CommandList>
+            <CommandEmpty>No clients found.</CommandEmpty>
+            <CommandGroup>
+              {clients.map(c => (
+                <CommandItem key={c.id} value={`${c.name} ${c.contact_name || ""} ${c.contact_email || ""}`} onSelect={() => { onChange(c); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === c.id ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{c.name}</span>
+                    {(c.contact_name || c.contact_email) && (
+                      <span className="text-xs text-muted-foreground">
+                        {c.contact_name}{c.contact_name && c.contact_email ? " · " : ""}{c.contact_email}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -11,13 +11,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance";
-import { Loader2, Save, Banknote, Building2 } from "lucide-react";
+import { Loader2, Save, Banknote, Building2, Upload, X } from "lucide-react";
 import { Navigate } from "react-router-dom";
+
+const LOGO_BUCKET = "branding-assets";
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"];
 
 export default function FinanceSettingsPage() {
   const { tenantId, isOwner, isManager, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [form, setForm] = useState<any>({
     agency_name: "",
     agency_address: "",
@@ -92,7 +97,67 @@ export default function FinanceSettingsPage() {
                 <div><Label>Phone</Label><Input value={form.agency_phone || ""} onChange={e => set("agency_phone", e.target.value)} /></div>
                 <div><Label>Website</Label><Input value={form.agency_website || ""} onChange={e => set("agency_website", e.target.value)} /></div>
                 <div className="md:col-span-2"><Label>Address</Label><Textarea rows={2} value={form.agency_address || ""} onChange={e => set("agency_address", e.target.value)} /></div>
-                <div className="md:col-span-2"><Label>Logo URL</Label><Input value={form.agency_logo_url || ""} onChange={e => set("agency_logo_url", e.target.value)} placeholder="https://…" /></div>
+                <div className="md:col-span-2">
+                  <Label>Company Logo</Label>
+                  <div className="flex items-start gap-4 mt-2">
+                    {form.agency_logo_url ? (
+                      <div className="relative w-32 h-32 rounded-lg border bg-muted/30 flex items-center justify-center overflow-hidden">
+                        <img src={form.agency_logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                        <button
+                          type="button"
+                          onClick={() => set("agency_logo_url", "")}
+                          className="absolute top-1 right-1 bg-background/90 hover:bg-background border rounded-full p-1"
+                          aria-label="Remove logo"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-32 rounded-lg border-2 border-dashed bg-muted/20 flex items-center justify-center text-xs text-muted-foreground">
+                        No logo
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input
+                        id="logo-upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file || !tenantId) return;
+                          if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+                            toast({ title: "Unsupported file type", description: "Use PNG, JPG, SVG or WEBP.", variant: "destructive" });
+                            return;
+                          }
+                          if (file.size > MAX_LOGO_BYTES) {
+                            toast({ title: "File too large", description: "Max 5MB.", variant: "destructive" });
+                            return;
+                          }
+                          setUploadingLogo(true);
+                          const ext = file.name.split(".").pop() || "png";
+                          const path = `finance-logos/${tenantId}/${Date.now()}.${ext}`;
+                          const { error: upErr } = await supabase.storage.from(LOGO_BUCKET).upload(path, file, { upsert: true, contentType: file.type });
+                          if (upErr) {
+                            setUploadingLogo(false);
+                            toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
+                            return;
+                          }
+                          const { data: pub } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+                          set("agency_logo_url", pub.publicUrl);
+                          setUploadingLogo(false);
+                          toast({ title: "Logo uploaded" });
+                        }}
+                      />
+                      <Button type="button" variant="outline" disabled={uploadingLogo} onClick={() => document.getElementById("logo-upload")?.click()}>
+                        {uploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {form.agency_logo_url ? "Replace logo" : "Upload logo"}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">PNG, JPG, SVG or WEBP · Max 5MB. Appears on invoices and emails.</p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
