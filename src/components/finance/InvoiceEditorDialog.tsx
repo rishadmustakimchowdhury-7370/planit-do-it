@@ -314,3 +314,41 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
     </Dialog>
   );
 }
+
+function ClientCombobox({ clients, value, onChange }: { clients: any[]; value: string | null; onChange: (c: any | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = clients.find(c => c.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground")}>
+          {selected ? selected.name : "Select client"}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search clients..." />
+          <CommandList>
+            <CommandEmpty>No clients found.</CommandEmpty>
+            <CommandGroup>
+              {clients.map(c => (
+                <CommandItem key={c.id} value={`${c.name} ${c.contact_name || ""} ${c.contact_email || ""}`} onSelect={() => { onChange(c); setOpen(false); }}>
+                  <Check className={cn("mr-2 h-4 w-4", value === c.id ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{c.name}</span>
+                    {(c.contact_name || c.contact_email) && (
+                      <span className="text-xs text-muted-foreground">
+                        {c.contact_name}{c.contact_name && c.contact_email ? " · " : ""}{c.contact_email}
+                      </span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
