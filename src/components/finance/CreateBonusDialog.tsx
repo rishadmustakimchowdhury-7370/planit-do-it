@@ -20,10 +20,12 @@ interface Props {
 export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
   const { tenantId, user } = useAuth();
   const [placements, setPlacements] = useState<any[]>([]);
+  const [recruiters, setRecruiters] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({
     placement_id: "",
+    recruiter_user_id: "",
     bonus_type: "percent",
     bonus_pct: 10,
     bonus_fixed: 0,
