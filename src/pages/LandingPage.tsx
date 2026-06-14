@@ -249,12 +249,13 @@ export default function LandingPage() {
             <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
           </motion.div>
 
-          {/* Dashboard showcase — full-width hero */}
+          {/* Dashboard showcase — full-width hero (30% larger) */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.25 }}
-            className="relative mt-16 max-w-6xl mx-auto"
+            className="relative mt-14 mx-auto"
+            style={{ maxWidth: 'min(1280px, 100%)' }}
           >
             <div className="absolute -inset-8 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-[2rem] blur-3xl opacity-70 -z-10" />
             <motion.div
@@ -264,43 +265,29 @@ export default function LandingPage() {
               <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
             </motion.div>
 
-            {/* Floating activity chips */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="hidden md:flex absolute -left-6 top-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              95% Match Score
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.85 }}
-              className="hidden md:flex absolute -right-6 top-32 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              Interview Scheduled
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0 }}
-              className="hidden lg:flex absolute -left-4 bottom-28 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              Candidate Rediscovered
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.15 }}
-              className="hidden md:flex absolute -right-4 bottom-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Mail className="h-3.5 w-3.5 text-emerald-600" />
-              Email Sent Successfully
-            </motion.div>
+            {/* Floating KPI cards */}
+            {[
+              { icon: Users, label: 'Candidates', value: '2,847', tone: 'text-primary', pos: 'hidden md:flex absolute -left-6 top-16' },
+              { icon: Target, label: 'Placements', value: '184', tone: 'text-emerald-600', pos: 'hidden md:flex absolute -right-6 top-28' },
+              { icon: DollarSign, label: 'Revenue', value: '$1.2M', tone: 'text-primary', pos: 'hidden lg:flex absolute -left-8 bottom-24' },
+              { icon: Receipt, label: 'Invoices', value: '96', tone: 'text-amber-600', pos: 'hidden md:flex absolute -right-8 bottom-16' },
+            ].map((k, i) => (
+              <motion.div
+                key={k.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 + i * 0.15 }}
+                className={`${k.pos} items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border shadow-xl`}
+              >
+                <div className={`w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center ${k.tone}`}>
+                  <k.icon className="h-4 w-4" />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{k.label}</div>
+                  <div className="text-base font-bold leading-tight">{k.value}</div>
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
