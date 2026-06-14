@@ -22,6 +22,7 @@ export default function FinanceSettingsPage() {
   const { tenantId, isOwner, isManager, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [form, setForm] = useState<any>({
     agency_name: "",
     agency_address: "",
