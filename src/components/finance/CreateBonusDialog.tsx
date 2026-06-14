@@ -67,20 +67,21 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
     : Number(form.bonus_fixed || 0);
 
   const handleSave = async () => {
-    if (!tenantId || !user || !selectedPlacement) {
-      toast({ title: "Select a placement", variant: "destructive" });
+    if (!tenantId || !user) return;
+    if (!form.recruiter_user_id) {
+      toast({ title: "Select a recruiter", variant: "destructive" });
       return;
     }
     setSaving(true);
     const { error, data } = await supabase.from("recruiter_bonuses").insert({
       tenant_id: tenantId,
-      placement_id: selectedPlacement.id,
-      recruiter_user_id: selectedPlacement.recruiter_user_id,
+      placement_id: selectedPlacement?.id || null,
+      recruiter_user_id: form.recruiter_user_id,
       bonus_type: form.bonus_type,
       bonus_pct: form.bonus_type === "percent" ? form.bonus_pct : null,
       bonus_fixed: form.bonus_type === "fixed" ? form.bonus_fixed : null,
       bonus_amount: calcAmount,
-      currency: selectedPlacement.currency || form.currency,
+      currency: selectedPlacement?.currency || form.currency,
       status: "pending",
       notes: form.notes,
       created_by: user.id,
