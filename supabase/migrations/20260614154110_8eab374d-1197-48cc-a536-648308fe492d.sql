@@ -1,0 +1,1 @@
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS show_company boolean NOT NULL DEFAULT false;
