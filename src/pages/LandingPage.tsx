@@ -69,12 +69,15 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
 /* ---------------- Operational Value Cards ---------------- */
 
 const valueCards = [
-  { icon: Rocket, title: 'Faster Placements', desc: 'Move candidates from CV to placement in days, not weeks, with AI-driven pipelines.' },
-  { icon: Brain, title: 'AI Candidate Matching', desc: 'Match scores, skill gaps, and shortlist suggestions generated automatically.' },
-  { icon: Timer, title: 'Recruiter Productivity', desc: 'Automate parsing, outreach, and follow-ups so recruiters focus on closing.' },
-  { icon: Workflow, title: 'Workflow Automation', desc: 'Standardised stages, reminders, and handoffs across your entire team.' },
-  { icon: Target, title: 'Centralized Operations', desc: 'Jobs, candidates, clients, and communications in one operating system.' },
-  { icon: Eye, title: 'Team Visibility', desc: 'Live recruiter activity, pipeline health, and KPI tracking for managers.' },
+  { icon: Brain, title: 'AI Candidate Matching', desc: 'Match candidates against job requirements instantly using AI.' },
+  { icon: Mail, title: 'Client Submission Reports', desc: 'Generate professional branded reports for clients in minutes.' },
+  { icon: Workflow, title: 'Client Submission Pipeline', desc: 'Track every candidate from submission to placement.' },
+  { icon: Target, title: 'Placement Tracking', desc: 'Monitor interviews, offers, hires and placements end-to-end.' },
+  { icon: BarChart3, title: 'Finance Dashboard', desc: 'Track revenue, invoices and business performance in real time.' },
+  { icon: CheckCircle2, title: 'Invoice Management', desc: 'Generate and send invoices directly from HireMetrics.' },
+  { icon: Rocket, title: 'Recruiter Bonus Tracking', desc: 'Manage recruiter commissions and bonus payments automatically.' },
+  { icon: Activity, title: 'Recruiter Performance Dashboard', desc: 'Measure recruiter productivity, submissions and placements.' },
+  { icon: Timer, title: 'Daily Activity & Work Hour Tracking', desc: 'Monitor recruiter activity and team performance live.' },
 ];
 
 /* ---------------- Bento Features (cleaner, fewer) ---------------- */
@@ -178,16 +181,21 @@ export default function LandingPage() {
 
         <div className="container mx-auto max-w-7xl">
           <motion.div {...fadeUp} className="text-center max-w-4xl mx-auto space-y-6">
-            <Eyebrow>AI Recruitment Operating System</Eyebrow>
+            <Eyebrow>AI Recruitment Agency Operating System</Eyebrow>
             <h1 className="text-4xl sm:text-5xl lg:text-[68px] font-bold tracking-tight leading-[1.05] text-foreground">
-              Close More Placements.<br />
+              Run Your Entire Recruitment Agency<br />
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Not More Admin Work.
+                From One Platform
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              The AI-powered recruitment operating system helping agencies streamline hiring
-              workflows, validate candidates, automate outreach, and track recruiter productivity.
+              Source candidates, generate client-ready reports, manage submissions, track placements,
+              invoice clients, monitor recruiter performance and grow your agency — all from one AI-powered platform.
+            </p>
+            <p className="text-sm md:text-base text-muted-foreground/90 max-w-2xl mx-auto">
+              Stop switching between spreadsheets, ATS systems, reporting tools and finance software.
+              HireMetrics combines recruitment operations, client submissions, placements, invoicing
+              and recruiter performance management into one seamless workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link to="/auth?mode=signup">
@@ -198,6 +206,11 @@ export default function LandingPage() {
               <Button size="lg" variant="outline" className="h-12 px-7 gap-2" onClick={() => setBookDemoOpen(true)}>
                 <Play className="h-4 w-4" /> Book Demo
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs sm:text-sm text-muted-foreground">
+              {['AI Matching','Client Reports','Placement Tracking','Finance & Invoicing','Recruiter Analytics'].map(b => (
+                <span key={b} className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary"/>{b}</span>
+              ))}
             </div>
             <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
           </motion.div>
@@ -368,12 +381,12 @@ export default function LandingPage() {
       <section className="py-16 md:py-24 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
-            <Eyebrow>What you get</Eyebrow>
+            <Eyebrow>Why HireMetrics</Eyebrow>
             <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
-              An operating system built around recruiter outcomes
+              Why Recruitment Agencies Choose HireMetrics
             </h2>
             <p className="text-muted-foreground mt-4">
-              Six operational pillars that replace spreadsheets, manual tracking, and disconnected tools.
+              Everything your agency needs to recruit, submit, place and grow.
             </p>
           </motion.div>
 
@@ -568,6 +581,98 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ RECRUITMENT WORKFLOW ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
+            <Eyebrow>End-to-End</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              From Candidate To Revenue
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              Manage the entire recruitment lifecycle without switching platforms.
+            </p>
+          </motion.div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+            {['Candidate','AI Match','Client Report','Submission','Interview','Placement','Invoice','Payment','Revenue'].map((step, i, arr) => (
+              <div key={step} className="flex items-center gap-2 md:gap-3">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.06 }}
+                  className="px-4 py-2.5 rounded-xl bg-card border border-border font-semibold text-sm md:text-base shadow-sm hover:border-primary/40 hover:shadow-md transition-all"
+                >
+                  {step}
+                </motion.div>
+                {i < arr.length - 1 && <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ BUILT FOR AGENCIES ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
+            <Eyebrow>Who it's for</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Built Specifically For Recruitment Businesses
+            </h2>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { t: 'Executive Search Firms', d: 'Confidential searches with branded client reports and shortlist tracking.' },
+              { t: 'Staffing Agencies', d: 'High-volume pipelines, multi-recruiter routing, and live KPI dashboards.' },
+              { t: 'Recruitment Boutiques', d: 'A complete OS for small teams — no spreadsheets, no scattered tools.' },
+              { t: 'RPO Providers', d: 'Multi-client workspaces with submission packs and SLA reporting.' },
+              { t: 'Internal Talent Teams', d: 'Hiring manager collaboration, AI matching, and offer/placement tracking.' },
+            ].map((c, i) => (
+              <motion.div
+                key={c.t}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="rounded-2xl border border-border bg-card p-6 hover:border-primary/30 hover:shadow-lg transition-all"
+              >
+                <h3 className="font-semibold mb-2">{c.t}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{c.d}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ BUSINESS BENEFITS ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-5xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Outcomes</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Reduce Admin Work. Increase Placements.
+            </h2>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              'Reduce manual reporting by up to 80%',
+              'Generate client submissions in minutes',
+              'Track recruiter performance in real time',
+              'Monitor placement revenue instantly',
+              'Manage invoices and payments from one dashboard',
+              'Eliminate spreadsheets and disconnected tools',
+            ].map((b) => (
+              <div key={b} className="flex items-start gap-3 rounded-xl border border-border bg-card p-5">
+                <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <p className="text-sm md:text-base font-medium">{b}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ============ TESTIMONIALS ============ */}
       <HomepageTestimonials />
 
@@ -675,14 +780,13 @@ export default function LandingPage() {
         <div className="relative container mx-auto max-w-4xl text-center">
           <Eyebrow dark>Get Started</Eyebrow>
           <h2 className="text-3xl md:text-5xl lg:text-[56px] font-bold tracking-tight mt-5 leading-[1.08]">
-            Built For Recruitment Agencies{' '}
+            Ready To Scale Your{' '}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Ready To Scale
+              Recruitment Agency?
             </span>
           </h2>
           <p className="text-white/70 text-lg mt-6 max-w-2xl mx-auto leading-relaxed">
-            Replace spreadsheets, disconnected tools, and manual recruitment workflows with one
-            AI-powered recruitment operating system.
+            Everything you need to recruit, submit, place and grow — in one AI-powered platform.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-9">
