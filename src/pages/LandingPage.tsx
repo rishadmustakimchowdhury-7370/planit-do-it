@@ -9,6 +9,7 @@ import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { PublicPromoBanner } from '@/components/promo/PublicPromoBanner';
 import { usePublicPricingPlans } from '@/hooks/usePublicPricingPlans';
 import { PricingComparisonMatrix } from '@/components/pricing/PricingComparisonMatrix';
+import { HomepageTestimonials } from '@/components/testimonials/HomepageTestimonials';
 import {
   ArrowRight, Brain, Users, Mail, Calendar, BarChart3,
   Sparkles, CheckCircle2, Play, Menu, X, Activity,
