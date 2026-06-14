@@ -14,6 +14,7 @@ import {
   ArrowRight, Brain, Users, Mail, Calendar, BarChart3,
   Sparkles, CheckCircle2, Play, Menu, X, Activity,
   Timer, Zap, Workflow, Target, Eye, Rocket, Linkedin, Twitter, Github, Star,
+  DollarSign, FileText, Briefcase, TrendingUp, Receipt, Wallet,
 } from 'lucide-react';
 
 import dashboardImg from '@/assets/crm/dashboard.jpg';
