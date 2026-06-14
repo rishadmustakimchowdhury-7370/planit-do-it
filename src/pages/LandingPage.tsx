@@ -293,7 +293,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PRODUCT DEMO VIDEO ============ */}
-      <section className="relative py-20 md:py-28 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-14 md:py-20 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-accent/15 rounded-full blur-3xl" />
@@ -399,7 +399,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ OPERATIONAL VALUE CARDS ============ */}
-      <section className="py-16 md:py-24 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-12 md:py-16 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Why HireMetrics</Eyebrow>
@@ -433,7 +433,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FEATURE ROWS (alternating screenshots) ============ */}
-      <section id="features" className="py-20 md:py-32 px-5 sm:px-6">
+      <section id="features" className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-20 max-w-2xl mx-auto">
             <Eyebrow>Platform</Eyebrow>
@@ -476,7 +476,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BRANDED CV SHOWCASE ============ */}
-      <section className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div {...fadeUp} className="space-y-5 order-2 lg:order-1">
@@ -527,7 +527,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ INTEGRATED OUTREACH ============ */}
-      <section className="py-20 md:py-32 px-5 sm:px-6">
+      <section className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
@@ -578,7 +578,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PLATFORM SHOWCASE (single feature image) ============ */}
-      <section id="platform" className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section id="platform" className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Inside the platform</Eyebrow>
@@ -603,7 +603,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ RECRUITMENT WORKFLOW ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
             <Eyebrow>End-to-End</Eyebrow>
@@ -635,7 +635,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BUILT FOR AGENCIES ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6">
+      <section className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
             <Eyebrow>Who it's for</Eyebrow>
@@ -668,7 +668,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BUSINESS BENEFITS ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-5xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
             <Eyebrow>Outcomes</Eyebrow>
@@ -698,7 +698,7 @@ export default function LandingPage() {
       <HomepageTestimonials />
 
       {/* ============ PRICING ============ */}
-      <section id="pricing" className="py-20 md:py-32 px-5 sm:px-6">
+      <section id="pricing" className="py-14 md:py-20 px-5 sm:px-6">
 
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-16 max-w-2xl mx-auto">
@@ -783,7 +783,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PREMIUM DARK CTA ============ */}
-      <section className="relative py-20 md:py-32 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-14 md:py-20 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/15 rounded-full blur-3xl" />
