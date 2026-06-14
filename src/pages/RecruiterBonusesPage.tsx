@@ -110,16 +110,19 @@ export default function RecruiterBonusesPage() {
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Recruiter</TableHead><TableHead>Candidate</TableHead><TableHead>Job</TableHead>
-                <TableHead>Placement Date</TableHead><TableHead>Type</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Placement Date</TableHead><TableHead>Created</TableHead><TableHead>Type</TableHead>
                 <TableHead className="text-right">Amount</TableHead><TableHead>Status</TableHead><TableHead></TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {filtered.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell>{profiles[r.recruiter_user_id] || "—"}</TableCell>
+                    <TableCell className="font-medium">{profiles[r.recruiter_user_id] || "—"}</TableCell>
                     <TableCell>{r.placements?.candidates?.full_name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{r.placements?.jobs?.title || "—"}</TableCell>
+                    <TableCell className="text-sm">{r.placements?.clients?.name || "—"}</TableCell>
                     <TableCell>{r.placements?.placement_date ? format(new Date(r.placements.placement_date), "dd MMM yyyy") : "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{r.created_at ? format(new Date(r.created_at), "dd MMM yyyy") : "—"}</TableCell>
                     <TableCell>{r.bonus_type === "percent" ? `${r.bonus_pct}%` : "Fixed"}</TableCell>
                     <TableCell className="text-right font-medium">{formatMoney(r.bonus_amount, r.currency)}</TableCell>
                     <TableCell><Badge className={cn(BONUS_STATUS_COLORS[r.status])} variant="outline">{r.status}</Badge></TableCell>
