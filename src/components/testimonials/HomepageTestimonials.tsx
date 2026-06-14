@@ -12,7 +12,7 @@ interface Testimonial {
   quote: string;
   author_name: string;
   author_role: string | null;
-  author_company: string | null;
+  submitted_company: string | null;
   author_avatar: string | null;
   rating: number | null;
 }
