@@ -518,7 +518,7 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-10">
             <motion.div {...fadeUp} className="relative">
               <div className="absolute -inset-4 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-2xl opacity-70 -z-10" />
-              <DashboardFrame src={reportsImg} alt="Finance dashboard" />
+              <DashboardFrame src={financeImg} alt="Finance dashboard" />
               <div className="mt-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-primary" /></div>
                 <div>
@@ -529,7 +529,7 @@ export default function LandingPage() {
             </motion.div>
             <motion.div {...fadeUp} className="relative">
               <div className="absolute -inset-4 bg-gradient-to-tr from-accent/15 to-primary/10 rounded-3xl blur-2xl opacity-70 -z-10" />
-              <DashboardFrame src={brandedCvImg} alt="Invoice management" />
+              <DashboardFrame src={invoiceImg} alt="Invoice management" />
               <div className="mt-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
                 <div>
