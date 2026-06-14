@@ -832,32 +832,32 @@ export default function LandingPage() {
                   transition={{ delay: i * 0.06 }}
                   className={`relative rounded-3xl p-8 transition-all ${
                     popular
-                      ? 'bg-[#0b1424] text-white border border-primary/30 shadow-[0_30px_80px_-20px_rgba(59,130,246,0.4)] md:scale-[1.03]'
-                      : 'bg-card border border-border hover:border-primary/30 hover:shadow-lg'
+                      ? 'bg-gradient-to-br from-[#0b1424] via-[#0d1a30] to-[#0b1424] text-white border-2 border-primary/60 shadow-[0_40px_100px_-20px_rgba(59,130,246,0.55)] md:scale-[1.08] md:-my-2 z-10 ring-4 ring-primary/10'
+                      : 'bg-card border border-border hover:border-primary/30 hover:shadow-lg md:opacity-95'
                   }`}
                 >
                   {popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center gap-1.5 shadow-md">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground text-[11px] font-extrabold uppercase tracking-[0.14em] flex items-center gap-1.5 shadow-[0_10px_30px_-5px_rgba(59,130,246,0.6)] whitespace-nowrap">
                       <Star className="h-3 w-3 fill-current" /> Most Popular
                     </div>
                   )}
                   <h3 className={`text-lg font-bold mb-1 ${popular ? 'text-white' : ''}`}>{plan.name}</h3>
-                  <p className={`text-sm mb-6 ${popular ? 'text-white/60' : 'text-muted-foreground'}`}>
+                  <p className={`text-sm mb-6 ${popular ? 'text-white/70' : 'text-muted-foreground'}`}>
                     {i === 0 ? 'For solo recruiters' : i === 1 ? 'For growing teams' : 'For scaling agencies'}
                   </p>
                   <div className="flex items-end gap-1 mb-7">
-                    <span className={`text-5xl font-bold ${popular ? 'text-white' : ''}`}>
+                    <span className={`font-bold ${popular ? 'text-white text-6xl' : 'text-5xl'}`}>
                       ${Number(plan.price_monthly ?? plan.price ?? 0)}
                     </span>
                     <span className={`mb-2 ${popular ? 'text-white/60' : 'text-muted-foreground'}`}>/mo</span>
                   </div>
                   <Link to="/auth?mode=signup" className="block">
                     <Button
-                      className={`w-full mb-7 ${popular ? 'bg-white text-[#0b1424] hover:bg-white/90' : ''}`}
+                      className={`w-full mb-7 ${popular ? 'h-14 text-base font-semibold bg-white text-[#0b1424] hover:bg-white/90 shadow-xl' : ''}`}
                       variant={popular ? 'default' : 'outline'}
-                      size="lg"
+                      size={popular ? 'xl' : 'lg'}
                     >
-                      Start Free Trial
+                      {popular ? 'Start Free Trial →' : 'Start Free Trial'}
                     </Button>
                   </Link>
                   <ul className="space-y-3">
