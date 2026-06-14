@@ -78,8 +78,8 @@ function TestimonialCard({ t, index }: { t: Testimonial; index: number }) {
               <div className="font-semibold text-sm truncate">{t.author_name}</div>
               <div className="text-xs text-muted-foreground truncate">
                 {t.author_role}
-                {t.author_role && t.author_company ? ' · ' : ''}
-                {t.author_company}
+                {t.author_role && t.submitted_company ? ' · ' : ''}
+                {t.submitted_company}
               </div>
             </div>
           </div>
@@ -95,7 +95,7 @@ export function HomepageTestimonials() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('testimonials')
-        .select('id, quote, author_name, author_role, author_company, author_avatar, rating')
+        .select('id, quote, author_name, author_role, submitted_company, author_avatar, rating')
         .eq('is_active', true)
         .eq('status', 'approved')
         .order('order_index', { ascending: true });
