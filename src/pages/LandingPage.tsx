@@ -178,16 +178,21 @@ export default function LandingPage() {
 
         <div className="container mx-auto max-w-7xl">
           <motion.div {...fadeUp} className="text-center max-w-4xl mx-auto space-y-6">
-            <Eyebrow>AI Recruitment Operating System</Eyebrow>
+            <Eyebrow>AI Recruitment Agency Operating System</Eyebrow>
             <h1 className="text-4xl sm:text-5xl lg:text-[68px] font-bold tracking-tight leading-[1.05] text-foreground">
-              Close More Placements.<br />
+              Run Your Entire Recruitment Agency<br />
               <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Not More Admin Work.
+                From One Platform
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              The AI-powered recruitment operating system helping agencies streamline hiring
-              workflows, validate candidates, automate outreach, and track recruiter productivity.
+              Source candidates, generate client-ready reports, manage submissions, track placements,
+              invoice clients, monitor recruiter performance and grow your agency — all from one AI-powered platform.
+            </p>
+            <p className="text-sm md:text-base text-muted-foreground/90 max-w-2xl mx-auto">
+              Stop switching between spreadsheets, ATS systems, reporting tools and finance software.
+              HireMetrics combines recruitment operations, client submissions, placements, invoicing
+              and recruiter performance management into one seamless workflow.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link to="/auth?mode=signup">
@@ -198,6 +203,11 @@ export default function LandingPage() {
               <Button size="lg" variant="outline" className="h-12 px-7 gap-2" onClick={() => setBookDemoOpen(true)}>
                 <Play className="h-4 w-4" /> Book Demo
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs sm:text-sm text-muted-foreground">
+              {['AI Matching','Client Reports','Placement Tracking','Finance & Invoicing','Recruiter Analytics'].map(b => (
+                <span key={b} className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary"/>{b}</span>
+              ))}
             </div>
             <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
           </motion.div>
