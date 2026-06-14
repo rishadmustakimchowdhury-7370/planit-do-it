@@ -581,6 +581,98 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ RECRUITMENT WORKFLOW ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
+            <Eyebrow>End-to-End</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              From Candidate To Revenue
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              Manage the entire recruitment lifecycle without switching platforms.
+            </p>
+          </motion.div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+            {['Candidate','AI Match','Client Report','Submission','Interview','Placement','Invoice','Payment','Revenue'].map((step, i, arr) => (
+              <div key={step} className="flex items-center gap-2 md:gap-3">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.06 }}
+                  className="px-4 py-2.5 rounded-xl bg-card border border-border font-semibold text-sm md:text-base shadow-sm hover:border-primary/40 hover:shadow-md transition-all"
+                >
+                  {step}
+                </motion.div>
+                {i < arr.length - 1 && <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ BUILT FOR AGENCIES ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
+            <Eyebrow>Who it's for</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Built Specifically For Recruitment Businesses
+            </h2>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { t: 'Executive Search Firms', d: 'Confidential searches with branded client reports and shortlist tracking.' },
+              { t: 'Staffing Agencies', d: 'High-volume pipelines, multi-recruiter routing, and live KPI dashboards.' },
+              { t: 'Recruitment Boutiques', d: 'A complete OS for small teams — no spreadsheets, no scattered tools.' },
+              { t: 'RPO Providers', d: 'Multi-client workspaces with submission packs and SLA reporting.' },
+              { t: 'Internal Talent Teams', d: 'Hiring manager collaboration, AI matching, and offer/placement tracking.' },
+            ].map((c, i) => (
+              <motion.div
+                key={c.t}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="rounded-2xl border border-border bg-card p-6 hover:border-primary/30 hover:shadow-lg transition-all"
+              >
+                <h3 className="font-semibold mb-2">{c.t}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{c.d}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ BUSINESS BENEFITS ============ */}
+      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-5xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Outcomes</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Reduce Admin Work. Increase Placements.
+            </h2>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              'Reduce manual reporting by up to 80%',
+              'Generate client submissions in minutes',
+              'Track recruiter performance in real time',
+              'Monitor placement revenue instantly',
+              'Manage invoices and payments from one dashboard',
+              'Eliminate spreadsheets and disconnected tools',
+            ].map((b) => (
+              <div key={b} className="flex items-start gap-3 rounded-xl border border-border bg-card p-5">
+                <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <p className="text-sm md:text-base font-medium">{b}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ============ TESTIMONIALS ============ */}
       <HomepageTestimonials />
 
