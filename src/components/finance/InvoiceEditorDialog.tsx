@@ -223,13 +223,19 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
               <div><Label>Due date</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
               <div>
                 <Label>Client</Label>
-                <Select value={form.client_id || ""} onValueChange={v => {
-                  const c = clients.find(x => x.id === v);
-                  setForm({ ...form, client_id: v, client_org_id: c?.client_org_id || null });
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <ClientCombobox
+                  clients={clients}
+                  value={form.client_id}
+                  onChange={(c) => {
+                    const composedAddress = [c?.address_line1, c?.address_line2, [c?.city, c?.state, c?.postal_code].filter(Boolean).join(" "), c?.country].filter(Boolean).join(", ") || c?.address || "";
+                    setForm({
+                      ...form,
+                      client_id: c?.id || null,
+                      client_org_id: null,
+                      notes: form.notes || (composedAddress ? `Bill to: ${c?.name}\n${composedAddress}` : form.notes),
+                    });
+                  }}
+                />
               </div>
               <div>
                 <Label>Placement (optional)</Label>
