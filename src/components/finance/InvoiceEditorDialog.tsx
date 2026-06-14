@@ -63,7 +63,11 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
       setLoading(true);
       const [{ data: s }, { data: cl }, { data: pls }] = await Promise.all([
         supabase.from("finance_settings").select("*").eq("tenant_id", tenantId).maybeSingle(),
-        supabase.from("clients").select("id, name, client_org_id").eq("tenant_id", tenantId).order("name"),
+        supabase.from("clients")
+          .select("id, name, contact_name, contact_email, address, address_line1, address_line2, city, state, postal_code, country, is_active")
+          .eq("tenant_id", tenantId)
+          .eq("is_active", true)
+          .order("name"),
         supabase.from("placements").select("id, candidate_id, job_id, client_id, client_org_id, placement_fee, currency, salary, candidates(full_name), jobs(title), clients(name)").eq("tenant_id", tenantId).order("placement_date", { ascending: false }),
       ]);
       setSettings(s);
