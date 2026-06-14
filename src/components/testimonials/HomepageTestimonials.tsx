@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
 import { motion } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,77 +16,47 @@ interface Testimonial {
   submitted_company: string | null;
   author_avatar: string | null;
   rating: number | null;
+  show_company?: boolean | null;
 }
 
-function track(event: 'testimonial_view' | 'testimonial_click', payload: Record<string, unknown>) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    if (typeof w.gtag === 'function') w.gtag('event', event, payload);
-    if (Array.isArray(w.dataLayer)) w.dataLayer.push({ event, ...payload });
-  } catch {
-    /* no-op */
-  }
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function TestimonialCard({ t, index }: { t: Testimonial; index: number }) {
+function TestimonialCard({ t }: { t: Testimonial }) {
+  const showCompany = t.show_company === true; // default hidden
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.3) }}
-      onViewportEnter={() => track('testimonial_view', { id: t.id })}
-      className="h-full"
-    >
-      <Card
-        onClick={() => track('testimonial_click', { id: t.id })}
-        className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 cursor-default group"
-      >
-        <CardContent className="p-6 sm:p-7 flex flex-col h-full">
-          <Quote className="h-7 w-7 text-primary/30 mb-3 group-hover:text-primary/50 transition-colors" />
-          <div className="flex gap-1 mb-4">
-            {[...Array(t.rating || 5)].map((_, j) => (
-              <Star key={j} className="h-4 w-4 fill-warning text-warning" />
-            ))}
-          </div>
-          <p className="text-sm sm:text-base text-foreground leading-relaxed mb-6 flex-1">
-            "{t.quote}"
-          </p>
-          <div className="flex items-center gap-3 pt-4 border-t border-border/60">
-            {t.author_avatar ? (
-              <img
-                src={t.author_avatar}
-                alt={t.author_name}
-                loading="lazy"
-                className="w-11 h-11 rounded-full object-cover ring-2 ring-primary/10"
-              />
-            ) : (
-              <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                {t.author_name.charAt(0)}
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">{t.author_name}</div>
-              <div className="text-xs text-muted-foreground truncate">
-                {t.author_role}
-                {t.author_role && t.submitted_company ? ' · ' : ''}
-                {t.submitted_company}
-              </div>
+    <Card className="h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 group">
+      <CardContent className="p-6 sm:p-7 flex flex-col h-full">
+        <Quote className="h-7 w-7 text-primary/30 mb-3 group-hover:text-primary/50 transition-colors" />
+        <div className="flex gap-1 mb-4">
+          {[...Array(t.rating || 5)].map((_, j) => (
+            <Star key={j} className="h-4 w-4 fill-warning text-warning" />
+          ))}
+        </div>
+        <p className="text-sm sm:text-base text-foreground leading-relaxed mb-6 flex-1">
+          "{t.quote}"
+        </p>
+        <div className="flex items-center gap-3 pt-4 border-t border-border/60">
+          {t.author_avatar ? (
+            <img
+              src={t.author_avatar}
+              alt={t.author_name}
+              loading="lazy"
+              className="w-11 h-11 rounded-full object-cover ring-2 ring-primary/10"
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+              {t.author_name.charAt(0)}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm truncate">{t.author_name}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {t.author_role}
+              {showCompany && t.author_role && t.submitted_company ? ' · ' : ''}
+              {showCompany ? t.submitted_company : ''}
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -95,10 +66,11 @@ export function HomepageTestimonials() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('testimonials')
-        .select('id, quote, author_name, author_role, submitted_company, author_avatar, rating')
+        .select('id, quote, author_name, author_role, submitted_company, author_avatar, rating, show_company')
         .eq('is_active', true)
         .eq('status', 'approved')
-        .order('order_index', { ascending: true });
+        .order('order_index', { ascending: true })
+        .limit(12);
       if (error) throw error;
       return (data ?? []) as Testimonial[];
     },
@@ -106,20 +78,23 @@ export function HomepageTestimonials() {
     gcTime: 1000 * 60 * 30,
   });
 
-  const testimonials = useMemo(() => {
-    const list = data ?? [];
-    if (list.length <= 6) return list;
-    return shuffle(list).slice(0, 6);
-  }, [data]);
+  const testimonials = useMemo(() => (data ?? []).slice(0, 12), [data]);
 
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' });
-  const [canPrev, setCanPrev] = useState(false);
-  const [canNext, setCanNext] = useState(false);
+  const autoplay = useRef(
+    Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: true })
+  );
+
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, align: 'start', dragFree: false, slidesToScroll: 1 },
+    [autoplay.current]
+  );
+
+  const [, setSelected] = useState(0);
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
-    setCanPrev(emblaApi.canScrollPrev());
-    setCanNext(emblaApi.canScrollNext());
+    setSelected(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
+
   useEffect(() => {
     if (!emblaApi) return;
     onSelect();
@@ -134,41 +109,42 @@ export function HomepageTestimonials() {
   return (
     <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
       <div className="container mx-auto max-w-6xl">
-        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-2xl mx-auto mb-12 md:mb-16"
+        >
           <h2 className="text-3xl md:text-[44px] font-bold tracking-tight leading-tight">
             Trusted By Recruitment Professionals
           </h2>
           <p className="text-muted-foreground mt-4">
-            See what recruiters, agency owners and hiring professionals say about HireMetrics.
+            See how recruiters and agency leaders are using HireMetrics to streamline submissions, placements and revenue tracking.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Desktop / Tablet grid */}
-        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((t, i) => (
-            <TestimonialCard key={t.id} t={t} index={i} />
-          ))}
-        </div>
-
-        {/* Mobile carousel */}
-        <div className="sm:hidden">
+        <div className="relative">
           <div className="overflow-hidden" ref={emblaRef}>
-            <div className="flex -ml-4">
-              {testimonials.map((t, i) => (
-                <div key={t.id} className="flex-[0_0_100%] pl-4 min-w-0">
-                  <TestimonialCard t={t} index={i} />
+            <div className="flex -ml-4 lg:-ml-6">
+              {testimonials.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex-[0_0_100%] sm:flex-[0_0_50%] lg:flex-[0_0_33.333%] pl-4 lg:pl-6 min-w-0"
+                >
+                  <TestimonialCard t={t} />
                 </div>
               ))}
             </div>
           </div>
+
           {testimonials.length > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-6">
+            <div className="flex items-center justify-center gap-3 mt-8">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => emblaApi?.scrollPrev()}
-                disabled={!canPrev}
-                className="rounded-full h-9 w-9"
+                className="rounded-full h-10 w-10"
                 aria-label="Previous testimonial"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -177,8 +153,7 @@ export function HomepageTestimonials() {
                 variant="outline"
                 size="icon"
                 onClick={() => emblaApi?.scrollNext()}
-                disabled={!canNext}
-                className="rounded-full h-9 w-9"
+                className="rounded-full h-10 w-10"
                 aria-label="Next testimonial"
               >
                 <ChevronRight className="h-4 w-4" />

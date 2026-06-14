@@ -6161,6 +6161,7 @@ export type Database = {
           order_index: number | null
           quote: string
           rating: number | null
+          show_company: boolean
           source: string | null
           status: string | null
           submitted_company: string | null
@@ -6178,6 +6179,7 @@ export type Database = {
           order_index?: number | null
           quote: string
           rating?: number | null
+          show_company?: boolean
           source?: string | null
           status?: string | null
           submitted_company?: string | null
@@ -6195,6 +6197,7 @@ export type Database = {
           order_index?: number | null
           quote?: string
           rating?: number | null
+          show_company?: boolean
           source?: string | null
           status?: string | null
           submitted_company?: string | null
