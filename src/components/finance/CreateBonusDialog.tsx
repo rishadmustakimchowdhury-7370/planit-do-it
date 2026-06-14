@@ -109,8 +109,15 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
         {loading ? <Loader2 className="animate-spin" /> : (
           <div className="space-y-4">
             <div>
-              <Label>Placement</Label>
-              <Select value={form.placement_id} onValueChange={v => setForm({ ...form, placement_id: v })}>
+              <Label>Placement (optional)</Label>
+              <Select value={form.placement_id} onValueChange={v => {
+                const p = placements.find(x => x.id === v);
+                setForm({
+                  ...form,
+                  placement_id: v,
+                  recruiter_user_id: p?.recruiter_user_id || form.recruiter_user_id,
+                });
+              }}>
                 <SelectTrigger><SelectValue placeholder="Select placement" /></SelectTrigger>
                 <SelectContent>
                   {placements.map(p => (
@@ -120,6 +127,25 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Recruiter <span className="text-destructive">*</span></Label>
+              <Select value={form.recruiter_user_id} onValueChange={v => setForm({ ...form, recruiter_user_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select recruiter" /></SelectTrigger>
+                <SelectContent>
+                  {recruiters.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <div className="flex flex-col">
+                        <span>{r.full_name || r.email}</span>
+                        {r.full_name && r.email && <span className="text-xs text-muted-foreground">{r.email}</span>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPlacement && form.recruiter_user_id === selectedPlacement.recruiter_user_id && (
+                <p className="text-xs text-muted-foreground mt-1">Auto-selected from placement. You can override.</p>
+              )}
             </div>
             <div>
               <Label>Bonus type</Label>
