@@ -37,12 +37,25 @@ export function CreateBonusDialog({ open, onOpenChange, onSaved }: Props) {
     if (!open || !tenantId) return;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("placements")
-        .select("id, placement_date, placement_fee, currency, recruiter_user_id, candidates(full_name), jobs(title)")
-        .eq("tenant_id", tenantId)
-        .order("placement_date", { ascending: false });
-      setPlacements(data || []);
+      const [{ data: pls }, { data: roles }] = await Promise.all([
+        supabase
+          .from("placements")
+          .select("id, placement_date, placement_fee, currency, recruiter_user_id, candidates(full_name), jobs(title)")
+          .eq("tenant_id", tenantId)
+          .order("placement_date", { ascending: false }),
+        supabase
+          .from("user_roles")
+          .select("user_id, role, profiles!inner(id, full_name, email, is_active)")
+          .eq("tenant_id", tenantId)
+          .in("role", ["recruiter", "manager", "owner"]),
+      ]);
+      setPlacements(pls || []);
+      const seen = new Set<string>();
+      const recs = (roles || [])
+        .map((r: any) => r.profiles)
+        .filter((p: any) => p && p.is_active && !seen.has(p.id) && seen.add(p.id))
+        .sort((a: any, b: any) => (a.full_name || a.email || "").localeCompare(b.full_name || b.email || ""));
+      setRecruiters(recs);
       setLoading(false);
     })();
   }, [open, tenantId]);
