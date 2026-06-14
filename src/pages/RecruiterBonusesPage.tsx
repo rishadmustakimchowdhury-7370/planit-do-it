@@ -29,7 +29,7 @@ export default function RecruiterBonusesPage() {
     setLoading(true);
     let query = supabase
       .from("recruiter_bonuses")
-      .select("*, placements(placement_date, placement_fee, candidates(full_name), jobs(title))")
+      .select("*, placements(placement_date, placement_fee, candidates(full_name), jobs(title), clients(name))")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     const { data, error } = await query;
