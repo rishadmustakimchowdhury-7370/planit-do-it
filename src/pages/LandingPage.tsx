@@ -24,6 +24,14 @@ import teamPerfImg from '@/assets/crm/team-performance.jpg';
 import reportsImg from '@/assets/crm/reports.jpg';
 import emailComposeImg from '@/assets/crm/email-compose.jpg';
 import brandedCvImg from '@/assets/crm/branded-cv.jpg';
+import invoiceDashAsset from '@/assets/crm/invoice-dashboard.png.asset.json';
+import financeDashAsset from '@/assets/crm/finance-dashboard.png.asset.json';
+import placementsAsset from '@/assets/crm/placements-revenue.png.asset.json';
+import pipelineAsset from '@/assets/crm/pipeline-funnel.png.asset.json';
+const invoiceImg = invoiceDashAsset.url;
+const financeImg = financeDashAsset.url;
+const placementImg = placementsAsset.url;
+const pipelineImg = pipelineAsset.url;
 import { Shield, Lock, KeyRound, ServerCog } from 'lucide-react';
 
 /* ---------------- Reusable bits ---------------- */
@@ -466,10 +474,10 @@ export default function LandingPage() {
             {[
               { step: '01', label: 'Candidate CRM', img: candidatesImg },
               { step: '02', label: 'AI Match', img: aiMatchImg },
-              { step: '03', label: 'Client Report', img: reportsImg },
-              { step: '04', label: 'Pipeline', img: teamPerfImg },
-              { step: '05', label: 'Placement', img: dashboardImg },
-              { step: '06', label: 'Invoice', img: brandedCvImg },
+              { step: '03', label: 'Client Report', img: brandedCvImg },
+              { step: '04', label: 'Pipeline', img: pipelineImg },
+              { step: '05', label: 'Placement', img: placementImg },
+              { step: '06', label: 'Invoice', img: invoiceImg },
             ].map((s, i) => (
               <motion.div
                 key={s.label}
@@ -510,7 +518,7 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-10">
             <motion.div {...fadeUp} className="relative">
               <div className="absolute -inset-4 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-2xl opacity-70 -z-10" />
-              <DashboardFrame src={reportsImg} alt="Finance dashboard" />
+              <DashboardFrame src={financeImg} alt="Finance dashboard" />
               <div className="mt-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-primary" /></div>
                 <div>
@@ -521,7 +529,7 @@ export default function LandingPage() {
             </motion.div>
             <motion.div {...fadeUp} className="relative">
               <div className="absolute -inset-4 bg-gradient-to-tr from-accent/15 to-primary/10 rounded-3xl blur-2xl opacity-70 -z-10" />
-              <DashboardFrame src={brandedCvImg} alt="Invoice management" />
+              <DashboardFrame src={invoiceImg} alt="Invoice management" />
               <div className="mt-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
                 <div>
