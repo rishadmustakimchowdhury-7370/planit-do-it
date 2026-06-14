@@ -14,6 +14,7 @@ import {
   ArrowRight, Brain, Users, Mail, Calendar, BarChart3,
   Sparkles, CheckCircle2, Play, Menu, X, Activity,
   Timer, Zap, Workflow, Target, Eye, Rocket, Linkedin, Twitter, Github, Star,
+  DollarSign, FileText, Briefcase, TrendingUp, Receipt, Wallet,
 } from 'lucide-react';
 
 import dashboardImg from '@/assets/crm/dashboard.jpg';
@@ -63,6 +64,39 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
       </div>
       <img src={src} alt={alt} className="w-full block transition-transform duration-700 group-hover:scale-[1.01]" loading="lazy" />
     </div>
+  );
+}
+
+/* Animated count-up number */
+function AnimatedStat({ value, suffix = '', label, icon: Icon }: { value: number; suffix?: string; label: string; icon: any }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const dur = 1400;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / dur);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="rounded-2xl border border-border bg-card p-6 text-center hover:border-primary/30 hover:shadow-lg transition-all"
+    >
+      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center mx-auto mb-4">
+        <Icon className="h-5 w-5 text-primary" />
+      </div>
+      <div className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        {n.toLocaleString()}{suffix}
+      </div>
+      <p className="text-sm text-muted-foreground mt-2 font-medium">{label}</p>
+    </motion.div>
   );
 }
 
@@ -215,12 +249,13 @@ export default function LandingPage() {
             <p className="text-xs text-muted-foreground">No credit card · 14-day free trial · Cancel anytime</p>
           </motion.div>
 
-          {/* Dashboard showcase — full-width hero */}
+          {/* Dashboard showcase — full-width hero (30% larger) */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.25 }}
-            className="relative mt-16 max-w-6xl mx-auto"
+            className="relative mt-14 mx-auto"
+            style={{ maxWidth: 'min(1280px, 100%)' }}
           >
             <div className="absolute -inset-8 bg-gradient-to-tr from-primary/20 via-accent/10 to-transparent rounded-[2rem] blur-3xl opacity-70 -z-10" />
             <motion.div
@@ -230,49 +265,35 @@ export default function LandingPage() {
               <DashboardFrame src={dashboardImg} alt="HireMetrics recruiter dashboard" />
             </motion.div>
 
-            {/* Floating activity chips */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="hidden md:flex absolute -left-6 top-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              95% Match Score
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.85 }}
-              className="hidden md:flex absolute -right-6 top-32 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              Interview Scheduled
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.0 }}
-              className="hidden lg:flex absolute -left-4 bottom-28 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              Candidate Rediscovered
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.15 }}
-              className="hidden md:flex absolute -right-4 bottom-20 items-center gap-2 px-3.5 py-2.5 rounded-xl bg-card border border-border shadow-xl text-xs font-semibold"
-            >
-              <Mail className="h-3.5 w-3.5 text-emerald-600" />
-              Email Sent Successfully
-            </motion.div>
+            {/* Floating KPI cards */}
+            {[
+              { icon: Users, label: 'Candidates', value: '2,847', tone: 'text-primary', pos: 'hidden md:flex absolute -left-6 top-16' },
+              { icon: Target, label: 'Placements', value: '184', tone: 'text-emerald-600', pos: 'hidden md:flex absolute -right-6 top-28' },
+              { icon: DollarSign, label: 'Revenue', value: '$1.2M', tone: 'text-primary', pos: 'hidden lg:flex absolute -left-8 bottom-24' },
+              { icon: Receipt, label: 'Invoices', value: '96', tone: 'text-amber-600', pos: 'hidden md:flex absolute -right-8 bottom-16' },
+            ].map((k, i) => (
+              <motion.div
+                key={k.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 + i * 0.15 }}
+                className={`${k.pos} items-center gap-3 px-4 py-3 rounded-2xl bg-card border border-border shadow-xl`}
+              >
+                <div className={`w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center ${k.tone}`}>
+                  <k.icon className="h-4 w-4" />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{k.label}</div>
+                  <div className="text-base font-bold leading-tight">{k.value}</div>
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </section>
 
       {/* ============ PRODUCT DEMO VIDEO ============ */}
-      <section className="relative py-20 md:py-28 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-14 md:py-20 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-accent/15 rounded-full blur-3xl" />
@@ -378,7 +399,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ OPERATIONAL VALUE CARDS ============ */}
-      <section className="py-16 md:py-24 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-12 md:py-16 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Why HireMetrics</Eyebrow>
@@ -411,8 +432,110 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ ANIMATED STATISTICS ============ */}
+      <section className="py-12 md:py-16 px-5 sm:px-6 border-y border-border/60 bg-background">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-10">
+            <Eyebrow>Proven Impact</Eyebrow>
+            <h2 className="text-2xl md:text-4xl font-bold tracking-tight mt-3 leading-tight">
+              Measurable outcomes for modern agencies
+            </h2>
+          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <AnimatedStat value={80} suffix="%" label="Less Reporting Time" icon={Timer} />
+            <AnimatedStat value={3} suffix="×" label="Faster Client Submissions" icon={Zap} />
+            <AnimatedStat value={100} suffix="%" label="Placement Tracking" icon={Target} />
+            <AnimatedStat value={100} suffix="%" label="Revenue Visibility" icon={TrendingUp} />
+          </div>
+        </div>
+      </section>
+
+      {/* ============ PRODUCT TOUR ============ */}
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Product Tour</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Every step of the recruitment journey
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              From sourcing to invoicing — see how HireMetrics powers the entire workflow.
+            </p>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { step: '01', label: 'Candidate CRM', img: candidatesImg },
+              { step: '02', label: 'AI Match', img: aiMatchImg },
+              { step: '03', label: 'Client Report', img: reportsImg },
+              { step: '04', label: 'Pipeline', img: teamPerfImg },
+              { step: '05', label: 'Placement', img: dashboardImg },
+              { step: '06', label: 'Invoice', img: brandedCvImg },
+            ].map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="group rounded-2xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-xl transition-all"
+              >
+                <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
+                  <img src={s.img} alt={s.label} loading="lazy" className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]" />
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[10px] font-bold tracking-wider">
+                    {s.step}
+                  </div>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">{s.label}</h3>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FINANCE & REVENUE ============ */}
+      <section className="py-14 md:py-20 px-5 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Finance & Revenue</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Track every placement, invoice and dollar
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              Built-in finance dashboard and invoicing — no more spreadsheets or external accounting tools.
+            </p>
+          </motion.div>
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-10">
+            <motion.div {...fadeUp} className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-2xl opacity-70 -z-10" />
+              <DashboardFrame src={reportsImg} alt="Finance dashboard" />
+              <div className="mt-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <h3 className="font-semibold">Finance Dashboard</h3>
+                  <p className="text-sm text-muted-foreground">Live revenue, placements and pipeline value.</p>
+                </div>
+              </div>
+            </motion.div>
+            <motion.div {...fadeUp} className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-accent/15 to-primary/10 rounded-3xl blur-2xl opacity-70 -z-10" />
+              <DashboardFrame src={brandedCvImg} alt="Invoice management" />
+              <div className="mt-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <h3 className="font-semibold">Invoice Management</h3>
+                  <p className="text-sm text-muted-foreground">Generate, send and track invoices in one click.</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ FEATURE ROWS (alternating screenshots) ============ */}
-      <section id="features" className="py-20 md:py-32 px-5 sm:px-6">
+      <section id="features" className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-20 max-w-2xl mx-auto">
             <Eyebrow>Platform</Eyebrow>
@@ -455,7 +578,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BRANDED CV SHOWCASE ============ */}
-      <section className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div {...fadeUp} className="space-y-5 order-2 lg:order-1">
@@ -506,7 +629,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ INTEGRATED OUTREACH ============ */}
-      <section className="py-20 md:py-32 px-5 sm:px-6">
+      <section className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <motion.div
@@ -557,7 +680,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PLATFORM SHOWCASE (single feature image) ============ */}
-      <section id="platform" className="py-20 md:py-32 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section id="platform" className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
             <Eyebrow>Inside the platform</Eyebrow>
@@ -582,7 +705,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ RECRUITMENT WORKFLOW ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
             <Eyebrow>End-to-End</Eyebrow>
@@ -614,7 +737,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BUILT FOR AGENCIES ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6">
+      <section className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-14">
             <Eyebrow>Who it's for</Eyebrow>
@@ -647,7 +770,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ BUSINESS BENEFITS ============ */}
-      <section className="py-20 md:py-28 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-5xl">
           <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
             <Eyebrow>Outcomes</Eyebrow>
@@ -677,7 +800,7 @@ export default function LandingPage() {
       <HomepageTestimonials />
 
       {/* ============ PRICING ============ */}
-      <section id="pricing" className="py-20 md:py-32 px-5 sm:px-6">
+      <section id="pricing" className="py-14 md:py-20 px-5 sm:px-6">
 
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-16 max-w-2xl mx-auto">
@@ -709,32 +832,32 @@ export default function LandingPage() {
                   transition={{ delay: i * 0.06 }}
                   className={`relative rounded-3xl p-8 transition-all ${
                     popular
-                      ? 'bg-[#0b1424] text-white border border-primary/30 shadow-[0_30px_80px_-20px_rgba(59,130,246,0.4)] md:scale-[1.03]'
-                      : 'bg-card border border-border hover:border-primary/30 hover:shadow-lg'
+                      ? 'bg-gradient-to-br from-[#0b1424] via-[#0d1a30] to-[#0b1424] text-white border-2 border-primary/60 shadow-[0_40px_100px_-20px_rgba(59,130,246,0.55)] md:scale-[1.08] md:-my-2 z-10 ring-4 ring-primary/10'
+                      : 'bg-card border border-border hover:border-primary/30 hover:shadow-lg md:opacity-95'
                   }`}
                 >
                   {popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center gap-1.5 shadow-md">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground text-[11px] font-extrabold uppercase tracking-[0.14em] flex items-center gap-1.5 shadow-[0_10px_30px_-5px_rgba(59,130,246,0.6)] whitespace-nowrap">
                       <Star className="h-3 w-3 fill-current" /> Most Popular
                     </div>
                   )}
                   <h3 className={`text-lg font-bold mb-1 ${popular ? 'text-white' : ''}`}>{plan.name}</h3>
-                  <p className={`text-sm mb-6 ${popular ? 'text-white/60' : 'text-muted-foreground'}`}>
+                  <p className={`text-sm mb-6 ${popular ? 'text-white/70' : 'text-muted-foreground'}`}>
                     {i === 0 ? 'For solo recruiters' : i === 1 ? 'For growing teams' : 'For scaling agencies'}
                   </p>
                   <div className="flex items-end gap-1 mb-7">
-                    <span className={`text-5xl font-bold ${popular ? 'text-white' : ''}`}>
+                    <span className={`font-bold ${popular ? 'text-white text-6xl' : 'text-5xl'}`}>
                       ${Number(plan.price_monthly ?? plan.price ?? 0)}
                     </span>
                     <span className={`mb-2 ${popular ? 'text-white/60' : 'text-muted-foreground'}`}>/mo</span>
                   </div>
                   <Link to="/auth?mode=signup" className="block">
                     <Button
-                      className={`w-full mb-7 ${popular ? 'bg-white text-[#0b1424] hover:bg-white/90' : ''}`}
+                      className={`w-full mb-7 ${popular ? 'h-14 text-base font-semibold bg-white text-[#0b1424] hover:bg-white/90 shadow-xl' : ''}`}
                       variant={popular ? 'default' : 'outline'}
-                      size="lg"
+                      size={popular ? 'xl' : 'lg'}
                     >
-                      Start Free Trial
+                      {popular ? 'Start Free Trial →' : 'Start Free Trial'}
                     </Button>
                   </Link>
                   <ul className="space-y-3">
@@ -762,7 +885,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ PREMIUM DARK CTA ============ */}
-      <section className="relative py-20 md:py-32 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
+      <section className="relative py-14 md:py-20 px-5 sm:px-6 overflow-hidden bg-[#070b14] text-white">
         <div className="absolute inset-0 -z-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] bg-gradient-to-br from-primary/25 via-primary/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-accent/15 rounded-full blur-3xl" />
