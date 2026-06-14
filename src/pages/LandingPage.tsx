@@ -381,12 +381,12 @@ export default function LandingPage() {
       <section className="py-16 md:py-24 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
         <div className="container mx-auto max-w-6xl">
           <motion.div {...fadeUp} className="text-center mb-14 max-w-2xl mx-auto">
-            <Eyebrow>What you get</Eyebrow>
+            <Eyebrow>Why HireMetrics</Eyebrow>
             <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
-              An operating system built around recruiter outcomes
+              Why Recruitment Agencies Choose HireMetrics
             </h2>
             <p className="text-muted-foreground mt-4">
-              Six operational pillars that replace spreadsheets, manual tracking, and disconnected tools.
+              Everything your agency needs to recruit, submit, place and grow.
             </p>
           </motion.div>
 
