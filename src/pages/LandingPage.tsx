@@ -432,6 +432,108 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ============ ANIMATED STATISTICS ============ */}
+      <section className="py-12 md:py-16 px-5 sm:px-6 border-y border-border/60 bg-background">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-10">
+            <Eyebrow>Proven Impact</Eyebrow>
+            <h2 className="text-2xl md:text-4xl font-bold tracking-tight mt-3 leading-tight">
+              Measurable outcomes for modern agencies
+            </h2>
+          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <AnimatedStat value={80} suffix="%" label="Less Reporting Time" icon={Timer} />
+            <AnimatedStat value={3} suffix="×" label="Faster Client Submissions" icon={Zap} />
+            <AnimatedStat value={100} suffix="%" label="Placement Tracking" icon={Target} />
+            <AnimatedStat value={100} suffix="%" label="Revenue Visibility" icon={TrendingUp} />
+          </div>
+        </div>
+      </section>
+
+      {/* ============ PRODUCT TOUR ============ */}
+      <section className="py-14 md:py-20 px-5 sm:px-6 bg-muted/30 border-y border-border/60">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Product Tour</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Every step of the recruitment journey
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              From sourcing to invoicing — see how HireMetrics powers the entire workflow.
+            </p>
+          </motion.div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { step: '01', label: 'Candidate CRM', img: candidatesImg },
+              { step: '02', label: 'AI Match', img: aiMatchImg },
+              { step: '03', label: 'Client Report', img: reportsImg },
+              { step: '04', label: 'Pipeline', img: teamPerfImg },
+              { step: '05', label: 'Placement', img: dashboardImg },
+              { step: '06', label: 'Invoice', img: brandedCvImg },
+            ].map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="group rounded-2xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-xl transition-all"
+              >
+                <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
+                  <img src={s.img} alt={s.label} loading="lazy" className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]" />
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[10px] font-bold tracking-wider">
+                    {s.step}
+                  </div>
+                </div>
+                <div className="p-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">{s.label}</h3>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ FINANCE & REVENUE ============ */}
+      <section className="py-14 md:py-20 px-5 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-12">
+            <Eyebrow>Finance & Revenue</Eyebrow>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tight mt-4 leading-tight">
+              Track every placement, invoice and dollar
+            </h2>
+            <p className="text-muted-foreground mt-4">
+              Built-in finance dashboard and invoicing — no more spreadsheets or external accounting tools.
+            </p>
+          </motion.div>
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-10">
+            <motion.div {...fadeUp} className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-primary/15 to-accent/10 rounded-3xl blur-2xl opacity-70 -z-10" />
+              <DashboardFrame src={reportsImg} alt="Finance dashboard" />
+              <div className="mt-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Wallet className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <h3 className="font-semibold">Finance Dashboard</h3>
+                  <p className="text-sm text-muted-foreground">Live revenue, placements and pipeline value.</p>
+                </div>
+              </div>
+            </motion.div>
+            <motion.div {...fadeUp} className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-accent/15 to-primary/10 rounded-3xl blur-2xl opacity-70 -z-10" />
+              <DashboardFrame src={brandedCvImg} alt="Invoice management" />
+              <div className="mt-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <h3 className="font-semibold">Invoice Management</h3>
+                  <p className="text-sm text-muted-foreground">Generate, send and track invoices in one click.</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ============ FEATURE ROWS (alternating screenshots) ============ */}
       <section id="features" className="py-14 md:py-20 px-5 sm:px-6">
         <div className="container mx-auto max-w-6xl">
