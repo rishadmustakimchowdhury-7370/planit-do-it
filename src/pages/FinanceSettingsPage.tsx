@@ -11,8 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { SUPPORTED_CURRENCIES } from "@/lib/finance";
-import { Loader2, Save, Banknote, Building2 } from "lucide-react";
+import { Loader2, Save, Banknote, Building2, Upload, X } from "lucide-react";
 import { Navigate } from "react-router-dom";
+
+const LOGO_BUCKET = "branding-assets";
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"];
 
 export default function FinanceSettingsPage() {
   const { tenantId, isOwner, isManager, isLoading: authLoading } = useAuth();
