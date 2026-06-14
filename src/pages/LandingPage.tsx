@@ -67,6 +67,39 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
   );
 }
 
+/* Animated count-up number */
+function AnimatedStat({ value, suffix = '', label, icon: Icon }: { value: number; suffix?: string; label: string; icon: any }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const dur = 1400;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / dur);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="rounded-2xl border border-border bg-card p-6 text-center hover:border-primary/30 hover:shadow-lg transition-all"
+    >
+      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center mx-auto mb-4">
+        <Icon className="h-5 w-5 text-primary" />
+      </div>
+      <div className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        {n.toLocaleString()}{suffix}
+      </div>
+      <p className="text-sm text-muted-foreground mt-2 font-medium">{label}</p>
+    </motion.div>
+  );
+}
+
 /* ---------------- Operational Value Cards ---------------- */
 
 const valueCards = [
