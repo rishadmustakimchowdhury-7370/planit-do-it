@@ -69,12 +69,15 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
 /* ---------------- Operational Value Cards ---------------- */
 
 const valueCards = [
-  { icon: Rocket, title: 'Faster Placements', desc: 'Move candidates from CV to placement in days, not weeks, with AI-driven pipelines.' },
-  { icon: Brain, title: 'AI Candidate Matching', desc: 'Match scores, skill gaps, and shortlist suggestions generated automatically.' },
-  { icon: Timer, title: 'Recruiter Productivity', desc: 'Automate parsing, outreach, and follow-ups so recruiters focus on closing.' },
-  { icon: Workflow, title: 'Workflow Automation', desc: 'Standardised stages, reminders, and handoffs across your entire team.' },
-  { icon: Target, title: 'Centralized Operations', desc: 'Jobs, candidates, clients, and communications in one operating system.' },
-  { icon: Eye, title: 'Team Visibility', desc: 'Live recruiter activity, pipeline health, and KPI tracking for managers.' },
+  { icon: Brain, title: 'AI Candidate Matching', desc: 'Match candidates against job requirements instantly using AI.' },
+  { icon: Mail, title: 'Client Submission Reports', desc: 'Generate professional branded reports for clients in minutes.' },
+  { icon: Workflow, title: 'Client Submission Pipeline', desc: 'Track every candidate from submission to placement.' },
+  { icon: Target, title: 'Placement Tracking', desc: 'Monitor interviews, offers, hires and placements end-to-end.' },
+  { icon: BarChart3, title: 'Finance Dashboard', desc: 'Track revenue, invoices and business performance in real time.' },
+  { icon: CheckCircle2, title: 'Invoice Management', desc: 'Generate and send invoices directly from HireMetrics.' },
+  { icon: Rocket, title: 'Recruiter Bonus Tracking', desc: 'Manage recruiter commissions and bonus payments automatically.' },
+  { icon: Activity, title: 'Recruiter Performance Dashboard', desc: 'Measure recruiter productivity, submissions and placements.' },
+  { icon: Timer, title: 'Daily Activity & Work Hour Tracking', desc: 'Monitor recruiter activity and team performance live.' },
 ];
 
 /* ---------------- Bento Features (cleaner, fewer) ---------------- */
