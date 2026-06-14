@@ -24,6 +24,14 @@ import teamPerfImg from '@/assets/crm/team-performance.jpg';
 import reportsImg from '@/assets/crm/reports.jpg';
 import emailComposeImg from '@/assets/crm/email-compose.jpg';
 import brandedCvImg from '@/assets/crm/branded-cv.jpg';
+import invoiceDashAsset from '@/assets/crm/invoice-dashboard.png.asset.json';
+import financeDashAsset from '@/assets/crm/finance-dashboard.png.asset.json';
+import placementsAsset from '@/assets/crm/placements-revenue.png.asset.json';
+import pipelineAsset from '@/assets/crm/pipeline-funnel.png.asset.json';
+const invoiceImg = invoiceDashAsset.url;
+const financeImg = financeDashAsset.url;
+const placementImg = placementsAsset.url;
+const pipelineImg = pipelineAsset.url;
 import { Shield, Lock, KeyRound, ServerCog } from 'lucide-react';
 
 /* ---------------- Reusable bits ---------------- */
