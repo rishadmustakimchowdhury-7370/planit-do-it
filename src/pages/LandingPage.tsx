@@ -474,10 +474,10 @@ export default function LandingPage() {
             {[
               { step: '01', label: 'Candidate CRM', img: candidatesImg },
               { step: '02', label: 'AI Match', img: aiMatchImg },
-              { step: '03', label: 'Client Report', img: reportsImg },
-              { step: '04', label: 'Pipeline', img: teamPerfImg },
-              { step: '05', label: 'Placement', img: dashboardImg },
-              { step: '06', label: 'Invoice', img: brandedCvImg },
+              { step: '03', label: 'Client Report', img: brandedCvImg },
+              { step: '04', label: 'Pipeline', img: pipelineImg },
+              { step: '05', label: 'Placement', img: placementImg },
+              { step: '06', label: 'Invoice', img: invoiceImg },
             ].map((s, i) => (
               <motion.div
                 key={s.label}
