@@ -17,6 +17,7 @@ import {
   Bookmark, Building2, UserPlus, Check, X, RefreshCw, Sparkles, Download,
 } from 'lucide-react';
 import { generateDemoCompanies } from '@/lib/apolloDemoData';
+import { ProspectSandbox } from '@/components/leads/ProspectSandbox';
 
 interface Person {
   id: string;
