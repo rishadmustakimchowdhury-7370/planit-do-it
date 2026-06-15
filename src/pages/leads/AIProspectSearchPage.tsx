@@ -63,7 +63,8 @@ const EXAMPLES = [
 ];
 
 export default function AIProspectSearchPage() {
-  const { tenantId } = useAuth();
+  const { tenantId, isOwner, isManager, isSuperAdmin, isRecruiter } = useAuth();
+  const canUse = isOwner || isManager || isSuperAdmin;
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [planSlug, setPlanSlug] = useState<string | null>(null);
