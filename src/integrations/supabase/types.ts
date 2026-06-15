@@ -3527,6 +3527,390 @@ export type Database = {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          assigned_to: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          occurred_at: string
+          outcome: string | null
+          performed_by: string | null
+          subject: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_type: string
+          assigned_to?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          occurred_at?: string
+          outcome?: string | null
+          performed_by?: string | null
+          subject?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_type?: string
+          assigned_to?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          occurred_at?: string
+          outcome?: string | null
+          performed_by?: string | null
+          subject?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "lead_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "lead_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_companies: {
+        Row: {
+          assigned_to: string | null
+          city: string | null
+          company_size: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          domain: string | null
+          employee_count: number | null
+          enriched_at: string | null
+          enrichment_data: Json | null
+          enrichment_source: string | null
+          id: string
+          industry: string | null
+          linkedin_url: string | null
+          location: string | null
+          logo_url: string | null
+          name: string
+          revenue_range: string | null
+          tags: string[] | null
+          tenant_id: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          city?: string | null
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          enriched_at?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          logo_url?: string | null
+          name: string
+          revenue_range?: string | null
+          tags?: string[] | null
+          tenant_id: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          city?: string | null
+          company_size?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          enriched_at?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          logo_url?: string | null
+          name?: string
+          revenue_range?: string | null
+          tags?: string[] | null
+          tenant_id?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      lead_contacts: {
+        Row: {
+          assigned_to: string | null
+          city: string | null
+          company_id: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          department: string | null
+          email: string | null
+          email_verified: boolean | null
+          enriched_at: string | null
+          enrichment_data: Json | null
+          enrichment_source: string | null
+          first_name: string | null
+          full_name: string | null
+          id: string
+          last_name: string | null
+          linkedin_url: string | null
+          location: string | null
+          mobile: string | null
+          phone: string | null
+          seniority: string | null
+          tags: string[] | null
+          tenant_id: string
+          title: string | null
+          twitter_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          city?: string | null
+          company_id?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          department?: string | null
+          email?: string | null
+          email_verified?: boolean | null
+          enriched_at?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          mobile?: string | null
+          phone?: string | null
+          seniority?: string | null
+          tags?: string[] | null
+          tenant_id: string
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          city?: string | null
+          company_id?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          department?: string | null
+          email?: string | null
+          email_verified?: boolean | null
+          enriched_at?: string | null
+          enrichment_data?: Json | null
+          enrichment_source?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          mobile?: string | null
+          phone?: string | null
+          seniority?: string | null
+          tags?: string[] | null
+          tenant_id?: string
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "lead_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_list_members: {
+        Row: {
+          added_by: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          id: string
+          list_id: string
+          tenant_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          list_id: string
+          tenant_id: string
+        }
+        Update: {
+          added_by?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          list_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_list_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "lead_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_list_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "lead_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_list_members_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lead_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_lists: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          description: string | null
+          filter_criteria: Json | null
+          id: string
+          list_type: string
+          member_count: number | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          list_type?: string
+          member_count?: number | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          list_type?: string
+          member_count?: number | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lead_search_history: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          filters: Json | null
+          id: string
+          query_text: string | null
+          result_count: number | null
+          search_type: string | null
+          searched_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          filters?: Json | null
+          id?: string
+          query_text?: string | null
+          result_count?: number | null
+          search_type?: string | null
+          searched_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          filters?: Json | null
+          id?: string
+          query_text?: string | null
+          result_count?: number | null
+          search_type?: string | null
+          searched_by?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       linkedin_connections: {
         Row: {
           access_token_encrypted: string | null
@@ -7046,6 +7430,10 @@ export type Database = {
       }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      lead_can_access: {
+        Args: { _assigned_to: string; _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
       mark_submission_viewed: {
         Args: { _submission_id: string }
         Returns: undefined
