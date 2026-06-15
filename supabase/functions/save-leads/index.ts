@@ -180,6 +180,14 @@ Deno.serve(async (req) => {
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
     const tenantId = profile.tenant_id as string;
 
+    // Role gate: recruiters cannot save leads.
+    const { data: roles } = await admin.from("user_roles").select("role,tenant_id").eq("user_id", userId);
+    const tenantRoles = new Set((roles ?? []).filter((r: any) => r.tenant_id === tenantId).map((r: any) => r.role));
+    const isSuper = (roles ?? []).some((r: any) => r.role === "super_admin");
+    if (!tenantRoles.has("owner") && !tenantRoles.has("manager") && !isSuper) {
+      return json({ error: "Forbidden: Recruiters cannot save leads." }, 403);
+    }
+
     const body = await req.json().catch(() => ({}));
     const mode = body.mode as "company" | "contact" | "lead" | "leads";
     if (!mode) return json({ error: "Missing mode" }, 400);
