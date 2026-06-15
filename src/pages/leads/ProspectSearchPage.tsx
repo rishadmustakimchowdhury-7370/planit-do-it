@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
-  Bookmark, Building2, UserPlus,
+  Bookmark, Building2, UserPlus, Check, X, RefreshCw,
 } from 'lucide-react';
 
 interface Person {
