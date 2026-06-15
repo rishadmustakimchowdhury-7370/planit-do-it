@@ -63,6 +63,7 @@ const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 const FinanceSettingsPage = lazy(() => import("./pages/FinanceSettingsPage"));
 const RecruiterBonusesPage = lazy(() => import("./pages/RecruiterBonusesPage"));
 const ProspectSearchPage = lazy(() => import("./pages/leads/ProspectSearchPage"));
+const AIProspectSearchPage = lazy(() => import("./pages/leads/AIProspectSearchPage"));
 const SavedLeadsPage = lazy(() => import("./pages/leads/SavedLeadsPage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
@@ -203,6 +204,7 @@ const AppRoutes = () => (
       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
       <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
       <Route path="/leads/prospects" element={<ProtectedRoute><ProspectSearchPage /></ProtectedRoute>} />
+      <Route path="/leads/ai" element={<ProtectedRoute><AIProspectSearchPage /></ProtectedRoute>} />
       <Route path="/leads/saved" element={<ProtectedRoute><SavedLeadsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />

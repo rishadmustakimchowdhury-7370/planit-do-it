@@ -378,6 +378,7 @@ function SidebarContent({
         </AnimatePresence>
         {[
           { name: 'Prospect Search', href: '/leads/prospects', icon: Radar },
+          { name: 'AI Prospect Search', href: '/leads/ai', icon: Sparkles },
           { name: 'Saved Leads', href: '/leads/saved', icon: Contact },
         ].map((item) => {
           const isActive = location.pathname === item.href;
