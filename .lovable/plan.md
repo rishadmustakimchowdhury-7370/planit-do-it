@@ -1,82 +1,98 @@
-# Entitlement Enforcement Layer — Implementation Plan
+# Prospecting Sandbox — Implementation Plan
 
-The catalog, matrix, hook, meters and Stripe sync are already in place. This plan adds **active enforcement** at both UI and server layers, using `get_tenant_feature(tenant_id, feature_key)` as the single source of truth.
+A self-contained Demo Mode for Prospect Search that lets a salesperson run the full BD workflow (search → save → assign → pipeline → notes → export) without an Apollo paid plan.
 
-## Phase 1 — Shared Primitives
+## Phase 1 — Demo Data Library
 
-**DB helper** (migration):
-- `public.enforce_feature_limit(_tenant_id uuid, _feature_key text, _increment int default 1)` — `SECURITY DEFINER`. Calls `get_tenant_feature`. Raises `EXCEPTION 'FEATURE_LIMIT_EXCEEDED: <key>'` when `enabled=false` or `usage + increment > limit` (skipping when unlimited). Returns the entitlement JSON.
-- `public.subscription_usage_log` table: `id, tenant_id, user_id, feature_key, delta int, action text, metadata jsonb, created_at`. RLS: owners/managers read own tenant; super_admin all; insert restricted to `service_role` + security definer functions.
+Expand `src/lib/apolloDemoData.ts` into four curated datasets (20 records each, ~80 total):
 
-**Client primitive** (`src/lib/entitlements.ts`):
-- `assertFeature(tenantId, key, increment=1)` — RPC wrapper; throws `EntitlementError` with `{ feature, current, limit, planName }` for the upgrade modal.
-- `<UpgradeRequiredDialog />` shared component (uses existing UI tokens) displaying current plan, usage, recommended plan (next tier from `subscription_plans` ordered by `price_monthly`).
-- `useEnforceFeature(key)` returning `{ check, dialog }` to drop into any create flow.
+- `recruitment_uk` — UK recruitment agencies
+- `technology_us` — US SaaS / tech companies
+- `commodities` — Commodity & trading firms (UAE, Singapore, CH, UK)
+- `healthcare` — Healthcare providers / medtech
+- (bonus) `staffing_uae` — folded into Recruitment tab as a sub-region
 
-## Phase 2 — Job Limits (`active_jobs`)
+Each record fields:
+```
+id, name, logo_url (initials avatar fallback via UI Avatars),
+website_url, linkedin_url, industry, employee_count, country, city,
+revenue_range, short_description,
+contact: { first_name, last_name, full_name, title, email, phone, linkedin_url },
+match_score (60–98), is_demo: true, dataset
+```
 
-- **DB trigger** `jobs_enforce_limit_trg` BEFORE INSERT — when `status='active'`, call `enforce_feature_limit(tenant_id, 'active_jobs')`. Also on UPDATE when status transitions to active.
-- **UI**: `NewJobDialog` / `JobsPage` "New Job" button — call `assertFeature` before submit. On error → show upgrade dialog, block submit.
-- **Edge function** `create-job` (if present) — same RPC check before insert.
+`generateDemoCompanies(dataset)` returns the relevant slice. Logos use deterministic Apollo-style avatars: `https://ui-avatars.com/api/?name=...&background=...&color=fff&bold=true`.
 
-## Phase 3 — Team Member Limits (`team_members`)
+## Phase 2 — Page Layout
 
-- **DB trigger** on `team_invitations` INSERT and `profiles` INSERT (active members) — enforce.
-- **UI**: `InviteUserDialog`, Team Management invite buttons — pre-check; disable button at 100%.
-- **Edge function** `invite-team-member` — re-check before sending email.
+Replace the current demo result block with a tabbed sandbox. Visible whenever `result.isDemo` OR free plan demo entry point is used.
 
-## Phase 4 — Candidate Limits (`candidates`)
+```text
+[Tabs: Recruitment | Technology | Commodities | Healthcare]
+[Toolbar: Select All | Bulk Save | Bulk Assign | Export CSV | DEMO badge]
+[Workflow stepper: Search → Save → Assign → Pipeline → Notes → Export]
+[Grid: 12 columns, sticky header]
+```
 
-- **DB trigger** on `candidates` BEFORE INSERT.
-- **UI**: Manual create dialog, CV upload, bulk import wizard — pre-check (CV import: check `count + files.length`).
-- **Edge functions** `parse-cv`, `bulk-import-candidates` — check before insert loop.
+Switching tabs reloads that dataset, clears selection, keeps `isDemo`.
 
-## Phase 5 — AI Match Limits (`ai_matches_monthly`)
+## Phase 3 — Results Grid
 
-- **DB function** `consume_ai_match(_tenant_id, _user_id, _action)` — atomic: `SELECT ... FOR UPDATE`-style by inserting a usage row inside a transaction, then re-running `get_tenant_feature`. If exceeded → ROLLBACK + raise.
-- **Edge functions** `ai-match`, `generate-client-report`, `ai-candidate-analysis` — call `consume_ai_match` first; abort with 402 on `FEATURE_LIMIT_EXCEEDED`.
-- **UI**: AI Match button / Report generate button — pre-check + upgrade dialog on 402.
+New table with the requested 12 columns (Company, Contact, Title, Industry, Country, Employees, Revenue, Website, LinkedIn, Email, Phone, Match Score) plus checkbox + actions column. Logo shown beside company name. Match Score rendered as a colored pill (green ≥85, amber 70–84, gray <70).
 
-## Phase 6 — Feature Access (boolean gates)
+Row actions (icon buttons):
+- Save to CRM (uses existing `save-leads` edge function, mode=`lead` with company+contact)
+- Assign Recruiter (opens small popover with team list)
+- Add Note (opens dialog → writes to `lead_activities` after save, else stages locally)
+- View Company (opens drawer)
 
-Features: `finance_dashboard`, `invoice_management`, `recruiter_bonus_tracking`, `api_access`, `advanced_analytics`, `custom_branding`.
+## Phase 4 — Company Drawer
 
-- **Routing**: new `<FeatureRoute featureKey="...">` wrapper in `src/App.tsx` routes — renders 403 page with upgrade CTA when `enabled=false`.
-- **Sidebar**: filter menu items by `useEntitlement(key).canUse`.
-- **Edge functions** touching these areas — guard with `enforce_feature_limit` (which also handles `enabled=false`).
+`<CompanyDetailDrawer>` (Sheet) opened on row click or View action:
+- Header: logo, name, DEMO badge, website + LinkedIn buttons
+- Profile section: industry, country/city, employees, revenue, short_description
+- Primary contact: name, title, email, phone, LinkedIn
+- Notes: textarea (stored to local component state; persisted to `lead_activities` when company is saved)
+- Activity timeline: synthesized demo events (Apollo enriched, Added to pipeline, Note logged) + any real events once saved
 
-## Phase 7 — Upgrade Prompts
+## Phase 5 — Bulk Actions
 
-Single `<UpgradeRequiredDialog />` reused from Phase 1 — shown:
-- on blocked create flows (Jobs, Candidates, Invites, AI)
-- on protected routes (full-page 403 variant)
-- on usage meters ≥100% (link to dialog from existing `UsageMetersCard`)
+Toolbar above grid:
+- Select All toggles current tab's rows
+- Bulk Save: loops through selected, calls `save-leads` with `mode=lead` so it creates both company + contact, tagging `source: 'apollo_demo'`
+- Bulk Assign: dialog with recruiter dropdown → after save, updates `lead_contacts.assigned_to`
+- Export CSV: builds a real CSV blob from selected (or all) and triggers download via `Blob` + `URL.createObjectURL`
 
-Recommended plan = first plan whose limits for the blocked feature satisfy current usage + 1.
+Toast summarises results (saved / duplicates / failed).
 
-## Phase 8 — Audit Logging
+## Phase 6 — CRM / Pipeline / BD Integration
 
-Every `enforce_feature_limit` / `consume_ai_match` call writes a row into `subscription_usage_log` (success or blocked, with `action` = `blocked` / `consumed`). Super Admin gets a read-only view (Admin → Billing → Usage Log) — minimal table, not styled deeply.
+Saved records flow into existing tables, so they appear everywhere automatically:
+- `lead_companies` → CRM Companies & Business Development Dashboard
+- `lead_contacts` (linked to company) → Prospect Pipeline
+- `lead_activities` with `activity_type='note'` for any notes
+- `lead_activities` with `activity_type='assignment'` for recruiter assignment
 
-## Phase 9 — Validation
+No schema changes required — existing tables already support these flows. `source='apollo_demo'` and `is_demo=true` (where column exists) flag them for filtering. If `is_demo` isn't on `lead_companies`, we set `source='apollo_demo'` only; tagging is sufficient for demo cleanup.
 
-Manual test matrix (documented in PR description):
-- Starter tenant: create 11th job → blocked DB-side and UI-side; invite 3rd member → blocked; import 151st candidate → blocked; 51st AI match → blocked; visit `/finance` → 403.
-- Pro tenant: limits at 25 / 5 / 500 / 200.
-- Agency tenant: unlimited (limit_value NULL) → all pass.
+## Phase 7 — Workflow Helper + Polish
 
-## Deliverables
+- Workflow stepper component shows 6 steps with check marks as the user progresses in the session (Save flips step 2, Assign flips step 3, drag to pipeline flips 4, etc.).
+- `DEMO DATA` badge on every row, drawer header, and CSV filename prefix.
+- Empty state for each tab if dataset somehow empty.
+- Keep existing real Apollo search path untouched — sandbox only activates via "Load Sample Apollo Results" or when on Free plan.
 
-1. **Enforcement points**: jobs/candidates/invites/ai create flows (UI) + DB triggers.
-2. **Backend validations**: `enforce_feature_limit`, `consume_ai_match`, triggers on `jobs`, `candidates`, `team_invitations`, `profiles`; edge function guards in `create-job`, `invite-team-member`, `parse-cv`, `bulk-import-candidates`, `ai-match`, `generate-client-report`, `ai-candidate-analysis`.
-3. **Protected routes**: `<FeatureRoute>` for finance, invoices, bonuses, analytics, branding, api.
-4. **Audit logging**: `subscription_usage_log` + super-admin read view.
-5. **Test results**: matrix above.
+## Technical Notes
 
-## Scope notes / asks
+- New files: `src/lib/apolloDemoData.ts` (expanded), `src/components/leads/ProspectSandbox.tsx`, `src/components/leads/CompanyDetailDrawer.tsx`, `src/components/leads/AssignRecruiterPopover.tsx`, `src/components/leads/DemoWorkflowStepper.tsx`.
+- `ProspectSearchPage` mounts `<ProspectSandbox />` when `demoActive` state is on (set by Load Sample button; auto-on for free plan).
+- Recruiter list fetched once via `profiles` join `user_roles` where role in (owner,manager,recruiter) and tenant matches.
+- CSV export: client-side, columns mirror the grid, filename `apollo-demo-{tab}-{YYYY-MM-DD}.csv`.
+- No edge function changes — reuses `save-leads`.
+- No DB migrations — uses existing `lead_companies`, `lead_contacts`, `lead_activities` schemas.
 
-- **Edge function list**: I'll guard only edge functions that already exist in the repo — please confirm if there are others you want covered.
-- **Bulk operations**: bulk imports will fail-fast at the first row that exceeds the limit (no partial import). Confirm or switch to "import up to the limit then stop".
-- **Existing tenants over limits**: enforcement is on *new* writes only; current over-limit data is left in place (no retroactive deletion). Owners simply can't add more until they upgrade or remove items.
+## Out of Scope
 
-Reply **approve** to proceed, or tell me which phases to skip / adjust.
+- Editing demo records inline
+- Persisting unsaved notes across page refresh
+- Real Apollo logo URLs (we use deterministic avatar service)
