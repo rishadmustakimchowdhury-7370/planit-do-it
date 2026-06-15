@@ -62,6 +62,7 @@ const FinanceDashboardPage = lazy(() => import("./pages/FinanceDashboardPage"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 const FinanceSettingsPage = lazy(() => import("./pages/FinanceSettingsPage"));
 const RecruiterBonusesPage = lazy(() => import("./pages/RecruiterBonusesPage"));
+const ProspectSearchPage = lazy(() => import("./pages/leads/ProspectSearchPage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
