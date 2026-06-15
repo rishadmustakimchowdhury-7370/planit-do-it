@@ -110,6 +110,18 @@ Deno.serve(async (req) => {
 
     const caps = (row.capabilities ?? {}) as { people_search?: boolean; org_search?: boolean };
     const planTier = (row.plan_tier ?? "unknown") as string;
+
+    // Free plans cannot use any Apollo search endpoint — short-circuit with upgrade message.
+    if (planTier === "free") {
+      return json({
+        error: "Prospect Search requires a paid Apollo subscription. Your connected Apollo account is on the Free plan, which does not include API search access. Upgrade your Apollo plan to continue.",
+        apolloStatus: 403,
+        planTier: "free",
+        capabilities: caps,
+        upgradeRequired: true,
+      }, 200);
+    }
+
     // Default: people search if allowed, else fall back to companies
     let mode: "people" | "companies" = requestedMode === "companies" || requestedMode === "people"
       ? requestedMode
@@ -124,6 +136,7 @@ Deno.serve(async (req) => {
         fallback: "companies",
       }, 200);
     }
+
 
     const apolloBody: Record<string, unknown> = {
       page: Math.max(1, Number(page) || 1),
