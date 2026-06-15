@@ -38,8 +38,25 @@ interface Person {
   };
 }
 
+interface CompanyResult {
+  id: string;
+  name: string | null;
+  website_url: string | null;
+  linkedin_url: string | null;
+  industry: string | null;
+  estimated_num_employees: number | null;
+  city: string | null;
+  state?: string | null;
+  country: string | null;
+  short_description?: string | null;
+}
+
 interface SearchResult {
+  mode?: 'people' | 'companies';
+  planTier?: string;
+  capabilities?: { people_search?: boolean; org_search?: boolean };
   people: Person[];
+  companies?: CompanyResult[];
   page: number;
   per_page: number;
   total_entries: number;
