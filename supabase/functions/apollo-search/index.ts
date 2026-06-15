@@ -68,14 +68,31 @@ Deno.serve(async (req) => {
       return json({ error: "Forbidden: Apollo search requires Owner or Manager role." }, 403);
     }
 
-    const { data: row } = await admin
+    const encKey = Deno.env.get("APOLLO_ENCRYPTION_KEY");
+    console.log("[apollo-search] tenant", tenantId, "hasEncKey", !!encKey);
+    if (!encKey) return json({ error: "APOLLO_ENCRYPTION_KEY secret is not configured on the edge function." }, 500);
+
+    const { data: row, error: rowErr } = await admin
       .from("apollo_integrations")
       .select("api_key_encrypted,api_key_iv,status")
       .eq("tenant_id", tenantId)
       .maybeSingle();
-    if (!row?.api_key_encrypted) return json({ error: "Apollo is not connected. Ask an owner to set it up in Settings → Integrations." }, 400);
+    if (rowErr) {
+      console.error("[apollo-search] integration lookup error", rowErr);
+      return json({ error: `Integration lookup failed: ${rowErr.message}` }, 500);
+    }
+    console.log("[apollo-search] row", { hasRow: !!row, hasCt: !!row?.api_key_encrypted, hasIv: !!row?.api_key_iv, status: row?.status });
+    if (!row?.api_key_encrypted || !row?.api_key_iv) {
+      return json({ error: "Apollo is not connected. Ask an owner to set it up in Settings → Integrations." }, 400);
+    }
 
-    const apiKey = await decrypt(row.api_key_encrypted, row.api_key_iv);
+    let apiKey: string;
+    try {
+      apiKey = await decrypt(row.api_key_encrypted, row.api_key_iv);
+    } catch (decErr) {
+      console.error("[apollo-search] decrypt failed", decErr);
+      return json({ error: `Failed to decrypt Apollo API key. The APOLLO_ENCRYPTION_KEY may have changed since the key was saved. Reconnect Apollo in Settings → Integrations.` }, 500);
+    }
 
     const body = await req.json().catch(() => ({}));
     const {
