@@ -14,8 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
-  Bookmark, Building2, UserPlus, Check, X, RefreshCw,
+  Bookmark, Building2, UserPlus, Check, X, RefreshCw, Sparkles, Download,
 } from 'lucide-react';
+import { generateDemoCompanies } from '@/lib/apolloDemoData';
 
 interface Person {
   id: string;
@@ -61,6 +62,7 @@ interface SearchResult {
   per_page: number;
   total_entries: number;
   total_pages: number;
+  isDemo?: boolean;
 }
 
 const EMPLOYEE_RANGES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5001-10000', '10001+'];
@@ -139,6 +141,78 @@ export default function ProspectSearchPage() {
       setRetesting(false);
     }
   };
+
+  const loadDemoResults = () => {
+    const companies = generateDemoCompanies();
+    setMode('companies');
+    setError(null);
+    setSelected(new Set());
+    setResult({
+      mode: 'companies',
+      planTier,
+      capabilities,
+      people: [],
+      companies,
+      page: 1,
+      per_page: companies.length,
+      total_entries: companies.length,
+      total_pages: 1,
+      isDemo: true,
+    });
+    toast({ title: 'Sample data loaded', description: `${companies.length} demo prospects ready. Marked as DEMO DATA.` });
+  };
+
+  const exportCompaniesCsv = () => {
+    if (!result?.companies?.length) return;
+    const headers = ['Company', 'Website', 'LinkedIn', 'Industry', 'Employees', 'Country', 'City', 'Revenue Range', 'Demo'];
+    const rows = result.companies.map((c: any) => [
+      c.name ?? '', c.website_url ?? '', c.linkedin_url ?? '', c.industry ?? '',
+      c.estimated_num_employees ?? '', c.country ?? '', c.city ?? '', c.revenue_range ?? '',
+      result.isDemo ? 'YES' : 'NO',
+    ]);
+    const escape = (v: any) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `apollo-${result.isDemo ? 'demo-' : ''}companies-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const bulkSaveCompanies = async () => {
+    if (!result?.companies?.length) return;
+    const list = selected.size > 0 ? result.companies.filter((c) => selected.has(c.id)) : result.companies;
+    setBulkSaving(true);
+    let ok = 0, dup = 0, fail = 0;
+    for (const c of list) {
+      try {
+        const { data, error: err } = await supabase.functions.invoke('save-leads', {
+          body: {
+            mode: 'company',
+            company: {
+              name: c.name, website: c.website_url, linkedin_url: c.linkedin_url,
+              industry: c.industry, employee_count: c.estimated_num_employees,
+              city: c.city, country: c.country,
+              source: result.isDemo ? 'apollo_demo' : 'apollo',
+              is_demo: !!result.isDemo,
+            },
+          },
+        });
+        if (err || data?.error) { fail++; continue; }
+        if (data?.created) ok++; else dup++;
+      } catch { fail++; }
+    }
+    setBulkSaving(false);
+    setSelected(new Set());
+    toast({ title: 'Bulk save complete', description: `${ok} saved, ${dup} duplicates, ${fail} failed.` });
+  };
+
+
 
 
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
@@ -353,10 +427,18 @@ export default function ProspectSearchPage() {
                 {retesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Retest Connection
               </Button>
-              <Button variant="outline" asChild>
+              <Button variant="outline" onClick={loadDemoResults}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Load Sample Apollo Results
+              </Button>
+              <Button variant="ghost" asChild>
                 <a href="/settings">Manage integration</a>
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Demo mode loads 20 realistic recruitment-agency prospects so you can test Save to CRM,
+              Bulk Save, and CSV export without a paid Apollo plan. All records are tagged as DEMO DATA.
+            </p>
           </CardContent>
         </Card>
       </AppLayout>
@@ -449,17 +531,34 @@ export default function ProspectSearchPage() {
         {result && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-              <CardTitle>
-                Results <Badge variant="secondary" className="ml-2">{result.total_entries.toLocaleString()}</Badge>
+              <CardTitle className="flex items-center gap-2 flex-wrap">
+                Results <Badge variant="secondary">{result.total_entries.toLocaleString()}</Badge>
+                {result.isDemo && (
+                  <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50">
+                    DEMO DATA
+                  </Badge>
+                )}
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {selected.size > 0 && (
                   <span className="text-sm text-muted-foreground">{selected.size} selected</span>
                 )}
-                <Button size="sm" onClick={saveSelected} disabled={bulkSaving || selected.size === 0}>
-                  {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
-                  Save {selected.size > 0 ? `${selected.size} ` : ''}Lead{selected.size === 1 ? '' : 's'}
-                </Button>
+                {(result.mode ?? mode) === 'companies' ? (
+                  <>
+                    <Button size="sm" onClick={bulkSaveCompanies} disabled={bulkSaving || !result.companies?.length}>
+                      {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
+                      {selected.size > 0 ? `Save ${selected.size}` : 'Save All'} Compan{(selected.size === 1) ? 'y' : 'ies'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={exportCompaniesCsv} disabled={!result.companies?.length}>
+                      <Download className="h-4 w-4 mr-2" /> Export CSV
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" onClick={saveSelected} disabled={bulkSaving || selected.size === 0}>
+                    {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
+                    Save {selected.size > 0 ? `${selected.size} ` : ''}Lead{selected.size === 1 ? '' : 's'}
+                  </Button>
+                )}
                 <span className="text-sm text-muted-foreground ml-2">Page {result.page} of {totalPages}</span>
               </div>
             </CardHeader>
@@ -469,9 +568,21 @@ export default function ProspectSearchPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-8">
+                          <Checkbox
+                            checked={!!result.companies?.length && result.companies.every((c) => selected.has(c.id))}
+                            onCheckedChange={() => {
+                              if (!result.companies) return;
+                              const all = result.companies.every((c) => selected.has(c.id));
+                              setSelected(all ? new Set() : new Set(result.companies.map((c) => c.id)));
+                            }}
+                            aria-label="Select all companies"
+                          />
+                        </TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Industry</TableHead>
                         <TableHead>Employees</TableHead>
+                        <TableHead>Revenue</TableHead>
                         <TableHead>Website</TableHead>
                         <TableHead>LinkedIn</TableHead>
                         <TableHead>Location</TableHead>
@@ -480,17 +591,26 @@ export default function ProspectSearchPage() {
                     </TableHeader>
                     <TableBody>
                       {(result.companies ?? []).length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           No companies found. Try adjusting your filters.
                         </TableCell></TableRow>
                       ) : (
                         (result.companies ?? []).map((c) => {
                           const busy = rowSaving[c.id];
                           return (
-                            <TableRow key={c.id}>
-                              <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
+                            <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
+                              <TableCell>
+                                <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleOne(c.id)} aria-label={`Select ${c.name}`} />
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  <span>{c.name ?? '—'}</span>
+                                  {result.isDemo && <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600">DEMO</Badge>}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-sm">{c.industry ?? '—'}</TableCell>
                               <TableCell className="text-sm">{c.estimated_num_employees ?? '—'}</TableCell>
+                              <TableCell className="text-sm">{(c as any).revenue_range ?? '—'}</TableCell>
                               <TableCell>
                                 {c.website_url ? (
                                   <a href={c.website_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
