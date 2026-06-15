@@ -123,7 +123,8 @@ const TEAM_LIMITS: Record<string, number> = {
 };
 
 export default function SettingsPage() {
-  const { profile, tenantId, user, refreshProfile } = useAuth();
+  const { profile, tenantId, user, refreshProfile, isOwner, isManager, isRecruiter } = useAuth();
+  const canSeeIntegrations = isOwner || isManager;
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
