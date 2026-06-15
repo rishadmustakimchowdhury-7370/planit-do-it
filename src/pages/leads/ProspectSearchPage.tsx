@@ -241,8 +241,8 @@ export default function ProspectSearchPage() {
     );
   }
 
-  const peopleDisabled = capabilities.people_search === false;
   const isFree = planTier === 'free';
+  const peopleDisabled = capabilities.people_search === false || isFree;
 
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
