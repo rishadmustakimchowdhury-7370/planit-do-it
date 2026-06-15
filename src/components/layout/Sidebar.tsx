@@ -29,6 +29,7 @@ import {
   Wallet,
   Lock,
   Radar,
+  Contact,
   Target
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -375,7 +376,10 @@ function SidebarContent({
             </motion.p>
           )}
         </AnimatePresence>
-        {[{ name: 'Prospect Search', href: '/leads/prospects', icon: Radar }].map((item) => {
+        {[
+          { name: 'Prospect Search', href: '/leads/prospects', icon: Radar },
+          { name: 'Saved Leads', href: '/leads/saved', icon: Contact },
+        ].map((item) => {
           const isActive = location.pathname === item.href;
           return (
             <Link key={item.name} to={item.href} onClick={handleNavClick}
