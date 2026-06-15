@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
   Bookmark, Building2, UserPlus,
