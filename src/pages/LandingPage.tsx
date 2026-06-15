@@ -24,11 +24,11 @@ import teamPerfImg from '@/assets/crm/team-performance.jpg';
 import reportsImg from '@/assets/crm/reports.jpg';
 import emailComposeImg from '@/assets/crm/email-compose.jpg';
 import brandedCvImg from '@/assets/crm/branded-cv.jpg';
-// CDN-hosted screenshots (resolved URLs hardcoded to avoid JSON-import indirection)
-const invoiceImg = 'https://cdn.lovable.dev/__l5e/assets-v1/4bab5c03-e2a0-4e61-8ddd-7d4a761fddfb/invoice-dashboard.png';
-const financeImg = 'https://cdn.lovable.dev/__l5e/assets-v1/1949faab-e974-417b-9954-147e0b49b6d4/finance-dashboard.png';
-const placementImg = 'https://cdn.lovable.dev/__l5e/assets-v1/9ed36abb-50e7-4e0c-a968-07c860474471/placements-revenue.png';
-const pipelineImg = 'https://cdn.lovable.dev/__l5e/assets-v1/ed134de9-f5d0-47b0-aca7-58206bba67bd/pipeline-funnel.png';
+// CDN-hosted screenshots (relative URLs served by Lovable __l5e infra)
+const invoiceImg = '/__l5e/assets-v1/4bab5c03-e2a0-4e61-8ddd-7d4a761fddfb/invoice-dashboard.png';
+const financeImg = '/__l5e/assets-v1/1949faab-e974-417b-9954-147e0b49b6d4/finance-dashboard.png';
+const placementImg = '/__l5e/assets-v1/9ed36abb-50e7-4e0c-a968-07c860474471/placements-revenue.png';
+const pipelineImg = '/__l5e/assets-v1/ed134de9-f5d0-47b0-aca7-58206bba67bd/pipeline-funnel.png';
 import { Shield, Lock, KeyRound, ServerCog } from 'lucide-react';
 
 /* ---------------- Reusable bits ---------------- */
