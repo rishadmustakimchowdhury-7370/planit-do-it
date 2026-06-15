@@ -142,6 +142,78 @@ export default function ProspectSearchPage() {
     }
   };
 
+  const loadDemoResults = () => {
+    const companies = generateDemoCompanies();
+    setMode('companies');
+    setError(null);
+    setSelected(new Set());
+    setResult({
+      mode: 'companies',
+      planTier,
+      capabilities,
+      people: [],
+      companies,
+      page: 1,
+      per_page: companies.length,
+      total_entries: companies.length,
+      total_pages: 1,
+      isDemo: true,
+    });
+    toast({ title: 'Sample data loaded', description: `${companies.length} demo prospects ready. Marked as DEMO DATA.` });
+  };
+
+  const exportCompaniesCsv = () => {
+    if (!result?.companies?.length) return;
+    const headers = ['Company', 'Website', 'LinkedIn', 'Industry', 'Employees', 'Country', 'City', 'Revenue Range', 'Demo'];
+    const rows = result.companies.map((c: any) => [
+      c.name ?? '', c.website_url ?? '', c.linkedin_url ?? '', c.industry ?? '',
+      c.estimated_num_employees ?? '', c.country ?? '', c.city ?? '', c.revenue_range ?? '',
+      result.isDemo ? 'YES' : 'NO',
+    ]);
+    const escape = (v: any) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `apollo-${result.isDemo ? 'demo-' : ''}companies-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const bulkSaveCompanies = async () => {
+    if (!result?.companies?.length) return;
+    const list = selected.size > 0 ? result.companies.filter((c) => selected.has(c.id)) : result.companies;
+    setBulkSaving(true);
+    let ok = 0, dup = 0, fail = 0;
+    for (const c of list) {
+      try {
+        const { data, error: err } = await supabase.functions.invoke('save-leads', {
+          body: {
+            mode: 'company',
+            company: {
+              name: c.name, website: c.website_url, linkedin_url: c.linkedin_url,
+              industry: c.industry, employee_count: c.estimated_num_employees,
+              city: c.city, country: c.country,
+              source: result.isDemo ? 'apollo_demo' : 'apollo',
+              is_demo: !!result.isDemo,
+            },
+          },
+        });
+        if (err || data?.error) { fail++; continue; }
+        if (data?.created) ok++; else dup++;
+      } catch { fail++; }
+    }
+    setBulkSaving(false);
+    setSelected(new Set());
+    toast({ title: 'Bulk save complete', description: `${ok} saved, ${dup} duplicates, ${fail} failed.` });
+  };
+
+
+
 
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
     const useMode = overrideMode ?? mode;
