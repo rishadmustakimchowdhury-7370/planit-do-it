@@ -24,13 +24,12 @@ import teamPerfImg from '@/assets/crm/team-performance.jpg';
 import reportsImg from '@/assets/crm/reports.jpg';
 import emailComposeImg from '@/assets/crm/email-compose.jpg';
 import brandedCvImg from '@/assets/crm/branded-cv.jpg';
-// CDN-hosted screenshots. Use absolute Lovable asset URLs so self-hosted/custom-domain
+// CDN-hosted screenshots. Use fully qualified Lovable asset URLs so custom-domain
 // SPA fallbacks cannot intercept /__l5e asset requests and return index.html.
-const assetOrigin = 'https://planit-do-it.lovable.app';
-const invoiceImg = `${assetOrigin}/__l5e/assets-v1/4bab5c03-e2a0-4e61-8ddd-7d4a761fddfb/invoice-dashboard.png`;
-const financeImg = `${assetOrigin}/__l5e/assets-v1/1949faab-e974-417b-9954-147e0b49b6d4/finance-dashboard.png`;
-const placementImg = `${assetOrigin}/__l5e/assets-v1/9ed36abb-50e7-4e0c-a968-07c860474471/placements-revenue.png`;
-const pipelineImg = `${assetOrigin}/__l5e/assets-v1/ed134de9-f5d0-47b0-aca7-58206bba67bd/pipeline-funnel.png`;
+const invoiceImg = 'https://planit-do-it.lovable.app/__l5e/assets-v1/4bab5c03-e2a0-4e61-8ddd-7d4a761fddfb/invoice-dashboard.png';
+const financeImg = 'https://planit-do-it.lovable.app/__l5e/assets-v1/1949faab-e974-417b-9954-147e0b49b6d4/finance-dashboard.png';
+const placementImg = 'https://planit-do-it.lovable.app/__l5e/assets-v1/9ed36abb-50e7-4e0c-a968-07c860474471/placements-revenue.png';
+const pipelineImg = 'https://planit-do-it.lovable.app/__l5e/assets-v1/ed134de9-f5d0-47b0-aca7-58206bba67bd/pipeline-funnel.png';
 import { Shield, Lock, KeyRound, ServerCog } from 'lucide-react';
 
 /* ---------------- Reusable bits ---------------- */
