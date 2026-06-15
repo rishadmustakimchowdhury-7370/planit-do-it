@@ -30,7 +30,8 @@ import {
   Lock,
   Radar,
   Contact,
-  Target
+  Target,
+  Download
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -380,6 +381,7 @@ function SidebarContent({
           { name: 'Prospect Search', href: '/leads/prospects', icon: Radar },
           { name: 'AI Prospect Search', href: '/leads/ai', icon: Sparkles },
           { name: 'Saved Leads', href: '/leads/saved', icon: Contact },
+          { name: 'Export Center', href: '/leads/export', icon: Download },
         ].map((item) => {
           const isActive = location.pathname === item.href;
           return (
