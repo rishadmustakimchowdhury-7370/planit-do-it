@@ -27,7 +27,9 @@ import {
   DollarSign,
   FileText,
   Wallet,
-  Lock
+  Lock,
+  Radar,
+  Target
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
