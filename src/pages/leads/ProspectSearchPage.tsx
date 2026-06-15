@@ -106,6 +106,7 @@ export default function ProspectSearchPage() {
   const [planTier, setPlanTier] = useState<string>('unknown');
   const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
   const [retesting, setRetesting] = useState(false);
+  const [demoActive, setDemoActive] = useState(false);
 
   const loadStatus = async () => {
     const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
