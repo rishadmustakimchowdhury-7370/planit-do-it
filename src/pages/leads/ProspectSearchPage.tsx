@@ -359,78 +359,83 @@ export default function ProspectSearchPage() {
     ];
     return (
       <AppLayout title="Prospect Search" subtitle="Apollo paid subscription required">
-        <Card className="max-w-3xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 flex-wrap">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              Apollo paid plan required
-              <Badge variant="outline" className="ml-2">Detected plan: {planLabel}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5 text-sm">
-            <p>
-              Your connected Apollo account is on the <strong>{planLabel} plan</strong>, which does
-              not expose the search API endpoints HireMetrics needs for Prospect Search.
-            </p>
+        <div className="space-y-6">
+          <Card className="max-w-3xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 flex-wrap">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Apollo paid plan required
+                <Badge variant="outline" className="ml-2">Detected plan: {planLabel}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5 text-sm">
+              <p>
+                Your connected Apollo account is on the <strong>{planLabel} plan</strong>, which does
+                not expose the search API endpoints HireMetrics needs for Prospect Search.
+              </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-md border p-4">
-                <div className="font-medium mb-2">Available on your current plan</div>
-                <ul className="space-y-1.5">
-                  {currentFeatures.map((f) => (
-                    <li key={f.label} className="flex items-center gap-2">
-                      {f.available ? (
-                        <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                      ) : (
-                        <X className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                      <span className={f.available ? '' : 'text-muted-foreground line-through'}>{f.label}</span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-md border p-4">
+                  <div className="font-medium mb-2">Available on your current plan</div>
+                  <ul className="space-y-1.5">
+                    {currentFeatures.map((f) => (
+                      <li key={f.label} className="flex items-center gap-2">
+                        {f.available ? (
+                          <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <X className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className={f.available ? '' : 'text-muted-foreground line-through'}>{f.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-md border p-4 bg-primary/5 border-primary/20">
+                  <div className="font-medium mb-2">Unlocked after upgrade</div>
+                  <ul className="space-y-1.5">
+                    {unlockedFeatures.map((f) => (
+                      <li key={f} className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-primary shrink-0" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div className="rounded-md border p-4 bg-primary/5 border-primary/20">
-                <div className="font-medium mb-2">Unlocked after upgrade</div>
-                <ul className="space-y-1.5">
-                  {unlockedFeatures.map((f) => (
-                    <li key={f} className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
+
+              <p className="text-muted-foreground">
+                Already upgraded? Click <strong>Retest Connection</strong> — features unlock
+                automatically, no need to disconnect or re-enter your API key.
+              </p>
+
+              <div className="flex gap-2 pt-1 flex-wrap">
+                <Button asChild>
+                  <a href="https://app.apollo.io/#/settings/plans" target="_blank" rel="noreferrer">
+                    Upgrade Apollo <ExternalLink className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+                <Button variant="secondary" onClick={retestConnection} disabled={retesting}>
+                  {retesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Retest Connection
+                </Button>
+                <Button variant="outline" onClick={loadDemoResults}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {demoActive ? 'Sandbox loaded below' : 'Load Sample Apollo Results'}
+                </Button>
+                <Button variant="ghost" asChild>
+                  <a href="/settings">Manage integration</a>
+                </Button>
               </div>
-            </div>
+              <p className="text-xs text-muted-foreground">
+                Demo mode loads realistic prospects across Recruitment, Technology, Commodities, and Healthcare
+                so you can run the full sales workflow — Save to CRM, Assign Recruiter, Add Notes, Bulk Save,
+                and CSV Export — without a paid Apollo plan. Records are tagged as DEMO DATA.
+              </p>
+            </CardContent>
+          </Card>
 
-            <p className="text-muted-foreground">
-              Already upgraded? Click <strong>Retest Connection</strong> — features unlock
-              automatically, no need to disconnect or re-enter your API key.
-            </p>
-
-            <div className="flex gap-2 pt-1 flex-wrap">
-              <Button asChild>
-                <a href="https://app.apollo.io/#/settings/plans" target="_blank" rel="noreferrer">
-                  Upgrade Apollo <ExternalLink className="h-4 w-4 ml-2" />
-                </a>
-              </Button>
-              <Button variant="secondary" onClick={retestConnection} disabled={retesting}>
-                {retesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                Retest Connection
-              </Button>
-              <Button variant="outline" onClick={loadDemoResults}>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Load Sample Apollo Results
-              </Button>
-              <Button variant="ghost" asChild>
-                <a href="/settings">Manage integration</a>
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Demo mode loads 20 realistic recruitment-agency prospects so you can test Save to CRM,
-              Bulk Save, and CSV export without a paid Apollo plan. All records are tagged as DEMO DATA.
-            </p>
-          </CardContent>
-        </Card>
+          {demoActive && <ProspectSandbox tenantId={tenantId} />}
+        </div>
       </AppLayout>
     );
   }
