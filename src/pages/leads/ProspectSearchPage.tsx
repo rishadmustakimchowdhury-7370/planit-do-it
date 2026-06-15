@@ -102,18 +102,44 @@ export default function ProspectSearchPage() {
   const [mode, setMode] = useState<'people' | 'companies'>('people');
   const [planTier, setPlanTier] = useState<string>('unknown');
   const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
+  const [retesting, setRetesting] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
-      const integ = data?.integration ?? {};
-      const caps = integ.capabilities ?? {};
-      const tier = integ.plan_tier ?? 'unknown';
-      setCapabilities(caps);
+  const loadStatus = async () => {
+    const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
+    const integ = data?.integration ?? {};
+    const caps = integ.capabilities ?? {};
+    const tier = integ.plan_tier ?? 'unknown';
+    setCapabilities(caps);
+    setPlanTier(tier);
+    if (tier === 'free' || caps.people_search === false) setMode('companies');
+    return { tier, caps };
+  };
+
+  useEffect(() => { loadStatus(); }, []);
+
+  const retestConnection = async () => {
+    setRetesting(true);
+    try {
+      const { data, error: err } = await supabase.functions.invoke('apollo-integration', { body: { action: 'test' } });
+      if (err) throw new Error(err.message);
+      if (data?.error && !data?.ok) throw new Error(data.error);
+      const tier = data?.plan_tier ?? 'unknown';
+      const caps = data?.capabilities ?? {};
       setPlanTier(tier);
-      if (tier === 'free' || caps.people_search === false) setMode('companies');
-    })();
-  }, []);
+      setCapabilities(caps);
+      if (tier !== 'free' && (caps.people_search || caps.org_search)) {
+        toast({ title: 'Apollo plan upgraded', description: 'Prospect Search features unlocked.' });
+        if (caps.people_search) setMode('people');
+      } else {
+        toast({ title: 'Still on Free plan', description: 'Upgrade your Apollo subscription, then retest.', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Retest failed', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRetesting(false);
+    }
+  };
+
 
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
     const useMode = overrideMode ?? mode;
