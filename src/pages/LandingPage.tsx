@@ -70,7 +70,19 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
           </div>
         </div>
       </div>
-      <img src={src} alt={alt} className="w-full block transition-transform duration-700 group-hover:scale-[1.01]" loading="lazy" />
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={(e) => {
+          const t = e.currentTarget;
+          if (!t.dataset.fallback) {
+            t.dataset.fallback = '1';
+            t.src = '/placeholder.svg';
+          }
+        }}
+        className="w-full block transition-transform duration-700 group-hover:scale-[1.01]"
+      />
     </div>
   );
 }
@@ -488,7 +500,19 @@ export default function LandingPage() {
                 className="group rounded-2xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-xl transition-all"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
-                  <img src={s.img} alt={s.label} loading="lazy" className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]" />
+                  <img
+                    src={s.img}
+                    alt={s.label}
+                    loading="lazy"
+                    onError={(e) => {
+                      const t = e.currentTarget;
+                      if (!t.dataset.fallback) {
+                        t.dataset.fallback = '1';
+                        t.src = '/placeholder.svg';
+                      }
+                    }}
+                    className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]"
+                  />
                   <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[10px] font-bold tracking-wider">
                     {s.step}
                   </div>
