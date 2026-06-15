@@ -316,7 +316,7 @@ export default function ProspectSearchPage() {
     }
   };
 
-  const { isOwner, isManager, isSuperAdmin, isRecruiter } = useAuth();
+  const { isOwner, isManager, isSuperAdmin, isRecruiter, tenantId } = useAuth();
   const canSearch = isOwner || isManager || isSuperAdmin;
 
   if (!canSearch && isRecruiter) {
