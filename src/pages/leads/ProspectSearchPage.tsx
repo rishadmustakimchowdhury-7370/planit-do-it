@@ -352,78 +352,137 @@ export default function ProspectSearchPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">
-                        <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
-                      </TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Website</TableHead>
-                      <TableHead>LinkedIn</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {result.people.length === 0 ? (
-                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                        No prospects found. Try adjusting your filters.
-                      </TableCell></TableRow>
-                    ) : (
-                      result.people.map((p) => {
-                        const busy = rowSaving[p.id];
-                        return (
-                          <TableRow key={p.id} data-state={selected.has(p.id) ? 'selected' : undefined}>
-                            <TableCell>
-                              <Checkbox
-                                checked={selected.has(p.id)}
-                                onCheckedChange={() => toggleOne(p.id)}
-                                aria-label={`Select ${p.name}`}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {p.company.name ?? '—'}
-                              {p.company.industry && <div className="text-xs text-muted-foreground">{p.company.industry}</div>}
-                            </TableCell>
-                            <TableCell>{p.name || '—'}</TableCell>
-                            <TableCell className="max-w-[220px] truncate">{p.title ?? '—'}</TableCell>
-                            <TableCell>
-                              {p.company.website_url ? (
-                                <a href={p.company.website_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
-                                  Visit <ExternalLink className="h-3 w-3" />
-                                </a>
-                              ) : '—'}
-                            </TableCell>
-                            <TableCell>
-                              {p.linkedin_url ? (
-                                <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
-                                  <Linkedin className="h-3 w-3" /> Profile
-                                </a>
-                              ) : '—'}
-                            </TableCell>
-                            <TableCell className="text-sm">{locationText(p)}</TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              <Button size="sm" variant="ghost" onClick={() => saveOne(p, 'company')}
-                                disabled={!!busy || !p.company.name}
-                                title="Save company only">
-                                {busy === 'company' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => saveOne(p, 'lead')}
-                                disabled={!!busy} className="ml-1">
-                                {busy === 'lead' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
-                                Save Lead
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
+                {(result.mode ?? mode) === 'companies' ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Industry</TableHead>
+                        <TableHead>Employees</TableHead>
+                        <TableHead>Website</TableHead>
+                        <TableHead>LinkedIn</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(result.companies ?? []).length === 0 ? (
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No companies found. Try adjusting your filters.
+                        </TableCell></TableRow>
+                      ) : (
+                        (result.companies ?? []).map((c) => {
+                          const busy = rowSaving[c.id];
+                          return (
+                            <TableRow key={c.id}>
+                              <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
+                              <TableCell className="text-sm">{c.industry ?? '—'}</TableCell>
+                              <TableCell className="text-sm">{c.estimated_num_employees ?? '—'}</TableCell>
+                              <TableCell>
+                                {c.website_url ? (
+                                  <a href={c.website_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                    Visit <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {c.linkedin_url ? (
+                                  <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                    <Linkedin className="h-3 w-3" /> Page
+                                  </a>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell className="text-sm">{[c.city, c.state, c.country].filter(Boolean).join(', ') || '—'}</TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="outline"
+                                  disabled={!!busy || !c.name}
+                                  onClick={() => saveOne({
+                                    id: c.id, name: c.name ?? '', first_name: null, last_name: null,
+                                    title: null, linkedin_url: null, city: c.city, state: c.state ?? null, country: c.country,
+                                    company: {
+                                      name: c.name, website_url: c.website_url, linkedin_url: c.linkedin_url,
+                                      industry: c.industry, estimated_num_employees: c.estimated_num_employees,
+                                      city: c.city, country: c.country,
+                                    },
+                                  } as Person, 'company')}>
+                                  {busy === 'company' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Building2 className="h-4 w-4 mr-1" />}
+                                  Save Company
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-8">
+                          <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+                        </TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Website</TableHead>
+                        <TableHead>LinkedIn</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.people.length === 0 ? (
+                        <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          No prospects found. Try adjusting your filters.
+                        </TableCell></TableRow>
+                      ) : (
+                        result.people.map((p) => {
+                          const busy = rowSaving[p.id];
+                          return (
+                            <TableRow key={p.id} data-state={selected.has(p.id) ? 'selected' : undefined}>
+                              <TableCell>
+                                <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleOne(p.id)} aria-label={`Select ${p.name}`} />
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {p.company.name ?? '—'}
+                                {p.company.industry && <div className="text-xs text-muted-foreground">{p.company.industry}</div>}
+                              </TableCell>
+                              <TableCell>{p.name || '—'}</TableCell>
+                              <TableCell className="max-w-[220px] truncate">{p.title ?? '—'}</TableCell>
+                              <TableCell>
+                                {p.company.website_url ? (
+                                  <a href={p.company.website_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                    Visit <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {p.linkedin_url ? (
+                                  <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                    <Linkedin className="h-3 w-3" /> Profile
+                                  </a>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell className="text-sm">{locationText(p)}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button size="sm" variant="ghost" onClick={() => saveOne(p, 'company')} disabled={!!busy || !p.company.name} title="Save company only">
+                                  {busy === 'company' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => saveOne(p, 'lead')} disabled={!!busy} className="ml-1">
+                                  {busy === 'lead' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                                  Save Lead
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </div>
+
 
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
