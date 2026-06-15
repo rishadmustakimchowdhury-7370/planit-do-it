@@ -32,8 +32,9 @@ export interface DemoCompany {
   isDemo: true;
 }
 
+type SeedContact = { first_name: string; last_name: string; title: string };
 type Seed = Omit<DemoCompany, 'id' | 'isDemo' | 'logo_url' | 'contact' | 'match_score'> & {
-  contact: Omit<DemoContact, 'email' | 'full_name' | 'linkedin_url'> & { domain?: string };
+  contact: SeedContact;
   match_score?: number;
 };
 
