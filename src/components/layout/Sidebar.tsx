@@ -29,6 +29,7 @@ import {
   Wallet,
   Lock,
   Radar,
+  Contact,
   Target
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
