@@ -47,20 +47,54 @@ async function decrypt(ct: string, iv: string) {
   return new TextDecoder().decode(pt);
 }
 
-async function testApolloKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
+async function probeEndpoint(apiKey: string, path: string, body: Record<string, unknown>) {
   try {
-    const res = await fetch("https://api.apollo.io/v1/auth/health", {
+    const res = await fetch(`https://api.apollo.io${path}`, {
+      method: "POST",
+      headers: { "Cache-Control": "no-cache", "Content-Type": "application/json", "X-Api-Key": apiKey },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return { ok: true, status: 200 };
+    const txt = await res.text().catch(() => "");
+    let errCode: string | null = null;
+    try { errCode = JSON.parse(txt)?.error_code ?? null; } catch { /* ignore */ }
+    const inaccessible = res.status === 403 && (errCode === "API_INACCESSIBLE" || /not accessible/i.test(txt));
+    return { ok: false, status: res.status, inaccessible, body: txt.slice(0, 300) };
+  } catch (e) {
+    return { ok: false, status: 0, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+async function testApolloKey(apiKey: string): Promise<{
+  ok: boolean;
+  error?: string;
+  planTier: "free" | "paid" | "unknown";
+  capabilities: { people_search: boolean; org_search: boolean };
+}> {
+  try {
+    const health = await fetch("https://api.apollo.io/v1/auth/health", {
       method: "GET",
       headers: { "Cache-Control": "no-cache", "Content-Type": "application/json", "X-Api-Key": apiKey },
     });
-    if (!res.ok) return { ok: false, error: `Apollo returned ${res.status}` };
-    const data = await res.json().catch(() => ({}));
-    if (data && data.is_logged_in === false) return { ok: false, error: "Apollo rejected the API key" };
-    return { ok: true };
+    if (!health.ok) return { ok: false, error: `Apollo returned ${health.status}`, planTier: "unknown", capabilities: { people_search: false, org_search: false } };
+    const hd = await health.json().catch(() => ({}));
+    if (hd && hd.is_logged_in === false) return { ok: false, error: "Apollo rejected the API key", planTier: "unknown", capabilities: { people_search: false, org_search: false } };
+
+    // Probe capabilities with minimal payloads
+    const people = await probeEndpoint(apiKey, "/v1/mixed_people/search", { page: 1, per_page: 1 });
+    const orgs = await probeEndpoint(apiKey, "/v1/mixed_companies/search", { page: 1, per_page: 1 });
+    const capabilities = { people_search: people.ok, org_search: orgs.ok };
+    const planTier: "free" | "paid" | "unknown" = people.ok
+      ? "paid"
+      : (people as any).inaccessible
+        ? "free"
+        : orgs.ok ? "paid" : "unknown";
+    return { ok: true, planTier, capabilities };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+    return { ok: false, error: e instanceof Error ? e.message : "Network error", planTier: "unknown", capabilities: { people_search: false, org_search: false } };
   }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
