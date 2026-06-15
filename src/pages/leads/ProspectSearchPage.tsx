@@ -99,8 +99,56 @@ export default function ProspectSearchPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rowSaving, setRowSaving] = useState<Record<string, 'lead' | 'company' | null>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [mode, setMode] = useState<'people' | 'companies'>('people');
+  const [planTier, setPlanTier] = useState<string>('unknown');
+  const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
 
-  const runSearch = async (newPage = 1) => {
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
+      const integ = data?.integration ?? {};
+      const caps = integ.capabilities ?? {};
+      setCapabilities(caps);
+      setPlanTier(integ.plan_tier ?? 'unknown');
+      if (caps.people_search === false) setMode('companies');
+    })();
+  }, []);
+
+  const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
+    const useMode = overrideMode ?? mode;
+    setLoading(true); setError(null); setSelected(new Set());
+    try {
+      const { data, error: invokeErr } = await supabase.functions.invoke('apollo-search', {
+        body: {
+          ...filters,
+          mode: useMode,
+          revenueMin: filters.revenueMin ? Number(filters.revenueMin) : undefined,
+          revenueMax: filters.revenueMax ? Number(filters.revenueMax) : undefined,
+          employeeRange: filters.employeeRange || undefined,
+          page: newPage, perPage,
+        },
+      });
+      if (invokeErr) throw new Error(invokeErr.message);
+      if (data?.capabilities) setCapabilities(data.capabilities);
+      if (data?.planTier) setPlanTier(data.planTier);
+      if (data?.error) {
+        // Auto-fallback to companies if people search is plan-restricted
+        if (data.fallback === 'companies' && useMode === 'people') {
+          setMode('companies');
+          toast({ title: 'Switched to Company search', description: data.error });
+          await runSearch(1, 'companies');
+          return;
+        }
+        throw new Error(data.error);
+      }
+      setResult(data); setPage(newPage);
+      if (data?.mode && data.mode !== mode) setMode(data.mode);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Search failed';
+      setError(msg);
+      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+    } finally { setLoading(false); }
+  };
     setLoading(true); setError(null); setSelected(new Set());
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke('apollo-search', {
