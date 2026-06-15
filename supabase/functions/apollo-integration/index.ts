@@ -140,10 +140,10 @@ Deno.serve(async (req) => {
     if (action === "status") {
       const { data } = await admin
         .from("apollo_integrations")
-        .select("status,last_tested_at,last_error,api_key_last_four,connected_by,updated_at")
+        .select("status,last_tested_at,last_error,api_key_last_four,connected_by,updated_at,plan_tier,capabilities")
         .eq("tenant_id", tenantId)
         .maybeSingle();
-      return json({ integration: data ?? { status: "disconnected" } });
+      return json({ integration: data ?? { status: "disconnected", plan_tier: "unknown", capabilities: {} } });
     }
 
     if (!isOwner) return json({ error: "Only the workspace owner can manage this integration" }, 403);
@@ -163,10 +163,12 @@ Deno.serve(async (req) => {
         last_tested_at: new Date().toISOString(),
         last_error: test.ok ? null : test.error ?? "Unknown error",
         connected_by: userId,
+        plan_tier: test.planTier,
+        capabilities: test.capabilities,
       };
       const { error } = await admin.from("apollo_integrations").upsert(row, { onConflict: "tenant_id" });
       if (error) return json({ error: error.message }, 500);
-      return json({ ok: test.ok, status: row.status, error: row.last_error });
+      return json({ ok: test.ok, status: row.status, error: row.last_error, plan_tier: test.planTier, capabilities: test.capabilities });
     }
 
     if (action === "test") {
@@ -184,9 +186,11 @@ Deno.serve(async (req) => {
           status: test.ok ? "connected" : "error",
           last_tested_at: new Date().toISOString(),
           last_error: test.ok ? null : test.error ?? "Unknown error",
+          plan_tier: test.planTier,
+          capabilities: test.capabilities,
         })
         .eq("tenant_id", tenantId);
-      return json({ ok: test.ok, error: test.error });
+      return json({ ok: test.ok, error: test.error, plan_tier: test.planTier, capabilities: test.capabilities });
     }
 
     if (action === "disconnect") {
