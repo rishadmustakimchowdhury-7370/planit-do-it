@@ -252,11 +252,13 @@ export type Database = {
           api_key_encrypted: string | null
           api_key_iv: string | null
           api_key_last_four: string | null
+          capabilities: Json | null
           connected_by: string | null
           created_at: string
           id: string
           last_error: string | null
           last_tested_at: string | null
+          plan_tier: string | null
           status: string
           tenant_id: string
           updated_at: string
@@ -265,11 +267,13 @@ export type Database = {
           api_key_encrypted?: string | null
           api_key_iv?: string | null
           api_key_last_four?: string | null
+          capabilities?: Json | null
           connected_by?: string | null
           created_at?: string
           id?: string
           last_error?: string | null
           last_tested_at?: string | null
+          plan_tier?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
@@ -278,11 +282,13 @@ export type Database = {
           api_key_encrypted?: string | null
           api_key_iv?: string | null
           api_key_last_four?: string | null
+          capabilities?: Json | null
           connected_by?: string | null
           created_at?: string
           id?: string
           last_error?: string | null
           last_tested_at?: string | null
+          plan_tier?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string

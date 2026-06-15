@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     const { data: row, error: rowErr } = await admin
       .from("apollo_integrations")
-      .select("api_key_encrypted,api_key_iv,status")
+      .select("api_key_encrypted,api_key_iv,status,plan_tier,capabilities")
       .eq("tenant_id", tenantId)
       .maybeSingle();
     if (rowErr) {
@@ -105,14 +105,32 @@ Deno.serve(async (req) => {
       city = "",
       page = 1,
       perPage = 25,
+      mode: requestedMode,
     } = body ?? {};
+
+    const caps = (row.capabilities ?? {}) as { people_search?: boolean; org_search?: boolean };
+    const planTier = (row.plan_tier ?? "unknown") as string;
+    // Default: people search if allowed, else fall back to companies
+    let mode: "people" | "companies" = requestedMode === "companies" || requestedMode === "people"
+      ? requestedMode
+      : (caps.people_search === false ? "companies" : "people");
+
+    if (mode === "people" && caps.people_search === false) {
+      return json({
+        error: "Your Apollo plan does not support advanced people search. Showing companies instead, or upgrade your Apollo account.",
+        apolloStatus: 403,
+        planTier,
+        capabilities: caps,
+        fallback: "companies",
+      }, 200);
+    }
 
     const apolloBody: Record<string, unknown> = {
       page: Math.max(1, Number(page) || 1),
       per_page: Math.min(100, Math.max(1, Number(perPage) || 25)),
     };
     if (keywords) apolloBody.q_keywords = keywords;
-    if (industry) apolloBody.organization_industry_tag_ids = undefined, (apolloBody.q_organization_keyword_tags = [industry]);
+    if (industry) apolloBody.q_organization_keyword_tags = [industry];
     if (employeeRange && EMPLOYEE_RANGES[employeeRange]) {
       apolloBody.organization_num_employees_ranges = [EMPLOYEE_RANGES[employeeRange]];
     }
@@ -122,10 +140,17 @@ Deno.serve(async (req) => {
     const locations: string[] = [];
     if (city) locations.push(city);
     if (country) locations.push(country);
-    if (locations.length) apolloBody.person_locations = locations;
+    if (locations.length) {
+      if (mode === "people") apolloBody.person_locations = locations;
+      else apolloBody.organization_locations = locations;
+    }
 
-    console.log("[apollo-search] calling Apollo", JSON.stringify(apolloBody));
-    const res = await fetch("https://api.apollo.io/v1/mixed_people/search", {
+    const endpoint = mode === "people"
+      ? "https://api.apollo.io/v1/mixed_people/search"
+      : "https://api.apollo.io/v1/mixed_companies/search";
+
+    console.log("[apollo-search] mode", mode, "endpoint", endpoint, "body", JSON.stringify(apolloBody));
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "X-Api-Key": apiKey },
       body: JSON.stringify(apolloBody),
@@ -133,52 +158,87 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("[apollo-search] Apollo non-2xx", res.status, txt.slice(0, 1000));
-      // Return 200 so supabase-js surfaces the body instead of the generic
-      // "Edge Function returned a non-2xx status code".
+      let errCode: string | null = null;
+      try { errCode = JSON.parse(txt)?.error_code ?? null; } catch { /* noop */ }
+      // Detect plan-restriction and update cached capabilities + offer fallback
+      if (res.status === 403 && (errCode === "API_INACCESSIBLE" || /not accessible/i.test(txt))) {
+        const newCaps = { ...(caps as any), [mode === "people" ? "people_search" : "org_search"]: false };
+        await admin.from("apollo_integrations")
+          .update({ plan_tier: "free", capabilities: newCaps })
+          .eq("tenant_id", tenantId);
+        const friendly = mode === "people"
+          ? "Your Apollo plan does not support people search. Switch to Company search or upgrade your Apollo account."
+          : "Your Apollo plan does not support this company search endpoint. Please upgrade your Apollo account.";
+        return json({ error: friendly, apolloStatus: 403, planTier: "free", capabilities: newCaps, fallback: mode === "people" ? "companies" : null }, 200);
+      }
       return json({ error: `Apollo API ${res.status}: ${txt.slice(0, 500) || res.statusText}`, apolloStatus: res.status }, 200);
     }
+
     const data = await res.json();
-    const people = (data.people ?? data.contacts ?? []).map((p: any) => {
-      const org = p.organization ?? {};
-      return {
-        id: p.id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        name: p.name ?? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-        title: p.title ?? null,
-        linkedin_url: p.linkedin_url ?? null,
-        city: p.city ?? null,
-        state: p.state ?? null,
-        country: p.country ?? null,
-        company: {
-          id: org.id ?? null,
-          name: org.name ?? null,
-          website_url: org.website_url ?? null,
-          linkedin_url: org.linkedin_url ?? null,
-          industry: org.industry ?? null,
-          estimated_num_employees: org.estimated_num_employees ?? null,
-          city: org.city ?? null,
-          country: org.country ?? null,
-        },
-      };
-    });
+
+    let people: any[] = [];
+    let companies: any[] = [];
+
+    if (mode === "people") {
+      people = (data.people ?? data.contacts ?? []).map((p: any) => {
+        const org = p.organization ?? {};
+        return {
+          id: p.id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          name: p.name ?? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+          title: p.title ?? null,
+          linkedin_url: p.linkedin_url ?? null,
+          city: p.city ?? null,
+          state: p.state ?? null,
+          country: p.country ?? null,
+          company: {
+            id: org.id ?? null,
+            name: org.name ?? null,
+            website_url: org.website_url ?? null,
+            linkedin_url: org.linkedin_url ?? null,
+            industry: org.industry ?? null,
+            estimated_num_employees: org.estimated_num_employees ?? null,
+            city: org.city ?? null,
+            country: org.country ?? null,
+          },
+        };
+      });
+    } else {
+      companies = (data.organizations ?? data.accounts ?? []).map((o: any) => ({
+        id: o.id,
+        name: o.name ?? null,
+        website_url: o.website_url ?? null,
+        linkedin_url: o.linkedin_url ?? null,
+        industry: o.industry ?? null,
+        estimated_num_employees: o.estimated_num_employees ?? null,
+        city: o.city ?? null,
+        state: o.state ?? null,
+        country: o.country ?? null,
+        short_description: o.short_description ?? null,
+      }));
+    }
 
     const pagination = data.pagination ?? {};
+    const totalEntries = pagination.total_entries ?? (mode === "people" ? people.length : companies.length);
     const result = {
+      mode,
+      planTier,
+      capabilities: caps,
       people,
+      companies,
       page: pagination.page ?? apolloBody.page,
       per_page: pagination.per_page ?? apolloBody.per_page,
-      total_entries: pagination.total_entries ?? people.length,
+      total_entries: totalEntries,
       total_pages: pagination.total_pages ?? 1,
     };
 
-    // Log search history (best-effort)
     await admin.from("lead_search_history").insert({
       tenant_id: tenantId,
       searched_by: userId,
       query_text: keywords || null,
-      filters: { industry, employeeRange, revenueMin, revenueMax, country, city },
-      result_count: result.total_entries,
+      filters: { mode, industry, employeeRange, revenueMin, revenueMax, country, city },
+      result_count: totalEntries,
     }).then(() => {}, () => {});
 
     return json(result);
