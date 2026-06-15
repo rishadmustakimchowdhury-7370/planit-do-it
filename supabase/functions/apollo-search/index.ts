@@ -110,6 +110,18 @@ Deno.serve(async (req) => {
 
     const caps = (row.capabilities ?? {}) as { people_search?: boolean; org_search?: boolean };
     const planTier = (row.plan_tier ?? "unknown") as string;
+
+    // Free plans cannot use any Apollo search endpoint — short-circuit with upgrade message.
+    if (planTier === "free") {
+      return json({
+        error: "Prospect Search requires a paid Apollo subscription. Your connected Apollo account is on the Free plan, which does not include API search access. Upgrade your Apollo plan to continue.",
+        apolloStatus: 403,
+        planTier: "free",
+        capabilities: caps,
+        upgradeRequired: true,
+      }, 200);
+    }
+
     // Default: people search if allowed, else fall back to companies
     let mode: "people" | "companies" = requestedMode === "companies" || requestedMode === "people"
       ? requestedMode
@@ -124,6 +136,7 @@ Deno.serve(async (req) => {
         fallback: "companies",
       }, 200);
     }
+
 
     const apolloBody: Record<string, unknown> = {
       page: Math.max(1, Number(page) || 1),
@@ -166,11 +179,15 @@ Deno.serve(async (req) => {
         await admin.from("apollo_integrations")
           .update({ plan_tier: "free", capabilities: newCaps })
           .eq("tenant_id", tenantId);
-        const friendly = mode === "people"
-          ? "Your Apollo plan does not support people search. Switch to Company search or upgrade your Apollo account."
-          : "Your Apollo plan does not support this company search endpoint. Please upgrade your Apollo account.";
-        return json({ error: friendly, apolloStatus: 403, planTier: "free", capabilities: newCaps, fallback: mode === "people" ? "companies" : null }, 200);
+        return json({
+          error: "Prospect Search requires a paid Apollo subscription. Your Apollo account is on the Free plan and does not include API search access. Upgrade your Apollo plan to continue.",
+          apolloStatus: 403,
+          planTier: "free",
+          capabilities: newCaps,
+          upgradeRequired: true,
+        }, 200);
       }
+
       return json({ error: `Apollo API ${res.status}: ${txt.slice(0, 500) || res.statusText}`, apolloStatus: res.status }, 200);
     }
 

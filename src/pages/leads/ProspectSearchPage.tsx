@@ -244,18 +244,45 @@ export default function ProspectSearchPage() {
   const isFree = planTier === 'free';
   const peopleDisabled = capabilities.people_search === false || isFree;
 
+  if (isFree) {
+    return (
+      <AppLayout title="Prospect Search" subtitle="Apollo paid subscription required">
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Apollo paid plan required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <p>
+              Your connected Apollo account is on the <strong>Free plan</strong>, which does not
+              expose the search API endpoints HireMetrics needs for Prospect Search.
+            </p>
+            <p>
+              To use Prospect Search, upgrade your Apollo subscription to a paid plan that
+              includes API access (Basic, Professional, or Organization), then return to this page.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <Button asChild>
+                <a href="https://app.apollo.io/#/settings/plans" target="_blank" rel="noreferrer">
+                  Upgrade Apollo <ExternalLink className="h-4 w-4 ml-2" />
+                </a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="/settings">Manage integration</a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
       <div className="space-y-6">
-        {isFree && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Your Apollo account is on the <strong>Free plan</strong>. People search is not available — only company search is enabled.
-              Upgrade your Apollo subscription to unlock contact-level prospecting.
-            </AlertDescription>
-          </Alert>
-        )}
+
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
