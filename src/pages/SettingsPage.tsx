@@ -1382,6 +1382,14 @@ export default function SettingsPage() {
             </motion.div>
           </TabsContent>
 
+          {canSeeIntegrations && (
+            <TabsContent value="integrations">
+              <div className="space-y-4">
+                <ApolloIntegrationCard canManage={isOwner} />
+              </div>
+            </TabsContent>
+          )}
+
           <TabsContent value="notifications">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
