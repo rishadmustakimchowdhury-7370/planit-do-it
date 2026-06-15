@@ -14,8 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
-  Bookmark, Building2, UserPlus, Check, X, RefreshCw,
+  Bookmark, Building2, UserPlus, Check, X, RefreshCw, Sparkles, Download,
 } from 'lucide-react';
+import { generateDemoCompanies } from '@/lib/apolloDemoData';
 
 interface Person {
   id: string;
