@@ -247,6 +247,48 @@ export type Database = {
           },
         ]
       }
+      apollo_integrations: {
+        Row: {
+          api_key_encrypted: string | null
+          api_key_iv: string | null
+          api_key_last_four: string | null
+          connected_by: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          last_tested_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_key_iv?: string | null
+          api_key_last_four?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_key_iv?: string | null
+          api_key_last_four?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
