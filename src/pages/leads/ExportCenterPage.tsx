@@ -77,7 +77,7 @@ export default function ExportCenterPage() {
     try {
       const { data, error } = await buildQuery();
       if (error) throw error;
-      const rows = (data ?? []) as Record<string, unknown>[];
+      const rows = ((data ?? []) as unknown) as Record<string, unknown>[];
       if (!rows.length) { toast({ title: 'Nothing to export', description: 'Query returned 0 rows.' }); return; }
 
       const flat = rows.map(r => {
