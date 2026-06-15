@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
     if (country) locations.push(country);
     if (locations.length) apolloBody.person_locations = locations;
 
+    console.log("[apollo-search] calling Apollo", JSON.stringify(apolloBody));
     const res = await fetch("https://api.apollo.io/v1/mixed_people/search", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "X-Api-Key": apiKey },
@@ -131,7 +132,10 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      return json({ error: `Apollo API ${res.status}: ${txt.slice(0, 300)}` }, 502);
+      console.error("[apollo-search] Apollo non-2xx", res.status, txt.slice(0, 1000));
+      // Return 200 so supabase-js surfaces the body instead of the generic
+      // "Edge Function returned a non-2xx status code".
+      return json({ error: `Apollo API ${res.status}: ${txt.slice(0, 500) || res.statusText}`, apolloStatus: res.status }, 200);
     }
     const data = await res.json();
     const people = (data.people ?? data.contacts ?? []).map((p: any) => {
