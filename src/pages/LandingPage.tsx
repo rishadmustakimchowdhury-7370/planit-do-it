@@ -70,7 +70,19 @@ function DashboardFrame({ src, alt, className = '' }: { src: string; alt: string
           </div>
         </div>
       </div>
-      <img src={src} alt={alt} className="w-full block transition-transform duration-700 group-hover:scale-[1.01]" loading="lazy" />
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={(e) => {
+          const t = e.currentTarget;
+          if (!t.dataset.fallback) {
+            t.dataset.fallback = '1';
+            t.src = '/placeholder.svg';
+          }
+        }}
+        className="w-full block transition-transform duration-700 group-hover:scale-[1.01]"
+      />
     </div>
   );
 }
