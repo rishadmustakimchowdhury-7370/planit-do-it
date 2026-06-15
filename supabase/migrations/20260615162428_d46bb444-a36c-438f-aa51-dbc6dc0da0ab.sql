@@ -1,0 +1,1 @@
+UPDATE public.apollo_integrations SET plan_tier='free', capabilities='{"people_search":false,"org_search":false}'::jsonb WHERE tenant_id='630f486e-e8d5-4356-9c03-89c2c6cfa730';
