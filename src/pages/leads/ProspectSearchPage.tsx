@@ -427,10 +427,18 @@ export default function ProspectSearchPage() {
                 {retesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Retest Connection
               </Button>
-              <Button variant="outline" asChild>
+              <Button variant="outline" onClick={loadDemoResults}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Load Sample Apollo Results
+              </Button>
+              <Button variant="ghost" asChild>
                 <a href="/settings">Manage integration</a>
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Demo mode loads 20 realistic recruitment-agency prospects so you can test Save to CRM,
+              Bulk Save, and CSV export without a paid Apollo plan. All records are tagged as DEMO DATA.
+            </p>
           </CardContent>
         </Card>
       </AppLayout>
