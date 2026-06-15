@@ -162,6 +162,8 @@ Deno.serve(async (req) => {
 
     return json(result);
   } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack ?? ""}` : String(e);
+    console.error("[apollo-search] fatal", msg);
     return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
   }
 });
