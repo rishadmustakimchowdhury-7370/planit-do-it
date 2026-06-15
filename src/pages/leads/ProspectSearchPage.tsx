@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
-  Bookmark, Building2, UserPlus,
+  Bookmark, Building2, UserPlus, Check, X, RefreshCw,
 } from 'lucide-react';
 
 interface Person {
@@ -102,18 +102,44 @@ export default function ProspectSearchPage() {
   const [mode, setMode] = useState<'people' | 'companies'>('people');
   const [planTier, setPlanTier] = useState<string>('unknown');
   const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
+  const [retesting, setRetesting] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
-      const integ = data?.integration ?? {};
-      const caps = integ.capabilities ?? {};
-      const tier = integ.plan_tier ?? 'unknown';
-      setCapabilities(caps);
+  const loadStatus = async () => {
+    const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
+    const integ = data?.integration ?? {};
+    const caps = integ.capabilities ?? {};
+    const tier = integ.plan_tier ?? 'unknown';
+    setCapabilities(caps);
+    setPlanTier(tier);
+    if (tier === 'free' || caps.people_search === false) setMode('companies');
+    return { tier, caps };
+  };
+
+  useEffect(() => { loadStatus(); }, []);
+
+  const retestConnection = async () => {
+    setRetesting(true);
+    try {
+      const { data, error: err } = await supabase.functions.invoke('apollo-integration', { body: { action: 'test' } });
+      if (err) throw new Error(err.message);
+      if (data?.error && !data?.ok) throw new Error(data.error);
+      const tier = data?.plan_tier ?? 'unknown';
+      const caps = data?.capabilities ?? {};
       setPlanTier(tier);
-      if (tier === 'free' || caps.people_search === false) setMode('companies');
-    })();
-  }, []);
+      setCapabilities(caps);
+      if (tier !== 'free' && (caps.people_search || caps.org_search)) {
+        toast({ title: 'Apollo plan upgraded', description: 'Prospect Search features unlocked.' });
+        if (caps.people_search) setMode('people');
+      } else {
+        toast({ title: 'Still on Free plan', description: 'Upgrade your Apollo subscription, then retest.', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Retest failed', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRetesting(false);
+    }
+  };
+
 
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
     const useMode = overrideMode ?? mode;
@@ -244,30 +270,88 @@ export default function ProspectSearchPage() {
   const isFree = planTier === 'free';
   const peopleDisabled = capabilities.people_search === false || isFree;
 
+  const planLabel =
+    planTier === 'free' ? 'Free' :
+    planTier === 'paid' ? 'Paid' :
+    planTier === 'unknown' ? 'Unknown' :
+    planTier.charAt(0).toUpperCase() + planTier.slice(1);
+
   if (isFree) {
+    const currentFeatures = [
+      { label: 'Connect Apollo account', available: true },
+      { label: 'Test API key', available: true },
+      { label: 'People Search', available: false },
+      { label: 'Company Search', available: false },
+      { label: 'Save Prospects to CRM', available: false },
+      { label: 'Bulk Save', available: false },
+      { label: 'CSV Export', available: false },
+    ];
+    const unlockedFeatures = [
+      'People Search',
+      'Company Search',
+      'Save Prospects to CRM',
+      'Bulk Save',
+      'CSV Export',
+    ];
     return (
       <AppLayout title="Prospect Search" subtitle="Apollo paid subscription required">
-        <Card className="max-w-2xl">
+        <Card className="max-w-3xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 flex-wrap">
               <AlertCircle className="h-5 w-5 text-amber-500" />
               Apollo paid plan required
+              <Badge variant="outline" className="ml-2">Detected plan: {planLabel}</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
+          <CardContent className="space-y-5 text-sm">
             <p>
-              Your connected Apollo account is on the <strong>Free plan</strong>, which does not
-              expose the search API endpoints HireMetrics needs for Prospect Search.
+              Your connected Apollo account is on the <strong>{planLabel} plan</strong>, which does
+              not expose the search API endpoints HireMetrics needs for Prospect Search.
             </p>
-            <p>
-              To use Prospect Search, upgrade your Apollo subscription to a paid plan that
-              includes API access (Basic, Professional, or Organization), then return to this page.
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-md border p-4">
+                <div className="font-medium mb-2">Available on your current plan</div>
+                <ul className="space-y-1.5">
+                  {currentFeatures.map((f) => (
+                    <li key={f.label} className="flex items-center gap-2">
+                      {f.available ? (
+                        <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={f.available ? '' : 'text-muted-foreground line-through'}>{f.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-md border p-4 bg-primary/5 border-primary/20">
+                <div className="font-medium mb-2">Unlocked after upgrade</div>
+                <ul className="space-y-1.5">
+                  {unlockedFeatures.map((f) => (
+                    <li key={f} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-primary shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-muted-foreground">
+              Already upgraded? Click <strong>Retest Connection</strong> — features unlock
+              automatically, no need to disconnect or re-enter your API key.
             </p>
-            <div className="flex gap-2 pt-2">
+
+            <div className="flex gap-2 pt-1 flex-wrap">
               <Button asChild>
                 <a href="https://app.apollo.io/#/settings/plans" target="_blank" rel="noreferrer">
                   Upgrade Apollo <ExternalLink className="h-4 w-4 ml-2" />
                 </a>
+              </Button>
+              <Button variant="secondary" onClick={retestConnection} disabled={retesting}>
+                {retesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Retest Connection
               </Button>
               <Button variant="outline" asChild>
                 <a href="/settings">Manage integration</a>
@@ -278,6 +362,7 @@ export default function ProspectSearchPage() {
       </AppLayout>
     );
   }
+
 
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
