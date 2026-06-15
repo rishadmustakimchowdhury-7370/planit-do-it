@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     const { data: row, error: rowErr } = await admin
       .from("apollo_integrations")
-      .select("api_key_encrypted,api_key_iv,status")
+      .select("api_key_encrypted,api_key_iv,status,plan_tier,capabilities")
       .eq("tenant_id", tenantId)
       .maybeSingle();
     if (rowErr) {
