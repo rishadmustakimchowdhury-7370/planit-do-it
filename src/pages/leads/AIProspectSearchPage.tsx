@@ -63,7 +63,8 @@ const EXAMPLES = [
 ];
 
 export default function AIProspectSearchPage() {
-  const { tenantId } = useAuth();
+  const { tenantId, isOwner, isManager, isSuperAdmin, isRecruiter } = useAuth();
+  const canUse = isOwner || isManager || isSuperAdmin;
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [planSlug, setPlanSlug] = useState<string | null>(null);
@@ -134,6 +135,18 @@ export default function AIProspectSearchPage() {
     setResult(data as SearchResult);
     setPage(pageNum);
   };
+
+  if (!canUse && isRecruiter) {
+    return (
+      <AppLayout>
+        <div className="max-w-2xl mx-auto p-8">
+          <Card><CardContent className="py-10 text-center text-muted-foreground">
+            Recruiters don't have access to AI Prospect Search. Ask your Owner or Manager.
+          </CardContent></Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (planLoading) {
     return <AppLayout><div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div></AppLayout>;

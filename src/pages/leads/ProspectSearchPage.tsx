@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 import {
   Search, Loader2, ExternalLink, Linkedin, ChevronLeft, ChevronRight, AlertCircle,
   Bookmark, Building2, UserPlus,
@@ -179,8 +180,23 @@ export default function ProspectSearchPage() {
     }
   };
 
+  const { isOwner, isManager, isSuperAdmin, isRecruiter } = useAuth();
+  const canSearch = isOwner || isManager || isSuperAdmin;
+
+  if (!canSearch && isRecruiter) {
+    return (
+      <AppLayout title="Prospect Search" subtitle="Restricted">
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            Recruiters don't have access to Apollo prospect search. Ask your Owner or Manager to share assigned leads with you.
+          </CardContent>
+        </Card>
+      </AppLayout>
+    );
+  }
+
   return (
-    <AppLayout title="Prospect Search" subtitle="Find companies and contacts via your connected Apollo account">
+    <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
       <div className="space-y-6">
         <Card>
           <CardHeader><CardTitle>Search filters</CardTitle></CardHeader>

@@ -59,10 +59,13 @@ Deno.serve(async (req) => {
     const tenantId = profile.tenant_id as string;
 
     const { data: roles } = await admin
-      .from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId);
+      .from("user_roles").select("role,tenant_id").eq("user_id", userId);
     const roleSet = new Set((roles ?? []).map((r: any) => r.role));
-    if (!roleSet.has("owner") && !roleSet.has("manager") && !roleSet.has("recruiter")) {
-      return json({ error: "Forbidden" }, 403);
+    const tenantRoleSet = new Set((roles ?? []).filter((r: any) => r.tenant_id === tenantId).map((r: any) => r.role));
+    // Recruiters cannot run Apollo searches. Super Admin allowed only within their own tenant (demo workspace).
+    const allowed = tenantRoleSet.has("owner") || tenantRoleSet.has("manager") || roleSet.has("super_admin");
+    if (!allowed) {
+      return json({ error: "Forbidden: Apollo search requires Owner or Manager role." }, 403);
     }
 
     const { data: row } = await admin
