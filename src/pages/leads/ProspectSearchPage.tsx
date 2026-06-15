@@ -240,11 +240,40 @@ export default function ProspectSearchPage() {
     );
   }
 
+  const peopleDisabled = capabilities.people_search === false;
+  const isFree = planTier === 'free';
+
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
       <div className="space-y-6">
+        {isFree && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Your Apollo account is on the <strong>Free plan</strong>. People search is not available — only company search is enabled.
+              Upgrade your Apollo subscription to unlock contact-level prospecting.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
-          <CardHeader><CardTitle>Search filters</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
+            <CardTitle>Search filters</CardTitle>
+            <div className="inline-flex rounded-md border p-1 bg-muted/40">
+              <button type="button"
+                className={`px-3 py-1.5 text-sm rounded ${mode === 'people' ? 'bg-background shadow-sm' : 'text-muted-foreground'} ${peopleDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => !peopleDisabled && setMode('people')}
+                disabled={peopleDisabled}
+                title={peopleDisabled ? 'People search requires a paid Apollo plan' : ''}>
+                People
+              </button>
+              <button type="button"
+                className={`px-3 py-1.5 text-sm rounded ${mode === 'companies' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                onClick={() => setMode('companies')}>
+                Companies
+              </button>
+            </div>
+          </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-3">
