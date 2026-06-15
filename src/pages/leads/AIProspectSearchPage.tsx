@@ -136,6 +136,18 @@ export default function AIProspectSearchPage() {
     setPage(pageNum);
   };
 
+  if (!canUse && isRecruiter) {
+    return (
+      <AppLayout>
+        <div className="max-w-2xl mx-auto p-8">
+          <Card><CardContent className="py-10 text-center text-muted-foreground">
+            Recruiters don't have access to AI Prospect Search. Ask your Owner or Manager.
+          </CardContent></Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
   if (planLoading) {
     return <AppLayout><div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" /></div></AppLayout>;
   }
