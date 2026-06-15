@@ -145,23 +145,11 @@ export default function ProspectSearchPage() {
   };
 
   const loadDemoResults = () => {
-    const companies = generateDemoCompanies();
-    setMode('companies');
+    setDemoActive(true);
     setError(null);
     setSelected(new Set());
-    setResult({
-      mode: 'companies',
-      planTier,
-      capabilities,
-      people: [],
-      companies,
-      page: 1,
-      per_page: companies.length,
-      total_entries: companies.length,
-      total_pages: 1,
-      isDemo: true,
-    });
-    toast({ title: 'Sample data loaded', description: `${companies.length} demo prospects ready. Marked as DEMO DATA.` });
+    setResult(null);
+    toast({ title: 'Sandbox loaded', description: 'Realistic demo prospects ready. All records are marked DEMO DATA.' });
   };
 
   const exportCompaniesCsv = () => {
