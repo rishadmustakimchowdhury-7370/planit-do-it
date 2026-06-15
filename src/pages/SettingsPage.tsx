@@ -38,8 +38,10 @@ import {
   ShieldCheck,
   XCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Plug
 } from 'lucide-react';
+import { ApolloIntegrationCard } from '@/components/settings/ApolloIntegrationCard';
 import { MyUsageSection } from '@/components/usage/MyUsageSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
