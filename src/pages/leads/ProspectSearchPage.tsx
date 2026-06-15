@@ -149,26 +149,6 @@ export default function ProspectSearchPage() {
       toast({ title: 'Search failed', description: msg, variant: 'destructive' });
     } finally { setLoading(false); }
   };
-    setLoading(true); setError(null); setSelected(new Set());
-    try {
-      const { data, error: invokeErr } = await supabase.functions.invoke('apollo-search', {
-        body: {
-          ...filters,
-          revenueMin: filters.revenueMin ? Number(filters.revenueMin) : undefined,
-          revenueMax: filters.revenueMax ? Number(filters.revenueMax) : undefined,
-          employeeRange: filters.employeeRange || undefined,
-          page: newPage, perPage,
-        },
-      });
-      if (invokeErr) throw new Error(invokeErr.message);
-      if (data?.error) throw new Error(data.error);
-      setResult(data); setPage(newPage);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Search failed';
-      setError(msg);
-      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
-    } finally { setLoading(false); }
-  };
 
   const onSubmit = (e: React.FormEvent) => { e.preventDefault(); runSearch(1); };
 
