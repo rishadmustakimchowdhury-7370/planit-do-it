@@ -568,9 +568,21 @@ export default function ProspectSearchPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-8">
+                          <Checkbox
+                            checked={!!result.companies?.length && result.companies.every((c) => selected.has(c.id))}
+                            onCheckedChange={() => {
+                              if (!result.companies) return;
+                              const all = result.companies.every((c) => selected.has(c.id));
+                              setSelected(all ? new Set() : new Set(result.companies.map((c) => c.id)));
+                            }}
+                            aria-label="Select all companies"
+                          />
+                        </TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Industry</TableHead>
                         <TableHead>Employees</TableHead>
+                        <TableHead>Revenue</TableHead>
                         <TableHead>Website</TableHead>
                         <TableHead>LinkedIn</TableHead>
                         <TableHead>Location</TableHead>
@@ -579,17 +591,26 @@ export default function ProspectSearchPage() {
                     </TableHeader>
                     <TableBody>
                       {(result.companies ?? []).length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           No companies found. Try adjusting your filters.
                         </TableCell></TableRow>
                       ) : (
                         (result.companies ?? []).map((c) => {
                           const busy = rowSaving[c.id];
                           return (
-                            <TableRow key={c.id}>
-                              <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
+                            <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
+                              <TableCell>
+                                <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggleOne(c.id)} aria-label={`Select ${c.name}`} />
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  <span>{c.name ?? '—'}</span>
+                                  {result.isDemo && <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600">DEMO</Badge>}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-sm">{c.industry ?? '—'}</TableCell>
                               <TableCell className="text-sm">{c.estimated_num_employees ?? '—'}</TableCell>
+                              <TableCell className="text-sm">{(c as any).revenue_range ?? '—'}</TableCell>
                               <TableCell>
                                 {c.website_url ? (
                                   <a href={c.website_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
