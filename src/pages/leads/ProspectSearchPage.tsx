@@ -531,17 +531,34 @@ export default function ProspectSearchPage() {
         {result && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-              <CardTitle>
-                Results <Badge variant="secondary" className="ml-2">{result.total_entries.toLocaleString()}</Badge>
+              <CardTitle className="flex items-center gap-2 flex-wrap">
+                Results <Badge variant="secondary">{result.total_entries.toLocaleString()}</Badge>
+                {result.isDemo && (
+                  <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50">
+                    DEMO DATA
+                  </Badge>
+                )}
               </CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {selected.size > 0 && (
                   <span className="text-sm text-muted-foreground">{selected.size} selected</span>
                 )}
-                <Button size="sm" onClick={saveSelected} disabled={bulkSaving || selected.size === 0}>
-                  {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
-                  Save {selected.size > 0 ? `${selected.size} ` : ''}Lead{selected.size === 1 ? '' : 's'}
-                </Button>
+                {(result.mode ?? mode) === 'companies' ? (
+                  <>
+                    <Button size="sm" onClick={bulkSaveCompanies} disabled={bulkSaving || !result.companies?.length}>
+                      {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
+                      {selected.size > 0 ? `Save ${selected.size}` : 'Save All'} Compan{(selected.size === 1) ? 'y' : 'ies'}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={exportCompaniesCsv} disabled={!result.companies?.length}>
+                      <Download className="h-4 w-4 mr-2" /> Export CSV
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" onClick={saveSelected} disabled={bulkSaving || selected.size === 0}>
+                    {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bookmark className="h-4 w-4 mr-2" />}
+                    Save {selected.size > 0 ? `${selected.size} ` : ''}Lead{selected.size === 1 ? '' : 's'}
+                  </Button>
+                )}
                 <span className="text-sm text-muted-foreground ml-2">Page {result.page} of {totalPages}</span>
               </div>
             </CardHeader>
