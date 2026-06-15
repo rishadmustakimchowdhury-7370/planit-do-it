@@ -27,34 +27,35 @@ export default function LeadAnalyticsPage() {
       if (!tenantId || !user || isSuperAdmin) { setLoading(false); return; }
       setLoading(true);
 
-      const count = async (table: string, build: (q: ReturnType<typeof supabase.from>) => unknown) => {
-        let q = supabase.from(table as 'lead_contacts').select('id', { count: 'exact', head: true })
+      const scopedContacts = () => {
+        let q = supabase.from('lead_contacts').select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId).is('deleted_at', null);
-        if (recruiterOnly && (table === 'lead_contacts' || table === 'lead_companies')) {
-          q = q.eq('assigned_to', user.id);
-        }
-        const built = build(q) as typeof q;
-        const { count: c } = await built;
-        return c ?? 0;
+        if (recruiterOnly) q = q.eq('assigned_to', user.id);
+        return q;
       };
+      const scopedCompanies = () => {
+        let q = supabase.from('lead_companies').select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId).is('deleted_at', null);
+        if (recruiterOnly) q = q.eq('assigned_to', user.id);
+        return q;
+      };
+      let searchQ = supabase.from('lead_search_history').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId);
+      if (recruiterOnly) searchQ = searchQ.eq('searched_by', user.id);
 
-      // Searches: lead_search_history (recruiter sees own)
-      let sq = supabase.from('lead_search_history').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId);
-      if (recruiterOnly) sq = sq.eq('searched_by', user.id);
-      const [{ count: searches }, leadsSaved, companiesSaved, meetings, clientsWon] = await Promise.all([
-        sq,
-        count('lead_contacts', (q) => q),
-        count('lead_companies', (q) => q),
-        count('lead_contacts', (q) => (q as ReturnType<typeof supabase.from>).eq('status', 'meeting_booked')),
-        count('lead_contacts', (q) => (q as ReturnType<typeof supabase.from>).eq('status', 'client_won')),
+      const [s, l, c, m, w] = await Promise.all([
+        searchQ,
+        scopedContacts(),
+        scopedCompanies(),
+        scopedContacts().eq('status', 'meeting_booked'),
+        scopedContacts().eq('status', 'client_won'),
       ]);
 
       setMetrics({
-        searches: searches ?? 0,
-        leadsSaved,
-        companiesSaved,
-        meetings,
-        clientsWon,
+        searches: s.count ?? 0,
+        leadsSaved: l.count ?? 0,
+        companiesSaved: c.count ?? 0,
+        meetings: m.count ?? 0,
+        clientsWon: w.count ?? 0,
       });
       setLoading(false);
     })();
