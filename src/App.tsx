@@ -203,6 +203,7 @@ const AppRoutes = () => (
       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
       <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
       <Route path="/leads/prospects" element={<ProtectedRoute><ProspectSearchPage /></ProtectedRoute>} />
+      <Route path="/leads/saved" element={<ProtectedRoute><SavedLeadsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
       <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
