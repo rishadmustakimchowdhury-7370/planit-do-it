@@ -62,6 +62,7 @@ const FinanceDashboardPage = lazy(() => import("./pages/FinanceDashboardPage"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage"));
 const FinanceSettingsPage = lazy(() => import("./pages/FinanceSettingsPage"));
 const RecruiterBonusesPage = lazy(() => import("./pages/RecruiterBonusesPage"));
+const ProspectSearchPage = lazy(() => import("./pages/leads/ProspectSearchPage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
@@ -200,6 +201,7 @@ const AppRoutes = () => (
       <Route path="/clients/new" element={<ProtectedRoute><AddClientPage /></ProtectedRoute>} />
       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetailPage /></ProtectedRoute>} />
       <Route path="/ai-match" element={<ProtectedRoute><AIMatchPage /></ProtectedRoute>} />
+      <Route path="/leads/prospects" element={<ProtectedRoute><ProspectSearchPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
       <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
