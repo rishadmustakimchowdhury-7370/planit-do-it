@@ -3741,8 +3741,11 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           mobile: string | null
+          notes: string | null
           phone: string | null
+          position: number
           seniority: string | null
+          status: Database["public"]["Enums"]["lead_status"]
           tags: string[] | null
           tenant_id: string
           title: string | null
@@ -3770,8 +3773,11 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           mobile?: string | null
+          notes?: string | null
           phone?: string | null
+          position?: number
           seniority?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[] | null
           tenant_id: string
           title?: string | null
@@ -3799,8 +3805,11 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           mobile?: string | null
+          notes?: string | null
           phone?: string | null
+          position?: number
           seniority?: string | null
+          status?: Database["public"]["Enums"]["lead_status"]
           tags?: string[] | null
           tenant_id?: string
           title?: string | null
@@ -7558,6 +7567,15 @@ export type Database = {
         | "expired"
       invoice_status: "draft" | "sent" | "paid" | "overdue" | "canceled"
       job_status: "draft" | "open" | "paused" | "closed" | "filled"
+      lead_status:
+        | "new"
+        | "contacted"
+        | "follow_up"
+        | "meeting_booked"
+        | "proposal_sent"
+        | "negotiation"
+        | "client_won"
+        | "lost"
       participant_role:
         | "candidate"
         | "client"
@@ -7762,6 +7780,16 @@ export const Constants = {
       ],
       invoice_status: ["draft", "sent", "paid", "overdue", "canceled"],
       job_status: ["draft", "open", "paused", "closed", "filled"],
+      lead_status: [
+        "new",
+        "contacted",
+        "follow_up",
+        "meeting_booked",
+        "proposal_sent",
+        "negotiation",
+        "client_won",
+        "lost",
+      ],
       participant_role: [
         "candidate",
         "client",
