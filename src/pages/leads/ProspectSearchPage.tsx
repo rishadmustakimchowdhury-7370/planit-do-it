@@ -108,9 +108,10 @@ export default function ProspectSearchPage() {
       const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
       const integ = data?.integration ?? {};
       const caps = integ.capabilities ?? {};
+      const tier = integ.plan_tier ?? 'unknown';
       setCapabilities(caps);
-      setPlanTier(integ.plan_tier ?? 'unknown');
-      if (caps.people_search === false) setMode('companies');
+      setPlanTier(tier);
+      if (tier === 'free' || caps.people_search === false) setMode('companies');
     })();
   }, []);
 
@@ -240,8 +241,8 @@ export default function ProspectSearchPage() {
     );
   }
 
-  const peopleDisabled = capabilities.people_search === false;
   const isFree = planTier === 'free';
+  const peopleDisabled = capabilities.people_search === false || isFree;
 
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
