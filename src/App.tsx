@@ -65,6 +65,7 @@ const RecruiterBonusesPage = lazy(() => import("./pages/RecruiterBonusesPage"));
 const ProspectSearchPage = lazy(() => import("./pages/leads/ProspectSearchPage"));
 const AIProspectSearchPage = lazy(() => import("./pages/leads/AIProspectSearchPage"));
 const SavedLeadsPage = lazy(() => import("./pages/leads/SavedLeadsPage"));
+const ExportCenterPage = lazy(() => import("./pages/leads/ExportCenterPage"));
 
 const ClientSubmissionsPage = lazy(() => import("./pages/client/ClientSubmissionsPage"));
 const ClientDashboardPage = lazy(() => import("./pages/client/ClientDashboardPage"));
@@ -206,6 +207,7 @@ const AppRoutes = () => (
       <Route path="/leads/prospects" element={<ProtectedRoute><ProspectSearchPage /></ProtectedRoute>} />
       <Route path="/leads/ai" element={<ProtectedRoute><AIProspectSearchPage /></ProtectedRoute>} />
       <Route path="/leads/saved" element={<ProtectedRoute><SavedLeadsPage /></ProtectedRoute>} />
+      <Route path="/leads/export" element={<ProtectedRoute><ExportCenterPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
       <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
