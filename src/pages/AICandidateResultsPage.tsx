@@ -96,6 +96,7 @@ export default function AICandidateResultsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [providerErrors, setProviderErrors] = useState<Record<string, string>>({});
+  const [queries, setQueries] = useState<{ id: string; label: string; boolean: string; raw: number }[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('matchScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
@@ -106,7 +107,7 @@ export default function AICandidateResultsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true); setErrorMsg(null); setProviderErrors({});
+      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
         body: { criteria, limit: 25 },
       });
@@ -115,6 +116,7 @@ export default function AICandidateResultsPage() {
       if (data?.error) { setErrorMsg(data.error); setRows([]); setLoading(false); return; }
       setRows((data?.candidates ?? []) as ResultRow[]);
       setProviderErrors(data?.errors ?? {});
+      setQueries(data?.queries ?? []);
       if (data?.message && (!data?.candidates || data.candidates.length === 0)) setErrorMsg(data.message);
       setLoading(false);
     })();
