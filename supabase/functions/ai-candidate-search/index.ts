@@ -163,14 +163,41 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promis
 // ---------------- Lusha v3 Prospecting ------------------------------------
 async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
   const include: Record<string, unknown> = {};
-  if (criteria.role_titles?.length) include.jobTitles = criteria.role_titles.slice(0, 10);
+  const titles = (criteria.role_titles ?? []).filter(Boolean).slice(0, 10);
+  if (titles.length) include.jobTitles = titles;
+
   const countryCodes = locationsToCountryCodes(criteria.locations);
   if (countryCodes.length) include.countries = countryCodes;
+
+  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 10);
+  if (industries.length) include.industries = industries;
+
+  if (criteria.seniority) {
+    const s = criteria.seniority.toLowerCase();
+    const map: Array<[string, string]> = [
+      ["intern", "Intern"], ["junior", "Junior"], ["entry", "Entry"],
+      ["manager", "Manager"], ["lead", "Manager"], ["senior", "Senior"], ["mid", "Senior"],
+      ["director", "Director"], ["vp", "Vice President"], ["vice", "Vice President"],
+      ["head", "CXO"], ["chief", "CXO"], ["cxo", "CXO"],
+    ];
+    for (const [k, v] of map) { if (s.includes(k)) { include.seniority = [v]; break; } }
+  }
+
+  // VALIDATE: Lusha requires at least one of titles / industries / countries / locations
+  const hasValid =
+    (include.jobTitles as unknown[] | undefined)?.length ||
+    (include.industries as unknown[] | undefined)?.length ||
+    (include.countries as unknown[] | undefined)?.length;
+  if (!hasValid) {
+    console.warn("[lusha] skipping — no valid filter (need title/industry/location)");
+    return { candidates: [], error: "Lusha skipped: no valid filter present" };
+  }
 
   const body = {
     pagination: { page: 0, size: Math.min(size, 50) },
     filters: { contacts: { include } },
   };
+  console.log("[lusha] request filters:", JSON.stringify(body.filters));
   try {
     const res = await fetch("https://api.lusha.com/v3/contacts/prospecting", {
       method: "POST",
