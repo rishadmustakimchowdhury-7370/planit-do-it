@@ -144,15 +144,12 @@ export default function AICandidateDiscoveryPage() {
   };
 
   const runSearch = (criteria: Criteria) => {
+    try {
+      sessionStorage.setItem('ai-discovery-criteria', JSON.stringify(criteria));
+    } catch { /* ignore quota */ }
     const params = new URLSearchParams();
-    const q = [
-      ...(criteria.role_titles ?? []),
-      ...(criteria.skills ?? []),
-    ].filter(Boolean).join(' ');
+    const q = [...(criteria.role_titles ?? []), ...(criteria.skills ?? [])].filter(Boolean).join(' ');
     if (q) params.set('q', q);
-    if (criteria.locations?.length) params.set('location', criteria.locations.join(','));
-    if (criteria.min_years_experience != null) params.set('min_years', String(criteria.min_years_experience));
-    if (criteria.seniority) params.set('seniority', criteria.seniority);
     navigate(`/candidate-discovery/results?${params.toString()}`);
   };
 
