@@ -313,6 +313,124 @@ Use only data provided; never invent skills or languages.`;
   }
 }
 
+// ---------------- Multi-pass search strategy ------------------------------
+function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
+
+interface SearchPass {
+  id: string;
+  label: string;
+  boolean: string;
+  criteria: Criteria;
+}
+
+function buildBoolean(titles: string[], extras: string[] = []): string {
+  const titlePart = titles.length ? `(${titles.map((t) => `"${t}"`).join(" OR ")})` : "";
+  const extraPart = extras.length ? extras.map((e) => `"${e}"`).join(" AND ") : "";
+  return [titlePart, extraPart].filter(Boolean).join(" AND ");
+}
+
+function buildSearchPasses(base: Criteria): SearchPass[] {
+  const titles = (base.role_titles ?? []).filter(Boolean);
+  const industries = (base.industries ?? []).filter(Boolean);
+  const locations = (base.locations ?? []);
+  const languages = (base.languages ?? []);
+
+  // Title variants: original + sibling roles
+  const root = titles[0] ?? "";
+  const titleSets: string[][] = [];
+  if (titles.length) titleSets.push(titles);
+  if (root) {
+    const sibling = root.includes("Manager")
+      ? [root, root.replace("Manager", "Specialist"), root.replace("Manager", "Executive")]
+      : [root, `Head of ${root.replace(/^Head of /i, "")}`, `${root} Lead`];
+    titleSets.push(uniq(sibling));
+  }
+
+  const passes: SearchPass[] = [];
+
+  // Pass 1: title + industry + location (full)
+  passes.push({
+    id: "p1",
+    label: "Pass 1: Title + Industry + Location",
+    boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...locations, ...languages]),
+    criteria: base,
+  });
+
+  // Pass 2: sibling titles + same filters
+  if (titleSets[1]) {
+    passes.push({
+      id: "p2",
+      label: "Pass 2: Sibling Titles",
+      boolean: buildBoolean(titleSets[1], [...industries, ...locations]),
+      criteria: { ...base, role_titles: titleSets[1] },
+    });
+  }
+
+  // Pass 3..N: title + each industry individually (no location)
+  industries.slice(0, 3).forEach((ind, i) => {
+    passes.push({
+      id: `p${3 + i}`,
+      label: `Pass ${3 + i}: Title + ${ind}`,
+      boolean: buildBoolean(titleSets[0] ?? [], [ind]),
+      criteria: { ...base, industries: [ind], locations: [] },
+    });
+  });
+
+  return passes.slice(0, 5);
+}
+
+function buildBroaderPasses(base: Criteria): SearchPass[] {
+  const titles = base.role_titles ?? [];
+  const industries = base.industries ?? [];
+  return [
+    {
+      id: "b1",
+      label: "Broaden: drop location",
+      boolean: buildBoolean(titles, industries),
+      criteria: { ...base, locations: [] },
+    },
+    {
+      id: "b2",
+      label: "Broaden: industries only",
+      boolean: buildBoolean([], industries),
+      criteria: { ...base, role_titles: [], locations: [] },
+    },
+    {
+      id: "b3",
+      label: "Broaden: title only",
+      boolean: buildBoolean(titles),
+      criteria: { ...base, industries: [], locations: [] },
+    },
+  ];
+}
+
+interface ProviderRow {
+  provider: "lusha" | "vibe_prospecting";
+  api_key_encrypted: string;
+  api_key_iv: string;
+}
+
+async function runPass(
+  pass: SearchPass,
+  providers: ProviderRow[],
+  perProvider: number,
+  errors: Record<string, string>,
+): Promise<UnifiedCandidate[]> {
+  const results = await Promise.allSettled(providers.map(async (row) => {
+    const key = await decryptKey(row.api_key_encrypted, row.api_key_iv);
+    const r = row.provider === "lusha"
+      ? await searchLusha(key, pass.criteria, perProvider)
+      : await searchVibe(key, pass.criteria, perProvider);
+    if (r.error) {
+      // Don't abort: record the failure and continue with whatever did come back.
+      errors[row.provider] = r.error;
+      console.warn(`[search][${pass.id}] ${row.provider} unavailable: ${r.error}`);
+    }
+    return r.candidates;
+  }));
+  return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
+}
+
 // ---------------- Handler -------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -335,7 +453,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
-    const limit = Math.min(50, Math.max(10, Number(body.limit ?? 50)));
+    const perProviderLimit = Math.min(50, Math.max(10, Number(body.limit ?? 25)));
     console.log("[search] criteria", JSON.stringify(criteria));
 
     const { data: integrations } = await admin
@@ -344,49 +462,59 @@ Deno.serve(async (req) => {
       .eq("tenant_id", tenantId)
       .eq("status", "connected");
 
-    const connected = integrations ?? [];
+    const connected = (integrations ?? []) as ProviderRow[];
     console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"}`);
 
     if (connected.length === 0) {
-      return json({ candidates: [], errors: {}, message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations." });
+      return json({
+        candidates: [], errors: {}, queries: [],
+        message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations.",
+      });
     }
 
     const errors: Record<string, string> = {};
-    let all: UnifiedCandidate[] = [];
+    const passes = buildSearchPasses(criteria);
+    const requiredCountries = locationsToCountryCodes(criteria.locations);
 
-    await Promise.all(connected.map(async (row) => {
-      try {
-        const key = await decryptKey(row.api_key_encrypted as string, row.api_key_iv as string);
-        const r = row.provider === "lusha"
-          ? await searchLusha(key, criteria, limit)
-          : await searchVibe(key, criteria, limit);
-        if (r.error) errors[row.provider as string] = r.error;
-        all = all.concat(r.candidates);
-      } catch (e) {
-        errors[row.provider as string] = e instanceof Error ? e.message : "Unknown error";
-      }
-    }));
+    // Run primary passes
+    let pool: UnifiedCandidate[] = [];
+    const ranQueries: { id: string; label: string; boolean: string; raw: number }[] = [];
 
-    console.log(`[search] aggregated ${all.length} raw candidates`);
+    for (const pass of passes) {
+      const got = await runPass(pass, connected, perProviderLimit, errors);
+      ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+      pool = pool.concat(got);
+    }
 
     // Dedupe
-    const seen = new Set<string>();
-    all = all.filter((c) => {
-      const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k); return true;
-    });
+    const dedupe = (arr: UnifiedCandidate[]) => {
+      const seen = new Set<string>();
+      return arr.filter((c) => {
+        const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+    };
+    pool = dedupe(pool);
+    let hardFiltered = pool.filter((c) => passesHardFilters(c, criteria, requiredCountries));
+    console.log(`[search] primary passes: raw=${pool.length} hard=${hardFiltered.length}`);
 
-    // HARD pre-ranking filters
-    const requiredCountries = locationsToCountryCodes(criteria.locations);
-    const beforeHard = all.length;
-    const hardFiltered = all.filter((c) => passesHardFilters(c, criteria, requiredCountries));
-    console.log(`[search] hard filters: ${beforeHard} -> ${hardFiltered.length}`);
+    // Auto-broaden if too few matches
+    if (hardFiltered.length < 5) {
+      const broader = buildBroaderPasses(criteria);
+      for (const pass of broader) {
+        const got = await runPass(pass, connected, perProviderLimit, errors);
+        ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+        pool = dedupe(pool.concat(got));
+        hardFiltered = pool.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations)));
+        if (hardFiltered.length >= 10) break;
+      }
+      console.log(`[search] after broadening: raw=${pool.length} hard=${hardFiltered.length}`);
+    }
 
     // Score with OpenAI
-    const scored = await scoreWithOpenAI(criteria, hardFiltered);
+    const scored = await scoreWithOpenAI(criteria, hardFiltered.slice(0, 100));
 
-    // Hide <60% and 0%, sort desc
     const final = scored
       .filter((c) => (c.matchScore ?? 0) >= 60)
       .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
@@ -396,12 +524,18 @@ Deno.serve(async (req) => {
     return json({
       candidates: final,
       errors,
-      stats: { raw: beforeHard, after_hard_filters: hardFiltered.length, returned: final.length },
-      message: final.length ? null : "No candidates from connected sources met the hard relevance filters (title, location, industry). Try broadening the criteria.",
+      queries: ranQueries,
+      stats: { raw: pool.length, after_hard_filters: hardFiltered.length, returned: final.length },
+      message: final.length
+        ? null
+        : (Object.keys(errors).length
+            ? `Search ran across ${ranQueries.length} strategies but no candidates met the 60% relevance bar. Provider issues: ${Object.entries(errors).map(([p, e]) => `${p}: ${e}`).join("; ")}`
+            : `Search ran across ${ranQueries.length} strategies but no candidates met the 60% relevance bar. Try broadening the criteria.`),
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[search] error", msg);
-    return json({ error: msg }, 500);
+    // Always return 200 so the client can render fallback UI
+    return json({ candidates: [], errors: { server: msg }, queries: [], message: msg });
   }
 });
