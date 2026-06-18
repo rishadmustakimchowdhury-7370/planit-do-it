@@ -99,6 +99,54 @@ function locationsToCountryCodes(locations: string[] = []): string[] {
   }
   return Array.from(out);
 }
+function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
+
+function cleanList(values: (string | null | undefined)[] = [], limit = 10): string[] {
+  return uniq(values.map((v) => (v ?? "").trim()).filter(Boolean)).slice(0, limit);
+}
+
+function expandTitleFilters(criteria: Criteria): string[] {
+  const titles = cleanList(criteria.role_titles ?? [], 8);
+  const out = new Set(titles);
+  for (const title of titles) {
+    if (/operations?/i.test(title)) {
+      ["Operations Manager", "Operations Specialist", "Operations Executive", "Head of Operations"].forEach((t) => out.add(t));
+    }
+    if (/manager/i.test(title)) {
+      out.add(title.replace(/manager/ig, "Specialist"));
+      out.add(title.replace(/manager/ig, "Executive"));
+    }
+  }
+  return cleanList(Array.from(out), 10);
+}
+
+function expandIndustryFilters(criteria: Criteria): string[] {
+  const values = [...(criteria.industries ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
+  const text = values.join(" ").toLowerCase();
+  const out = new Set(cleanList(criteria.industries ?? [], 10));
+  if (/ship|maritime|freight|logistics|supply chain/.test(text)) ["Shipping", "Logistics", "Maritime", "Freight"].forEach((v) => out.add(v));
+  if (/commod|trading|energy|oil|gas|metal|agri/.test(text)) ["Commodity Trading", "Commodities", "Trading", "Energy"].forEach((v) => out.add(v));
+  return cleanList(Array.from(out), 10);
+}
+
+function expandLocationFilters(criteria: Criteria): string[] {
+  const values = [...(criteria.locations ?? []), ...(criteria.languages ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
+  const text = values.join(" ").toLowerCase();
+  const out = new Set(cleanList(criteria.locations ?? [], 10));
+  if (/uae|dubai|abu dhabi|emirates/.test(text)) ["UAE", "Dubai", "United Arab Emirates"].forEach((v) => out.add(v));
+  if (/russia|russian/.test(text)) out.add("Russia");
+  return cleanList(Array.from(out), 10);
+}
+
+function toLushaLocationObjects(locations: string[]): Array<Record<string, string>> {
+  return locations.map((loc) => {
+    const lower = loc.toLowerCase();
+    if (lower.includes("dubai")) return { city: "Dubai", country: "United Arab Emirates" };
+    if (lower.includes("abu dhabi")) return { city: "Abu Dhabi", country: "United Arab Emirates" };
+    const country = lower.includes("uae") || lower.includes("emirates") ? "United Arab Emirates" : loc;
+    return { country };
+  });
+}
 function seniorityToVibeLevels(seniority?: string | null): string[] {
   if (!seniority) return [];
   const s = seniority.toLowerCase();
