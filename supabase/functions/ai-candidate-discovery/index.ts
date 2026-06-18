@@ -1,5 +1,6 @@
 // AI Candidate Discovery: extract structured search criteria from a recruiter prompt
-// + optional uploaded JD (PDF/DOCX). Uses OpenAI gpt-4o-mini with JSON schema.
+// + optional uploaded JD (PDF/DOCX/TXT). Uses OpenAI gpt-4o-mini with JSON schema.
+// PDFs are sent to OpenAI as a `file` content part for real text extraction (incl. scanned PDFs).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -15,16 +16,16 @@ const SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    role_titles: { type: "array", items: { type: "string" }, description: "Target job titles" },
-    skills: { type: "array", items: { type: "string" }, description: "Required hard skills/technologies" },
-    locations: { type: "array", items: { type: "string" }, description: "Cities, regions, or countries" },
+    role_titles: { type: "array", items: { type: "string" } },
+    skills: { type: "array", items: { type: "string" } },
+    locations: { type: "array", items: { type: "string" } },
     industries: { type: "array", items: { type: "string" } },
-    seniority: { type: "string", description: "junior | mid | senior | lead | director | executive | any" },
+    seniority: { type: "string" },
     min_years_experience: { type: ["integer", "null"], minimum: 0, maximum: 50 },
     max_years_experience: { type: ["integer", "null"], minimum: 0, maximum: 60 },
-    keywords: { type: "array", items: { type: "string" }, description: "Additional free-text keywords" },
-    languages: { type: "array", items: { type: "string" }, description: "Spoken languages required" },
-    notes: { type: ["string", "null"], description: "Short analyst summary (1–2 sentences)" },
+    keywords: { type: "array", items: { type: "string" } },
+    languages: { type: "array", items: { type: "string" } },
+    notes: { type: ["string", "null"] },
   },
   required: [
     "role_titles", "skills", "locations", "industries",
@@ -47,11 +48,36 @@ async function callOpenAI(body: Record<string, unknown>) {
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`OpenAI ${res.status}: ${t.slice(0, 300)}`);
-  }
-  return await res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${text.slice(0, 500)}`);
+  try { return JSON.parse(text); } catch { throw new Error(`OpenAI returned non-JSON: ${text.slice(0, 200)}`); }
+}
+
+// Use OpenAI gpt-4o-mini to extract text from a PDF (handles scanned PDFs via its vision pipeline).
+async function extractPdfWithOpenAI(fileBase64: string, fileName: string): Promise<string> {
+  console.log(`[discovery] extracting PDF via OpenAI: ${fileName} (${fileBase64.length} b64 chars)`);
+  const data = await callOpenAI({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Extract ALL readable text from this job description PDF. Return only the raw text, preserving paragraphs and bullet points. Do not summarise." },
+          {
+            type: "file",
+            file: {
+              filename: fileName || "jd.pdf",
+              file_data: `data:application/pdf;base64,${fileBase64}`,
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const out = (data?.choices?.[0]?.message?.content ?? "").toString().trim();
+  console.log(`[discovery] extracted ${out.length} chars from ${fileName}`);
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -68,8 +94,30 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const prompt = (body.prompt ?? "").toString().trim();
-    const fileText = (body.fileText ?? "").toString().trim();
     const fileName = (body.fileName ?? "").toString();
+    const fileMime = (body.fileMime ?? "").toString();
+    const fileBase64 = (body.fileBase64 ?? "").toString();
+    let fileText = (body.fileText ?? "").toString();
+
+    console.log(`[discovery] request from ${userData.user.id} prompt=${prompt.length}ch file=${fileName || "-"} mime=${fileMime} b64=${fileBase64.length}ch text=${fileText.length}ch`);
+
+    // Real PDF extraction when a base64 PDF was provided.
+    if (fileBase64 && (fileMime === "application/pdf" || fileName.toLowerCase().endsWith(".pdf"))) {
+      try {
+        fileText = await extractPdfWithOpenAI(fileBase64, fileName);
+        if (!fileText || fileText.length < 20) {
+          return json({
+            error: `PDF text extraction returned only ${fileText.length} characters. The file may be empty, encrypted, or image-only with no readable text. Try a different file or paste the JD as text.`,
+          }, 422);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Unknown extraction error";
+        console.error(`[discovery] PDF extraction failed for ${fileName}:`, msg);
+        return json({ error: `PDF extraction failed: ${msg}` }, 422);
+      }
+    }
+
+    fileText = fileText.trim();
     if (!prompt && !fileText) return json({ error: "Provide a prompt or job description text" }, 400);
 
     const userContent = [
@@ -94,8 +142,11 @@ Deno.serve(async (req) => {
     let criteria: Record<string, unknown> = {};
     try { criteria = JSON.parse(raw); } catch { criteria = {}; }
 
-    return json({ ok: true, criteria });
+    console.log(`[discovery] criteria generated for ${userData.user.id}`);
+    return json({ ok: true, criteria, extractedText: fileText.slice(0, 4000), extractedChars: fileText.length });
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
+    const msg = e instanceof Error ? e.message : "Server error";
+    console.error("[discovery] error:", msg);
+    return json({ error: msg }, 500);
   }
 });
