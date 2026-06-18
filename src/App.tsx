@@ -41,6 +41,7 @@ const BillingPage = lazy(() => import("./pages/BillingPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CandidateDiscoveryPage = lazy(() => import("./pages/CandidateDiscoveryPage"));
+const AICandidateDiscoveryPage = lazy(() => import("./pages/AICandidateDiscoveryPage"));
 const TutorialVideosPage = lazy(() => import("./pages/TutorialVideosPage"));
 const EmailAnalyticsPage = lazy(() => import("./pages/EmailAnalyticsPage"));
 const EmailAccountsPage = lazy(() => import("./pages/EmailAccountsPage"));
