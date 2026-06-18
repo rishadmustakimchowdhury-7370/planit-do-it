@@ -21,7 +21,7 @@ import { AnyRecommendation } from '@/lib/recommendation';
 import { VoiceNoteRecorder } from '@/components/matching/workspace/VoiceNoteRecorder';
 
 interface Job { id: string; title: string; }
-interface Candidate { id: string; full_name: string; current_title: string | null; }
+interface Candidate { id: string; full_name: string; current_title: string | null; source: string | null; }
 interface MandateRow { requirement: string; evidence: string; fit: string; kind?: string; __kind?: string; items?: any[]; }
 
 interface ValidationResult {
@@ -63,7 +63,7 @@ const AIMatchPage = () => {
     (async () => {
       const [jobsRes, candidatesRes] = await Promise.all([
         supabase.from('jobs').select('id, title').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
-        supabase.from('candidates').select('id, full_name, current_title').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        supabase.from('candidates').select('id, full_name, current_title, source').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
       ]);
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) setCandidates(candidatesRes.data);
@@ -166,7 +166,14 @@ const AIMatchPage = () => {
                 <SelectContent>
                   {candidates.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}{c.current_title ? ` — ${c.current_title}` : ''}
+                      <span className="flex items-center gap-2">
+                        <span>{c.full_name}{c.current_title ? ` — ${c.current_title}` : ''}</span>
+                        {c.source && (
+                          <span className="text-[10px] uppercase tracking-wide rounded border px-1.5 py-0.5 text-muted-foreground">
+                            {c.source}
+                          </span>
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
