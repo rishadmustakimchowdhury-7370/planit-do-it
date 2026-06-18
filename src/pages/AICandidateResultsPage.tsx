@@ -125,6 +125,7 @@ export default function AICandidateResultsPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, tenantId } = useAuth();
   const rows = useMemo(() => generateResults(params), [params]);
 
   const [sortKey, setSortKey] = useState<SortKey>('matchScore');
@@ -132,6 +133,7 @@ export default function AICandidateResultsPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState<Set<string>>(new Set());
 
   useEffect(() => { setPage(1); setSelected(new Set()); }, [params]);
 
@@ -174,16 +176,78 @@ export default function AICandidateResultsPage() {
     });
   };
 
-  const saveOne = (id: string, name: string) => {
-    setSaved((s) => new Set(s).add(id));
-    toast({ title: 'Saved', description: `${name} saved to your shortlist.` });
+  const importRows = async (subset: ResultRow[]): Promise<{ inserted: number; duplicates: number; failed: number }> => {
+    if (!user || !tenantId) {
+      toast({ title: 'Not signed in', description: 'You must be signed in to import candidates.', variant: 'destructive' });
+      return { inserted: 0, duplicates: 0, failed: subset.length };
+    }
+    let inserted = 0, duplicates = 0, failed = 0;
+    // Pre-check existing emails for duplicate detection feedback
+    const emails = subset.map((r) => r.email).filter(Boolean) as string[];
+    const existing = new Set<string>();
+    if (emails.length) {
+      const { data } = await supabase
+        .from('candidates')
+        .select('email')
+        .eq('tenant_id', tenantId)
+        .in('email', emails);
+      data?.forEach((d) => existing.add((d.email as string).toLowerCase()));
+    }
+    for (const r of subset) {
+      const email = (r.email ?? `${r.id}@no-email.local`).toLowerCase();
+      if (existing.has(email)) { duplicates++; continue; }
+      const { error } = await supabase.from('candidates').insert({
+        tenant_id: tenantId,
+        created_by: user.id,
+        full_name: r.name,
+        email,
+        phone: r.phone ?? null,
+        location: r.location,
+        current_title: r.title,
+        current_company: r.company,
+        skills: r.skills,
+        experience_years: r.years,
+        source: r.source, // Lusha / Viral Prospect / Apollo / LinkedIn / Internal CRM
+      });
+      if (error) {
+        if (error.code === '23505') duplicates++;
+        else failed++;
+      } else {
+        inserted++;
+      }
+    }
+    return { inserted, duplicates, failed };
   };
 
-  const saveSelected = () => {
-    if (!selected.size) return;
-    setSaved((s) => new Set([...s, ...selected]));
-    toast({ title: 'Saved', description: `${selected.size} candidate(s) saved.` });
+  const saveOne = async (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    setImporting((s) => new Set(s).add(id));
+    const { inserted, duplicates, failed } = await importRows([row]);
+    setImporting((s) => { const n = new Set(s); n.delete(id); return n; });
+    if (inserted) {
+      setSaved((s) => new Set(s).add(id));
+      toast({ title: 'Imported to CRM', description: `${row.name} added (source: ${row.source}).` });
+    } else if (duplicates) {
+      setSaved((s) => new Set(s).add(id));
+      toast({ title: 'Already in CRM', description: `${row.name} matches an existing candidate.` });
+    } else if (failed) {
+      toast({ title: 'Import failed', description: `Could not import ${row.name}.`, variant: 'destructive' });
+    }
   };
+
+  const saveSelected = async () => {
+    if (!selected.size) return;
+    const subset = rows.filter((r) => selected.has(r.id));
+    const { inserted, duplicates, failed } = await importRows(subset);
+    setSaved((s) => new Set([...s, ...subset.map((r) => r.id)]));
+    toast({
+      title: 'Import complete',
+      description: `${inserted} added · ${duplicates} duplicate(s) · ${failed} failed`,
+      variant: failed && !inserted ? 'destructive' : 'default',
+    });
+  };
+
 
   const exportRows = (subset: ResultRow[], label: string) => {
     if (!subset.length) {
