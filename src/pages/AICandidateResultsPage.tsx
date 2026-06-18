@@ -96,6 +96,7 @@ export default function AICandidateResultsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [providerErrors, setProviderErrors] = useState<Record<string, string>>({});
+  const [queries, setQueries] = useState<{ id: string; label: string; boolean: string; raw: number }[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('matchScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
@@ -106,7 +107,7 @@ export default function AICandidateResultsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true); setErrorMsg(null); setProviderErrors({});
+      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
         body: { criteria, limit: 25 },
       });
@@ -115,6 +116,7 @@ export default function AICandidateResultsPage() {
       if (data?.error) { setErrorMsg(data.error); setRows([]); setLoading(false); return; }
       setRows((data?.candidates ?? []) as ResultRow[]);
       setProviderErrors(data?.errors ?? {});
+      setQueries(data?.queries ?? []);
       if (data?.message && (!data?.candidates || data.candidates.length === 0)) setErrorMsg(data.message);
       setLoading(false);
     })();
@@ -257,6 +259,31 @@ export default function AICandidateResultsPage() {
             <AlertDescription>{errorMsg}</AlertDescription>
           </Alert>
         )}
+
+        {queries.length > 0 && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Generated Boolean Queries</h2>
+                <span className="text-xs text-muted-foreground">{queries.length} search pass{queries.length === 1 ? '' : 'es'} run</span>
+              </div>
+              <div className="space-y-1.5">
+                {queries.map((q) => (
+                  <div key={q.id} className="text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-muted-foreground">{q.label}</span>
+                      <Badge variant="outline" className="text-[10px]">{q.raw} raw</Badge>
+                    </div>
+                    <code className="block mt-0.5 px-2 py-1 rounded bg-muted text-foreground/80 font-mono break-all">
+                      {q.boolean || '(no filters)'}
+                    </code>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
 
         <Card>
           <CardContent className="p-0">
