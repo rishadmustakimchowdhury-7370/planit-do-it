@@ -234,7 +234,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
   if (locationObjects.length) include.locations = locationObjects;
 
   const industries = expandIndustryFilters(criteria);
-  const companySearchText = industries.length ? industries.join(" OR ") : null;
+  const companySearchText = industries.length ? industries.join(", ") : null;
   if (companySearchText) companyInclude.searchText = companySearchText;
   const contactSearchTerms = cleanList([...(criteria.languages ?? []), ...(criteria.skills ?? []), ...(criteria.keywords ?? [])], 8);
   if (!titles.length && industries.length) contactSearchTerms.push(...industries.slice(0, 3));
@@ -246,9 +246,9 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
       ["intern", "Intern"], ["junior", "Junior"], ["entry", "Entry"],
       ["manager", "Manager"], ["lead", "Manager"], ["senior", "Senior"], ["mid", "Senior"],
       ["director", "Director"], ["vp", "Vice President"], ["vice", "Vice President"],
-      ["head", "CXO"], ["chief", "CXO"], ["cxo", "CXO"],
+      ["head", "Head"], ["chief", "Executive"], ["cxo", "Executive"],
     ];
-    for (const [k, v] of map) { if (s.includes(k)) { include.seniority = [v]; break; } }
+    for (const [k, v] of map) { if (s.includes(k)) { include.searchText = cleanList([include.searchText as string | undefined, v], 10).join(" "); break; } }
   }
 
   const generatedFilters: LushaFilterDebug = {
