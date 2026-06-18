@@ -60,21 +60,31 @@ async function testLusha(apiKey: string) {
 }
 
 async function testVibeProspecting(apiKey: string) {
+  // Vibe Prospecting is Explorium's AgentSource API.
+  // Base URL: https://api.explorium.ai
+  // Auth: api_key header (see https://docs.vibeprospecting.ai/openapi.yaml)
+  // Probe: /v1/credits requires a valid api_key, so it reliably verifies auth.
+  const url = "https://api.explorium.ai/v1/credits";
   try {
-    // Generic auth probe — Vibe Prospecting exposes /v1/account for key verification
-    const res = await fetch("https://api.vibeprospecting.com/v1/account", {
+    const res = await fetch(url, {
       method: "GET",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
+      headers: { "api_key": apiKey, "Accept": "application/json" },
     });
+    const bodyText = await res.text().catch(() => "");
     if (res.status === 401 || res.status === 403) {
+      console.error("[vibe_prospecting] auth rejected", { url, status: res.status, body: bodyText.slice(0, 300) });
       return { ok: false, error: `Vibe Prospecting rejected the API key (${res.status})` };
     }
-    if (!res.ok && res.status !== 404) {
-      return { ok: false, error: `Vibe Prospecting returned ${res.status}` };
+    if (!res.ok && res.status !== 404 && res.status !== 422) {
+      console.error("[vibe_prospecting] unexpected status", { url, status: res.status, body: bodyText.slice(0, 300) });
+      return { ok: false, error: `Vibe Prospecting returned ${res.status}: ${bodyText.slice(0, 200)}` };
     }
+    // 200 / 404 / 422 all imply the key was accepted by the gateway.
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+    const msg = e instanceof Error ? e.message : "Network error";
+    console.error("[vibe_prospecting] network error", { url, error: msg });
+    return { ok: false, error: `Network error calling ${url}: ${msg}` };
   }
 }
 
