@@ -1,4 +1,4 @@
-// Candidate Source Integrations: Lusha & Viral Prospect
+// Candidate Source Integrations: Lusha & Vibe Prospecting
 // Owner/Manager can manage; Recruiters can read status only.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -14,7 +14,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-type Provider = "lusha" | "viral_prospect";
+type Provider = "lusha" | "vibe_prospecting";
 
 async function getKey(): Promise<CryptoKey> {
   // Reuse the Apollo encryption secret to avoid configuring a second key.
@@ -59,18 +59,18 @@ async function testLusha(apiKey: string) {
   }
 }
 
-async function testViralProspect(apiKey: string) {
+async function testVibeProspecting(apiKey: string) {
   try {
-    // Generic auth probe — Viral Prospect exposes /v1/account for key verification
-    const res = await fetch("https://api.viralprospect.com/v1/account", {
+    // Generic auth probe — Vibe Prospecting exposes /v1/account for key verification
+    const res = await fetch("https://api.vibeprospecting.com/v1/account", {
       method: "GET",
       headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
     });
     if (res.status === 401 || res.status === 403) {
-      return { ok: false, error: `Viral Prospect rejected the API key (${res.status})` };
+      return { ok: false, error: `Vibe Prospecting rejected the API key (${res.status})` };
     }
     if (!res.ok && res.status !== 404) {
-      return { ok: false, error: `Viral Prospect returned ${res.status}` };
+      return { ok: false, error: `Vibe Prospecting returned ${res.status}` };
     }
     return { ok: true };
   } catch (e) {
@@ -80,7 +80,7 @@ async function testViralProspect(apiKey: string) {
 
 async function testProvider(provider: Provider, apiKey: string) {
   if (provider === "lusha") return await testLusha(apiKey);
-  if (provider === "viral_prospect") return await testViralProspect(apiKey);
+  if (provider === "vibe_prospecting") return await testVibeProspecting(apiKey);
   return { ok: false, error: "Unknown provider" };
 }
 
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action as string;
     const provider = body.provider as Provider;
-    if (!provider || (provider !== "lusha" && provider !== "viral_prospect")) {
+    if (!provider || (provider !== "lusha" && provider !== "vibe_prospecting")) {
       return json({ error: "Invalid provider" }, 400);
     }
 

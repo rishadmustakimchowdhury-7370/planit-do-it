@@ -30,7 +30,7 @@ interface ResultRow {
   years: number;
   email?: string;
   phone?: string;
-  source: 'Lusha' | 'Viral Prospect' | 'Apollo' | 'Internal CRM' | 'LinkedIn';
+  source: 'Lusha' | 'Vibe Prospecting' | 'Apollo' | 'Internal CRM' | 'LinkedIn';
   matchScore: number;
 }
 
@@ -41,7 +41,7 @@ const PAGE_SIZE = 10;
 const FIRST = ['Olivia', 'James', 'Sophia', 'Liam', 'Emma', 'Noah', 'Ava', 'Ethan', 'Mia', 'Lucas', 'Aria', 'Mason', 'Isla', 'Logan', 'Zara', 'Aiden', 'Chloe', 'Ryan', 'Layla', 'Owen', 'Nora', 'Jack', 'Hannah', 'Henry', 'Lily'];
 const LAST = ['Walker', 'Hughes', 'Patel', 'Khan', 'Rossi', 'Müller', 'Dubois', 'García', 'Andersen', 'Nakamura', 'Schmidt', 'Lopez', 'Brown', 'Singh', 'Costa', 'Bauer', 'Wright', 'Wagner', 'Bianchi', 'Park', 'Russo', 'Cohen', 'Holmes', 'Reyes', 'Fischer'];
 const COMPANIES = ['Lloyds Banking', 'Revolut', 'ING Bank', 'Credit Suisse', 'UBS', 'BP', 'Shell', 'Glencore', 'Trafigura', 'Vitol', 'Cargill', 'BNP Paribas', 'HSBC', 'JPMorgan', 'Goldman Sachs', 'Deloitte', 'Accenture', 'Capgemini', 'TCS', 'Infosys', 'Stripe', 'Wise', 'Monzo', 'Klarna', 'Adyen'];
-const SOURCES: ResultRow['source'][] = ['Lusha', 'Viral Prospect', 'Apollo', 'Internal CRM', 'LinkedIn'];
+const SOURCES: ResultRow['source'][] = ['Lusha', 'Vibe Prospecting', 'Apollo', 'Internal CRM', 'LinkedIn'];
 
 function seeded(seed: string) {
   let h = 0;
@@ -207,7 +207,7 @@ export default function AICandidateResultsPage() {
         current_company: r.company,
         skills: r.skills,
         experience_years: r.years,
-        source: r.source, // Lusha / Viral Prospect / Apollo / LinkedIn / Internal CRM
+        source: r.source, // Lusha / Vibe Prospecting / Apollo / LinkedIn / Internal CRM
       });
       if (error) {
         if (error.code === '23505') duplicates++;
