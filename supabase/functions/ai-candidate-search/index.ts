@@ -138,7 +138,7 @@ function expandLocationFilters(criteria: Criteria): string[] {
   return cleanList(Array.from(out), 10);
 }
 
-function toLushaLocationObjects(locations: string[]): Array<Record<string, string>> {
+function toLushaLocationObjects(locations: string[]): Array<{ city?: string; state?: string; country?: string; continent?: string; countryGrouping?: string }> {
   return locations.map((loc) => {
     const lower = loc.toLowerCase();
     if (lower.includes("dubai")) return { city: "Dubai", country: "United Arab Emirates" };
