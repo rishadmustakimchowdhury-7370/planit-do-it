@@ -31,7 +31,8 @@ import {
   Radar,
   Contact,
   Target,
-  Download
+  Download,
+  UserSearch
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -413,6 +414,43 @@ function SidebarContent({
             </>
           );
         })()}
+
+        {/* Candidate Discovery — visible to Owner/Manager/Recruiter */}
+        {(isOwner || isManager || isRecruiter) && (
+          <>
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.p
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="px-3 mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40"
+                >
+                  Candidate Discovery
+                </motion.p>
+              )}
+            </AnimatePresence>
+            {(() => {
+              const isActive = location.pathname === '/candidate-discovery';
+              return (
+                <Link to="/candidate-discovery" onClick={handleNavClick}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
+                    isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                    collapsed && 'justify-center'
+                  )}>
+                  <UserSearch className="w-5 h-5 flex-shrink-0" />
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="text-sm whitespace-nowrap">
+                        Integrations
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </Link>
+              );
+            })()}
+          </>
+        )}
       </nav>
 
 
