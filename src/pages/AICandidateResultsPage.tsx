@@ -260,6 +260,31 @@ export default function AICandidateResultsPage() {
           </Alert>
         )}
 
+        {queries.length > 0 && (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Generated Boolean Queries</h2>
+                <span className="text-xs text-muted-foreground">{queries.length} search pass{queries.length === 1 ? '' : 'es'} run</span>
+              </div>
+              <div className="space-y-1.5">
+                {queries.map((q) => (
+                  <div key={q.id} className="text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-muted-foreground">{q.label}</span>
+                      <Badge variant="outline" className="text-[10px]">{q.raw} raw</Badge>
+                    </div>
+                    <code className="block mt-0.5 px-2 py-1 rounded bg-muted text-foreground/80 font-mono break-all">
+                      {q.boolean || '(no filters)'}
+                    </code>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
         <Card>
           <CardContent className="p-0">
             <Table>
