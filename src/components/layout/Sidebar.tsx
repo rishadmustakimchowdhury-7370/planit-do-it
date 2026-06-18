@@ -428,27 +428,30 @@ function SidebarContent({
                 </motion.p>
               )}
             </AnimatePresence>
-            {(() => {
-              const isActive = location.pathname === '/candidate-discovery';
+            {[
+              { name: 'AI Discovery', href: '/candidate-discovery/ai', icon: Sparkles },
+              { name: 'Integrations', href: '/candidate-discovery', icon: UserSearch },
+            ].map((item) => {
+              const isActive = location.pathname === item.href;
               return (
-                <Link to="/candidate-discovery" onClick={handleNavClick}
+                <Link key={item.href} to={item.href} onClick={handleNavClick}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
                     isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
                       : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
                     collapsed && 'justify-center'
                   )}>
-                  <UserSearch className="w-5 h-5 flex-shrink-0" />
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
                   <AnimatePresence>
                     {!collapsed && (
                       <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="text-sm whitespace-nowrap">
-                        Integrations
+                        {item.name}
                       </motion.span>
                     )}
                   </AnimatePresence>
                 </Link>
               );
-            })()}
+            })}
           </>
         )}
       </nav>
