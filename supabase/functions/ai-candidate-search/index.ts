@@ -1,7 +1,5 @@
-// AI Candidate Search — queries real connected sources (Lusha, Vibe Prospecting)
-// and scores the returned candidates with OpenAI. No synthetic candidates are
-// ever produced. If no integration is connected, returns an empty result set
-// with a clear message.
+// AI Candidate Search — Lusha v3 + Vibe Prospecting (Explorium) with hard
+// pre-ranking filters and OpenAI scoring. Only real candidates are returned.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,7 +10,7 @@ const corsHeaders = {
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// ---------------- AES-GCM decrypt (same scheme as candidate-source-integration) ----
+// ---------------- AES-GCM decrypt -----------------------------------------
 async function getKey(): Promise<CryptoKey> {
   const raw = Deno.env.get("APOLLO_ENCRYPTION_KEY") ?? "";
   if (!raw) throw new Error("APOLLO_ENCRYPTION_KEY not configured");
@@ -30,7 +28,7 @@ async function decryptKey(ct: string, iv: string): Promise<string> {
   return new TextDecoder().decode(pt);
 }
 
-// ---------------- Common candidate shape ------------------------------------------
+// ---------------- Shared types --------------------------------------------
 interface UnifiedCandidate {
   id: string;
   source: "Lusha" | "Vibe Prospecting";
@@ -40,6 +38,7 @@ interface UnifiedCandidate {
   current_company: string;
   industry?: string | null;
   location: string;
+  country?: string | null;
   languages: string[];
   linkedin_url?: string | null;
   email?: string | null;
@@ -64,16 +63,19 @@ interface Criteria {
   notes?: string | null;
 }
 
-// ---------------- Vibe Prospecting (Explorium) search -----------------------------
 const COUNTRY_TO_ALPHA2: Record<string, string> = {
-  "united kingdom": "GB", uk: "GB", "great britain": "GB", england: "GB",
-  "united states": "US", usa: "US", us: "US", america: "US",
+  "united kingdom": "GB", uk: "GB", "great britain": "GB", england: "GB", britain: "GB",
+  "united states": "US", usa: "US", america: "US",
   switzerland: "CH", germany: "DE", france: "FR", spain: "ES", italy: "IT",
-  netherlands: "NL", ireland: "IE", "united arab emirates": "AE", uae: "AE",
+  netherlands: "NL", ireland: "IE", "united arab emirates": "AE", uae: "AE", emirates: "AE",
+  dubai: "AE", "abu dhabi": "AE",
   singapore: "SG", canada: "CA", australia: "AU", india: "IN", china: "CN",
   japan: "JP", brazil: "BR", poland: "PL", portugal: "PT", sweden: "SE",
   norway: "NO", denmark: "DK", finland: "FI", belgium: "BE", luxembourg: "LU",
   austria: "AT", "saudi arabia": "SA", qatar: "QA", "hong kong": "HK",
+  russia: "RU", "russian federation": "RU", moscow: "RU",
+  ukraine: "UA", turkey: "TR", greece: "GR", romania: "RO", czechia: "CZ",
+  hungary: "HU", "south africa": "ZA", mexico: "MX", argentina: "AR",
 };
 function locationsToCountryCodes(locations: string[] = []): string[] {
   const out = new Set<string>();
@@ -82,11 +84,6 @@ function locationsToCountryCodes(locations: string[] = []): string[] {
     for (const [name, code] of Object.entries(COUNTRY_TO_ALPHA2)) {
       if (lower.includes(name)) { out.add(code); break; }
     }
-    // Direct alpha-2 like "UK", "US"
-    const m = lower.match(/\b([a-z]{2})\b/);
-    if (m && Object.values(COUNTRY_TO_ALPHA2).includes(m[1].toUpperCase())) {
-      out.add(m[1].toUpperCase());
-    }
   }
   return Array.from(out);
 }
@@ -94,16 +91,17 @@ function seniorityToVibeLevels(seniority?: string | null): string[] {
   if (!seniority) return [];
   const s = seniority.toLowerCase();
   if (s.includes("intern") || s.includes("junior") || s.includes("entry")) return ["junior", "entry"];
-  if (s.includes("mid")) return ["non-managerial", "senior non-managerial"];
-  if (s.includes("senior") && !s.includes("manager")) return ["senior non-managerial", "senior manager"];
+  if (s.includes("mid")) return ["non-managerial", "senior non-managerial", "manager"];
+  if (s.includes("senior") && !s.includes("manager")) return ["senior non-managerial", "senior manager", "manager"];
   if (s.includes("lead") || s.includes("manager")) return ["manager", "senior manager"];
   if (s.includes("director")) return ["director"];
   if (s.includes("vp") || s.includes("vice")) return ["vice president"];
-  if (s.includes("head") || s.includes("chief") || s.includes("cxo") || s.includes("c-suite")) return ["c-suite"];
+  if (s.includes("head") || s.includes("chief") || s.includes("cxo")) return ["c-suite"];
   return [];
 }
 
-async function searchVibe(apiKey: string, criteria: Criteria, size = 25): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+// ---------------- Vibe Prospecting (Explorium) ----------------------------
+async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
   const titles = (criteria.role_titles ?? []).map((t) => t.toLowerCase()).filter(Boolean).slice(0, 10);
   const filters: Record<string, unknown> = {};
   if (titles.length) filters.job_title = { values: titles };
@@ -117,7 +115,6 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 25): Promis
       ...(criteria.max_years_experience != null ? { lte: Math.floor(criteria.max_years_experience * 12) } : {}),
     };
   }
-
   const body = { mode: "full", size, page_size: size, page: 1, filters };
   try {
     const res = await fetch("https://api.explorium.ai/v1/prospects", {
@@ -133,22 +130,21 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 25): Promis
     const data = JSON.parse(text);
     const rows: any[] = data?.data ?? [];
     const candidates: UnifiedCandidate[] = rows.map((p) => {
-      const city = p.city ?? "";
-      const region = p.region_name ?? "";
-      const country = p.country_name ?? "";
-      const location = [city, region, country].filter(Boolean).join(", ");
+      const linkedin = p.linkedin || (Array.isArray(p.linkedin_url_array) ? p.linkedin_url_array[0] : null);
+      const location = [p.city, p.region_name, p.country_name].filter(Boolean).join(", ");
       return {
         id: `vibe-${p.prospect_id}`,
         source: "Vibe Prospecting",
-        source_url: p.linkedin || (Array.isArray(p.linkedin_url_array) ? p.linkedin_url_array[0] : null),
+        source_url: linkedin ?? (p.business_id ? `https://app.vibeprospecting.ai/prospects/${p.prospect_id}` : null),
         full_name: p.full_name || `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
         current_title: p.job_title ?? "",
         current_company: p.company_name ?? "",
         industry: p.job_department_main ?? p.job_department ?? null,
         location,
+        country: p.country_name ?? null,
         languages: [],
-        linkedin_url: p.linkedin || (Array.isArray(p.linkedin_url_array) ? p.linkedin_url_array[0] : null),
-        email: null, // Explorium returns hashed email only on this endpoint
+        linkedin_url: linkedin,
+        email: null,
         phone: null,
         skills: Array.isArray(p.skills) ? p.skills.slice(0, 12) : [],
         experience_years: Array.isArray(p.experience) && p.experience.length
@@ -157,30 +153,28 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 25): Promis
         seniority: p.job_seniority_level ?? p.job_level_main ?? null,
       };
     });
-    console.log(`[vibe] returned ${candidates.length} candidates`);
+    console.log(`[vibe] returned ${candidates.length} raw candidates`);
     return { candidates };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Network error";
-    console.error("[vibe] error", msg);
-    return { candidates: [], error: msg };
+    return { candidates: [], error: e instanceof Error ? e.message : "Network error" };
   }
 }
 
-// ---------------- Lusha Prospecting search ----------------------------------------
-async function searchLusha(apiKey: string, criteria: Criteria, size = 25): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+// ---------------- Lusha v3 Prospecting ------------------------------------
+async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
   const include: Record<string, unknown> = {};
   if (criteria.role_titles?.length) include.jobTitles = criteria.role_titles.slice(0, 10);
-  if (criteria.locations?.length) include.locations = criteria.locations.slice(0, 10).map((l) => ({ country: l }));
-  if (criteria.seniority) include.seniority = [criteria.seniority];
+  const countryCodes = locationsToCountryCodes(criteria.locations);
+  if (countryCodes.length) include.countries = countryCodes;
 
   const body = {
-    pages: { page: 0, size: Math.min(size, 40) },
+    pagination: { page: 0, size: Math.min(size, 50) },
     filters: { contacts: { include } },
   };
   try {
-    const res = await fetch("https://api.lusha.com/prospecting/search", {
+    const res = await fetch("https://api.lusha.com/v3/contacts/prospecting", {
       method: "POST",
-      headers: { "api_key": apiKey, "Content-Type": "application/json" },
+      headers: { "api_key": apiKey, "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(body),
     });
     const text = await res.text();
@@ -189,38 +183,68 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 25): Promi
       return { candidates: [], error: `Lusha ${res.status}: ${text.slice(0, 200)}` };
     }
     const data = JSON.parse(text);
-    const rows: any[] = data?.data ?? data?.contacts ?? [];
-    const candidates: UnifiedCandidate[] = rows.map((c, i) => {
-      const fullName = c.name?.full ?? `${c.name?.first ?? c.firstName ?? ""} ${c.name?.last ?? c.lastName ?? ""}`.trim();
-      const location = [c.location?.city, c.location?.state, c.location?.country].filter(Boolean).join(", ") || c.location || "";
+    const rows: any[] = data?.results ?? [];
+    const candidates: UnifiedCandidate[] = rows.map((c) => {
+      const linkedin = c.socialLinks?.linkedin ?? null;
+      const loc = c.location ?? {};
+      const location = [loc.city, loc.state, loc.country].filter(Boolean).join(", ");
       return {
-        id: `lusha-${c.contactId ?? c.id ?? i}`,
+        id: `lusha-${c.id}`,
         source: "Lusha",
-        source_url: c.linkedinUrl ?? c.linkedin ?? null,
-        full_name: fullName,
-        current_title: c.jobTitle ?? c.title ?? "",
-        current_company: c.companyName ?? c.company?.name ?? "",
-        industry: c.company?.industry ?? c.industry ?? null,
+        source_url: linkedin ?? `https://dashboard.lusha.com/enrich/contacts/${c.id}`,
+        full_name: `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim(),
+        current_title: c.jobTitle?.title ?? "",
+        current_company: c.company?.name ?? "",
+        industry: Array.isArray(c.jobTitle?.departments) ? c.jobTitle.departments[0] : null,
         location,
+        country: loc.country ?? null,
         languages: [],
-        linkedin_url: c.linkedinUrl ?? c.linkedin ?? null,
-        email: c.email ?? c.workEmail ?? null,
-        phone: c.phone ?? c.phoneNumber ?? null,
+        linkedin_url: linkedin,
+        email: null,
+        phone: null,
         skills: [],
         experience_years: null,
-        seniority: c.seniority ?? null,
+        seniority: c.jobTitle?.seniority ?? null,
       };
     });
-    console.log(`[lusha] returned ${candidates.length} candidates`);
+    console.log(`[lusha] returned ${candidates.length} raw candidates`);
     return { candidates };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Network error";
-    console.error("[lusha] error", msg);
-    return { candidates: [], error: msg };
+    return { candidates: [], error: e instanceof Error ? e.message : "Network error" };
   }
 }
 
-// ---------------- OpenAI scoring --------------------------------------------------
+// ---------------- Hard pre-ranking filters --------------------------------
+function tokenize(s: string): string[] {
+  return (s ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+}
+
+function passesHardFilters(c: UnifiedCandidate, criteria: Criteria, requiredCountries: string[]): boolean {
+  // Title: at least one criterion title keyword present
+  const titleTokens = new Set(tokenize(c.current_title));
+  const wantedTitleTokens = (criteria.role_titles ?? []).flatMap(tokenize);
+  if (wantedTitleTokens.length) {
+    const titleOk = wantedTitleTokens.some((t) => titleTokens.has(t));
+    if (!titleOk) return false;
+  }
+  // Country: must intersect requested countries (when any criteria locations supplied)
+  if (requiredCountries.length) {
+    const candCountryCode =
+      (c.country ? COUNTRY_TO_ALPHA2[c.country.toLowerCase()] : null) ??
+      (c.location ? locationsToCountryCodes([c.location])[0] : null);
+    if (!candCountryCode || !requiredCountries.includes(candCountryCode)) return false;
+  }
+  // Industry: only filter when both sides have signal
+  const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
+  if (wantedIndustryTokens.length) {
+    const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
+    const industryOk = wantedIndustryTokens.some((t) => haystack.includes(t));
+    if (!industryOk) return false;
+  }
+  return true;
+}
+
+// ---------------- OpenAI scoring ------------------------------------------
 async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[]): Promise<UnifiedCandidate[]> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key || candidates.length === 0) return candidates;
@@ -241,7 +265,7 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
           properties: {
             i: { type: "integer" },
             matchScore: { type: "integer", minimum: 0, maximum: 100 },
-            matchReasons: { type: "array", items: { type: "string" }, maxItems: 6 },
+            matchReasons: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 6 },
           },
           required: ["i", "matchScore", "matchReasons"],
         },
@@ -250,11 +274,14 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
     required: ["scored"],
   };
 
-  const system = `You are a recruitment match-scoring engine. Score each candidate 0-100 against the search criteria.
-Weight: Industry Match, Language Match, Company Background, Skills Match, Seniority, Location, Experience.
-Return short, concrete reasons (3-6) prefixed with "✓" for a match or "✗" for a clear gap. Examples:
-"✓ Commodity Trading", "✓ UAE Experience", "✗ Missing Russian language".
-Be honest — if criteria are not met, score lower. Use only the data provided; do not invent.`;
+  const system = `You are a senior recruitment match-scoring engine. Score each candidate 0-100 against the search criteria.
+Heavy weight to: Industry Match, Language Match (when languages are required), Operational/Functional fit, Seniority, Location, Skills, Experience.
+Be honest and strict — penalise mismatches in industry, language, or seniority. Do NOT inflate scores.
+
+Return 3-6 concise recruiter-grade reasons per candidate, each:
+- prefixed "✓ " when the candidate clearly meets the criterion (e.g. "✓ Operations Management", "✓ Commodity Trading", "✓ UAE Experience", "✓ Russian Speaker")
+- prefixed "✗ " when a clear gap is identified (e.g. "✗ Missing Russian language")
+Use only data provided; never invent skills or languages.`;
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -262,10 +289,10 @@ Be honest — if criteria are not met, score lower. Use only the data provided; 
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        temperature: 0.1,
+        temperature: 0,
         messages: [
           { role: "system", content: system },
-          { role: "user", content: `Criteria:\n${JSON.stringify(criteria)}\n\nCandidates:\n${JSON.stringify(slim)}` },
+          { role: "user", content: `Search criteria:\n${JSON.stringify(criteria)}\n\nCandidates:\n${JSON.stringify(slim)}` },
         ],
         response_format: { type: "json_schema", json_schema: { name: "scored", strict: true, schema } },
       }),
@@ -286,7 +313,7 @@ Be honest — if criteria are not met, score lower. Use only the data provided; 
   }
 }
 
-// ---------------- Handler ---------------------------------------------------------
+// ---------------- Handler -------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
@@ -308,7 +335,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
-    const limit = Math.min(50, Math.max(1, Number(body.limit ?? 25)));
+    const limit = Math.min(50, Math.max(10, Number(body.limit ?? 50)));
     console.log("[search] criteria", JSON.stringify(criteria));
 
     const { data: integrations } = await admin
@@ -321,11 +348,7 @@ Deno.serve(async (req) => {
     console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"}`);
 
     if (connected.length === 0) {
-      return json({
-        candidates: [],
-        errors: {},
-        message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations.",
-      });
+      return json({ candidates: [], errors: {}, message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations." });
     }
 
     const errors: Record<string, string> = {};
@@ -346,7 +369,7 @@ Deno.serve(async (req) => {
 
     console.log(`[search] aggregated ${all.length} raw candidates`);
 
-    // Dedupe by linkedin_url or normalized name+company
+    // Dedupe
     const seen = new Set<string>();
     all = all.filter((c) => {
       const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
@@ -354,11 +377,28 @@ Deno.serve(async (req) => {
       seen.add(k); return true;
     });
 
-    // Score with OpenAI
-    const scored = await scoreWithOpenAI(criteria, all);
-    scored.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
+    // HARD pre-ranking filters
+    const requiredCountries = locationsToCountryCodes(criteria.locations);
+    const beforeHard = all.length;
+    const hardFiltered = all.filter((c) => passesHardFilters(c, criteria, requiredCountries));
+    console.log(`[search] hard filters: ${beforeHard} -> ${hardFiltered.length}`);
 
-    return json({ candidates: scored, errors, message: scored.length ? null : "No matching candidates were returned by the connected sources." });
+    // Score with OpenAI
+    const scored = await scoreWithOpenAI(criteria, hardFiltered);
+
+    // Hide <60% and 0%, sort desc
+    const final = scored
+      .filter((c) => (c.matchScore ?? 0) >= 60)
+      .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
+
+    console.log(`[search] returning ${final.length} candidates (>=60%) from ${scored.length} scored`);
+
+    return json({
+      candidates: final,
+      errors,
+      stats: { raw: beforeHard, after_hard_filters: hardFiltered.length, returned: final.length },
+      message: final.length ? null : "No candidates from connected sources met the hard relevance filters (title, location, industry). Try broadening the criteria.",
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[search] error", msg);
