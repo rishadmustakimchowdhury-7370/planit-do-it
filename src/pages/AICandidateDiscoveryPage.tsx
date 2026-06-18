@@ -32,6 +32,8 @@ interface ChatTurn {
   text?: string;
   fileName?: string;
   criteria?: Criteria;
+  extractedPreview?: string;
+  extractedChars?: number;
   error?: string;
 }
 
@@ -41,14 +43,31 @@ const EXAMPLES = [
   'Find Guidewire Developers in the UK.',
 ];
 
-async function extractFileText(file: File): Promise<string> {
-  if (file.type === 'text/plain' || file.name.endsWith('.txt')) return await file.text();
-  // PDF / DOCX: best-effort UTF-8 read; the AI is robust enough to pull terms out of partial text.
-  // For real extraction we'd run a parser, but this keeps things client-side and dependency-free.
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(binary);
+}
+
+async function readFilePayload(file: File): Promise<{ fileText?: string; fileBase64?: string; fileMime: string }> {
+  const mime = file.type || '';
+  const isPdf = mime === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (isPdf) {
+    const buf = await file.arrayBuffer();
+    return { fileBase64: arrayBufferToBase64(buf), fileMime: 'application/pdf' };
+  }
+  if (mime.startsWith('text/') || file.name.toLowerCase().endsWith('.txt')) {
+    return { fileText: await file.text(), fileMime: mime || 'text/plain' };
+  }
+  // DOCX / other: best-effort text decode (the AI is tolerant of partial text).
   const buf = await file.arrayBuffer();
   const decoder = new TextDecoder('utf-8', { fatal: false });
-  const txt = decoder.decode(buf);
-  return txt.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ').slice(0, 30000);
+  const txt = decoder.decode(buf).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]+/g, ' ').slice(0, 30000);
+  return { fileText: txt, fileMime: mime };
 }
 
 export default function AICandidateDiscoveryPage() {
@@ -92,17 +111,30 @@ export default function AICandidateDiscoveryPage() {
     setFile(null);
 
     try {
-      const fileText = activeFile ? await extractFileText(activeFile) : '';
+      const payload = activeFile ? await readFilePayload(activeFile) : {};
+      console.log('[discovery] sending', {
+        fileName: activeFile?.name,
+        fileMime: (payload as { fileMime?: string }).fileMime,
+        fileBytes: activeFile?.size,
+        hasBase64: !!(payload as { fileBase64?: string }).fileBase64,
+        textChars: (payload as { fileText?: string }).fileText?.length ?? 0,
+      });
       const { data, error } = await supabase.functions.invoke('ai-candidate-discovery', {
-        body: { prompt: promptText, fileText, fileName: activeFile?.name },
+        body: { prompt: promptText, fileName: activeFile?.name, ...payload },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
+      console.log('[discovery] extracted', data?.extractedChars, 'chars');
       setTurns((t) => [...t, {
-        id: crypto.randomUUID(), role: 'assistant', criteria: data.criteria as Criteria,
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        criteria: data.criteria as Criteria,
+        extractedPreview: data.extractedText,
+        extractedChars: data.extractedChars,
       }]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
+      console.error('[discovery] failed', msg);
       setTurns((t) => [...t, { id: crypto.randomUUID(), role: 'assistant', error: msg }]);
       toast({ title: 'Failed to analyse', description: msg, variant: 'destructive' });
     } finally {
@@ -179,12 +211,23 @@ export default function AICandidateDiscoveryPage() {
             </div>
           ) : (
             <div key={t.id} className="flex justify-start">
-              <div className="max-w-[90%] w-full">
+              <div className="max-w-[90%] w-full space-y-3">
                 {t.error ? (
-                  <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{t.error}</AlertDescription></Alert>
-                ) : t.criteria ? (
-                  <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />
-                ) : null}
+                  <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription className="whitespace-pre-wrap">{t.error}</AlertDescription></Alert>
+                ) : (
+                  <>
+                    {t.extractedPreview && (
+                      <details className="rounded-lg border bg-muted/30 text-sm">
+                        <summary className="cursor-pointer px-3 py-2 font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Extracted text preview ({t.extractedChars?.toLocaleString() ?? 0} chars)
+                        </summary>
+                        <pre className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs max-h-64 overflow-y-auto">{t.extractedPreview}</pre>
+                      </details>
+                    )}
+                    {t.criteria && <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />}
+                  </>
+                )}
               </div>
             </div>
           ))}
