@@ -31,10 +31,15 @@ export function CandidateSourceIntegrationCard({ provider, title, description, h
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [integration, setIntegration] = useState<Integration>({ status: 'disconnected' });
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [searchResult, setSearchResult] = useState<null | {
+    ok: boolean; status?: number; records?: number;
+    credits?: number | null; creditsError?: string | null; error?: string | null;
+  }>(null);
 
   const invoke = async (action: string, payload: Record<string, unknown> = {}) => {
     const { data, error } = await supabase.functions.invoke('candidate-source-integration', {
