@@ -121,7 +121,7 @@ export default function AICandidateDiscoveryPage() {
     if (criteria.locations?.length) params.set('location', criteria.locations.join(','));
     if (criteria.min_years_experience != null) params.set('min_years', String(criteria.min_years_experience));
     if (criteria.seniority) params.set('seniority', criteria.seniority);
-    navigate(`/candidates?${params.toString()}`);
+    navigate(`/candidate-discovery/results?${params.toString()}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
