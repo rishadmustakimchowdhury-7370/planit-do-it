@@ -782,6 +782,57 @@ export type Database = {
           },
         ]
       }
+      candidate_source_integrations: {
+        Row: {
+          api_key_encrypted: string | null
+          api_key_iv: string | null
+          api_key_last_four: string | null
+          capabilities: Json
+          connected_by: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          last_tested_at: string | null
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_key_iv?: string | null
+          api_key_last_four?: string | null
+          capabilities?: Json
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_tested_at?: string | null
+          provider: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_key_iv?: string | null
+          api_key_last_four?: string | null
+          capabilities?: Json
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_tested_at?: string | null
+          provider?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       candidate_submissions: {
         Row: {
           ai_validation_id: string | null
