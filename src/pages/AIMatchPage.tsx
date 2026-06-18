@@ -166,7 +166,14 @@ const AIMatchPage = () => {
                 <SelectContent>
                   {candidates.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}{c.current_title ? ` — ${c.current_title}` : ''}
+                      <span className="flex items-center gap-2">
+                        <span>{c.full_name}{c.current_title ? ` — ${c.current_title}` : ''}</span>
+                        {c.source && (
+                          <span className="text-[10px] uppercase tracking-wide rounded border px-1.5 py-0.5 text-muted-foreground">
+                            {c.source}
+                          </span>
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
