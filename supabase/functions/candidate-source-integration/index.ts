@@ -283,6 +283,24 @@ Deno.serve(async (req) => {
       return json({ ok: test.ok, error: test.error });
     }
 
+    if (action === "test_search") {
+      const { data: row } = await admin
+        .from("candidate_source_integrations")
+        .select("api_key_encrypted,api_key_iv")
+        .eq("tenant_id", tenantId).eq("provider", provider).maybeSingle();
+      if (!row?.api_key_encrypted) return json({ ok: false, error: "Not connected" }, 400);
+      const key = await getKey();
+      const pt = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: fromB64(row.api_key_iv) },
+        key,
+        fromB64(row.api_key_encrypted),
+      );
+      const apiKey = new TextDecoder().decode(pt);
+      const result = await searchProvider(provider, apiKey);
+      console.log(`[${provider}] test_search`, result);
+      return json(result);
+    }
+
     if (action === "disconnect") {
       const { error } = await admin
         .from("candidate_source_integrations")
