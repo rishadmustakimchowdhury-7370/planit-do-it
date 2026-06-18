@@ -96,6 +96,26 @@ export function CandidateSourceIntegrationCard({ provider, title, description, h
     } finally { setTesting(false); }
   };
 
+  const handleTestSearch = async () => {
+    setSearching(true);
+    setSearchResult(null);
+    try {
+      const res = await invoke('test_search');
+      setSearchResult(res);
+      toast({
+        title: res.ok ? `${title} search OK` : `${title} search failed`,
+        description: res.ok
+          ? `Returned ${res.records ?? 0} record(s).`
+          : res.error ?? `HTTP ${res.status ?? '?'}`,
+        variant: res.ok ? 'default' : 'destructive',
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setSearchResult({ ok: false, error: msg });
+      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+    } finally { setSearching(false); }
+  };
+
   const handleDisconnect = async () => {
     if (!confirm(`Disconnect ${title}? Your API key will be permanently removed.`)) return;
     setDisconnecting(true);
