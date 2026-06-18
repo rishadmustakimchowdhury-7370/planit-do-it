@@ -19,7 +19,7 @@ interface Integration {
 }
 
 interface Props {
-  provider: 'lusha' | 'viral_prospect';
+  provider: 'lusha' | 'vibe_prospecting';
   title: string;
   description: string;
   helpText: string;

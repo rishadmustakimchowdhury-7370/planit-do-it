@@ -30,10 +30,10 @@ export default function CandidateDiscoveryPage() {
             canManage={canManage}
           />
           <CandidateSourceIntegrationCard
-            provider="viral_prospect"
-            title="Viral Prospect"
-            description="Source passive candidates and enrich profiles from Viral Prospect's database."
-            helpText="Find your key in Viral Prospect → Account → API Access."
+            provider="vibe_prospecting"
+            title="Vibe Prospecting"
+            description="Source passive candidates and enrich profiles from Vibe Prospecting's database."
+            helpText="Find your key in Vibe Prospecting → Account → API Access."
             canManage={canManage}
           />
         </div>
