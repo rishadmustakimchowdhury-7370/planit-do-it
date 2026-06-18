@@ -40,6 +40,7 @@ const AcceptInvitationPage = lazy(() => import("./pages/AcceptInvitationPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const CandidateDiscoveryPage = lazy(() => import("./pages/CandidateDiscoveryPage"));
 const TutorialVideosPage = lazy(() => import("./pages/TutorialVideosPage"));
 const EmailAnalyticsPage = lazy(() => import("./pages/EmailAnalyticsPage"));
 const EmailAccountsPage = lazy(() => import("./pages/EmailAccountsPage"));
@@ -211,6 +212,7 @@ const AppRoutes = () => (
       <Route path="/leads/export" element={<ProtectedRoute><ExportCenterPage /></ProtectedRoute>} />
       <Route path="/leads/analytics" element={<ProtectedRoute><LeadAnalyticsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/candidate-discovery" element={<ProtectedRoute><CandidateDiscoveryPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
       <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
       <Route path="/team/work-tracking" element={<ProtectedRoute><WorkTrackingPage /></ProtectedRoute>} />
