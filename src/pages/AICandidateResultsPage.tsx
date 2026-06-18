@@ -275,7 +275,7 @@ export default function AICandidateResultsPage() {
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Generated Boolean Queries</h2>
+                <h2 className="text-sm font-semibold">Generated Boolean Queries & Lusha Filters</h2>
                 <span className="text-xs text-muted-foreground">{queries.length} search pass{queries.length === 1 ? '' : 'es'} run</span>
               </div>
               <div className="space-y-1.5">
@@ -283,11 +283,35 @@ export default function AICandidateResultsPage() {
                   <div key={q.id} className="text-xs">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-muted-foreground">{q.label}</span>
-                      <Badge variant="outline" className="text-[10px]">{q.raw} raw</Badge>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Badge variant="outline" className="text-[10px]">{q.raw} returned</Badge>
+                        <Badge variant="outline" className="text-[10px]">{q.accepted ?? 0} accepted</Badge>
+                        <Badge variant="outline" className="text-[10px]">{q.rejected ?? 0} rejected</Badge>
+                      </div>
                     </div>
                     <code className="block mt-0.5 px-2 py-1 rounded bg-muted text-foreground/80 font-mono break-all">
                       {q.boolean || '(no filters)'}
                     </code>
+                    {q.generatedFilters && (
+                      <div className="mt-1 rounded border border-border bg-muted/40 p-2 space-y-1">
+                        <div className="font-medium text-foreground">Generated Filters</div>
+                        <div><span className="text-muted-foreground">titles:</span> {(q.generatedFilters.titles ?? []).join(', ') || '—'}</div>
+                        <div><span className="text-muted-foreground">industries:</span> {(q.generatedFilters.industries ?? []).join(', ') || '—'}</div>
+                        <div><span className="text-muted-foreground">locations:</span> {(q.generatedFilters.locations ?? []).join(', ') || '—'}</div>
+                        <div><span className="text-muted-foreground">countries:</span> {(q.generatedFilters.countries ?? []).join(', ') || '—'}</div>
+                        {q.generatedFilters.searchText && <div><span className="text-muted-foreground">searchText:</span> {q.generatedFilters.searchText}</div>}
+                        {q.generatedFilters.skipReason && <div className="text-destructive">{q.generatedFilters.skipReason}</div>}
+                      </div>
+                    )}
+                    {q.providers && q.providers.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {q.providers.map((p) => (
+                          <Badge key={`${q.id}-${p.provider}`} variant="secondary" className="text-[10px]">
+                            {p.provider}: {p.records} record{p.records === 1 ? '' : 's'}{p.error ? ' · error' : ''}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
