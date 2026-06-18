@@ -236,6 +236,9 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
   const industries = expandIndustryFilters(criteria);
   const companySearchText = industries.length ? industries.join(" OR ") : null;
   if (companySearchText) companyInclude.searchText = companySearchText;
+  const contactSearchTerms = cleanList([...(criteria.languages ?? []), ...(criteria.skills ?? []), ...(criteria.keywords ?? [])], 8);
+  if (!titles.length && industries.length) contactSearchTerms.push(...industries.slice(0, 3));
+  if (contactSearchTerms.length) include.searchText = cleanList(contactSearchTerms, 10).join(" ");
 
   if (criteria.seniority) {
     const s = criteria.seniority.toLowerCase();
@@ -253,7 +256,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
     industries,
     locations: locationLabels,
     countries: countryCodes,
-    searchText: companySearchText,
+    searchText: (include.searchText as string | undefined) ?? companySearchText,
   };
 
   // VALIDATE: Lusha requires at least one contact include filter before the API call.
