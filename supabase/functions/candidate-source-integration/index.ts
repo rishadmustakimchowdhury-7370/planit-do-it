@@ -94,6 +94,92 @@ async function testProvider(provider: Provider, apiKey: string) {
   return { ok: false, error: "Unknown provider" };
 }
 
+// === Search probes ===
+async function searchLusha(apiKey: string) {
+  const url = "https://api.lusha.com/prospecting/contact/search";
+  const body = {
+    pages: { page: 0, size: 5 },
+    filters: { contacts: { include: { jobTitles: ["Operations Manager"] } } },
+  };
+  let creditsRemaining: number | null = null;
+  try {
+    const credRes = await fetch("https://api.lusha.com/credits/v1", { headers: { "api_key": apiKey } });
+    if (credRes.ok) {
+      const cj = await credRes.json().catch(() => ({}));
+      creditsRemaining = cj?.credits ?? cj?.remaining ?? cj?.available ?? null;
+    }
+  } catch { /* ignore */ }
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "api_key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text().catch(() => "");
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch { /* keep text */ }
+    const records = Array.isArray(parsed?.data) ? parsed.data.length
+      : Array.isArray(parsed?.contacts) ? parsed.contacts.length
+      : Array.isArray(parsed?.results) ? parsed.results.length : 0;
+    return {
+      ok: res.ok,
+      status: res.status,
+      records,
+      credits: creditsRemaining,
+      error: res.ok ? null : (parsed?.error ?? parsed?.message ?? text.slice(0, 300) ?? `HTTP ${res.status}`),
+    };
+  } catch (e) {
+    return { ok: false, status: 0, records: 0, credits: creditsRemaining, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+async function searchVibe(apiKey: string) {
+  const base = "https://api.explorium.ai";
+  let creditsRemaining: number | null = null;
+  let creditsError: string | null = null;
+  try {
+    const credRes = await fetch(`${base}/v1/credits`, { headers: { "api_key": apiKey, "Accept": "application/json" } });
+    const ctext = await credRes.text().catch(() => "");
+    if (credRes.ok) {
+      const cj = JSON.parse(ctext || "{}");
+      creditsRemaining = cj?.remaining ?? cj?.credits ?? cj?.available ?? null;
+    } else {
+      creditsError = `Credits endpoint ${credRes.status}: ${ctext.slice(0, 200)}`;
+    }
+  } catch (e) {
+    creditsError = e instanceof Error ? e.message : "credits network error";
+  }
+  try {
+    const res = await fetch(`${base}/v1/prospects/search`, {
+      method: "POST",
+      headers: { "api_key": apiKey, "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ size: 5, filters: { job_title: ["Operations Manager"] } }),
+    });
+    const text = await res.text().catch(() => "");
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch { /* keep text */ }
+    const records = Array.isArray(parsed?.data) ? parsed.data.length
+      : Array.isArray(parsed?.results) ? parsed.results.length
+      : Array.isArray(parsed?.prospects) ? parsed.prospects.length : 0;
+    return {
+      ok: res.ok,
+      status: res.status,
+      records,
+      credits: creditsRemaining,
+      creditsError,
+      error: res.ok ? null : (parsed?.details ?? parsed?.error ?? parsed?.message ?? text.slice(0, 300) ?? `HTTP ${res.status}`),
+    };
+  } catch (e) {
+    return { ok: false, status: 0, records: 0, credits: creditsRemaining, creditsError, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+async function searchProvider(provider: Provider, apiKey: string) {
+  if (provider === "lusha") return await searchLusha(apiKey);
+  if (provider === "vibe_prospecting") return await searchVibe(apiKey);
+  return { ok: false, status: 0, records: 0, credits: null, error: "Unknown provider" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
