@@ -21,7 +21,7 @@ import { AnyRecommendation } from '@/lib/recommendation';
 import { VoiceNoteRecorder } from '@/components/matching/workspace/VoiceNoteRecorder';
 
 interface Job { id: string; title: string; }
-interface Candidate { id: string; full_name: string; current_title: string | null; }
+interface Candidate { id: string; full_name: string; current_title: string | null; source: string | null; }
 interface MandateRow { requirement: string; evidence: string; fit: string; kind?: string; __kind?: string; items?: any[]; }
 
 interface ValidationResult {
