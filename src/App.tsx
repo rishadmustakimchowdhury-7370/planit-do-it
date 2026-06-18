@@ -214,6 +214,7 @@ const AppRoutes = () => (
       <Route path="/leads/analytics" element={<ProtectedRoute><LeadAnalyticsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/candidate-discovery" element={<ProtectedRoute><CandidateDiscoveryPage /></ProtectedRoute>} />
+      <Route path="/candidate-discovery/ai" element={<ProtectedRoute><AICandidateDiscoveryPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
       <Route path="/team/kpi" element={<ProtectedRoute><TeamKPIDashboardPage /></ProtectedRoute>} />
       <Route path="/team/work-tracking" element={<ProtectedRoute><WorkTrackingPage /></ProtectedRoute>} />
