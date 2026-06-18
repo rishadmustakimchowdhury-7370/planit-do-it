@@ -366,11 +366,13 @@ export default function AICandidateResultsPage() {
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost" size="icon-sm"
-                          onClick={() => saveOne(r.id, r.name)}
-                          disabled={saved.has(r.id)}
-                          title={saved.has(r.id) ? 'Saved' : 'Save candidate'}
+                          onClick={() => saveOne(r.id)}
+                          disabled={saved.has(r.id) || importing.has(r.id)}
+                          title={saved.has(r.id) ? 'Imported' : 'Import to CRM'}
                         >
-                          <BookmarkPlus className={`h-4 w-4 ${saved.has(r.id) ? 'text-success' : ''}`} />
+                          {importing.has(r.id)
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <BookmarkPlus className={`h-4 w-4 ${saved.has(r.id) ? 'text-success' : ''}`} />}
                         </Button>
                         <Button variant="ghost" size="icon-sm" asChild title="View profile">
                           <Link to={`/candidates/${r.id}`}><ExternalLink className="h-4 w-4" /></Link>
