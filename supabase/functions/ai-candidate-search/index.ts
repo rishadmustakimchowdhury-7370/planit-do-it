@@ -625,11 +625,24 @@ Deno.serve(async (req) => {
 
     // Run primary passes
     let pool: UnifiedCandidate[] = [];
-    const ranQueries: { id: string; label: string; boolean: string; raw: number }[] = [];
+    const ranQueries: PassDiagnostic[] = [];
 
     for (const pass of passes) {
-      const got = await runPass(pass, connected, perProviderLimit, errors);
-      ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+      const result = await runPass(pass, connected, perProviderLimit, errors);
+      const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
+      const lushaDebug = result.providers.find((p) => p.provider === "lusha");
+      ranQueries.push({
+        id: pass.id,
+        label: pass.label,
+        boolean: pass.boolean,
+        raw: result.candidates.length,
+        accepted,
+        rejected: Math.max(0, result.candidates.length - accepted),
+        ...(lushaDebug?.generatedFilters ? { generatedFilters: lushaDebug.generatedFilters } : {}),
+        ...(lushaDebug?.requestPayload ? { requestPayload: lushaDebug.requestPayload } : {}),
+        providers: result.providers,
+      });
+      const got = result.candidates;
       pool = pool.concat(got);
     }
 
@@ -650,8 +663,21 @@ Deno.serve(async (req) => {
     if (hardFiltered.length < 5) {
       const broader = buildBroaderPasses(criteria);
       for (const pass of broader) {
-        const got = await runPass(pass, connected, perProviderLimit, errors);
-        ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+        const result = await runPass(pass, connected, perProviderLimit, errors);
+        const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
+        const lushaDebug = result.providers.find((p) => p.provider === "lusha");
+        ranQueries.push({
+          id: pass.id,
+          label: pass.label,
+          boolean: pass.boolean,
+          raw: result.candidates.length,
+          accepted,
+          rejected: Math.max(0, result.candidates.length - accepted),
+          ...(lushaDebug?.generatedFilters ? { generatedFilters: lushaDebug.generatedFilters } : {}),
+          ...(lushaDebug?.requestPayload ? { requestPayload: lushaDebug.requestPayload } : {}),
+          providers: result.providers,
+        });
+        const got = result.candidates;
         pool = dedupe(pool.concat(got));
         hardFiltered = pool.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations)));
         if (hardFiltered.length >= 10) break;
