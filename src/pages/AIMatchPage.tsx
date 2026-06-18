@@ -63,7 +63,7 @@ const AIMatchPage = () => {
     (async () => {
       const [jobsRes, candidatesRes] = await Promise.all([
         supabase.from('jobs').select('id, title').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
-        supabase.from('candidates').select('id, full_name, current_title').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        supabase.from('candidates').select('id, full_name, current_title, source').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
       ]);
       if (jobsRes.data) setJobs(jobsRes.data);
       if (candidatesRes.data) setCandidates(candidatesRes.data);
