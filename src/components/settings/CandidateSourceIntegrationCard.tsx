@@ -31,10 +31,15 @@ export function CandidateSourceIntegrationCard({ provider, title, description, h
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [integration, setIntegration] = useState<Integration>({ status: 'disconnected' });
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [searchResult, setSearchResult] = useState<null | {
+    ok: boolean; status?: number; records?: number;
+    credits?: number | null; creditsError?: string | null; error?: string | null;
+  }>(null);
 
   const invoke = async (action: string, payload: Record<string, unknown> = {}) => {
     const { data, error } = await supabase.functions.invoke('candidate-source-integration', {
@@ -89,6 +94,26 @@ export function CandidateSourceIntegrationCard({ provider, title, description, h
     } catch (e) {
       toast({ title: 'Test failed', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
     } finally { setTesting(false); }
+  };
+
+  const handleTestSearch = async () => {
+    setSearching(true);
+    setSearchResult(null);
+    try {
+      const res = await invoke('test_search');
+      setSearchResult(res);
+      toast({
+        title: res.ok ? `${title} search OK` : `${title} search failed`,
+        description: res.ok
+          ? `Returned ${res.records ?? 0} record(s).`
+          : res.error ?? `HTTP ${res.status ?? '?'}`,
+        variant: res.ok ? 'default' : 'destructive',
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setSearchResult({ ok: false, error: msg });
+      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+    } finally { setSearching(false); }
   };
 
   const handleDisconnect = async () => {
@@ -166,16 +191,50 @@ export function CandidateSourceIntegrationCard({ provider, title, description, h
                 </div>
 
                 {integration.status !== 'disconnected' && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleTest} disabled={testing}>
-                      {testing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Test Connection
-                    </Button>
-                    <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
-                      {disconnecting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Disconnect
-                    </Button>
-                  </div>
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={handleTest} disabled={testing}>
+                        {testing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Test Connection
+                      </Button>
+                      <Button variant="outline" onClick={handleTestSearch} disabled={searching}>
+                        {searching && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Test {provider === 'lusha' ? 'Lusha' : 'Vibe'} Search
+                      </Button>
+                      <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
+                        {disconnecting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Disconnect
+                      </Button>
+                    </div>
+                    {searchResult && (
+                      <div className="grid gap-1 text-sm rounded-md border bg-muted/30 p-3">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">API status</span>
+                          <span className={searchResult.ok ? 'text-green-600' : 'text-destructive'}>
+                            {searchResult.ok ? `OK (${searchResult.status ?? 200})` : `Failed${searchResult.status ? ` (${searchResult.status})` : ''}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Credits</span>
+                          <span>
+                            {searchResult.credits != null
+                              ? `${searchResult.credits} remaining`
+                              : searchResult.creditsError ?? 'Unknown'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Records returned</span>
+                          <span>{searchResult.records ?? 0}</span>
+                        </div>
+                        {searchResult.error && (
+                          <Alert variant="destructive" className="mt-1">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription className="break-all">{searchResult.error}</AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : (
