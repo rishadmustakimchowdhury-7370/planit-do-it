@@ -53,6 +53,17 @@ interface ResultRow {
   matchReasons?: string[];
 }
 
+interface SearchPassDebug {
+  id: string;
+  label: string;
+  boolean: string;
+  raw: number;
+  accepted?: number;
+  rejected?: number;
+  generatedFilters?: { titles?: string[]; industries?: string[]; locations?: string[]; countries?: string[]; searchText?: string | null; skipped?: boolean; skipReason?: string };
+  providers?: { provider: string; records: number; error?: string }[];
+}
+
 type SortKey = 'full_name' | 'current_title' | 'current_company' | 'location' | 'experience_years' | 'matchScore' | 'source';
 type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 10;
@@ -96,7 +107,7 @@ export default function AICandidateResultsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [providerErrors, setProviderErrors] = useState<Record<string, string>>({});
-  const [queries, setQueries] = useState<{ id: string; label: string; boolean: string; raw: number }[]>([]);
+  const [queries, setQueries] = useState<SearchPassDebug[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('matchScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
