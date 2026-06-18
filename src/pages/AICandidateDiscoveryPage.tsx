@@ -211,12 +211,23 @@ export default function AICandidateDiscoveryPage() {
             </div>
           ) : (
             <div key={t.id} className="flex justify-start">
-              <div className="max-w-[90%] w-full">
+              <div className="max-w-[90%] w-full space-y-3">
                 {t.error ? (
-                  <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{t.error}</AlertDescription></Alert>
-                ) : t.criteria ? (
-                  <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />
-                ) : null}
+                  <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription className="whitespace-pre-wrap">{t.error}</AlertDescription></Alert>
+                ) : (
+                  <>
+                    {t.extractedPreview && (
+                      <details className="rounded-lg border bg-muted/30 text-sm">
+                        <summary className="cursor-pointer px-3 py-2 font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Extracted text preview ({t.extractedChars?.toLocaleString() ?? 0} chars)
+                        </summary>
+                        <pre className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs max-h-64 overflow-y-auto">{t.extractedPreview}</pre>
+                      </details>
+                    )}
+                    {t.criteria && <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />}
+                  </>
+                )}
               </div>
             </div>
           ))}
