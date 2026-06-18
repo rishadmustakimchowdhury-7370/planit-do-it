@@ -518,25 +518,64 @@ interface ProviderRow {
   api_key_iv: string;
 }
 
+interface ProviderPassDiagnostic {
+  provider: "lusha" | "vibe_prospecting";
+  records: number;
+  error?: string;
+  generatedFilters?: LushaFilterDebug;
+  requestPayload?: unknown;
+}
+
+interface PassDiagnostic {
+  id: string;
+  label: string;
+  boolean: string;
+  raw: number;
+  accepted: number;
+  rejected: number;
+  generatedFilters?: LushaFilterDebug;
+  requestPayload?: unknown;
+  providers: ProviderPassDiagnostic[];
+}
+
 async function runPass(
   pass: SearchPass,
   providers: ProviderRow[],
   perProvider: number,
   errors: Record<string, string>,
-): Promise<UnifiedCandidate[]> {
-  const results = await Promise.allSettled(providers.map(async (row) => {
-    const key = await decryptKey(row.api_key_encrypted, row.api_key_iv);
-    const r = row.provider === "lusha"
-      ? await searchLusha(key, pass.criteria, perProvider)
-      : await searchVibe(key, pass.criteria, perProvider);
+): Promise<{ candidates: UnifiedCandidate[]; providers: ProviderPassDiagnostic[] }> {
+  const results = await Promise.all(providers.map(async (row): Promise<{ candidates: UnifiedCandidate[]; diagnostic: ProviderPassDiagnostic }> => {
+    try {
+      const key = await decryptKey(row.api_key_encrypted, row.api_key_iv);
+      const r = row.provider === "lusha"
+        ? await searchLusha(key, pass.criteria, perProvider)
+        : await searchVibe(key, pass.criteria, perProvider);
     if (r.error) {
       // Don't abort: record the failure and continue with whatever did come back.
       errors[row.provider] = r.error;
       console.warn(`[search][${pass.id}] ${row.provider} unavailable: ${r.error}`);
     }
-    return r.candidates;
+      return {
+        candidates: r.candidates,
+        diagnostic: {
+          provider: row.provider,
+          records: r.candidates.length,
+          ...(r.error ? { error: r.error } : {}),
+          ...(r.debug?.generatedFilters ? { generatedFilters: r.debug.generatedFilters } : {}),
+          ...(r.debug?.requestPayload ? { requestPayload: r.debug.requestPayload } : {}),
+        },
+      };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : "Provider search failed";
+      errors[row.provider] = error;
+      console.warn(`[search][${pass.id}] ${row.provider} unavailable: ${error}`);
+      return { candidates: [], diagnostic: { provider: row.provider, records: 0, error } };
+    }
   }));
-  return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
+  return {
+    candidates: results.flatMap((r) => r.candidates),
+    providers: results.map((r) => r.diagnostic),
+  };
 }
 
 // ---------------- Handler -------------------------------------------------
