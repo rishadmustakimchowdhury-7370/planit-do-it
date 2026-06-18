@@ -421,8 +421,6 @@ Use only data provided; never invent skills or languages.`;
 }
 
 // ---------------- Multi-pass search strategy ------------------------------
-function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
-
 interface SearchPass {
   id: string;
   label: string;
