@@ -221,16 +221,21 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promis
 }
 
 // ---------------- Lusha v3 Prospecting ------------------------------------
-async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<SearchResult> {
   const include: Record<string, unknown> = {};
-  const titles = (criteria.role_titles ?? []).filter(Boolean).slice(0, 10);
+  const companyInclude: Record<string, unknown> = {};
+  const titles = expandTitleFilters(criteria);
   if (titles.length) include.jobTitles = titles;
 
-  const countryCodes = locationsToCountryCodes(criteria.locations);
+  const locationLabels = expandLocationFilters(criteria);
+  const countryCodes = locationsToCountryCodes(locationLabels);
   if (countryCodes.length) include.countries = countryCodes;
+  const locationObjects = toLushaLocationObjects(locationLabels);
+  if (locationObjects.length) include.locations = locationObjects;
 
-  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 10);
-  if (industries.length) include.industries = industries;
+  const industries = expandIndustryFilters(criteria);
+  const companySearchText = industries.length ? industries.join(" OR ") : null;
+  if (companySearchText) companyInclude.searchText = companySearchText;
 
   if (criteria.seniority) {
     const s = criteria.seniority.toLowerCase();
@@ -243,21 +248,36 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
     for (const [k, v] of map) { if (s.includes(k)) { include.seniority = [v]; break; } }
   }
 
-  // VALIDATE: Lusha requires at least one of titles / industries / countries / locations
+  const generatedFilters: LushaFilterDebug = {
+    titles,
+    industries,
+    locations: locationLabels,
+    countries: countryCodes,
+    searchText: companySearchText,
+  };
+
+  // VALIDATE: Lusha requires at least one contact include filter before the API call.
   const hasValid =
     (include.jobTitles as unknown[] | undefined)?.length ||
-    (include.industries as unknown[] | undefined)?.length ||
-    (include.countries as unknown[] | undefined)?.length;
+    (include.countries as unknown[] | undefined)?.length ||
+    (include.locations as unknown[] | undefined)?.length ||
+    typeof include.searchText === "string";
   if (!hasValid) {
-    console.warn("[lusha] skipping — no valid filter (need title/industry/location)");
-    return { candidates: [], error: "Lusha skipped: no valid filter present" };
+    const skipReason = "Lusha skipped: filters.contacts.include is empty after mapping criteria";
+    console.warn("[lusha] skipping —", JSON.stringify({ ...generatedFilters, skipped: true, skipReason }));
+    return { candidates: [], error: skipReason, debug: { generatedFilters: { ...generatedFilters, skipped: true, skipReason } } };
   }
 
   const body = {
     pagination: { page: 0, size: Math.min(size, 50) },
-    filters: { contacts: { include } },
+    filters: {
+      contacts: { include },
+      ...(Object.keys(companyInclude).length ? { companies: { include: companyInclude } } : {}),
+    },
+    options: { includePartialProfiles: true, excludeDnc: true },
   };
-  console.log("[lusha] request filters:", JSON.stringify(body.filters));
+  console.log("[lusha] generated filters:", JSON.stringify(generatedFilters));
+  console.log("[lusha] exact request payload:", JSON.stringify(body));
   try {
     const res = await fetch("https://api.lusha.com/v3/contacts/prospecting", {
       method: "POST",
@@ -267,7 +287,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
     const text = await res.text();
     if (!res.ok) {
       console.error("[lusha] search failed", res.status, text.slice(0, 400));
-      return { candidates: [], error: `Lusha ${res.status}: ${text.slice(0, 200)}` };
+      return { candidates: [], error: `Lusha ${res.status}: ${text.slice(0, 200)}`, debug: { generatedFilters, requestPayload: body } };
     }
     const data = JSON.parse(text);
     const rows: any[] = data?.results ?? [];
@@ -295,9 +315,9 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
       };
     });
     console.log(`[lusha] returned ${candidates.length} raw candidates`);
-    return { candidates };
+    return { candidates, debug: { generatedFilters, requestPayload: body } };
   } catch (e) {
-    return { candidates: [], error: e instanceof Error ? e.message : "Network error" };
+    return { candidates: [], error: e instanceof Error ? e.message : "Network error", debug: { generatedFilters, requestPayload: body } };
   }
 }
 
