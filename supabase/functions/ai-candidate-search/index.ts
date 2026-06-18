@@ -50,6 +50,18 @@ interface UnifiedCandidate {
   matchReasons?: string[];
 }
 
+interface LushaFilterDebug {
+  titles: string[];
+  industries: string[];
+  locations: string[];
+  countries: string[];
+  searchText?: string | null;
+  skipped?: boolean;
+  skipReason?: string;
+}
+
+type SearchResult = { candidates: UnifiedCandidate[]; error?: string; debug?: { generatedFilters?: LushaFilterDebug; requestPayload?: unknown } };
+
 interface Criteria {
   role_titles?: string[];
   skills?: string[];
@@ -101,7 +113,7 @@ function seniorityToVibeLevels(seniority?: string | null): string[] {
 }
 
 // ---------------- Vibe Prospecting (Explorium) ----------------------------
-async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promise<SearchResult> {
   const titles = (criteria.role_titles ?? []).map((t) => t.toLowerCase()).filter(Boolean).slice(0, 10);
   const filters: Record<string, unknown> = {};
   if (titles.length) filters.job_title = { values: titles };
