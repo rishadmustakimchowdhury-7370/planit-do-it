@@ -50,6 +50,18 @@ interface UnifiedCandidate {
   matchReasons?: string[];
 }
 
+interface LushaFilterDebug {
+  titles: string[];
+  industries: string[];
+  locations: string[];
+  countries: string[];
+  searchText?: string | null;
+  skipped?: boolean;
+  skipReason?: string;
+}
+
+type SearchResult = { candidates: UnifiedCandidate[]; error?: string; debug?: { generatedFilters?: LushaFilterDebug; requestPayload?: unknown } };
+
 interface Criteria {
   role_titles?: string[];
   skills?: string[];
@@ -87,6 +99,54 @@ function locationsToCountryCodes(locations: string[] = []): string[] {
   }
   return Array.from(out);
 }
+function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
+
+function cleanList(values: (string | null | undefined)[] = [], limit = 10): string[] {
+  return uniq(values.map((v) => (v ?? "").trim()).filter(Boolean)).slice(0, limit);
+}
+
+function expandTitleFilters(criteria: Criteria): string[] {
+  const titles = cleanList(criteria.role_titles ?? [], 8);
+  const out = new Set(titles);
+  for (const title of titles) {
+    if (/operations?/i.test(title)) {
+      ["Operations Manager", "Operations Specialist", "Operations Executive", "Head of Operations"].forEach((t) => out.add(t));
+    }
+    if (/manager/i.test(title)) {
+      out.add(title.replace(/manager/ig, "Specialist"));
+      out.add(title.replace(/manager/ig, "Executive"));
+    }
+  }
+  return cleanList(Array.from(out), 10);
+}
+
+function expandIndustryFilters(criteria: Criteria): string[] {
+  const values = [...(criteria.industries ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
+  const text = values.join(" ").toLowerCase();
+  const out = new Set(cleanList(criteria.industries ?? [], 10));
+  if (/ship|maritime|freight|logistics|supply chain/.test(text)) ["Shipping", "Logistics", "Maritime", "Freight"].forEach((v) => out.add(v));
+  if (/commod|trading|energy|oil|gas|metal|agri/.test(text)) ["Commodity Trading", "Commodities", "Trading", "Energy"].forEach((v) => out.add(v));
+  return cleanList(Array.from(out), 10);
+}
+
+function expandLocationFilters(criteria: Criteria): string[] {
+  const values = [...(criteria.locations ?? []), ...(criteria.languages ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
+  const text = values.join(" ").toLowerCase();
+  const out = new Set(cleanList(criteria.locations ?? [], 10));
+  if (/uae|dubai|abu dhabi|emirates/.test(text)) ["UAE", "Dubai", "United Arab Emirates"].forEach((v) => out.add(v));
+  if (/russia|russian/.test(text)) out.add("Russia");
+  return cleanList(Array.from(out), 10);
+}
+
+function toLushaLocationObjects(locations: string[]): Array<{ city?: string; state?: string; country?: string; continent?: string; countryGrouping?: string }> {
+  return locations.map((loc) => {
+    const lower = loc.toLowerCase();
+    if (lower.includes("dubai")) return { city: "Dubai", country: "United Arab Emirates" };
+    if (lower.includes("abu dhabi")) return { city: "Abu Dhabi", country: "United Arab Emirates" };
+    const country = lower.includes("uae") || lower.includes("emirates") ? "United Arab Emirates" : loc;
+    return { country };
+  });
+}
 function seniorityToVibeLevels(seniority?: string | null): string[] {
   if (!seniority) return [];
   const s = seniority.toLowerCase();
@@ -101,7 +161,7 @@ function seniorityToVibeLevels(seniority?: string | null): string[] {
 }
 
 // ---------------- Vibe Prospecting (Explorium) ----------------------------
-async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promise<SearchResult> {
   const titles = (criteria.role_titles ?? []).map((t) => t.toLowerCase()).filter(Boolean).slice(0, 10);
   const filters: Record<string, unknown> = {};
   if (titles.length) filters.job_title = { values: titles };
@@ -161,16 +221,24 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promis
 }
 
 // ---------------- Lusha v3 Prospecting ------------------------------------
-async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<{ candidates: UnifiedCandidate[]; error?: string }> {
+async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promise<SearchResult> {
   const include: Record<string, unknown> = {};
-  const titles = (criteria.role_titles ?? []).filter(Boolean).slice(0, 10);
+  const companyInclude: Record<string, unknown> = {};
+  const titles = expandTitleFilters(criteria);
   if (titles.length) include.jobTitles = titles;
 
-  const countryCodes = locationsToCountryCodes(criteria.locations);
+  const locationLabels = expandLocationFilters(criteria);
+  const countryCodes = locationsToCountryCodes(locationLabels);
   if (countryCodes.length) include.countries = countryCodes;
+  const locationObjects = toLushaLocationObjects(locationLabels);
+  if (locationObjects.length) include.locations = locationObjects;
 
-  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 10);
-  if (industries.length) include.industries = industries;
+  const industries = expandIndustryFilters(criteria);
+  const companySearchText = industries.length ? industries.join(", ") : null;
+  if (companySearchText) companyInclude.searchText = companySearchText;
+  const contactSearchTerms = cleanList([...(criteria.languages ?? []), ...(criteria.skills ?? []), ...(criteria.keywords ?? [])], 8);
+  if (!titles.length && industries.length) contactSearchTerms.push(...industries.slice(0, 3));
+  if (contactSearchTerms.length) include.searchText = cleanList(contactSearchTerms, 10).join(" ");
 
   if (criteria.seniority) {
     const s = criteria.seniority.toLowerCase();
@@ -178,26 +246,41 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
       ["intern", "Intern"], ["junior", "Junior"], ["entry", "Entry"],
       ["manager", "Manager"], ["lead", "Manager"], ["senior", "Senior"], ["mid", "Senior"],
       ["director", "Director"], ["vp", "Vice President"], ["vice", "Vice President"],
-      ["head", "CXO"], ["chief", "CXO"], ["cxo", "CXO"],
+      ["head", "Head"], ["chief", "Executive"], ["cxo", "Executive"],
     ];
-    for (const [k, v] of map) { if (s.includes(k)) { include.seniority = [v]; break; } }
+    for (const [k, v] of map) { if (s.includes(k)) { include.searchText = cleanList([include.searchText as string | undefined, v], 10).join(" "); break; } }
   }
 
-  // VALIDATE: Lusha requires at least one of titles / industries / countries / locations
+  const generatedFilters: LushaFilterDebug = {
+    titles,
+    industries,
+    locations: locationLabels,
+    countries: countryCodes,
+    searchText: (include.searchText as string | undefined) ?? companySearchText,
+  };
+
+  // VALIDATE: Lusha requires at least one contact include filter before the API call.
   const hasValid =
     (include.jobTitles as unknown[] | undefined)?.length ||
-    (include.industries as unknown[] | undefined)?.length ||
-    (include.countries as unknown[] | undefined)?.length;
+    (include.countries as unknown[] | undefined)?.length ||
+    (include.locations as unknown[] | undefined)?.length ||
+    typeof include.searchText === "string";
   if (!hasValid) {
-    console.warn("[lusha] skipping — no valid filter (need title/industry/location)");
-    return { candidates: [], error: "Lusha skipped: no valid filter present" };
+    const skipReason = "Lusha skipped: filters.contacts.include is empty after mapping criteria";
+    console.warn("[lusha] skipping —", JSON.stringify({ ...generatedFilters, skipped: true, skipReason }));
+    return { candidates: [], error: skipReason, debug: { generatedFilters: { ...generatedFilters, skipped: true, skipReason } } };
   }
 
   const body = {
     pagination: { page: 0, size: Math.min(size, 50) },
-    filters: { contacts: { include } },
+    filters: {
+      contacts: { include },
+      ...(Object.keys(companyInclude).length ? { companies: { include: companyInclude } } : {}),
+    },
+    options: { includePartialProfiles: true, excludeDnc: true },
   };
-  console.log("[lusha] request filters:", JSON.stringify(body.filters));
+  console.log("[lusha] generated filters:", JSON.stringify(generatedFilters));
+  console.log("[lusha] exact request payload:", JSON.stringify(body));
   try {
     const res = await fetch("https://api.lusha.com/v3/contacts/prospecting", {
       method: "POST",
@@ -207,7 +290,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
     const text = await res.text();
     if (!res.ok) {
       console.error("[lusha] search failed", res.status, text.slice(0, 400));
-      return { candidates: [], error: `Lusha ${res.status}: ${text.slice(0, 200)}` };
+      return { candidates: [], error: `Lusha ${res.status}: ${text.slice(0, 200)}`, debug: { generatedFilters, requestPayload: body } };
     }
     const data = JSON.parse(text);
     const rows: any[] = data?.results ?? [];
@@ -235,9 +318,9 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
       };
     });
     console.log(`[lusha] returned ${candidates.length} raw candidates`);
-    return { candidates };
+    return { candidates, debug: { generatedFilters, requestPayload: body } };
   } catch (e) {
-    return { candidates: [], error: e instanceof Error ? e.message : "Network error" };
+    return { candidates: [], error: e instanceof Error ? e.message : "Network error", debug: { generatedFilters, requestPayload: body } };
   }
 }
 
@@ -341,8 +424,6 @@ Use only data provided; never invent skills or languages.`;
 }
 
 // ---------------- Multi-pass search strategy ------------------------------
-function uniq<T>(arr: T[]): T[] { return Array.from(new Set(arr)); }
-
 interface SearchPass {
   id: string;
   label: string;
@@ -437,25 +518,64 @@ interface ProviderRow {
   api_key_iv: string;
 }
 
+interface ProviderPassDiagnostic {
+  provider: "lusha" | "vibe_prospecting";
+  records: number;
+  error?: string;
+  generatedFilters?: LushaFilterDebug;
+  requestPayload?: unknown;
+}
+
+interface PassDiagnostic {
+  id: string;
+  label: string;
+  boolean: string;
+  raw: number;
+  accepted: number;
+  rejected: number;
+  generatedFilters?: LushaFilterDebug;
+  requestPayload?: unknown;
+  providers: ProviderPassDiagnostic[];
+}
+
 async function runPass(
   pass: SearchPass,
   providers: ProviderRow[],
   perProvider: number,
   errors: Record<string, string>,
-): Promise<UnifiedCandidate[]> {
-  const results = await Promise.allSettled(providers.map(async (row) => {
-    const key = await decryptKey(row.api_key_encrypted, row.api_key_iv);
-    const r = row.provider === "lusha"
-      ? await searchLusha(key, pass.criteria, perProvider)
-      : await searchVibe(key, pass.criteria, perProvider);
+): Promise<{ candidates: UnifiedCandidate[]; providers: ProviderPassDiagnostic[] }> {
+  const results = await Promise.all(providers.map(async (row): Promise<{ candidates: UnifiedCandidate[]; diagnostic: ProviderPassDiagnostic }> => {
+    try {
+      const key = await decryptKey(row.api_key_encrypted, row.api_key_iv);
+      const r = row.provider === "lusha"
+        ? await searchLusha(key, pass.criteria, perProvider)
+        : await searchVibe(key, pass.criteria, perProvider);
     if (r.error) {
       // Don't abort: record the failure and continue with whatever did come back.
       errors[row.provider] = r.error;
       console.warn(`[search][${pass.id}] ${row.provider} unavailable: ${r.error}`);
     }
-    return r.candidates;
+      return {
+        candidates: r.candidates,
+        diagnostic: {
+          provider: row.provider,
+          records: r.candidates.length,
+          ...(r.error ? { error: r.error } : {}),
+          ...(r.debug?.generatedFilters ? { generatedFilters: r.debug.generatedFilters } : {}),
+          ...(r.debug?.requestPayload ? { requestPayload: r.debug.requestPayload } : {}),
+        },
+      };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : "Provider search failed";
+      errors[row.provider] = error;
+      console.warn(`[search][${pass.id}] ${row.provider} unavailable: ${error}`);
+      return { candidates: [], diagnostic: { provider: row.provider, records: 0, error } };
+    }
   }));
-  return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
+  return {
+    candidates: results.flatMap((r) => r.candidates),
+    providers: results.map((r) => r.diagnostic),
+  };
 }
 
 // ---------------- Handler -------------------------------------------------
@@ -505,11 +625,24 @@ Deno.serve(async (req) => {
 
     // Run primary passes
     let pool: UnifiedCandidate[] = [];
-    const ranQueries: { id: string; label: string; boolean: string; raw: number }[] = [];
+    const ranQueries: PassDiagnostic[] = [];
 
     for (const pass of passes) {
-      const got = await runPass(pass, connected, perProviderLimit, errors);
-      ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+      const result = await runPass(pass, connected, perProviderLimit, errors);
+      const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
+      const lushaDebug = result.providers.find((p) => p.provider === "lusha");
+      ranQueries.push({
+        id: pass.id,
+        label: pass.label,
+        boolean: pass.boolean,
+        raw: result.candidates.length,
+        accepted,
+        rejected: Math.max(0, result.candidates.length - accepted),
+        ...(lushaDebug?.generatedFilters ? { generatedFilters: lushaDebug.generatedFilters } : {}),
+        ...(lushaDebug?.requestPayload ? { requestPayload: lushaDebug.requestPayload } : {}),
+        providers: result.providers,
+      });
+      const got = result.candidates;
       pool = pool.concat(got);
     }
 
@@ -530,8 +663,21 @@ Deno.serve(async (req) => {
     if (hardFiltered.length < 5) {
       const broader = buildBroaderPasses(criteria);
       for (const pass of broader) {
-        const got = await runPass(pass, connected, perProviderLimit, errors);
-        ranQueries.push({ id: pass.id, label: pass.label, boolean: pass.boolean, raw: got.length });
+        const result = await runPass(pass, connected, perProviderLimit, errors);
+        const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
+        const lushaDebug = result.providers.find((p) => p.provider === "lusha");
+        ranQueries.push({
+          id: pass.id,
+          label: pass.label,
+          boolean: pass.boolean,
+          raw: result.candidates.length,
+          accepted,
+          rejected: Math.max(0, result.candidates.length - accepted),
+          ...(lushaDebug?.generatedFilters ? { generatedFilters: lushaDebug.generatedFilters } : {}),
+          ...(lushaDebug?.requestPayload ? { requestPayload: lushaDebug.requestPayload } : {}),
+          providers: result.providers,
+        });
+        const got = result.candidates;
         pool = dedupe(pool.concat(got));
         hardFiltered = pool.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations)));
         if (hardFiltered.length >= 10) break;
