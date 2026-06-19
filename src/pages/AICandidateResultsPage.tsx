@@ -18,8 +18,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
   ArrowLeft, ArrowUpDown, BookmarkPlus, Download, ExternalLink, Mail, Phone,
-  Linkedin, Sparkles, Loader2, AlertCircle,
+  Linkedin, Sparkles, Loader2, AlertCircle, Bug, Check, X as XIcon,
 } from 'lucide-react';
+
+type SearchMode = 'strict' | 'balanced' | 'broad';
 
 interface Criteria {
   role_titles?: string[];
@@ -35,7 +37,7 @@ interface Criteria {
 
 interface ResultRow {
   id: string;
-  source: 'Lusha' | 'Vibe Prospecting';
+  source: 'Lusha' | 'Vibe Prospecting' | 'Internal CRM';
   source_url?: string | null;
   full_name: string;
   current_title: string;
@@ -51,7 +53,9 @@ interface ResultRow {
   seniority?: string | null;
   matchScore?: number;
   matchReasons?: string[];
+  matchMissing?: string[];
 }
+
 
 interface SearchPassDebug {
   id: string;
