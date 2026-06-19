@@ -751,7 +751,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
     const perProviderLimit = Math.min(50, Math.max(10, Number(body.limit ?? 25)));
-    console.log("[search] criteria", JSON.stringify(criteria));
+    const mode: SearchMode = (["strict", "balanced", "broad"].includes(body.mode) ? body.mode : "balanced") as SearchMode;
+    console.log("[search] criteria", JSON.stringify(criteria), "mode=", mode);
 
     const { data: integrations } = await admin
       .from("candidate_source_integrations")
@@ -760,24 +761,35 @@ Deno.serve(async (req) => {
       .eq("status", "connected");
 
     const connected = (integrations ?? []) as ProviderRow[];
-    console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"}`);
-
-    if (connected.length === 0) {
-      return json({
-        candidates: [], errors: {}, queries: [],
-        message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations.",
-      });
-    }
+    console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"} (+ internal CRM always)`);
 
     const errors: Record<string, string> = {};
-    const passes = buildSearchPasses(criteria);
+    const passes = buildSearchPasses(criteria, mode);
     const requiredCountries = locationsToCountryCodes(criteria.locations);
 
-    // Run primary passes
     let pool: UnifiedCandidate[] = [];
     const ranQueries: PassDiagnostic[] = [];
 
+    // Internal CRM runs once up-front against the full criteria — cheap, always on.
+    try {
+      const crm = await searchInternalCrm(admin, tenantId, criteria, 50);
+      if (crm.error) errors["internal_crm"] = crm.error;
+      pool = pool.concat(crm.candidates);
+      ranQueries.push({
+        id: "crm",
+        label: "Internal CRM",
+        boolean: "(tenant candidates)",
+        raw: crm.candidates.length,
+        accepted: crm.candidates.filter((c) => passesHardFilters(c, criteria, requiredCountries)).length,
+        rejected: Math.max(0, crm.candidates.length - crm.candidates.filter((c) => passesHardFilters(c, criteria, requiredCountries)).length),
+        providers: [{ provider: "internal_crm" as unknown as "lusha", records: crm.candidates.length, ...(crm.error ? { error: crm.error } : {}) }],
+      });
+    } catch (e) {
+      console.warn("[search] internal CRM failed:", e);
+    }
+
     for (const pass of passes) {
+
       const result = await runPass(pass, connected, perProviderLimit, errors);
       const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
       const lushaDebug = result.providers.find((p) => p.provider === "lusha");
