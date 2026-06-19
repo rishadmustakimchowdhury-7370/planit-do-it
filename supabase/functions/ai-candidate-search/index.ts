@@ -277,7 +277,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
       contacts: { include },
       ...(Object.keys(companyInclude).length ? { companies: { include: companyInclude } } : {}),
     },
-    options: { includePartialProfiles: true, excludeDnc: true },
+    options: { includePartialProfiles: true },
   };
   console.log("[lusha] generated filters:", JSON.stringify(generatedFilters));
   console.log("[lusha] exact request payload:", JSON.stringify(body));
