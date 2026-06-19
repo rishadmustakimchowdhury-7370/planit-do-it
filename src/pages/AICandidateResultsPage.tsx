@@ -485,7 +485,7 @@ export default function AICandidateResultsPage() {
                         </Button>
                         {r.source_url && (
                           <Button variant="ghost" size="icon-sm" asChild title="Open source">
-                            <a href={r.source_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                            <a href={r.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
                           </Button>
                         )}
                       </div>
