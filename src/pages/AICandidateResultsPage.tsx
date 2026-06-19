@@ -99,7 +99,7 @@ export default function AICandidateResultsPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, isOwner } = useAuth();
 
   const criteria = useMemo<Criteria>(() => {
     try {
@@ -107,6 +107,14 @@ export default function AICandidateResultsPage() {
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   }, []);
+
+  const [mode, setMode] = useState<SearchMode>(() => {
+    const m = sessionStorage.getItem('ai-discovery-mode');
+    return (m === 'strict' || m === 'broad') ? m : 'balanced';
+  });
+  const [developerMode, setDeveloperMode] = useState<boolean>(() => {
+    return isOwner && localStorage.getItem('ai-discovery-dev-mode') === '1';
+  });
 
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +133,7 @@ export default function AICandidateResultsPage() {
     (async () => {
       setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
-        body: { criteria, limit: 25 },
+        body: { criteria, limit: 25, mode },
       });
       if (cancelled) return;
       if (error) { setErrorMsg(error.message); setRows([]); setLoading(false); return; }
@@ -137,7 +145,18 @@ export default function AICandidateResultsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [criteria]);
+  }, [criteria, mode]);
+
+  const changeMode = (m: SearchMode) => {
+    sessionStorage.setItem('ai-discovery-mode', m);
+    setMode(m);
+  };
+  const toggleDeveloperMode = () => {
+    const next = !developerMode;
+    setDeveloperMode(next);
+    localStorage.setItem('ai-discovery-dev-mode', next ? '1' : '0');
+  };
+
 
   const sorted = useMemo(() => {
     const out = [...rows];
