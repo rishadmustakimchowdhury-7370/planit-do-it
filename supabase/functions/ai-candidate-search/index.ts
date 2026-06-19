@@ -489,13 +489,28 @@ function buildBoolean(titles: string[], extras: string[] = []): string {
   return [titlePart, extraPart].filter(Boolean).join(" AND ");
 }
 
-function buildSearchPasses(base: Criteria): SearchPass[] {
+type SearchMode = "strict" | "balanced" | "broad";
+
+function locationHierarchyPasses(criteria: Criteria): { label: string; locations: string[] }[] {
+  const levels = locationLevelsForCriteria(criteria);
+  if (!levels.length) return [{ label: "Any location", locations: [] }];
+  const tiers: { label: string; locations: string[] }[] = [];
+  const cities = uniq(levels.map((l) => l.city).filter(Boolean) as string[]);
+  const metros = uniq(levels.map((l) => l.metro).filter(Boolean) as string[]);
+  const states = uniq(levels.map((l) => l.state).filter(Boolean) as string[]);
+  const countries = uniq(levels.map((l) => l.country).filter(Boolean) as string[]);
+  if (cities.length) tiers.push({ label: `City: ${cities.join(", ")}`, locations: cities });
+  if (metros.length) tiers.push({ label: `Metro: ${metros.join(", ")}`, locations: metros });
+  if (states.length) tiers.push({ label: `State: ${states.join(", ")}`, locations: states });
+  if (countries.length) tiers.push({ label: `Country: ${countries.join(", ")}`, locations: countries });
+  return tiers;
+}
+
+function buildSearchPasses(base: Criteria, mode: SearchMode = "balanced"): SearchPass[] {
   const titles = (base.role_titles ?? []).filter(Boolean);
   const industries = (base.industries ?? []).filter(Boolean);
-  const locations = (base.locations ?? []);
   const languages = (base.languages ?? []);
 
-  // Title variants: original + sibling roles
   const root = titles[0] ?? "";
   const titleSets: string[][] = [];
   if (titles.length) titleSets.push(titles);
@@ -506,38 +521,68 @@ function buildSearchPasses(base: Criteria): SearchPass[] {
     titleSets.push(uniq(sibling));
   }
 
+  const locTiers = locationHierarchyPasses(base);
   const passes: SearchPass[] = [];
+  let n = 1;
+  const tightLoc = locTiers[0];
 
-  // Pass 1: title + industry + location (full)
   passes.push({
-    id: "p1",
-    label: "Pass 1: Title + Industry + Location",
-    boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...locations, ...languages]),
-    criteria: base,
+    id: `p${n}`,
+    label: `Pass ${n}: ${tightLoc.label} + Titles + Industries`,
+    boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tightLoc.locations, ...languages]),
+    criteria: { ...base, locations: tightLoc.locations },
   });
+  n++;
 
-  // Pass 2: sibling titles + same filters
+  if (mode === "strict") {
+    for (const tier of locTiers.slice(1)) {
+      passes.push({
+        id: `p${n}`,
+        label: `Pass ${n}: ${tier.label} + Titles`,
+        boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tier.locations]),
+        criteria: { ...base, locations: tier.locations },
+      });
+      n++;
+    }
+    return passes.slice(0, 4);
+  }
+
   if (titleSets[1]) {
     passes.push({
-      id: "p2",
-      label: "Pass 2: Sibling Titles",
-      boolean: buildBoolean(titleSets[1], [...industries, ...locations]),
-      criteria: { ...base, role_titles: titleSets[1] },
+      id: `p${n}`,
+      label: `Pass ${n}: Sibling Titles + ${tightLoc.label}`,
+      boolean: buildBoolean(titleSets[1], [...industries, ...tightLoc.locations]),
+      criteria: { ...base, role_titles: titleSets[1], locations: tightLoc.locations },
+    });
+    n++;
+  }
+
+  for (const tier of locTiers.slice(1)) {
+    passes.push({
+      id: `p${n}`,
+      label: `Pass ${n}: ${tier.label} + Titles`,
+      boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tier.locations]),
+      criteria: { ...base, locations: tier.locations },
+    });
+    n++;
+  }
+
+  if (mode === "broad") {
+    industries.slice(0, 2).forEach((ind) => {
+      passes.push({
+        id: `p${n}`,
+        label: `Pass ${n}: Title + ${ind}`,
+        boolean: buildBoolean(titleSets[0] ?? [], [ind]),
+        criteria: { ...base, industries: [ind], locations: [] },
+      });
+      n++;
     });
   }
 
-  // Pass 3..N: title + each industry individually (no location)
-  industries.slice(0, 3).forEach((ind, i) => {
-    passes.push({
-      id: `p${3 + i}`,
-      label: `Pass ${3 + i}: Title + ${ind}`,
-      boolean: buildBoolean(titleSets[0] ?? [], [ind]),
-      criteria: { ...base, industries: [ind], locations: [] },
-    });
-  });
-
-  return passes.slice(0, 5);
+  const cap = mode === "broad" ? 7 : 5;
+  return passes.slice(0, cap);
 }
+
 
 function buildBroaderPasses(base: Criteria): SearchPass[] {
   const titles = base.role_titles ?? [];
