@@ -61,6 +61,7 @@ interface SearchPassDebug {
   accepted?: number;
   rejected?: number;
   generatedFilters?: { titles?: string[]; industries?: string[]; locations?: string[]; countries?: string[]; searchText?: string | null; skipped?: boolean; skipReason?: string };
+  requestPayload?: unknown;
   providers?: { provider: string; records: number; error?: string }[];
 }
 
@@ -301,6 +302,14 @@ export default function AICandidateResultsPage() {
                         <div><span className="text-muted-foreground">countries:</span> {(q.generatedFilters.countries ?? []).join(', ') || '—'}</div>
                         {q.generatedFilters.searchText && <div><span className="text-muted-foreground">searchText:</span> {q.generatedFilters.searchText}</div>}
                         {q.generatedFilters.skipReason && <div className="text-destructive">{q.generatedFilters.skipReason}</div>}
+                      </div>
+                    )}
+                    {q.requestPayload && (
+                      <div className="mt-1 rounded border border-border bg-muted/40 p-2 space-y-1">
+                        <div className="font-medium text-foreground">Lusha Request Payload</div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-background/70 p-2 font-mono text-[11px] text-foreground/80">
+                          {JSON.stringify(q.requestPayload, null, 2)}
+                        </pre>
                       </div>
                     )}
                     {q.providers && q.providers.length > 0 && (
