@@ -422,7 +422,7 @@ export default function AICandidateResultsPage() {
               <TableBody>
                 {loading && (
                   <TableRow><TableCell colSpan={11} className="text-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Searching Lusha & Vibe Prospecting…
+                    <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Searching connected sources…
                   </TableCell></TableRow>
                 )}
                 {!loading && pageRows.map((r) => (
@@ -430,31 +430,39 @@ export default function AICandidateResultsPage() {
                     <TableCell>
                       <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleOne(r.id)} aria-label={`Select ${r.full_name}`} />
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium align-top">
                       {r.full_name}
-                      {r.matchReasons && r.matchReasons.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {r.matchReasons.slice(0, 4).map((reason, i) => (
-                            <span key={i} className="text-[11px] text-muted-foreground">{reason}</span>
+                      {(r.matchReasons?.length || r.matchMissing?.length) ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {(r.matchReasons ?? []).slice(0, 5).map((reason, i) => (
+                            <span key={`m-${i}`} className="inline-flex items-center gap-0.5 rounded bg-success/10 text-success px-1.5 py-0.5 text-[10px] font-medium">
+                              <Check className="h-2.5 w-2.5" />{reason.replace(/^✓\s*/, '')}
+                            </span>
+                          ))}
+                          {(r.matchMissing ?? []).slice(0, 3).map((m, i) => (
+                            <span key={`x-${i}`} className="inline-flex items-center gap-0.5 rounded bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-medium">
+                              <XIcon className="h-2.5 w-2.5" />{m}
+                            </span>
                           ))}
                         </div>
-                      )}
+                      ) : null}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{r.current_title || '—'}</TableCell>
-                    <TableCell>{r.current_company || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.industry || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.location || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
+                    <TableCell className="text-muted-foreground align-top">{r.current_title || '—'}</TableCell>
+                    <TableCell className="align-top">{r.current_company || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground align-top">{r.industry || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground align-top">{r.location || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs align-top">
                       {r.languages.length ? r.languages.join(', ') : '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top">
                       <div className="flex gap-2">
                         {r.email && <a href={`mailto:${r.email}`} title={r.email} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
                         {r.phone && <a href={`tel:${r.phone}`} title={r.phone} className="text-muted-foreground hover:text-foreground"><Phone className="h-4 w-4" /></a>}
-                        {r.linkedin_url && <a href={r.linkedin_url} target="_blank" rel="noreferrer" title="LinkedIn" className="text-muted-foreground hover:text-foreground"><Linkedin className="h-4 w-4" /></a>}
+                        {r.linkedin_url && <a href={r.linkedin_url} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>}
                         {!r.email && !r.phone && !r.linkedin_url && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
+
                     <TableCell>
                       <Badge variant="outline" className="gap-1 text-xs">{r.source}</Badge>
                     </TableCell>
