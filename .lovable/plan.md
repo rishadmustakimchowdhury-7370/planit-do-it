@@ -1,98 +1,54 @@
-# Prospecting Sandbox — Implementation Plan
+# Candidate Discovery — Production Quality Upgrade
 
-A self-contained Demo Mode for Prospect Search that lets a salesperson run the full BD workflow (search → save → assign → pipeline → notes → export) without an Apollo paid plan.
+This is a large, multi-area change (search engine, UI, CRM, AI resume, RBAC debug mode). I'll split it into 7 phases so each can be reviewed and tested independently. Please confirm scope, or tell me which phases to ship first.
 
-## Phase 1 — Demo Data Library
+## Phase 1 — Search Orchestrator (backend)
+Refactor `ai-candidate-search` into a clear pipeline:
+- `analyzeJD()` — extract title, alt titles, industry, skills, languages, seniority, location (city/state/country)
+- `buildSearchPasses(mode)` — generates 4–6 Boolean passes from the analysis; `mode ∈ strict | balanced | broad` controls how many ORs / how aggressively we relax
+- `expandLocations(city)` — city → metro → state → country hierarchy (e.g. San Francisco → Bay Area → California → US)
+- `runPass(pass)` — fans out to all connected sources in parallel
+- Returns `{ candidates, passDiagnostics }`
 
-Expand `src/lib/apolloDemoData.ts` into four curated datasets (20 records each, ~80 total):
+## Phase 2 — Source adapters
+One file per source, uniform interface `search(pass) → { candidates, returned, accepted, rejected, error? }`:
+- `sources/lusha.ts` — native filter mapping (titles, locations{city,state,country}, industries, seniorities); validate `contacts.include` is non-empty; never send DNC fields; per-pass call
+- `sources/vibe.ts` — soft-fail on 402/403/network; never aborts the orchestrator
+- `sources/internalCrm.ts` — query existing `candidates` table with ILIKE on title/skills/location
+- `sources/apollo.ts` — stub for future
+Merge + dedupe by normalized email → LinkedIn URL → lowercased full name.
 
-- `recruitment_uk` — UK recruitment agencies
-- `technology_us` — US SaaS / tech companies
-- `commodities` — Commodity & trading firms (UAE, Singapore, CH, UK)
-- `healthcare` — Healthcare providers / medtech
-- (bonus) `staffing_uae` — folded into Recruitment tab as a sub-region
+## Phase 3 — Matching & ranking
+- Configurable weight vector (industry, location, language, skills, seniority, company, years)
+- Per-candidate score 0–100 with matched/missing arrays
+- Drop everything < 60%; never show 0% rows
+- Return `{ score, matched: string[], missing: string[] }` for UI
 
-Each record fields:
-```
-id, name, logo_url (initials avatar fallback via UI Avatars),
-website_url, linkedin_url, industry, employee_count, country, city,
-revenue_range, short_description,
-contact: { first_name, last_name, full_name, title, email, phone, linkedin_url },
-match_score (60–98), is_demo: true, dataset
-```
+## Phase 4 — Results UI cleanup
+`AICandidateResultsPage.tsx`:
+- Recruiter view: live progress ("Pass 2 completed"), score circle, ✓ matched / ✗ missing chips, LinkedIn button with `target="_blank" rel="noopener noreferrer"`, source badge, action buttons
+- Hide all JSON / payloads / pass analytics behind a Developer Mode toggle gated by `has_role(uid, 'owner')`
+- Search Mode selector: Strict / Balanced / Broad (default Balanced)
 
-`generateDemoCompanies(dataset)` returns the relevant slice. Logos use deterministic Apollo-style avatars: `https://ui-avatars.com/api/?name=...&background=...&color=fff&bold=true`.
+## Phase 5 — Save to CRM
+"Save to CRM" button on each result card calls a new edge function `discovery-save-candidate` that upserts into `candidates` with: name, current_title, current_company, location, email, phone, linkedin_url, source, skills[], experience, languages[]. Dedupe on (tenant_id, email) and (tenant_id, linkedin_url).
 
-## Phase 2 — Page Layout
+## Phase 6 — AI Resume Generator
+- New edge function `generate-ai-resume`: takes candidate profile → OpenAI → returns structured resume → render PDF via existing branded PDF pipeline → upload to candidate's storage bucket → store `cv_url` with flag `is_ai_generated = true`
+- On real CV upload to a candidate that already has an AI resume, show dialog: "Replace AI Resume? [Replace] [Keep Both]"
 
-Replace the current demo result block with a tabbed sandbox. Visible whenever `result.isDemo` OR free plan demo entry point is used.
+## Phase 7 — Owner Debug Mode
+- Add `discovery_debug_mode` to user preferences (owner-only toggle in Settings)
+- When on: results page renders the existing diagnostic panels (boolean queries, per-pass returned/accepted/rejected, raw Lusha/Vibe payloads & responses)
+- When off (default for everyone, and forced off for non-owners): completely hidden
 
-```text
-[Tabs: Recruitment | Technology | Commodities | Healthcare]
-[Toolbar: Select All | Bulk Save | Bulk Assign | Export CSV | DEMO badge]
-[Workflow stepper: Search → Save → Assign → Pipeline → Notes → Export]
-[Grid: 12 columns, sticky header]
-```
+## Technical notes
+- No schema changes needed for phases 1–4. Phase 5 reuses `candidates`. Phase 6 needs a `candidates.is_ai_generated_cv boolean default false` column (one small migration).
+- All AI calls continue to use OpenAI per project memory (no Lovable AI Gateway).
+- Edge functions affected: `ai-candidate-search` (rewrite), `discovery-save-candidate` (new), `generate-ai-resume` (new).
+- Frontend files: `AICandidateResultsPage.tsx`, new `SearchModeSelector`, new `MatchExplanation`, new `DeveloperModePanel`, `useOwnerRole` gate.
 
-Switching tabs reloads that dataset, clears selection, keeps `isDemo`.
-
-## Phase 3 — Results Grid
-
-New table with the requested 12 columns (Company, Contact, Title, Industry, Country, Employees, Revenue, Website, LinkedIn, Email, Phone, Match Score) plus checkbox + actions column. Logo shown beside company name. Match Score rendered as a colored pill (green ≥85, amber 70–84, gray <70).
-
-Row actions (icon buttons):
-- Save to CRM (uses existing `save-leads` edge function, mode=`lead` with company+contact)
-- Assign Recruiter (opens small popover with team list)
-- Add Note (opens dialog → writes to `lead_activities` after save, else stages locally)
-- View Company (opens drawer)
-
-## Phase 4 — Company Drawer
-
-`<CompanyDetailDrawer>` (Sheet) opened on row click or View action:
-- Header: logo, name, DEMO badge, website + LinkedIn buttons
-- Profile section: industry, country/city, employees, revenue, short_description
-- Primary contact: name, title, email, phone, LinkedIn
-- Notes: textarea (stored to local component state; persisted to `lead_activities` when company is saved)
-- Activity timeline: synthesized demo events (Apollo enriched, Added to pipeline, Note logged) + any real events once saved
-
-## Phase 5 — Bulk Actions
-
-Toolbar above grid:
-- Select All toggles current tab's rows
-- Bulk Save: loops through selected, calls `save-leads` with `mode=lead` so it creates both company + contact, tagging `source: 'apollo_demo'`
-- Bulk Assign: dialog with recruiter dropdown → after save, updates `lead_contacts.assigned_to`
-- Export CSV: builds a real CSV blob from selected (or all) and triggers download via `Blob` + `URL.createObjectURL`
-
-Toast summarises results (saved / duplicates / failed).
-
-## Phase 6 — CRM / Pipeline / BD Integration
-
-Saved records flow into existing tables, so they appear everywhere automatically:
-- `lead_companies` → CRM Companies & Business Development Dashboard
-- `lead_contacts` (linked to company) → Prospect Pipeline
-- `lead_activities` with `activity_type='note'` for any notes
-- `lead_activities` with `activity_type='assignment'` for recruiter assignment
-
-No schema changes required — existing tables already support these flows. `source='apollo_demo'` and `is_demo=true` (where column exists) flag them for filtering. If `is_demo` isn't on `lead_companies`, we set `source='apollo_demo'` only; tagging is sufficient for demo cleanup.
-
-## Phase 7 — Workflow Helper + Polish
-
-- Workflow stepper component shows 6 steps with check marks as the user progresses in the session (Save flips step 2, Assign flips step 3, drag to pipeline flips 4, etc.).
-- `DEMO DATA` badge on every row, drawer header, and CSV filename prefix.
-- Empty state for each tab if dataset somehow empty.
-- Keep existing real Apollo search path untouched — sandbox only activates via "Load Sample Apollo Results" or when on Free plan.
-
-## Technical Notes
-
-- New files: `src/lib/apolloDemoData.ts` (expanded), `src/components/leads/ProspectSandbox.tsx`, `src/components/leads/CompanyDetailDrawer.tsx`, `src/components/leads/AssignRecruiterPopover.tsx`, `src/components/leads/DemoWorkflowStepper.tsx`.
-- `ProspectSearchPage` mounts `<ProspectSandbox />` when `demoActive` state is on (set by Load Sample button; auto-on for free plan).
-- Recruiter list fetched once via `profiles` join `user_roles` where role in (owner,manager,recruiter) and tenant matches.
-- CSV export: client-side, columns mirror the grid, filename `apollo-demo-{tab}-{YYYY-MM-DD}.csv`.
-- No edge function changes — reuses `save-leads`.
-- No DB migrations — uses existing `lead_companies`, `lead_contacts`, `lead_activities` schemas.
-
-## Out of Scope
-
-- Editing demo records inline
-- Persisting unsaved notes across page refresh
-- Real Apollo logo URLs (we use deterministic avatar service)
+## Questions before I start
+1. Ship all 7 phases in one go, or start with Phases 1–4 (the actual search quality fixes) and do CRM save / AI resume / debug mode after?
+2. Search Mode default — Balanced OK?
+3. AI Resume PDF — reuse the existing branded PDF template used for client submissions, or a new minimal layout?
