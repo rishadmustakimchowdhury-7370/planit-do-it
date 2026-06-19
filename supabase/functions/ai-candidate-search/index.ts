@@ -31,7 +31,7 @@ async function decryptKey(ct: string, iv: string): Promise<string> {
 // ---------------- Shared types --------------------------------------------
 interface UnifiedCandidate {
   id: string;
-  source: "Lusha" | "Vibe Prospecting";
+  source: "Lusha" | "Vibe Prospecting" | "Internal CRM";
   source_url?: string | null;
   full_name: string;
   current_title: string;
@@ -48,7 +48,9 @@ interface UnifiedCandidate {
   seniority?: string | null;
   matchScore?: number;
   matchReasons?: string[];
+  matchMissing?: string[];
 }
+
 
 interface LushaFilterDebug {
   titles: string[];
@@ -138,15 +140,65 @@ function expandLocationFilters(criteria: Criteria): string[] {
   return cleanList(Array.from(out), 10);
 }
 
+// Location hierarchy: city -> metro -> state -> country. Used to broaden
+// progressively rather than jumping straight to country.
+interface LocationLevels { city?: string; metro?: string; state?: string; country?: string; }
+const CITY_HIERARCHY: Record<string, LocationLevels> = {
+  "san francisco": { city: "San Francisco", metro: "Bay Area", state: "California", country: "United States" },
+  "oakland": { city: "Oakland", metro: "Bay Area", state: "California", country: "United States" },
+  "san jose": { city: "San Jose", metro: "Bay Area", state: "California", country: "United States" },
+  "palo alto": { city: "Palo Alto", metro: "Bay Area", state: "California", country: "United States" },
+  "los angeles": { city: "Los Angeles", metro: "Greater Los Angeles", state: "California", country: "United States" },
+  "new york": { city: "New York", metro: "New York Metropolitan Area", state: "New York", country: "United States" },
+  "manhattan": { city: "New York", metro: "New York Metropolitan Area", state: "New York", country: "United States" },
+  "chicago": { city: "Chicago", metro: "Chicagoland", state: "Illinois", country: "United States" },
+  "boston": { city: "Boston", metro: "Greater Boston", state: "Massachusetts", country: "United States" },
+  "seattle": { city: "Seattle", metro: "Puget Sound", state: "Washington", country: "United States" },
+  "austin": { city: "Austin", state: "Texas", country: "United States" },
+  "miami": { city: "Miami", state: "Florida", country: "United States" },
+  "london": { city: "London", metro: "Greater London", country: "United Kingdom" },
+  "manchester": { city: "Manchester", country: "United Kingdom" },
+  "birmingham": { city: "Birmingham", country: "United Kingdom" },
+  "dubai": { city: "Dubai", country: "United Arab Emirates" },
+  "abu dhabi": { city: "Abu Dhabi", country: "United Arab Emirates" },
+  "singapore": { city: "Singapore", country: "Singapore" },
+  "hong kong": { city: "Hong Kong", country: "Hong Kong" },
+  "zurich": { city: "Zurich", country: "Switzerland" },
+  "geneva": { city: "Geneva", country: "Switzerland" },
+  "berlin": { city: "Berlin", country: "Germany" },
+  "frankfurt": { city: "Frankfurt", country: "Germany" },
+  "munich": { city: "Munich", country: "Germany" },
+  "paris": { city: "Paris", country: "France" },
+  "amsterdam": { city: "Amsterdam", country: "Netherlands" },
+  "moscow": { city: "Moscow", country: "Russia" },
+  "mumbai": { city: "Mumbai", country: "India" },
+  "bangalore": { city: "Bangalore", country: "India" },
+  "sydney": { city: "Sydney", country: "Australia" },
+  "toronto": { city: "Toronto", country: "Canada" },
+};
+function resolveLocation(raw: string): LocationLevels {
+  const key = raw.toLowerCase().trim();
+  if (CITY_HIERARCHY[key]) return CITY_HIERARCHY[key];
+  for (const [k, v] of Object.entries(CITY_HIERARCHY)) {
+    if (key.includes(k)) return v;
+  }
+  // No known city — treat as country.
+  return { country: raw };
+}
+function locationLevelsForCriteria(criteria: Criteria): LocationLevels[] {
+  return (criteria.locations ?? []).map(resolveLocation);
+}
+
 function toLushaLocationObjects(locations: string[]): Array<{ city?: string; state?: string; country?: string; continent?: string; countryGrouping?: string }> {
-  return locations.map((loc) => {
-    const lower = loc.toLowerCase();
-    if (lower.includes("dubai")) return { city: "Dubai", country: "United Arab Emirates" };
-    if (lower.includes("abu dhabi")) return { city: "Abu Dhabi", country: "United Arab Emirates" };
-    const country = lower.includes("uae") || lower.includes("emirates") ? "United Arab Emirates" : loc;
-    return { country };
+  return locations.map(resolveLocation).map((lvl) => {
+    const obj: { city?: string; state?: string; country?: string } = {};
+    if (lvl.city) obj.city = lvl.city;
+    if (lvl.state) obj.state = lvl.state;
+    if (lvl.country) obj.country = lvl.country;
+    return obj;
   });
 }
+
 function seniorityToVibeLevels(seniority?: string | null): string[] {
   if (!seniority) return [];
   const s = seniority.toLowerCase();
@@ -375,9 +427,10 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
           properties: {
             i: { type: "integer" },
             matchScore: { type: "integer", minimum: 0, maximum: 100 },
-            matchReasons: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 6 },
+            matched: { type: "array", items: { type: "string" }, minItems: 0, maxItems: 8 },
+            missing: { type: "array", items: { type: "string" }, minItems: 0, maxItems: 6 },
           },
-          required: ["i", "matchScore", "matchReasons"],
+          required: ["i", "matchScore", "matched", "missing"],
         },
       },
     },
@@ -388,9 +441,9 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
 Heavy weight to: Industry Match, Language Match (when languages are required), Operational/Functional fit, Seniority, Location, Skills, Experience.
 Be honest and strict — penalise mismatches in industry, language, or seniority. Do NOT inflate scores.
 
-Return 3-6 concise recruiter-grade reasons per candidate, each:
-- prefixed "✓ " when the candidate clearly meets the criterion (e.g. "✓ Operations Management", "✓ Commodity Trading", "✓ UAE Experience", "✓ Russian Speaker")
-- prefixed "✗ " when a clear gap is identified (e.g. "✗ Missing Russian language")
+Return two short arrays per candidate:
+- "matched": 3-8 criteria the candidate clearly meets (e.g. "Operations Management", "Commodity Trading", "UAE Experience", "Russian Speaker"). Plain text, no symbols.
+- "missing": 0-6 criteria the candidate clearly lacks (e.g. "Russian language", "Freight experience"). Plain text, no symbols.
 Use only data provided; never invent skills or languages.`;
 
   try {
@@ -411,12 +464,19 @@ Use only data provided; never invent skills or languages.`;
     if (!res.ok) { console.error("[score] OpenAI error", res.status, text.slice(0, 300)); return candidates; }
     const data = JSON.parse(text);
     const parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
-    const scored: { i: number; matchScore: number; matchReasons: string[] }[] = parsed.scored ?? [];
+    const scored: { i: number; matchScore: number; matched: string[]; missing: string[] }[] = parsed.scored ?? [];
     const byIdx = new Map(scored.map((s) => [s.i, s]));
     return candidates.map((c, i) => {
       const s = byIdx.get(i);
-      return s ? { ...c, matchScore: s.matchScore, matchReasons: s.matchReasons } : c;
+      if (!s) return c;
+      return {
+        ...c,
+        matchScore: s.matchScore,
+        matchReasons: (s.matched ?? []).map((m) => `✓ ${m}`),
+        matchMissing: s.missing ?? [],
+      };
     });
+
   } catch (e) {
     console.error("[score] failed", e);
     return candidates;
@@ -437,13 +497,28 @@ function buildBoolean(titles: string[], extras: string[] = []): string {
   return [titlePart, extraPart].filter(Boolean).join(" AND ");
 }
 
-function buildSearchPasses(base: Criteria): SearchPass[] {
+type SearchMode = "strict" | "balanced" | "broad";
+
+function locationHierarchyPasses(criteria: Criteria): { label: string; locations: string[] }[] {
+  const levels = locationLevelsForCriteria(criteria);
+  if (!levels.length) return [{ label: "Any location", locations: [] }];
+  const tiers: { label: string; locations: string[] }[] = [];
+  const cities = uniq(levels.map((l) => l.city).filter(Boolean) as string[]);
+  const metros = uniq(levels.map((l) => l.metro).filter(Boolean) as string[]);
+  const states = uniq(levels.map((l) => l.state).filter(Boolean) as string[]);
+  const countries = uniq(levels.map((l) => l.country).filter(Boolean) as string[]);
+  if (cities.length) tiers.push({ label: `City: ${cities.join(", ")}`, locations: cities });
+  if (metros.length) tiers.push({ label: `Metro: ${metros.join(", ")}`, locations: metros });
+  if (states.length) tiers.push({ label: `State: ${states.join(", ")}`, locations: states });
+  if (countries.length) tiers.push({ label: `Country: ${countries.join(", ")}`, locations: countries });
+  return tiers;
+}
+
+function buildSearchPasses(base: Criteria, mode: SearchMode = "balanced"): SearchPass[] {
   const titles = (base.role_titles ?? []).filter(Boolean);
   const industries = (base.industries ?? []).filter(Boolean);
-  const locations = (base.locations ?? []);
   const languages = (base.languages ?? []);
 
-  // Title variants: original + sibling roles
   const root = titles[0] ?? "";
   const titleSets: string[][] = [];
   if (titles.length) titleSets.push(titles);
@@ -454,38 +529,68 @@ function buildSearchPasses(base: Criteria): SearchPass[] {
     titleSets.push(uniq(sibling));
   }
 
+  const locTiers = locationHierarchyPasses(base);
   const passes: SearchPass[] = [];
+  let n = 1;
+  const tightLoc = locTiers[0];
 
-  // Pass 1: title + industry + location (full)
   passes.push({
-    id: "p1",
-    label: "Pass 1: Title + Industry + Location",
-    boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...locations, ...languages]),
-    criteria: base,
+    id: `p${n}`,
+    label: `Pass ${n}: ${tightLoc.label} + Titles + Industries`,
+    boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tightLoc.locations, ...languages]),
+    criteria: { ...base, locations: tightLoc.locations },
   });
+  n++;
 
-  // Pass 2: sibling titles + same filters
+  if (mode === "strict") {
+    for (const tier of locTiers.slice(1)) {
+      passes.push({
+        id: `p${n}`,
+        label: `Pass ${n}: ${tier.label} + Titles`,
+        boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tier.locations]),
+        criteria: { ...base, locations: tier.locations },
+      });
+      n++;
+    }
+    return passes.slice(0, 4);
+  }
+
   if (titleSets[1]) {
     passes.push({
-      id: "p2",
-      label: "Pass 2: Sibling Titles",
-      boolean: buildBoolean(titleSets[1], [...industries, ...locations]),
-      criteria: { ...base, role_titles: titleSets[1] },
+      id: `p${n}`,
+      label: `Pass ${n}: Sibling Titles + ${tightLoc.label}`,
+      boolean: buildBoolean(titleSets[1], [...industries, ...tightLoc.locations]),
+      criteria: { ...base, role_titles: titleSets[1], locations: tightLoc.locations },
+    });
+    n++;
+  }
+
+  for (const tier of locTiers.slice(1)) {
+    passes.push({
+      id: `p${n}`,
+      label: `Pass ${n}: ${tier.label} + Titles`,
+      boolean: buildBoolean(titleSets[0] ?? [], [...industries, ...tier.locations]),
+      criteria: { ...base, locations: tier.locations },
+    });
+    n++;
+  }
+
+  if (mode === "broad") {
+    industries.slice(0, 2).forEach((ind) => {
+      passes.push({
+        id: `p${n}`,
+        label: `Pass ${n}: Title + ${ind}`,
+        boolean: buildBoolean(titleSets[0] ?? [], [ind]),
+        criteria: { ...base, industries: [ind], locations: [] },
+      });
+      n++;
     });
   }
 
-  // Pass 3..N: title + each industry individually (no location)
-  industries.slice(0, 3).forEach((ind, i) => {
-    passes.push({
-      id: `p${3 + i}`,
-      label: `Pass ${3 + i}: Title + ${ind}`,
-      boolean: buildBoolean(titleSets[0] ?? [], [ind]),
-      criteria: { ...base, industries: [ind], locations: [] },
-    });
-  });
-
-  return passes.slice(0, 5);
+  const cap = mode === "broad" ? 7 : 5;
+  return passes.slice(0, cap);
 }
+
 
 function buildBroaderPasses(base: Criteria): SearchPass[] {
   const titles = base.role_titles ?? [];
@@ -517,6 +622,51 @@ interface ProviderRow {
   api_key_encrypted: string;
   api_key_iv: string;
 }
+
+// Internal CRM: search the tenant's own candidate database. Always runs (free) so
+// recruiters still get results when external sources fail or credits are exhausted.
+async function searchInternalCrm(admin: ReturnType<typeof createClient>, tenantId: string, criteria: Criteria, limit = 50): Promise<SearchResult> {
+  try {
+    let q = admin.from("candidates").select("*").eq("tenant_id", tenantId).limit(limit);
+    const titles = (criteria.role_titles ?? []).filter(Boolean);
+    if (titles.length) {
+      const or = titles.map((t) => `current_title.ilike.%${t.replace(/[%,]/g, "")}%`).join(",");
+      q = q.or(or);
+    }
+    const { data, error } = await q;
+    if (error) return { candidates: [], error: error.message };
+    const wantedLocs = (criteria.locations ?? []).map((l) => l.toLowerCase());
+    const candidates: UnifiedCandidate[] = ((data ?? []) as Array<Record<string, unknown>>)
+      .filter((r) => {
+        if (!wantedLocs.length) return true;
+        const loc = String(r.location ?? "").toLowerCase();
+        return wantedLocs.some((w) => loc.includes(w));
+      })
+      .map((r) => ({
+        id: `crm-${r.id}`,
+        source: "Internal CRM" as const,
+        source_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        full_name: String(r.full_name ?? ""),
+        current_title: String(r.current_title ?? ""),
+        current_company: String(r.current_company ?? ""),
+        industry: null,
+        location: String(r.location ?? ""),
+        country: null,
+        languages: [],
+        linkedin_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        email: r.email ? String(r.email) : null,
+        phone: r.phone ? String(r.phone) : null,
+        skills: Array.isArray(r.skills) ? (r.skills as string[]).slice(0, 12) : [],
+        experience_years: typeof r.experience_years === "number" ? r.experience_years : null,
+        seniority: null,
+      }));
+    return { candidates };
+  } catch (e) {
+    return { candidates: [], error: e instanceof Error ? e.message : "CRM search failed" };
+  }
+}
+
+
 
 interface ProviderPassDiagnostic {
   provider: "lusha" | "vibe_prospecting";
@@ -601,7 +751,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
     const perProviderLimit = Math.min(50, Math.max(10, Number(body.limit ?? 25)));
-    console.log("[search] criteria", JSON.stringify(criteria));
+    const mode: SearchMode = (["strict", "balanced", "broad"].includes(body.mode) ? body.mode : "balanced") as SearchMode;
+    console.log("[search] criteria", JSON.stringify(criteria), "mode=", mode);
 
     const { data: integrations } = await admin
       .from("candidate_source_integrations")
@@ -610,24 +761,35 @@ Deno.serve(async (req) => {
       .eq("status", "connected");
 
     const connected = (integrations ?? []) as ProviderRow[];
-    console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"}`);
-
-    if (connected.length === 0) {
-      return json({
-        candidates: [], errors: {}, queries: [],
-        message: "No candidate source is connected. Connect Lusha or Vibe Prospecting in Settings → Integrations.",
-      });
-    }
+    console.log(`[search] connected providers: ${connected.map((i) => i.provider).join(", ") || "none"} (+ internal CRM always)`);
 
     const errors: Record<string, string> = {};
-    const passes = buildSearchPasses(criteria);
+    const passes = buildSearchPasses(criteria, mode);
     const requiredCountries = locationsToCountryCodes(criteria.locations);
 
-    // Run primary passes
     let pool: UnifiedCandidate[] = [];
     const ranQueries: PassDiagnostic[] = [];
 
+    // Internal CRM runs once up-front against the full criteria — cheap, always on.
+    try {
+      const crm = await searchInternalCrm(admin, tenantId, criteria, 50);
+      if (crm.error) errors["internal_crm"] = crm.error;
+      pool = pool.concat(crm.candidates);
+      ranQueries.push({
+        id: "crm",
+        label: "Internal CRM",
+        boolean: "(tenant candidates)",
+        raw: crm.candidates.length,
+        accepted: crm.candidates.filter((c) => passesHardFilters(c, criteria, requiredCountries)).length,
+        rejected: Math.max(0, crm.candidates.length - crm.candidates.filter((c) => passesHardFilters(c, criteria, requiredCountries)).length),
+        providers: [{ provider: "internal_crm" as unknown as "lusha", records: crm.candidates.length, ...(crm.error ? { error: crm.error } : {}) }],
+      });
+    } catch (e) {
+      console.warn("[search] internal CRM failed:", e);
+    }
+
     for (const pass of passes) {
+
       const result = await runPass(pass, connected, perProviderLimit, errors);
       const accepted = result.candidates.filter((c) => passesHardFilters(c, pass.criteria, locationsToCountryCodes(pass.criteria.locations))).length;
       const lushaDebug = result.providers.find((p) => p.provider === "lusha");

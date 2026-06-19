@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +18,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import {
   ArrowLeft, ArrowUpDown, BookmarkPlus, Download, ExternalLink, Mail, Phone,
-  Linkedin, Sparkles, Loader2, AlertCircle,
+  Linkedin, Sparkles, Loader2, AlertCircle, Bug, Check, X as XIcon,
 } from 'lucide-react';
+
+type SearchMode = 'strict' | 'balanced' | 'broad';
 
 interface Criteria {
   role_titles?: string[];
@@ -35,7 +37,7 @@ interface Criteria {
 
 interface ResultRow {
   id: string;
-  source: 'Lusha' | 'Vibe Prospecting';
+  source: 'Lusha' | 'Vibe Prospecting' | 'Internal CRM';
   source_url?: string | null;
   full_name: string;
   current_title: string;
@@ -51,7 +53,9 @@ interface ResultRow {
   seniority?: string | null;
   matchScore?: number;
   matchReasons?: string[];
+  matchMissing?: string[];
 }
+
 
 interface SearchPassDebug {
   id: string;
@@ -95,7 +99,7 @@ export default function AICandidateResultsPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, tenantId } = useAuth();
+  const { user, tenantId, isOwner } = useAuth();
 
   const criteria = useMemo<Criteria>(() => {
     try {
@@ -103,6 +107,14 @@ export default function AICandidateResultsPage() {
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   }, []);
+
+  const [mode, setMode] = useState<SearchMode>(() => {
+    const m = sessionStorage.getItem('ai-discovery-mode');
+    return (m === 'strict' || m === 'broad') ? m : 'balanced';
+  });
+  const [developerMode, setDeveloperMode] = useState<boolean>(() => {
+    return isOwner && localStorage.getItem('ai-discovery-dev-mode') === '1';
+  });
 
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +133,7 @@ export default function AICandidateResultsPage() {
     (async () => {
       setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
-        body: { criteria, limit: 25 },
+        body: { criteria, limit: 25, mode },
       });
       if (cancelled) return;
       if (error) { setErrorMsg(error.message); setRows([]); setLoading(false); return; }
@@ -133,7 +145,18 @@ export default function AICandidateResultsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [criteria]);
+  }, [criteria, mode]);
+
+  const changeMode = (m: SearchMode) => {
+    sessionStorage.setItem('ai-discovery-mode', m);
+    setMode(m);
+  };
+  const toggleDeveloperMode = () => {
+    const next = !developerMode;
+    setDeveloperMode(next);
+    localStorage.setItem('ai-discovery-dev-mode', next ? '1' : '0');
+  };
+
 
   const sorted = useMemo(() => {
     const out = [...rows];
@@ -242,10 +265,33 @@ export default function AICandidateResultsPage() {
               <Sparkles className="h-5 w-5 text-primary" /> Candidate Results
             </h1>
             <p className="text-sm text-muted-foreground">
-              {loading ? 'Searching connected sources…' : `${sorted.length} candidate${sorted.length === 1 ? '' : 's'} from Lusha & Vibe Prospecting${params.get('q') ? ` for “${params.get('q')}”` : ''}`}
+              {loading ? 'Searching connected sources…' : `${sorted.length} candidate${sorted.length === 1 ? '' : 's'} matched${params.get('q') ? ` for "${params.get('q')}"` : ''}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search Mode selector */}
+            <div className="inline-flex rounded-md border bg-background p-0.5 text-xs">
+              {(['strict', 'balanced', 'broad'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => changeMode(m)}
+                  className={`px-2.5 py-1 rounded ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  title={m === 'strict' ? 'Very precise' : m === 'broad' ? 'Maximum discovery' : 'Recommended default'}
+                >
+                  {m === 'strict' ? 'Strict' : m === 'broad' ? 'Broad' : 'Balanced'}
+                </button>
+              ))}
+            </div>
+            {isOwner && (
+              <Button
+                variant={developerMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={toggleDeveloperMode}
+                title="Owner-only: show search-pass diagnostics, payloads, and API responses"
+              >
+                <Bug className="h-4 w-4" /> Developer Mode
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => exportRows(sorted.filter((r) => selected.has(r.id)), 'selected')} disabled={!selected.size}>
               <Download className="h-4 w-4" /> Export Selected ({selected.size})
             </Button>
@@ -258,10 +304,16 @@ export default function AICandidateResultsPage() {
           </div>
         </div>
 
+        {/* Provider errors: shown to everyone but as a quiet info banner for non-owners */}
         {Object.entries(providerErrors).map(([p, msg]) => (
-          <Alert key={p} variant="destructive">
+          <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription><strong>{p}:</strong> {msg}</AlertDescription>
+            <AlertDescription>
+              <strong>{p}:</strong>{' '}
+              {developerMode
+                ? msg
+                : 'temporarily unavailable — continuing with other sources.'}
+            </AlertDescription>
           </Alert>
         ))}
 
@@ -272,7 +324,25 @@ export default function AICandidateResultsPage() {
           </Alert>
         )}
 
-        {queries.length > 0 && (
+        {/* Recruiter-facing pass progress (no payloads / no JSON) */}
+        {!developerMode && queries.length > 0 && !loading && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-medium text-muted-foreground">Search passes:</span>
+                {queries.map((q) => (
+                  <Badge key={q.id} variant="secondary" className="gap-1">
+                    <Check className="h-3 w-3" /> {q.label.replace(/^Pass \d+: /, q.id === 'crm' ? '' : `Pass ${q.id.replace('p', '')} · `)} · {q.accepted ?? 0} kept
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Developer-only diagnostics */}
+        {developerMode && queries.length > 0 && (
+
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
@@ -352,7 +422,7 @@ export default function AICandidateResultsPage() {
               <TableBody>
                 {loading && (
                   <TableRow><TableCell colSpan={11} className="text-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Searching Lusha & Vibe Prospecting…
+                    <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Searching connected sources…
                   </TableCell></TableRow>
                 )}
                 {!loading && pageRows.map((r) => (
@@ -360,31 +430,39 @@ export default function AICandidateResultsPage() {
                     <TableCell>
                       <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleOne(r.id)} aria-label={`Select ${r.full_name}`} />
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium align-top">
                       {r.full_name}
-                      {r.matchReasons && r.matchReasons.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {r.matchReasons.slice(0, 4).map((reason, i) => (
-                            <span key={i} className="text-[11px] text-muted-foreground">{reason}</span>
+                      {(r.matchReasons?.length || r.matchMissing?.length) ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {(r.matchReasons ?? []).slice(0, 5).map((reason, i) => (
+                            <span key={`m-${i}`} className="inline-flex items-center gap-0.5 rounded bg-success/10 text-success px-1.5 py-0.5 text-[10px] font-medium">
+                              <Check className="h-2.5 w-2.5" />{reason.replace(/^✓\s*/, '')}
+                            </span>
+                          ))}
+                          {(r.matchMissing ?? []).slice(0, 3).map((m, i) => (
+                            <span key={`x-${i}`} className="inline-flex items-center gap-0.5 rounded bg-muted text-muted-foreground px-1.5 py-0.5 text-[10px] font-medium">
+                              <XIcon className="h-2.5 w-2.5" />{m}
+                            </span>
                           ))}
                         </div>
-                      )}
+                      ) : null}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{r.current_title || '—'}</TableCell>
-                    <TableCell>{r.current_company || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.industry || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.location || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
+                    <TableCell className="text-muted-foreground align-top">{r.current_title || '—'}</TableCell>
+                    <TableCell className="align-top">{r.current_company || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground align-top">{r.industry || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground align-top">{r.location || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs align-top">
                       {r.languages.length ? r.languages.join(', ') : '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top">
                       <div className="flex gap-2">
                         {r.email && <a href={`mailto:${r.email}`} title={r.email} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
                         {r.phone && <a href={`tel:${r.phone}`} title={r.phone} className="text-muted-foreground hover:text-foreground"><Phone className="h-4 w-4" /></a>}
-                        {r.linkedin_url && <a href={r.linkedin_url} target="_blank" rel="noreferrer" title="LinkedIn" className="text-muted-foreground hover:text-foreground"><Linkedin className="h-4 w-4" /></a>}
+                        {r.linkedin_url && <a href={r.linkedin_url} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>}
                         {!r.email && !r.phone && !r.linkedin_url && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
+
                     <TableCell>
                       <Badge variant="outline" className="gap-1 text-xs">{r.source}</Badge>
                     </TableCell>
@@ -407,7 +485,7 @@ export default function AICandidateResultsPage() {
                         </Button>
                         {r.source_url && (
                           <Button variant="ghost" size="icon-sm" asChild title="Open source">
-                            <a href={r.source_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                            <a href={r.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
                           </Button>
                         )}
                       </div>
