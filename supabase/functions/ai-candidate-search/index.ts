@@ -427,9 +427,10 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
           properties: {
             i: { type: "integer" },
             matchScore: { type: "integer", minimum: 0, maximum: 100 },
-            matchReasons: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 6 },
+            matched: { type: "array", items: { type: "string" }, minItems: 0, maxItems: 8 },
+            missing: { type: "array", items: { type: "string" }, minItems: 0, maxItems: 6 },
           },
-          required: ["i", "matchScore", "matchReasons"],
+          required: ["i", "matchScore", "matched", "missing"],
         },
       },
     },
@@ -440,9 +441,9 @@ async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[
 Heavy weight to: Industry Match, Language Match (when languages are required), Operational/Functional fit, Seniority, Location, Skills, Experience.
 Be honest and strict — penalise mismatches in industry, language, or seniority. Do NOT inflate scores.
 
-Return 3-6 concise recruiter-grade reasons per candidate, each:
-- prefixed "✓ " when the candidate clearly meets the criterion (e.g. "✓ Operations Management", "✓ Commodity Trading", "✓ UAE Experience", "✓ Russian Speaker")
-- prefixed "✗ " when a clear gap is identified (e.g. "✗ Missing Russian language")
+Return two short arrays per candidate:
+- "matched": 3-8 criteria the candidate clearly meets (e.g. "Operations Management", "Commodity Trading", "UAE Experience", "Russian Speaker"). Plain text, no symbols.
+- "missing": 0-6 criteria the candidate clearly lacks (e.g. "Russian language", "Freight experience"). Plain text, no symbols.
 Use only data provided; never invent skills or languages.`;
 
   try {
@@ -463,12 +464,19 @@ Use only data provided; never invent skills or languages.`;
     if (!res.ok) { console.error("[score] OpenAI error", res.status, text.slice(0, 300)); return candidates; }
     const data = JSON.parse(text);
     const parsed = JSON.parse(data?.choices?.[0]?.message?.content ?? "{}");
-    const scored: { i: number; matchScore: number; matchReasons: string[] }[] = parsed.scored ?? [];
+    const scored: { i: number; matchScore: number; matched: string[]; missing: string[] }[] = parsed.scored ?? [];
     const byIdx = new Map(scored.map((s) => [s.i, s]));
     return candidates.map((c, i) => {
       const s = byIdx.get(i);
-      return s ? { ...c, matchScore: s.matchScore, matchReasons: s.matchReasons } : c;
+      if (!s) return c;
+      return {
+        ...c,
+        matchScore: s.matchScore,
+        matchReasons: (s.matched ?? []).map((m) => `✓ ${m}`),
+        matchMissing: s.missing ?? [],
+      };
     });
+
   } catch (e) {
     console.error("[score] failed", e);
     return candidates;
