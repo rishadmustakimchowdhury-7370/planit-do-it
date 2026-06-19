@@ -140,15 +140,65 @@ function expandLocationFilters(criteria: Criteria): string[] {
   return cleanList(Array.from(out), 10);
 }
 
+// Location hierarchy: city -> metro -> state -> country. Used to broaden
+// progressively rather than jumping straight to country.
+interface LocationLevels { city?: string; metro?: string; state?: string; country?: string; }
+const CITY_HIERARCHY: Record<string, LocationLevels> = {
+  "san francisco": { city: "San Francisco", metro: "Bay Area", state: "California", country: "United States" },
+  "oakland": { city: "Oakland", metro: "Bay Area", state: "California", country: "United States" },
+  "san jose": { city: "San Jose", metro: "Bay Area", state: "California", country: "United States" },
+  "palo alto": { city: "Palo Alto", metro: "Bay Area", state: "California", country: "United States" },
+  "los angeles": { city: "Los Angeles", metro: "Greater Los Angeles", state: "California", country: "United States" },
+  "new york": { city: "New York", metro: "New York Metropolitan Area", state: "New York", country: "United States" },
+  "manhattan": { city: "New York", metro: "New York Metropolitan Area", state: "New York", country: "United States" },
+  "chicago": { city: "Chicago", metro: "Chicagoland", state: "Illinois", country: "United States" },
+  "boston": { city: "Boston", metro: "Greater Boston", state: "Massachusetts", country: "United States" },
+  "seattle": { city: "Seattle", metro: "Puget Sound", state: "Washington", country: "United States" },
+  "austin": { city: "Austin", state: "Texas", country: "United States" },
+  "miami": { city: "Miami", state: "Florida", country: "United States" },
+  "london": { city: "London", metro: "Greater London", country: "United Kingdom" },
+  "manchester": { city: "Manchester", country: "United Kingdom" },
+  "birmingham": { city: "Birmingham", country: "United Kingdom" },
+  "dubai": { city: "Dubai", country: "United Arab Emirates" },
+  "abu dhabi": { city: "Abu Dhabi", country: "United Arab Emirates" },
+  "singapore": { city: "Singapore", country: "Singapore" },
+  "hong kong": { city: "Hong Kong", country: "Hong Kong" },
+  "zurich": { city: "Zurich", country: "Switzerland" },
+  "geneva": { city: "Geneva", country: "Switzerland" },
+  "berlin": { city: "Berlin", country: "Germany" },
+  "frankfurt": { city: "Frankfurt", country: "Germany" },
+  "munich": { city: "Munich", country: "Germany" },
+  "paris": { city: "Paris", country: "France" },
+  "amsterdam": { city: "Amsterdam", country: "Netherlands" },
+  "moscow": { city: "Moscow", country: "Russia" },
+  "mumbai": { city: "Mumbai", country: "India" },
+  "bangalore": { city: "Bangalore", country: "India" },
+  "sydney": { city: "Sydney", country: "Australia" },
+  "toronto": { city: "Toronto", country: "Canada" },
+};
+function resolveLocation(raw: string): LocationLevels {
+  const key = raw.toLowerCase().trim();
+  if (CITY_HIERARCHY[key]) return CITY_HIERARCHY[key];
+  for (const [k, v] of Object.entries(CITY_HIERARCHY)) {
+    if (key.includes(k)) return v;
+  }
+  // No known city — treat as country.
+  return { country: raw };
+}
+function locationLevelsForCriteria(criteria: Criteria): LocationLevels[] {
+  return (criteria.locations ?? []).map(resolveLocation);
+}
+
 function toLushaLocationObjects(locations: string[]): Array<{ city?: string; state?: string; country?: string; continent?: string; countryGrouping?: string }> {
-  return locations.map((loc) => {
-    const lower = loc.toLowerCase();
-    if (lower.includes("dubai")) return { city: "Dubai", country: "United Arab Emirates" };
-    if (lower.includes("abu dhabi")) return { city: "Abu Dhabi", country: "United Arab Emirates" };
-    const country = lower.includes("uae") || lower.includes("emirates") ? "United Arab Emirates" : loc;
-    return { country };
+  return locations.map(resolveLocation).map((lvl) => {
+    const obj: { city?: string; state?: string; country?: string } = {};
+    if (lvl.city) obj.city = lvl.city;
+    if (lvl.state) obj.state = lvl.state;
+    if (lvl.country) obj.country = lvl.country;
+    return obj;
   });
 }
+
 function seniorityToVibeLevels(seniority?: string | null): string[] {
   if (!seniority) return [];
   const s = seniority.toLowerCase();
