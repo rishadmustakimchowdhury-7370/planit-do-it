@@ -265,10 +265,33 @@ export default function AICandidateResultsPage() {
               <Sparkles className="h-5 w-5 text-primary" /> Candidate Results
             </h1>
             <p className="text-sm text-muted-foreground">
-              {loading ? 'Searching connected sources…' : `${sorted.length} candidate${sorted.length === 1 ? '' : 's'} from Lusha & Vibe Prospecting${params.get('q') ? ` for “${params.get('q')}”` : ''}`}
+              {loading ? 'Searching connected sources…' : `${sorted.length} candidate${sorted.length === 1 ? '' : 's'} matched${params.get('q') ? ` for "${params.get('q')}"` : ''}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search Mode selector */}
+            <div className="inline-flex rounded-md border bg-background p-0.5 text-xs">
+              {(['strict', 'balanced', 'broad'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => changeMode(m)}
+                  className={`px-2.5 py-1 rounded ${mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  title={m === 'strict' ? 'Very precise' : m === 'broad' ? 'Maximum discovery' : 'Recommended default'}
+                >
+                  {m === 'strict' ? 'Strict' : m === 'broad' ? 'Broad' : 'Balanced'}
+                </button>
+              ))}
+            </div>
+            {isOwner && (
+              <Button
+                variant={developerMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={toggleDeveloperMode}
+                title="Owner-only: show search-pass diagnostics, payloads, and API responses"
+              >
+                <Bug className="h-4 w-4" /> Developer Mode
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => exportRows(sorted.filter((r) => selected.has(r.id)), 'selected')} disabled={!selected.size}>
               <Download className="h-4 w-4" /> Export Selected ({selected.size})
             </Button>
@@ -281,10 +304,16 @@ export default function AICandidateResultsPage() {
           </div>
         </div>
 
+        {/* Provider errors: shown to everyone but as a quiet info banner for non-owners */}
         {Object.entries(providerErrors).map(([p, msg]) => (
-          <Alert key={p} variant="destructive">
+          <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription><strong>{p}:</strong> {msg}</AlertDescription>
+            <AlertDescription>
+              <strong>{p}:</strong>{' '}
+              {developerMode
+                ? msg
+                : 'temporarily unavailable — continuing with other sources.'}
+            </AlertDescription>
           </Alert>
         ))}
 
@@ -295,7 +324,25 @@ export default function AICandidateResultsPage() {
           </Alert>
         )}
 
-        {queries.length > 0 && (
+        {/* Recruiter-facing pass progress (no payloads / no JSON) */}
+        {!developerMode && queries.length > 0 && !loading && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-medium text-muted-foreground">Search passes:</span>
+                {queries.map((q) => (
+                  <Badge key={q.id} variant="secondary" className="gap-1">
+                    <Check className="h-3 w-3" /> {q.label.replace(/^Pass \d+: /, q.id === 'crm' ? '' : `Pass ${q.id.replace('p', '')} · `)} · {q.accepted ?? 0} kept
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Developer-only diagnostics */}
+        {developerMode && queries.length > 0 && (
+
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
