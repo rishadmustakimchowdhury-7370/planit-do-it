@@ -623,6 +623,51 @@ interface ProviderRow {
   api_key_iv: string;
 }
 
+// Internal CRM: search the tenant's own candidate database. Always runs (free) so
+// recruiters still get results when external sources fail or credits are exhausted.
+async function searchInternalCrm(admin: ReturnType<typeof createClient>, tenantId: string, criteria: Criteria, limit = 50): Promise<SearchResult> {
+  try {
+    let q = admin.from("candidates").select("*").eq("tenant_id", tenantId).limit(limit);
+    const titles = (criteria.role_titles ?? []).filter(Boolean);
+    if (titles.length) {
+      const or = titles.map((t) => `current_title.ilike.%${t.replace(/[%,]/g, "")}%`).join(",");
+      q = q.or(or);
+    }
+    const { data, error } = await q;
+    if (error) return { candidates: [], error: error.message };
+    const wantedLocs = (criteria.locations ?? []).map((l) => l.toLowerCase());
+    const candidates: UnifiedCandidate[] = ((data ?? []) as Array<Record<string, unknown>>)
+      .filter((r) => {
+        if (!wantedLocs.length) return true;
+        const loc = String(r.location ?? "").toLowerCase();
+        return wantedLocs.some((w) => loc.includes(w));
+      })
+      .map((r) => ({
+        id: `crm-${r.id}`,
+        source: "Internal CRM" as const,
+        source_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        full_name: String(r.full_name ?? ""),
+        current_title: String(r.current_title ?? ""),
+        current_company: String(r.current_company ?? ""),
+        industry: null,
+        location: String(r.location ?? ""),
+        country: null,
+        languages: [],
+        linkedin_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        email: r.email ? String(r.email) : null,
+        phone: r.phone ? String(r.phone) : null,
+        skills: Array.isArray(r.skills) ? (r.skills as string[]).slice(0, 12) : [],
+        experience_years: typeof r.experience_years === "number" ? r.experience_years : null,
+        seniority: null,
+      }));
+    return { candidates };
+  } catch (e) {
+    return { candidates: [], error: e instanceof Error ? e.message : "CRM search failed" };
+  }
+}
+
+
+
 interface ProviderPassDiagnostic {
   provider: "lusha" | "vibe_prospecting";
   records: number;
