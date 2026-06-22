@@ -44,9 +44,9 @@ export function TemplatesMenu<T>({ current, onLoad }: Props<T>) {
       if (!userId) throw new Error('Not signed in');
       const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('id', userId).single();
       if (!profile?.tenant_id) throw new Error('No tenant');
-      const { error } = await supabase.from('discovery_search_templates').insert({
+      const { error } = await supabase.from('discovery_search_templates').insert([{
         name: trimmed, payload: current as object, user_id: userId, tenant_id: profile.tenant_id,
-      });
+      }]);
       if (error) throw error;
       toast({ title: 'Template saved', description: trimmed });
       setName('');
