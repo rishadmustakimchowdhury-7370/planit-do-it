@@ -2350,6 +2350,54 @@ export type Database = {
         }
         Relationships: []
       }
+      discovery_search_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          payload: Json
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          payload: Json
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          payload?: Json
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      discovery_synonym_cache: {
+        Row: {
+          synonyms: string[]
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          synonyms?: string[]
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          synonyms?: string[]
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_accounts: {
         Row: {
           created_at: string | null
