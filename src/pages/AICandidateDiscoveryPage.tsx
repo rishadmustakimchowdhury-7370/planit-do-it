@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,11 @@ import {
   Sparkles, Send, Paperclip, Loader2, AlertCircle, FileText, X, MapPin,
   Briefcase, Wrench, Calendar, Search,
 } from 'lucide-react';
+import { LocationPicker, type DiscoveryLocation } from '@/components/discovery/LocationPicker';
+import { SkillsBuilder, type SkillsValue } from '@/components/discovery/SkillsBuilder';
+import { ChipList } from '@/components/discovery/ChipList';
+import { SearchPreview } from '@/components/discovery/SearchPreview';
+import { TemplatesMenu } from '@/components/discovery/TemplatesMenu';
 
 interface Criteria {
   role_titles?: string[];
