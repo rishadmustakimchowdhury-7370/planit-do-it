@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,11 @@ import {
   Sparkles, Send, Paperclip, Loader2, AlertCircle, FileText, X, MapPin,
   Briefcase, Wrench, Calendar, Search,
 } from 'lucide-react';
+import { LocationPicker, type DiscoveryLocation } from '@/components/discovery/LocationPicker';
+import { SkillsBuilder, type SkillsValue } from '@/components/discovery/SkillsBuilder';
+import { ChipList } from '@/components/discovery/ChipList';
+import { SearchPreview } from '@/components/discovery/SearchPreview';
+import { TemplatesMenu } from '@/components/discovery/TemplatesMenu';
 
 interface Criteria {
   role_titles?: string[];
@@ -168,112 +174,213 @@ export default function AICandidateDiscoveryPage() {
             <div className="rounded-md bg-primary/10 p-2"><Sparkles className="h-5 w-5 text-primary" /></div>
             <div>
               <h1 className="text-xl font-semibold tracking-tight">AI Candidate Discovery</h1>
-              <p className="text-sm text-muted-foreground">Describe the role, paste a JD, or upload a file. AI extracts the search criteria for you.</p>
+              <p className="text-sm text-muted-foreground">Describe the role, paste a JD, or use the recruiter-grade filter builder.</p>
             </div>
           </div>
         </header>
 
-        <div ref={transcriptRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {turns.length === 0 && (
-            <div className="text-center space-y-6 py-12">
-              <div className="mx-auto rounded-full bg-primary/10 h-16 w-16 flex items-center justify-center">
-                <Sparkles className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-lg font-medium">What kind of candidate are you looking for?</h2>
-                <p className="text-sm text-muted-foreground mt-1">Try one of these examples:</p>
-              </div>
-              <div className="grid gap-2 max-w-xl mx-auto">
-                {EXAMPLES.map((ex) => (
-                  <button
-                    key={ex}
-                    onClick={() => send(ex)}
-                    className="text-left rounded-lg border bg-card hover:bg-accent transition-colors px-4 py-3 text-sm"
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {turns.map((t) => t.role === 'user' ? (
-            <div key={t.id} className="flex justify-end">
-              <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl px-4 py-2.5 space-y-1">
-                {t.text && <p className="text-sm whitespace-pre-wrap">{t.text}</p>}
-                {t.fileName && (
-                  <div className="flex items-center gap-1.5 text-xs opacity-90"><FileText className="h-3.5 w-3.5" />{t.fileName}</div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div key={t.id} className="flex justify-start">
-              <div className="max-w-[90%] w-full space-y-3">
-                {t.error ? (
-                  <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription className="whitespace-pre-wrap">{t.error}</AlertDescription></Alert>
-                ) : (
-                  <>
-                    {t.extractedPreview && (
-                      <details className="rounded-lg border bg-muted/30 text-sm">
-                        <summary className="cursor-pointer px-3 py-2 font-medium flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Extracted text preview ({t.extractedChars?.toLocaleString() ?? 0} chars)
-                        </summary>
-                        <pre className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs max-h-64 overflow-y-auto">{t.extractedPreview}</pre>
-                      </details>
-                    )}
-                    {t.criteria && <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />}
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {sending && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Analysing your request…
-            </div>
-          )}
-        </div>
-
-        <div className="border-t bg-background/95 backdrop-blur px-6 py-4">
-          {file && (
-            <div className="flex items-center justify-between mb-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm">
-              <div className="flex items-center gap-2 truncate"><FileText className="h-4 w-4 text-muted-foreground" /><span className="truncate">{file.name}</span></div>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFile(null)}><X className="h-3.5 w-3.5" /></Button>
-            </div>
-          )}
-          <div className="relative rounded-2xl border bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring">
-            <Textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Describe the candidate you need, or paste a job description…"
-              className="min-h-[60px] max-h-48 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 pr-24 pb-12"
-              disabled={sending}
-            />
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-              <input
-                ref={fileInputRef} type="file" className="hidden"
-                accept=".pdf,.docx,.doc,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-              />
-              <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={sending} className="gap-1.5">
-                <Paperclip className="h-4 w-4" /> Upload JD
-              </Button>
-              <Button type="button" size="sm" onClick={() => send()} disabled={sending || (!prompt.trim() && !file)} className="gap-1.5">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send
-              </Button>
-            </div>
+        <Tabs defaultValue="chat" className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-6 pt-3">
+            <TabsList>
+              <TabsTrigger value="chat">AI Chat</TabsTrigger>
+              <TabsTrigger value="builder">Advanced Builder</TabsTrigger>
+            </TabsList>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2 text-center">
-            Enter to send · Shift+Enter for newline · PDF, DOCX, TXT supported (max 5 MB)
-          </p>
-        </div>
+
+          <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden m-0">
+            <div ref={transcriptRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+              {turns.length === 0 && (
+                <div className="text-center space-y-6 py-12">
+                  <div className="mx-auto rounded-full bg-primary/10 h-16 w-16 flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-medium">What kind of candidate are you looking for?</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Try one of these examples:</p>
+                  </div>
+                  <div className="grid gap-2 max-w-xl mx-auto">
+                    {EXAMPLES.map((ex) => (
+                      <button
+                        key={ex}
+                        onClick={() => send(ex)}
+                        className="text-left rounded-lg border bg-card hover:bg-accent transition-colors px-4 py-3 text-sm"
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {turns.map((t) => t.role === 'user' ? (
+                <div key={t.id} className="flex justify-end">
+                  <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl px-4 py-2.5 space-y-1">
+                    {t.text && <p className="text-sm whitespace-pre-wrap">{t.text}</p>}
+                    {t.fileName && (
+                      <div className="flex items-center gap-1.5 text-xs opacity-90"><FileText className="h-3.5 w-3.5" />{t.fileName}</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div key={t.id} className="flex justify-start">
+                  <div className="max-w-[90%] w-full space-y-3">
+                    {t.error ? (
+                      <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription className="whitespace-pre-wrap">{t.error}</AlertDescription></Alert>
+                    ) : (
+                      <>
+                        {t.extractedPreview && (
+                          <details className="rounded-lg border bg-muted/30 text-sm">
+                            <summary className="cursor-pointer px-3 py-2 font-medium flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Extracted text preview ({t.extractedChars?.toLocaleString() ?? 0} chars)
+                            </summary>
+                            <pre className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs max-h-64 overflow-y-auto">{t.extractedPreview}</pre>
+                          </details>
+                        )}
+                        {t.criteria && <CriteriaCard criteria={t.criteria} onSearch={() => runSearch(t.criteria!)} />}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {sending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Analysing your request…
+                </div>
+              )}
+            </div>
+
+            <div className="border-t bg-background/95 backdrop-blur px-6 py-4">
+              {file && (
+                <div className="flex items-center justify-between mb-2 rounded-md border bg-muted/40 px-3 py-1.5 text-sm">
+                  <div className="flex items-center gap-2 truncate"><FileText className="h-4 w-4 text-muted-foreground" /><span className="truncate">{file.name}</span></div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFile(null)}><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              )}
+              <div className="relative rounded-2xl border bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                <Textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  placeholder="Describe the candidate you need, or paste a job description…"
+                  className="min-h-[60px] max-h-48 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 pr-24 pb-12"
+                  disabled={sending}
+                />
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                  <input
+                    ref={fileInputRef} type="file" className="hidden"
+                    accept=".pdf,.docx,.doc,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                    onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+                  />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={sending} className="gap-1.5">
+                    <Paperclip className="h-4 w-4" /> Upload JD
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => send()} disabled={sending || (!prompt.trim() && !file)} className="gap-1.5">
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Send
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                Enter to send · Shift+Enter for newline · PDF, DOCX, TXT supported (max 5 MB)
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="builder" className="flex-1 overflow-y-auto m-0 px-6 py-6">
+            <AdvancedBuilder onSearch={runSearch} />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
+  );
+}
+
+interface BuilderState {
+  location: DiscoveryLocation | null;
+  roleTitles: string[];
+  skills: SkillsValue;
+  languages: string[];
+  industries: string[];
+}
+
+const EMPTY_BUILDER: BuilderState = {
+  location: null,
+  roleTitles: [],
+  skills: { required: [], optional: [] },
+  languages: [],
+  industries: [],
+};
+
+function AdvancedBuilder({ onSearch }: { onSearch: (c: Criteria) => void }) {
+  const [state, setState] = useState<BuilderState>(EMPTY_BUILDER);
+
+  const toCriteria = (s: BuilderState): Criteria => {
+    const locations: string[] = [];
+    if (s.location?.city) locations.push(s.location.city);
+    if (s.location?.state) locations.push(s.location.state);
+    if (s.location?.country) locations.push(s.location.country);
+    const skillsFlat: string[] = [];
+    s.skills.required.forEach((g) => g.forEach((t) => !skillsFlat.includes(t) && skillsFlat.push(t)));
+    s.skills.optional.forEach((t) => !skillsFlat.includes(t) && skillsFlat.push(t));
+    return {
+      role_titles: s.roleTitles,
+      skills: skillsFlat,
+      locations,
+      industries: s.industries,
+      languages: s.languages,
+      keywords: [],
+    };
+  };
+
+  const canSearch = state.location || state.roleTitles.length || state.skills.required.length;
+
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-medium">Recruiter Search Builder</h2>
+        <TemplatesMenu current={state} onLoad={(p) => setState({ ...EMPTY_BUILDER, ...(p as BuilderState) })} />
+      </div>
+
+      <Card>
+        <CardContent className="pt-6 space-y-5">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Location</label>
+            <LocationPicker value={state.location} onChange={(v) => setState({ ...state, location: v })} />
+          </div>
+          <ChipList
+            label="Role titles" hint="(OR)"
+            placeholder="e.g. Operations Manager, Head of Operations"
+            values={state.roleTitles}
+            onChange={(v) => setState({ ...state, roleTitles: v })}
+          />
+          <SkillsBuilder value={state.skills} onChange={(v) => setState({ ...state, skills: v })} />
+          <ChipList
+            label="Languages" hint="(OR)" placeholder="e.g. Russian, Arabic"
+            values={state.languages} onChange={(v) => setState({ ...state, languages: v })}
+          />
+          <ChipList
+            label="Industries" hint="(OR)" placeholder="e.g. Commodity Trading, Shipping"
+            values={state.industries} onChange={(v) => setState({ ...state, industries: v })}
+          />
+        </CardContent>
+      </Card>
+
+      <SearchPreview
+        location={state.location}
+        skills={state.skills}
+        languages={state.languages}
+        industries={state.industries}
+      />
+
+      <div className="flex justify-end">
+        <Button size="lg" disabled={!canSearch} onClick={() => onSearch(toCriteria(state))} className="gap-2">
+          <Search className="h-4 w-4" /> Search Candidates
+        </Button>
+      </div>
+    </div>
   );
 }
 
