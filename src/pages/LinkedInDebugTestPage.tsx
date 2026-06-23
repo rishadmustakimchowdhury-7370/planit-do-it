@@ -69,12 +69,21 @@ export default function LinkedInDebugTestPage() {
                   <TableRow><TableCell colSpan={5} className="py-10 text-center"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading candidates…</TableCell></TableRow>
                 ) : rows.map((row) => {
                   const normalized = normalizeLinkedInUrl(row.linkedin_url);
+                  const stored = (row.linkedin_url ?? '').trim();
+                  const canonical = !!normalized && normalized === stored;
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">{row.full_name}</TableCell>
-                      <TableCell className="max-w-md truncate text-sm text-muted-foreground">{normalized ?? row.linkedin_url ?? '—'}</TableCell>
+                      <TableCell className="max-w-md text-sm text-muted-foreground">
+                        <div className="space-y-1">
+                          <div className="truncate"><span className="text-foreground/70">Stored:</span> {stored || '—'}</div>
+                          {normalized && !canonical && <div className="truncate"><span className="text-foreground/70">Canonical:</span> {normalized}</div>}
+                        </div>
+                      </TableCell>
                       <TableCell>
-                        {normalized ? <Badge>Valid</Badge> : row.linkedin_url ? <Badge variant="destructive">Invalid</Badge> : <Badge variant="secondary">Missing</Badge>}
+                        {normalized
+                          ? (canonical ? <Badge>Canonical</Badge> : <Badge variant="outline">Needs repair</Badge>)
+                          : row.linkedin_url ? <Badge variant="destructive">Invalid</Badge> : <Badge variant="secondary">Missing</Badge>}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{row.source ?? 'CRM'}</TableCell>
                       <TableCell className="text-right">

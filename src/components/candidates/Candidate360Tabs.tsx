@@ -14,6 +14,7 @@ import { Loader2, Mic, Square, Trash2, Briefcase, Star, Award, Trophy } from 'lu
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkAsPlacementDialog } from '@/components/placements/MarkAsPlacementDialog';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
 
 type Candidate = {
   id: string;
@@ -65,7 +66,7 @@ export function CandidateOverviewTab({ candidate }: { candidate: Candidate }) {
           <Row label="Location" value={candidate.location} />
           <Row label="Email" value={candidate.email} />
           <Row label="Phone" value={candidate.phone} />
-          <Row label="LinkedIn" value={candidate.linkedin_url} isLink />
+          <Row label="LinkedIn" value={normalizeLinkedInUrl(candidate.linkedin_url)} isLink />
           <Row label="In system since" value={format(new Date(candidate.created_at), 'PP')} />
           {candidate.summary && (
             <div>

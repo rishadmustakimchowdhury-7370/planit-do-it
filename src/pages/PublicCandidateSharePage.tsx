@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Briefcase, MapPin, Linkedin, FileDown, Calendar, GraduationCap, Sparkles, Lock, Clock } from 'lucide-react';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
 
 type ShareData = {
   share: { id: string; shared_at: string; recruiter_summary: string | null; ai_insights: any; branded_cv_url: string | null; expires_at: string | null };
@@ -121,8 +122,8 @@ export default function PublicCandidateSharePage() {
                 <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
                   {c.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {c.location}</span>}
                   {c.experience_years != null && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" /> {c.experience_years} yrs experience</span>}
-                  {c.linkedin_url && (
-                    <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
+                  {normalizeLinkedInUrl(c.linkedin_url) && (
+                    <a href={normalizeLinkedInUrl(c.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
                       <Linkedin className="h-3 w-3" /> LinkedIn
                     </a>
                   )}
