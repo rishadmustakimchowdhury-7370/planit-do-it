@@ -135,20 +135,52 @@ export default function AICandidateResultsPage() {
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState<Set<string>>(new Set());
 
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]);
+      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]); setFallbackNotice(null);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
         body: { criteria, limit: 25, mode },
       });
       if (cancelled) return;
-      if (error) { setErrorMsg(error.message); setRows([]); setLoading(false); return; }
-      if (data?.error) { setErrorMsg(data.error); setRows([]); setLoading(false); return; }
-      setRows((data?.candidates ?? []) as ResultRow[]);
-      setProviderErrors(data?.errors ?? {});
+
+      const primaryCandidates = (data?.candidates ?? []) as ResultRow[];
+      const providerErrs = (data?.errors ?? {}) as Record<string, string>;
+      const allProvidersFailed = Object.keys(providerErrs).length > 0 && primaryCandidates.length === 0;
+      const noResults = !error && !data?.error && primaryCandidates.length === 0;
+
+      // Auto-fallback to Open Web Candidate Discovery when providers are exhausted/unavailable or returned nothing.
+      if (error || data?.error || allProvidersFailed || noResults) {
+        const reason = error?.message
+          || data?.error
+          || (allProvidersFailed ? 'All search providers returned errors (credits, rate limits, or not connected).' : 'Providers returned no results.');
+        try {
+          const { data: ow, error: owErr } = await supabase.functions.invoke('open-web-candidate-discovery', {
+            body: { criteria, mode, limit: mode === 'strict' ? 50 : mode === 'broad' ? 100 : 75 },
+          });
+          if (cancelled) return;
+          if (owErr) throw new Error(owErr.message);
+          if (ow?.error) throw new Error(ow.error);
+          setRows((ow?.candidates ?? []) as ResultRow[]);
+          setProviderErrors(providerErrs);
+          setQueries(data?.queries ?? []);
+          setFallbackNotice(
+            `Provider unavailable (${reason}). HireMetrics AI has automatically switched to Open Web Discovery and is sourcing candidates from public web data.`,
+          );
+          setLoading(false);
+          return;
+        } catch (owErr) {
+          setErrorMsg(error?.message || data?.error || (owErr instanceof Error ? owErr.message : 'Search failed'));
+          setRows([]); setLoading(false); return;
+        }
+      }
+
+      setRows(primaryCandidates);
+      setProviderErrors(providerErrs);
       setQueries(data?.queries ?? []);
-      if (data?.message && (!data?.candidates || data.candidates.length === 0)) setErrorMsg(data.message);
+      if (data?.message && primaryCandidates.length === 0) setErrorMsg(data.message);
       setLoading(false);
     })();
     return () => { cancelled = true; };
