@@ -44,6 +44,7 @@ const CandidateDiscoveryPage = lazy(() => import("./pages/CandidateDiscoveryPage
 const AICandidateDiscoveryPage = lazy(() => import("./pages/AICandidateDiscoveryPage"));
 const AICandidateResultsPage = lazy(() => import("./pages/AICandidateResultsPage"));
 const LinkedInDebugTestPage = lazy(() => import("./pages/LinkedInDebugTestPage"));
+const LinkedInOpenTestPage = lazy(() => import("./pages/LinkedInOpenTestPage"));
 const CandidateSourceDashboardPage = lazy(() => import("./pages/CandidateSourceDashboardPage"));
 const InternalCrmSearchPage = lazy(() => import("./pages/InternalCrmSearchPage"));
 const TutorialVideosPage = lazy(() => import("./pages/TutorialVideosPage"));
@@ -221,6 +222,7 @@ const AppRoutes = () => (
       <Route path="/candidate-discovery/ai" element={<ProtectedRoute><AICandidateDiscoveryPage /></ProtectedRoute>} />
       <Route path="/candidate-discovery/results" element={<ProtectedRoute><AICandidateResultsPage /></ProtectedRoute>} />
       <Route path="/candidate-discovery/linkedin-debug" element={<ProtectedRoute><LinkedInDebugTestPage /></ProtectedRoute>} />
+      <Route path="/linkedin-open-test" element={<LinkedInOpenTestPage />} />
       <Route path="/candidate-discovery/sources" element={<ProtectedRoute><CandidateSourceDashboardPage /></ProtectedRoute>} />
       <Route path="/candidate-discovery/internal" element={<ProtectedRoute><InternalCrmSearchPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamMembersPage /></ProtectedRoute>} />
