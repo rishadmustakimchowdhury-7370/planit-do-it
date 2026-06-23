@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 import {
   MapPin, Mail, MessageCircle, FileText, Download, Eye, Sparkles,
   Send, Share2, Calendar, StickyNote, ChevronDown, CheckCircle2,
@@ -98,7 +99,7 @@ export function CandidateWorkflowPanel({
         .maybeSingle();
       if (!cancelled && data) {
         setCvFileUrl(data.cv_file_url ?? null);
-        setLinkedinUrl(data.linkedin_url ?? null);
+        setLinkedinUrl(normalizeLinkedInUrl(data.linkedin_url));
       }
     })();
     return () => { cancelled = true; };
@@ -302,10 +303,10 @@ export function CandidateWorkflowPanel({
                     Full profile <ExternalLink className="w-3 h-3" />
                   </Link>
                   {linkedinUrl && (
-                    <a href={linkedinUrl} target="_blank" rel="noreferrer"
+                    <button type="button" onClick={() => openLinkedInUrl(linkedinUrl)}
                       className="text-xs text-[#0077B5] hover:underline inline-flex items-center gap-1">
                       <Linkedin className="w-3 h-3" /> LinkedIn
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
