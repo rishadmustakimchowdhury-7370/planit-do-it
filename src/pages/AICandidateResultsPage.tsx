@@ -16,6 +16,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
+
 import {
   ArrowLeft, ArrowUpDown, BookmarkPlus, Download, ExternalLink, Mail, Phone,
   Linkedin, Sparkles, Loader2, AlertCircle, Bug, Check, X as XIcon,
@@ -462,8 +464,14 @@ export default function AICandidateResultsPage() {
                       <div className="flex gap-2">
                         {r.email && <a href={`mailto:${r.email}`} title={r.email} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
                         {r.phone && <a href={`tel:${r.phone}`} title={r.phone} className="text-muted-foreground hover:text-foreground"><Phone className="h-4 w-4" /></a>}
-                        {r.linkedin_url && <a href={r.linkedin_url} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>}
-                        {!r.email && !r.phone && !r.linkedin_url && <span className="text-xs text-muted-foreground">—</span>}
+                        {(() => {
+                          const li = normalizeLinkedInUrl(r.linkedin_url);
+                          return li ? (
+                            <a href={li} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>
+                          ) : null;
+                        })()}
+                        {!r.email && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">—</span>}
+
                       </div>
                     </TableCell>
 

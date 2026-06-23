@@ -269,7 +269,7 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promis
         location,
         country: p.country_name ?? null,
         languages: [],
-        linkedin_url: linkedin,
+        linkedin_url: normalizeLinkedInUrlServer(linkedin),
         email: null,
         phone: null,
         skills: Array.isArray(p.skills) ? p.skills.slice(0, 12) : [],
@@ -375,7 +375,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
         location,
         country: loc.country ?? null,
         languages: [],
-        linkedin_url: linkedin,
+        linkedin_url: normalizeLinkedInUrlServer(linkedin),
         email: null,
         phone: null,
         skills: [],
@@ -390,12 +390,50 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
   }
 }
 
+// ---------------- LinkedIn URL normalization ------------------------------
+function normalizeLinkedInUrlServer(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let s = raw.trim();
+  if (!s) return null;
+  const md = s.match(/\((https?:[^)]+)\)/i);
+  if (md) s = md[1];
+  if (s.startsWith("//")) s = "https:" + s;
+  if (/^linkedin\.com|^www\.linkedin\.com|^[a-z]{2}\.linkedin\.com/i.test(s)) s = "https://" + s;
+  if (s.startsWith("/in/")) s = "https://www.linkedin.com" + s;
+  let url: URL;
+  try { url = new URL(s); } catch { return null; }
+  if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
+  url.hostname = "www.linkedin.com";
+  url.protocol = "https:";
+  url.search = "";
+  url.hash = "";
+  const m = url.pathname.match(/^\/in\/([^/?#]+)\/?/i);
+  if (!m) return null;
+  url.pathname = `/in/${m[1]}`;
+  return url.toString();
+}
+
 // ---------------- Hard pre-ranking filters --------------------------------
 function tokenize(s: string): string[] {
   return (s ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
 }
 
-function passesHardFilters(c: UnifiedCandidate, criteria: Criteria, requiredCountries: string[]): boolean {
+type IndustryMode = "strict" | "preferred" | "open";
+
+function isTransferableIndustry(c: UnifiedCandidate, criteria: Criteria): boolean {
+  const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
+  if (!wantedIndustryTokens.length) return false;
+  const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
+  const directMatch = wantedIndustryTokens.some((t) => haystack.includes(t));
+  return !directMatch; // cross-industry candidate that still passed title/location
+}
+
+function passesHardFilters(
+  c: UnifiedCandidate,
+  criteria: Criteria,
+  requiredCountries: string[],
+  industryMode: IndustryMode = "open",
+): boolean {
   // Title: at least one criterion title keyword present
   const titleTokens = new Set(tokenize(c.current_title));
   const wantedTitleTokens = (criteria.role_titles ?? []).flatMap(tokenize);
@@ -410,15 +448,18 @@ function passesHardFilters(c: UnifiedCandidate, criteria: Criteria, requiredCoun
       (c.location ? locationsToCountryCodes([c.location])[0] : null);
     if (!candCountryCode || !requiredCountries.includes(candCountryCode)) return false;
   }
-  // Industry: only filter when both sides have signal
-  const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
-  if (wantedIndustryTokens.length) {
-    const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
-    const industryOk = wantedIndustryTokens.some((t) => haystack.includes(t));
-    if (!industryOk) return false;
+  // Industry: SOFT signal by default. Only hard-filter when mode === "strict".
+  if (industryMode === "strict") {
+    const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
+    if (wantedIndustryTokens.length) {
+      const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
+      const industryOk = wantedIndustryTokens.some((t) => haystack.includes(t));
+      if (!industryOk) return false;
+    }
   }
   return true;
 }
+
 
 // ---------------- OpenAI scoring ------------------------------------------
 async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[]): Promise<UnifiedCandidate[]> {
@@ -498,118 +539,141 @@ Use only data provided; never invent skills or languages.`;
 }
 
 // ---------------- Open Web Discovery (fallback) ---------------------------
-// Uses OpenAI's web-search-enabled model to source REAL public profiles
-// (LinkedIn, GitHub, conference pages, personal sites) when external
-// providers (Apollo / Lusha / Vibe) are unavailable or out of credits.
+// Multi-pass web search: generates 5-10 boolean variations, runs them in
+// parallel batches, deduplicates by LinkedIn URL, and re-ranks. Used when
+// Apollo / Lusha / Vibe are unavailable, exhausted, or return zero.
+
+
 async function searchOpenWeb(
   criteria: Criteria,
   limit: number,
-): Promise<{ candidates: UnifiedCandidate[]; error?: string; debug?: { query: string } }> {
+): Promise<{ candidates: UnifiedCandidate[]; error?: string; debug?: { query: string; passes: number } }> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) return { candidates: [], error: "OpenAI key not configured" };
 
-  const titles = (criteria.role_titles ?? []).slice(0, 3);
-  const locations = (criteria.locations ?? []).slice(0, 3);
-  const skills = (criteria.skills ?? []).slice(0, 5);
-  const queryHint = [
-    titles.length ? `(${titles.map((t) => `"${t}"`).join(" OR ")})` : "",
-    locations.length ? `(${locations.map((l) => `"${l}"`).join(" OR ")})` : "",
-    skills.length ? skills.map((s) => `"${s}"`).join(" ") : "",
-  ].filter(Boolean).join(" ");
+  const titles = (criteria.role_titles ?? []).filter(Boolean).slice(0, 5);
+  const locations = (criteria.locations ?? []).filter(Boolean).slice(0, 3);
+  const skills = (criteria.skills ?? []).filter(Boolean).slice(0, 6);
+  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 3);
 
-  const system = `You are a senior recruitment sourcing assistant. Use web search to find up to ${limit} REAL public professional profiles matching the recruiter's criteria.
+  // Build 5-10 boolean variations: title × location × (skill or industry).
+  const variations: string[] = [];
+  const locTokens = locations.length ? locations : [""];
+  const titleVariants = uniq([
+    ...titles,
+    ...titles.flatMap((t) => [
+      t.replace(/manager/i, "Specialist"),
+      t.replace(/manager/i, "Executive"),
+      t.replace(/manager/i, "Lead"),
+      `Head of ${t.replace(/^Head of /i, "")}`,
+    ]),
+  ]).filter(Boolean).slice(0, 5);
 
-PRIORITISE these sources (in order):
-1. LinkedIn public profiles (linkedin.com/in/...)
-2. Company "About / Team / People" pages on official corporate websites
-3. Professional directories (Crunchbase, Bloomberg executives, F6S, AngelList)
-4. Industry association member pages and conference speaker listings
-5. Reputable personal portfolio / GitHub / About.me pages
+  for (const t of titleVariants) {
+    for (const loc of locTokens) {
+      const tail = skills[0] ?? industries[0] ?? "";
+      const q = [`site:linkedin.com/in`, `"${t}"`, loc ? `"${loc}"` : "", tail ? `"${tail}"` : ""].filter(Boolean).join(" ");
+      variations.push(q);
+      if (variations.length >= 10) break;
+    }
+    if (variations.length >= 10) break;
+  }
+  // Fallback variation if nothing built
+  if (variations.length === 0) {
+    variations.push(`site:linkedin.com/in ${[...titles, ...locations, ...skills].slice(0, 5).map((x) => `"${x}"`).join(" ")}`);
+  }
 
-AVOID: generic blog posts, news mentions without a profile link, social media posts, press releases, job boards.
+  const perPassLimit = Math.max(5, Math.ceil(limit / Math.max(1, Math.min(variations.length, 3))));
 
-For EACH candidate, extract as much structured detail as the public profile reveals:
-- full_name
-- headline (LinkedIn-style one-liner)
-- current_title
-- current_company
-- industry (e.g. "Commodity Trading", "Shipping", "Freight Forwarding")
-- location (City, Country)
-- profile_url (LinkedIn preferred; otherwise the canonical professional page)
-- linkedin_url (if different from profile_url, else same)
-- skills (array of 5-12 concrete skills/tools)
-- experience_summary (2-3 lines covering past roles & companies)
-- education (degree + institution if visible, else null)
-- languages (array, else [])
-- confidence (0-100, based on profile completeness & match strength)
-- why (one sentence explaining the match)
-
-Do NOT invent profiles, names, companies or URLs — every entry must be traceable to a real web result.
-Return ONLY a JSON object wrapped in \`\`\`json fences:
+  const system = `You are a senior recruitment sourcing assistant. Use web search to find REAL public LinkedIn profiles for the given boolean query.
+Return up to ${perPassLimit} candidates. Each must have a real linkedin.com/in/<slug> URL.
+PRIORITISE LinkedIn member profiles. AVOID generic blog posts, job boards, press releases.
+For each candidate provide: full_name, headline, current_title, current_company, industry, location, profile_url, linkedin_url, skills[], experience_summary, education, languages[], confidence (0-100), why.
+Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
 {"candidates":[{"full_name":"","headline":"","current_title":"","current_company":"","industry":"","location":"","profile_url":"","linkedin_url":"","skills":[],"experience_summary":"","education":"","languages":[],"confidence":0,"why":""}]}`;
 
-  const user = `Criteria:\n${JSON.stringify(criteria)}\n\nBoolean hint: ${queryHint}\nReturn at most ${limit} HIGH-QUALITY candidates. Quality beats quantity.`;
-
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-search-preview",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      console.error("[openweb] OpenAI error", res.status, text.slice(0, 300));
-      return { candidates: [], error: `Open web search failed (${res.status})`, debug: { query: queryHint } };
+  async function runOne(query: string): Promise<UnifiedCandidate[]> {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4o-search-preview",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: `Boolean query:\n${query}\n\nCriteria context:\n${JSON.stringify({ titles, locations, skills, industries })}` },
+          ],
+        }),
+      });
+      const text = await res.text();
+      if (!res.ok) { console.warn("[openweb] pass failed", res.status, text.slice(0, 200)); return []; }
+      const data = JSON.parse(text);
+      const content: string = data?.choices?.[0]?.message?.content ?? "";
+      const m = content.match(/```json\s*([\s\S]+?)\s*```/i) ?? content.match(/(\{[\s\S]+\})/);
+      if (!m) return [];
+      const parsed = JSON.parse(m[1]);
+      const raw: unknown[] = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+      return raw.map((r, i) => {
+        const o = r as Record<string, unknown>;
+        const url = typeof o.profile_url === "string" ? o.profile_url : null;
+        const liRaw = typeof o.linkedin_url === "string" ? o.linkedin_url : (url && url.includes("linkedin.com") ? url : null);
+        const li = normalizeLinkedInUrlServer(liRaw);
+        const conf = Math.max(0, Math.min(100, Number(o.confidence ?? 65)));
+        const why = typeof o.why === "string" ? o.why : "";
+        const skillsArr = Array.isArray(o.skills) ? (o.skills as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 12) : [];
+        const languages = Array.isArray(o.languages) ? (o.languages as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 8) : [];
+        return {
+          id: `openweb-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+          source: li ? "LinkedIn" : "Open Web Discovery",
+          source_url: li ?? url,
+          full_name: String(o.full_name ?? "").trim(),
+          headline: typeof o.headline === "string" ? o.headline : null,
+          current_title: String(o.current_title ?? "").trim(),
+          current_company: String(o.current_company ?? "").trim(),
+          industry: typeof o.industry === "string" ? o.industry : null,
+          location: String(o.location ?? "").trim(),
+          languages,
+          linkedin_url: li,
+          skills: skillsArr,
+          experience_summary: typeof o.experience_summary === "string" ? o.experience_summary : null,
+          education: typeof o.education === "string" ? o.education : null,
+          confidence: conf,
+          matchScore: conf,
+          matchReasons: why ? [`✓ ${why}`] : ["✓ Public web signal match"],
+          matchMissing: [],
+        } as UnifiedCandidate;
+      }).filter((c) => c.full_name && (c.linkedin_url || c.source_url));
+    } catch (e) {
+      console.warn("[openweb] pass error", e instanceof Error ? e.message : e);
+      return [];
     }
-    const data = JSON.parse(text);
-    const content: string = data?.choices?.[0]?.message?.content ?? "";
-    const m = content.match(/```json\s*([\s\S]+?)\s*```/i) ?? content.match(/(\{[\s\S]+\})/);
-    if (!m) return { candidates: [], error: "Open web returned no usable JSON", debug: { query: queryHint } };
-    const parsed = JSON.parse(m[1]);
-    const raw: unknown[] = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
-    const cands: UnifiedCandidate[] = raw.slice(0, limit).map((r, i) => {
-      const o = r as Record<string, unknown>;
-      const url = typeof o.profile_url === "string" ? o.profile_url : null;
-      const li = typeof o.linkedin_url === "string" ? o.linkedin_url : (url && url.includes("linkedin.com") ? url : null);
-      const conf = Math.max(0, Math.min(100, Number(o.confidence ?? 65)));
-      const why = typeof o.why === "string" ? o.why : "";
-      const skills = Array.isArray(o.skills) ? (o.skills as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 12) : [];
-      const languages = Array.isArray(o.languages) ? (o.languages as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 8) : [];
-      // Treat LinkedIn-sourced profiles as their own source for clarity.
-      const isLinkedIn = !!li && /linkedin\.com\/in\//i.test(li);
-      return {
-        id: `openweb-${Date.now()}-${i}`,
-        source: isLinkedIn ? "LinkedIn" : "Open Web Discovery",
-        source_url: url,
-        full_name: String(o.full_name ?? "").trim(),
-        headline: typeof o.headline === "string" ? o.headline : null,
-        current_title: String(o.current_title ?? "").trim(),
-        current_company: String(o.current_company ?? "").trim(),
-        industry: typeof o.industry === "string" ? o.industry : null,
-        location: String(o.location ?? "").trim(),
-        languages,
-        linkedin_url: li,
-        skills,
-        experience_summary: typeof o.experience_summary === "string" ? o.experience_summary : null,
-        education: typeof o.education === "string" ? o.education : null,
-        confidence: conf,
-        matchScore: conf,
-        matchReasons: why ? [`✓ ${why}`] : ["✓ Public web signal match"],
-        matchMissing: [],
-      } as UnifiedCandidate;
-    }).filter((c) => c.full_name && c.source_url);
-    console.log(`[openweb] returned ${cands.length} public profiles`);
-    return { candidates: cands, debug: { query: queryHint } };
-  } catch (e) {
-    return { candidates: [], error: e instanceof Error ? e.message : "Open web search failed", debug: { query: queryHint } };
   }
+
+  // Run in parallel batches of 5 to control concurrency.
+  const all: UnifiedCandidate[] = [];
+  const batchSize = 5;
+  for (let i = 0; i < variations.length; i += batchSize) {
+    const batch = variations.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(runOne));
+    for (const r of results) all.push(...r);
+    if (all.length >= limit * 2) break; // enough raw; dedupe will trim
+  }
+
+  // Dedupe by normalized LinkedIn URL (fallback: name|company)
+  const seen = new Set<string>();
+  const deduped = all.filter((c) => {
+    const key = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Sort by confidence and trim to limit
+  const final = deduped.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0)).slice(0, limit);
+  console.log(`[openweb] ${variations.length} passes -> ${all.length} raw -> ${deduped.length} unique -> ${final.length} returned`);
+  return { candidates: final, debug: { query: variations.join(" || "), passes: variations.length } };
 }
+
 
 // ---------------- Multi-pass search strategy ------------------------------
 interface SearchPass {
@@ -781,7 +845,7 @@ async function searchInternalCrm(admin: ReturnType<typeof createClient>, tenantI
         location: String(r.location ?? ""),
         country: null,
         languages: [],
-        linkedin_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        linkedin_url: r.linkedin_url ? normalizeLinkedInUrlServer(String(r.linkedin_url)) : null,
         email: r.email ? String(r.email) : null,
         phone: r.phone ? String(r.phone) : null,
         skills: Array.isArray(r.skills) ? (r.skills as string[]).slice(0, 12) : [],
@@ -940,7 +1004,7 @@ Deno.serve(async (req) => {
     const dedupe = (arr: UnifiedCandidate[]) => {
       const seen = new Set<string>();
       return arr.filter((c) => {
-        const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
+        const k = (normalizeLinkedInUrlServer(c.linkedin_url ?? undefined) || `${c.full_name}|${c.current_company}`).toLowerCase();
         if (seen.has(k)) return false;
         seen.add(k); return true;
       });
@@ -990,7 +1054,7 @@ Deno.serve(async (req) => {
     let openWebCandidates: UnifiedCandidate[] = [];
     if (shouldFallback) {
       console.log("[search] triggering Open Web Discovery fallback");
-      const ow = await searchOpenWeb(criteria, Math.min(15, perProviderLimit));
+      const ow = await searchOpenWeb(criteria, Math.max(30, perProviderLimit));
       if (ow.error) errors["open_web"] = ow.error;
       openWebCandidates = ow.candidates;
       ranQueries.push({
