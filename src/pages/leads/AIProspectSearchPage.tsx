@@ -397,9 +397,19 @@ export default function AIProspectSearchPage() {
         {result && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
+              <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
                 <span>Results ({result.total_entries})</span>
                 <div className="flex items-center gap-2 text-sm font-normal">
+                  <Button size="sm" variant="outline" onClick={saveAll} disabled={savingAll || !result.people.length}>
+                    {savingAll ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <BookmarkPlus className="w-4 h-4 mr-1" />}
+                    Save all to CRM
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadCSV} disabled={!result.people.length}>
+                    <Download className="w-4 h-4 mr-1" /> CSV
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadXLSX} disabled={!result.people.length}>
+                    <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+                  </Button>
                   <Button size="sm" variant="outline" disabled={page <= 1 || searching} onClick={() => runSearch(page - 1)}>
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -419,11 +429,13 @@ export default function AIProspectSearchPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Links</TableHead>
+                    <TableHead className="w-28">Save</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {result.people.map((p) => {
                     const linkedInUrl = normalizeLinkedInUrl(p.linkedin_url);
+                    const isSaved = saved.has(p.id);
                     return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.company.name ?? '—'}</TableCell>
@@ -436,11 +448,16 @@ export default function AIProspectSearchPage() {
                           {linkedInUrl && <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)}><Linkedin className="w-4 h-4" /></button>}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant={isSaved ? 'secondary' : 'outline'} disabled={isSaved} onClick={() => saveOne(p)}>
+                          {isSaved ? <><Check className="w-3 h-3 mr-1" /> Saved</> : <><BookmarkPlus className="w-3 h-3 mr-1" /> Save</>}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     );
                   })}
                   {result.people.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
