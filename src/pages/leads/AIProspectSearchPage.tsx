@@ -412,6 +412,9 @@ export default function AIProspectSearchPage() {
                     {savingAll ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <BookmarkPlus className="w-4 h-4 mr-1" />}
                     Save all to CRM
                   </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link to="/leads/saved"><ExternalLink className="w-4 h-4 mr-1" /> View Saved Leads</Link>
+                  </Button>
                   <Button size="sm" variant="outline" onClick={downloadCSV} disabled={!result.people.length}>
                     <Download className="w-4 h-4 mr-1" /> CSV
                   </Button>
