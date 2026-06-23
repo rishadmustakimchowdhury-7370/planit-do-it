@@ -505,6 +505,18 @@ export default function ProspectSearchPage() {
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
       <div className="space-y-6">
 
+        {fallbackNotice && (
+          <Alert>
+            <Sparkles className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Open Web Discovery active.</strong> {fallbackNotice} Results are AI-generated
+              from public web knowledge — verify before outreach.
+            </AlertDescription>
+          </Alert>
+        )}
+
+
+
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
