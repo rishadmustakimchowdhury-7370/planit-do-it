@@ -395,7 +395,6 @@ export default function ProspectSearchPage() {
     planTier === 'unknown' ? 'Unknown' :
     planTier.charAt(0).toUpperCase() + planTier.slice(1);
 
-  const [bypassFreeGate, setBypassFreeGate] = useState(false);
   if (isFree && !bypassFreeGate) {
     const currentFeatures = [
       { label: 'Connect Apollo account', available: true },
