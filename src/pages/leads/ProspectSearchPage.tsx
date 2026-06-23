@@ -221,9 +221,34 @@ export default function ProspectSearchPage() {
 
 
 
+  const runOpenWebFallback = async (reason: string) => {
+    const { data, error: invokeErr } = await supabase.functions.invoke('open-web-client-discovery', {
+      body: {
+        keywords: filters.keywords || undefined,
+        industry: filters.industry || undefined,
+        country: filters.country || undefined,
+        city: filters.city || undefined,
+        employeeRange: filters.employeeRange || undefined,
+        searchMode,
+        page: 1,
+        perPage,
+      },
+    });
+    if (invokeErr) throw new Error(invokeErr.message);
+    if (data?.error) throw new Error(data.error);
+    setResult({ ...data, source: 'open_web' } as SearchResult);
+    setMode('companies');
+    setPage(1);
+    setFallbackNotice(reason);
+    toast({
+      title: 'Open Web Discovery activated',
+      description: `${reason} Showing AI-discovered companies and decision makers.`,
+    });
+  };
+
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
     const useMode = overrideMode ?? mode;
-    setLoading(true); setError(null); setSelected(new Set());
+    setLoading(true); setError(null); setSelected(new Set()); setFallbackNotice(null);
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke('apollo-search', {
         body: {
@@ -235,11 +260,19 @@ export default function ProspectSearchPage() {
           page: newPage, perPage,
         },
       });
-      if (invokeErr) throw new Error(invokeErr.message);
+
+      // Auto-fallback to Open Web on Apollo invoke errors, rate limits, plan/credit failures, etc.
+      if (shouldFallbackToOpenWeb(data, invokeErr)) {
+        const reason = invokeErr?.message
+          || data?.error
+          || 'Apollo is currently unavailable.';
+        await runOpenWebFallback(reason);
+        return;
+      }
+
       if (data?.capabilities) setCapabilities(data.capabilities);
       if (data?.planTier) setPlanTier(data.planTier);
       if (data?.error) {
-        // Auto-fallback to companies if people search is plan-restricted
         if (data.fallback === 'companies' && useMode === 'people') {
           setMode('companies');
           toast({ title: 'Switched to Company search', description: data.error });
@@ -248,12 +281,18 @@ export default function ProspectSearchPage() {
         }
         throw new Error(data.error);
       }
-      setResult(data); setPage(newPage);
+      setResult({ ...data, source: 'apollo' } as SearchResult);
+      setPage(newPage);
       if (data?.mode && data.mode !== mode) setMode(data.mode);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Search failed';
-      setError(msg);
-      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+      // Last-resort fallback: if Apollo path throws entirely, still try Open Web.
+      try {
+        await runOpenWebFallback(e instanceof Error ? e.message : 'Apollo search failed.');
+      } catch (e2) {
+        const msg = e2 instanceof Error ? e2.message : 'Search failed';
+        setError(msg);
+        toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+      }
     } finally { setLoading(false); }
   };
 
