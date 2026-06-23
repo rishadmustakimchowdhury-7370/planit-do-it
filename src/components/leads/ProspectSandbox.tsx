@@ -379,6 +379,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                 {companies.map((c) => {
                   const busy = savingIds.has(c.id);
                   const saved = savedIds.has(c.id);
+                  const companyLinkedInUrl = normalizeLinkedInAnyUrl(c.linkedin_url);
                   return (
                     <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
                       <TableCell>
@@ -415,7 +416,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                         </a>
                       </TableCell>
                       <TableCell>
-                        <button type="button" onClick={() => openLinkedInUrl(normalizeLinkedInAnyUrl(c.linkedin_url))} className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
+                        <button type="button" onClick={() => openLinkedInUrl(companyLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
                           <Linkedin className="h-3 w-3" /> Page
                         </button>
                       </TableCell>

@@ -67,6 +67,7 @@ export default function PublicCandidateSharePage() {
   }
 
   const c = data.candidate;
+  const linkedInUrl = normalizeLinkedInUrl(c.linkedin_url);
   const skills: string[] = Array.isArray(c.skills) ? c.skills : (c.skills?.list || []);
   const workHistory: any[] = Array.isArray(c.work_history) ? c.work_history : [];
   const education: any[] = Array.isArray(c.education) ? c.education : [];
@@ -122,8 +123,8 @@ export default function PublicCandidateSharePage() {
                 <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
                   {c.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {c.location}</span>}
                   {c.experience_years != null && <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" /> {c.experience_years} yrs experience</span>}
-                  {normalizeLinkedInUrl(c.linkedin_url) && (
-                    <button type="button" onClick={() => openLinkedInUrl(c.linkedin_url)} className="flex items-center gap-1 hover:underline">
+                  {linkedInUrl && (
+                    <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)} className="flex items-center gap-1 hover:underline">
                       <Linkedin className="h-3 w-3" /> LinkedIn
                     </button>
                   )}
