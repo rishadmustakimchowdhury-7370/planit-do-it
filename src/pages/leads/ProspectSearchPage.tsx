@@ -578,6 +578,21 @@ export default function ProspectSearchPage() {
                 <Input id="city" placeholder="e.g. San Francisco"
                   value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
               </div>
+              <div className="md:col-span-3">
+                <Label>Search depth</Label>
+                <div className="inline-flex rounded-md border p-1 bg-muted/40">
+                  {(['strict', 'balanced', 'broad'] as const).map((m) => (
+                    <button key={m} type="button"
+                      className={`px-3 py-1.5 text-sm rounded capitalize ${searchMode === m ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                      onClick={() => setSearchMode(m)}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Used by Open Web Discovery when Apollo is unavailable. Strict = highly targeted · Balanced = default · Broad = maximum coverage.
+                </p>
+              </div>
               <div className="md:col-span-3 flex justify-end">
                 <Button type="submit" disabled={loading}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
