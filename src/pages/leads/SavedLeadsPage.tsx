@@ -254,11 +254,58 @@ export default function SavedLeadsPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="kanban">
+        <Tabs defaultValue="companies">
           <TabsList>
+            <TabsTrigger value="companies"><Building2 className="w-4 h-4 mr-2" />Companies ({companies.length})</TabsTrigger>
             <TabsTrigger value="kanban"><LayoutGrid className="w-4 h-4 mr-2" />Kanban</TabsTrigger>
-            <TabsTrigger value="table"><TableIcon className="w-4 h-4 mr-2" />Table</TabsTrigger>
+            <TabsTrigger value="table"><TableIcon className="w-4 h-4 mr-2" />Contacts Table</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="companies" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                {loading ? (
+                  <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Industry</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Links</TableHead>
+                        <TableHead>Saved</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companies
+                        .filter(c => !search.trim() || (c.name ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (c.domain ?? '').toLowerCase().includes(search.trim().toLowerCase()))
+                        .map(c => (
+                          <TableRow key={c.id}>
+                            <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">{c.industry ?? '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">{[c.city, c.country].filter(Boolean).join(', ') || '—'}</TableCell>
+                            <TableCell><Badge variant="outline">{c.enrichment_source ?? 'manual'}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {c.website && <a href={c.website} target="_blank" rel="noreferrer" className="text-primary"><Building2 className="w-4 h-4" /></a>}
+                                {(() => { const u = normalizeLinkedInUrl(c.linkedin_url); return u ? <button type="button" onClick={() => openLinkedInUrl(u)} className="text-primary"><Linkedin className="w-4 h-4" /></button> : null; })()}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</TableCell>
+                          </TableRow>
+                        ))}
+                      {companies.length === 0 && (
+                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No saved companies yet. Save companies from Prospect Search to see them here.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
 
           <TabsContent value="kanban" className="mt-4">
             {loading ? (
