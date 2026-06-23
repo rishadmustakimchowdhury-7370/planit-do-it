@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInAnyUrl, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 import { friendlyDiscoveryError } from '@/lib/discoveryErrors';
 
 import {
@@ -581,11 +581,18 @@ export default function AICandidateResultsPage() {
                           {importing.has(r.id) ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <BookmarkPlus className={`h-4 w-4 ${saved.has(r.id) ? 'text-success' : ''}`} />}
                         </Button>
-                        {r.source_url && (
-                          <Button variant="ghost" size="icon-sm" asChild title="Open source">
-                            <a href={r.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                          </Button>
-                        )}
+                        {r.source_url && (() => {
+                          const linkedInSourceUrl = normalizeLinkedInAnyUrl(r.source_url);
+                          return linkedInSourceUrl ? (
+                            <Button variant="ghost" size="icon-sm" type="button" title="Open source" onClick={() => openLinkedInUrl(linkedInSourceUrl)}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon-sm" asChild title="Open source">
+                              <a href={r.source_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                            </Button>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                   </TableRow>

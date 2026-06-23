@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Building2, Mail, Phone, Globe, MoreHorizontal, Loader2, Download, Upload } from 'lucide-react';
+import { Plus, Search, Building2, Mail, Phone, Globe, MoreHorizontal, Loader2, Download, Upload, Linkedin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { ExportClientsDialog } from '@/components/clients/ExportClientsDialog';
 import { ImportClientsWizard } from '@/components/clients/ImportClientsWizard';
+import { normalizeLinkedInAnyUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Client {
   id: string;
@@ -30,6 +31,7 @@ interface Client {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  linkedin_url: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -152,7 +154,9 @@ const ClientsPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredClients.map((client, index) => (
+          {filteredClients.map((client, index) => {
+            const linkedInUrl = normalizeLinkedInAnyUrl(client.linkedin_url);
+            return (
             <motion.div
               key={client.id}
               initial={{ opacity: 0, y: 20 }}
@@ -234,6 +238,19 @@ const ClientsPage = () => {
                           Website
                         </a>
                       )}
+                      {linkedInUrl && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-accent transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLinkedInUrl(linkedInUrl);
+                          }}
+                        >
+                          <Linkedin className="w-3.5 h-3.5" />
+                          LinkedIn
+                        </button>
+                      )}
                     </div>
 
                     <div className="mt-3">
@@ -245,7 +262,8 @@ const ClientsPage = () => {
                 </div>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
 
