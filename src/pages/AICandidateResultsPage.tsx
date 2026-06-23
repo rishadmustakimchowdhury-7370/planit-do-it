@@ -359,17 +359,26 @@ export default function AICandidateResultsPage() {
         </div>
 
         {/* Provider errors: shown to everyone but as a quiet info banner for non-owners */}
-        {Object.entries(providerErrors).map(([p, msg]) => (
-          <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>{p}:</strong>{' '}
-              {developerMode
-                ? msg
-                : 'temporarily unavailable — continuing with other sources.'}
-            </AlertDescription>
-          </Alert>
-        ))}
+        {Object.entries(providerErrors).map(([p, msg]) => {
+          const pretty = friendlyDiscoveryError(String(msg));
+          const label =
+            p === 'lusha' ? 'Lusha'
+            : p === 'vibe_prospecting' ? 'Vibe Prospecting'
+            : p === 'apollo' ? 'Apollo'
+            : p === 'open_web' ? 'Open Web Discovery'
+            : p === 'internal_crm' ? 'Internal CRM'
+            : p;
+          return (
+            <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>{label}:</strong>{' '}
+                {developerMode ? String(msg) : `${pretty} — continuing with other sources.`}
+              </AlertDescription>
+            </Alert>
+          );
+        })}
+
 
         {errorMsg && !loading && (
           <Alert>
