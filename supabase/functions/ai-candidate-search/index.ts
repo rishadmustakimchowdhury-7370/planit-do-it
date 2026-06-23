@@ -483,6 +483,86 @@ Use only data provided; never invent skills or languages.`;
   }
 }
 
+// ---------------- Open Web Discovery (fallback) ---------------------------
+// Uses OpenAI's web-search-enabled model to source REAL public profiles
+// (LinkedIn, GitHub, conference pages, personal sites) when external
+// providers (Apollo / Lusha / Vibe) are unavailable or out of credits.
+async function searchOpenWeb(
+  criteria: Criteria,
+  limit: number,
+): Promise<{ candidates: UnifiedCandidate[]; error?: string; debug?: { query: string } }> {
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) return { candidates: [], error: "OpenAI key not configured" };
+
+  const titles = (criteria.role_titles ?? []).slice(0, 3);
+  const locations = (criteria.locations ?? []).slice(0, 3);
+  const skills = (criteria.skills ?? []).slice(0, 5);
+  const queryHint = [
+    titles.length ? `(${titles.map((t) => `"${t}"`).join(" OR ")})` : "",
+    locations.length ? `(${locations.map((l) => `"${l}"`).join(" OR ")})` : "",
+    skills.length ? skills.map((s) => `"${s}"`).join(" ") : "",
+  ].filter(Boolean).join(" ");
+
+  const system = `You are a recruitment sourcing assistant. Use web search to find up to ${limit} REAL public professional profiles matching the recruiter's criteria.
+Search LinkedIn, GitHub, company About pages, conference speaker listings and personal sites.
+Only return people you actually found via web search results — do NOT invent profiles, names, or URLs.
+For each candidate extract: full_name, current_title, current_company, location, profile_url, confidence (0-100), and a short "why" explaining the match.
+Respond ONLY with a single JSON object wrapped in \`\`\`json fences:
+{"candidates":[{"full_name":"","current_title":"","current_company":"","location":"","profile_url":"","confidence":0,"why":""}]}`;
+
+  const user = `Criteria:\n${JSON.stringify(criteria)}\n\nBoolean hint: ${queryHint}\nReturn at most ${limit} candidates.`;
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-search-preview",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      console.error("[openweb] OpenAI error", res.status, text.slice(0, 300));
+      return { candidates: [], error: `Open web search failed (${res.status})`, debug: { query: queryHint } };
+    }
+    const data = JSON.parse(text);
+    const content: string = data?.choices?.[0]?.message?.content ?? "";
+    const m = content.match(/```json\s*([\s\S]+?)\s*```/i) ?? content.match(/(\{[\s\S]+\})/);
+    if (!m) return { candidates: [], error: "Open web returned no usable JSON", debug: { query: queryHint } };
+    const parsed = JSON.parse(m[1]);
+    const raw: unknown[] = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+    const cands: UnifiedCandidate[] = raw.slice(0, limit).map((r, i) => {
+      const o = r as Record<string, unknown>;
+      const url = typeof o.profile_url === "string" ? o.profile_url : null;
+      const conf = Math.max(0, Math.min(100, Number(o.confidence ?? 65)));
+      const why = typeof o.why === "string" ? o.why : "";
+      return {
+        id: `openweb-${Date.now()}-${i}`,
+        source: "Open Web Discovery",
+        source_url: url,
+        full_name: String(o.full_name ?? "").trim(),
+        current_title: String(o.current_title ?? "").trim(),
+        current_company: String(o.current_company ?? "").trim(),
+        location: String(o.location ?? "").trim(),
+        languages: [],
+        linkedin_url: url && url.includes("linkedin.com") ? url : null,
+        skills: [],
+        matchScore: conf,
+        matchReasons: why ? [`✓ ${why}`] : ["✓ Public web signal match"],
+        matchMissing: [],
+      } as UnifiedCandidate;
+    }).filter((c) => c.full_name && c.source_url);
+    console.log(`[openweb] returned ${cands.length} public profiles`);
+    return { candidates: cands, debug: { query: queryHint } };
+  } catch (e) {
+    return { candidates: [], error: e instanceof Error ? e.message : "Open web search failed", debug: { query: queryHint } };
+  }
+}
+
 // ---------------- Multi-pass search strategy ------------------------------
 interface SearchPass {
   id: string;
