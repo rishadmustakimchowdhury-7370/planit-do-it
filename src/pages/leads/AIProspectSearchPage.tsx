@@ -55,7 +55,18 @@ interface SearchResult {
   per_page: number;
   total_entries: number;
   total_pages: number;
+  source?: 'apollo' | 'open_web';
 }
+
+const shouldFallbackToOpenWeb = (data: any, invokeErr: any): boolean => {
+  if (invokeErr || !data) return true;
+  if (data.upgradeRequired) return true;
+  const status = data.apolloStatus;
+  if (status === 401 || status === 402 || status === 403 || status === 429 || (typeof status === 'number' && status >= 500)) return true;
+  const err = String(data.error ?? '').toLowerCase();
+  if (!err) return false;
+  return /not connected|encryption|decrypt|rate limit|credits|unavailable|free plan|inaccessible|paid apollo|apollo api 4|apollo api 5/.test(err);
+};
 
 const EXAMPLES = [
   'Find recruitment agencies in London',
