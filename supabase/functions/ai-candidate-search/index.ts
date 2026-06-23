@@ -927,14 +927,43 @@ Deno.serve(async (req) => {
       console.log(`[search] after broadening: raw=${pool.length} hard=${hardFiltered.length}`);
     }
 
-    // Score with OpenAI
+    // ---- Open Web Discovery fallback -------------------------------------
+    // Trigger when no external provider is connected, or every external
+    // provider errored / returned zero records. Internal CRM hits don't count
+    // as "external" for fallback purposes.
+    const externalProviders = connected.filter((p) => p.provider !== "internal_crm");
+    const externalCandidates = pool.filter((c) => c.source === "Lusha" || c.source === "Vibe Prospecting");
+    const externalErrored = externalProviders.length > 0
+      && externalProviders.every((p) => errors[p.provider]);
+    const shouldFallback = externalProviders.length === 0
+      || externalErrored
+      || externalCandidates.length === 0;
+
+    let openWebCandidates: UnifiedCandidate[] = [];
+    if (shouldFallback) {
+      console.log("[search] triggering Open Web Discovery fallback");
+      const ow = await searchOpenWeb(criteria, Math.min(15, perProviderLimit));
+      if (ow.error) errors["open_web"] = ow.error;
+      openWebCandidates = ow.candidates;
+      ranQueries.push({
+        id: "openweb",
+        label: "Open Web Discovery (fallback)",
+        boolean: ow.debug?.query ?? "(web search)",
+        raw: ow.candidates.length,
+        accepted: ow.candidates.length,
+        rejected: 0,
+        providers: [{ provider: "open_web" as unknown as "lusha", records: ow.candidates.length, ...(ow.error ? { error: ow.error } : {}) }],
+      });
+    }
+
+    // Score with OpenAI (provider results — open web already self-scored)
     const scored = await scoreWithOpenAI(criteria, hardFiltered.slice(0, 100));
 
-    const final = scored
+    const final = [...scored, ...openWebCandidates]
       .filter((c) => (c.matchScore ?? 0) >= 60)
       .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
 
-    console.log(`[search] returning ${final.length} candidates (>=60%) from ${scored.length} scored`);
+    console.log(`[search] returning ${final.length} candidates (>=60%) from ${scored.length} scored + ${openWebCandidates.length} open-web`);
 
     return json({
       candidates: final,
