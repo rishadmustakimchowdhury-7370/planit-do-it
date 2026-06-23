@@ -147,7 +147,10 @@ export function computeMatchScore(job: any, cand: any): MatchResult {
   } else if (jl && !cl) locationScore = 0.4;
 
   const sub: SubScores = { role: roleScore, skills: skillScore, industry: 0.5, seniority: seniorityScore, experience: experienceScore, location: locationScore, penalty: 0 };
-  const base = 0.40 * sub.role + 0.25 * sub.skills + 0.10 * sub.industry + 0.10 * sub.seniority + 0.10 * sub.experience + 0.05 * sub.location;
+  // Weights per AI Recruitment Agent spec: Role 40 / Skills 30 / Function (seniority+experience) 15 / Location 10 / Industry 5.
+  // Industry is the lowest signal and must never eliminate a strong candidate.
+  const functionScore = 0.6 * sub.seniority + 0.4 * sub.experience;
+  const base = 0.40 * sub.role + 0.30 * sub.skills + 0.15 * functionScore + 0.10 * sub.location + 0.05 * sub.industry;
 
   let penalty = 0;
   if (jobFamily && candFamily && jobFamily !== candFamily && !adjacent) penalty += 0.25;
