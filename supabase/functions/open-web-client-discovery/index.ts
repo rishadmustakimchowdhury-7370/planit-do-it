@@ -214,15 +214,15 @@ Deno.serve(async (req) => {
     const allowed = tenantRoleSet.has("owner") || tenantRoleSet.has("manager") || roleSet.has("super_admin");
     if (!allowed) return json({ error: "Forbidden: Open Web discovery requires Owner or Manager role." }, 403);
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) return json({ error: "LOVABLE_API_KEY is not configured." }, 500);
+    const provider = pickProvider();
+    if (!provider) return json({ error: "No AI provider configured (set OPENAI_API_KEY or LOVABLE_API_KEY)." }, 500);
 
     const filters = (await req.json().catch(() => ({}))) as Filters;
     const prompt = buildPrompt(filters);
 
     let raw: any;
     try {
-      raw = await callLovableAI(prompt, lovableKey);
+      raw = await callAI(prompt, provider);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI gateway error";
       if (/\b429\b/.test(msg)) return json({ error: "AI rate limit exceeded — please retry shortly.", source: "open_web" }, 200);
