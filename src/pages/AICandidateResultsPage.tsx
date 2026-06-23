@@ -468,13 +468,23 @@ export default function AICandidateResultsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`gap-1 text-xs ${r.source === 'Open Web Discovery' ? 'border-primary/40 text-primary bg-primary/10' : ''}`}
-                        title={r.source === 'Open Web Discovery' ? 'Found via public web search (fallback)' : undefined}
-                      >
-                        {r.source}
-                      </Badge>
+                      {(() => {
+                        const s = r.source;
+                        const cls =
+                          s === 'Open Web Discovery' ? 'border-primary/40 text-primary bg-primary/10'
+                          : s === 'LinkedIn' ? 'border-[#0A66C2]/40 text-[#0A66C2] bg-[#0A66C2]/10'
+                          : s === 'Apollo' ? 'border-purple-500/40 text-purple-600 bg-purple-500/10'
+                          : s === 'Lusha' ? 'border-blue-500/40 text-blue-600 bg-blue-500/10'
+                          : s === 'Vibe Prospecting' ? 'border-pink-500/40 text-pink-600 bg-pink-500/10'
+                          : s === 'Internal CRM' ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10'
+                          : '';
+                        const title =
+                          s === 'Open Web Discovery' ? 'Found via public web search (fallback)'
+                          : s === 'LinkedIn' ? 'Public LinkedIn profile' : undefined;
+                        return (
+                          <Badge variant="outline" className={`gap-1 text-xs ${cls}`} title={title}>{s}</Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       {r.matchScore != null ? (
