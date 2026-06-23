@@ -73,11 +73,26 @@ function displayName(l: LeadRow) {
   return l.full_name || [l.first_name, l.last_name].filter(Boolean).join(' ') || l.email || 'Unnamed lead';
 }
 
+interface CompanyRow {
+  id: string;
+  name: string | null;
+  domain: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  industry: string | null;
+  country: string | null;
+  city: string | null;
+  enrichment_source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function SavedLeadsPage() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeadRow | null>(null);
@@ -92,21 +107,35 @@ export default function SavedLeadsPage() {
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('lead_contacts')
-      .select('id, full_name, first_name, last_name, email, phone, title, linkedin_url, status, notes, company_id, updated_at, created_at, lead_companies(id, name, domain)')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(500);
+    const [{ data, error }, { data: cData, error: cErr }] = await Promise.all([
+      supabase
+        .from('lead_contacts')
+        .select('id, full_name, first_name, last_name, email, phone, title, linkedin_url, status, notes, company_id, updated_at, created_at, lead_companies(id, name, domain)')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('lead_companies')
+        .select('id, name, domain, website, linkedin_url, industry, country, city, enrichment_source, created_at, updated_at')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+    ]);
     if (error) {
       toast({ title: 'Failed to load leads', description: error.message, variant: 'destructive' });
     } else {
       setLeads((data as any[]) ?? []);
     }
+    if (cErr) {
+      toast({ title: 'Failed to load companies', description: cErr.message, variant: 'destructive' });
+    } else {
+      setCompanies((cData as any[]) ?? []);
+    }
     setLoading(false);
   };
 
   useEffect(() => { load(); }, [tenantId]);
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -225,11 +254,58 @@ export default function SavedLeadsPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="kanban">
+        <Tabs defaultValue="companies">
           <TabsList>
+            <TabsTrigger value="companies"><Building2 className="w-4 h-4 mr-2" />Companies ({companies.length})</TabsTrigger>
             <TabsTrigger value="kanban"><LayoutGrid className="w-4 h-4 mr-2" />Kanban</TabsTrigger>
-            <TabsTrigger value="table"><TableIcon className="w-4 h-4 mr-2" />Table</TabsTrigger>
+            <TabsTrigger value="table"><TableIcon className="w-4 h-4 mr-2" />Contacts Table</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="companies" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                {loading ? (
+                  <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Industry</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Links</TableHead>
+                        <TableHead>Saved</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companies
+                        .filter(c => !search.trim() || (c.name ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (c.domain ?? '').toLowerCase().includes(search.trim().toLowerCase()))
+                        .map(c => (
+                          <TableRow key={c.id}>
+                            <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">{c.industry ?? '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">{[c.city, c.country].filter(Boolean).join(', ') || '—'}</TableCell>
+                            <TableCell><Badge variant="outline">{c.enrichment_source ?? 'manual'}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {c.website && <a href={c.website} target="_blank" rel="noreferrer" className="text-primary"><Building2 className="w-4 h-4" /></a>}
+                                {(() => { const u = normalizeLinkedInUrl(c.linkedin_url); return u ? <button type="button" onClick={() => openLinkedInUrl(u)} className="text-primary"><Linkedin className="w-4 h-4" /></button> : null; })()}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</TableCell>
+                          </TableRow>
+                        ))}
+                      {companies.length === 0 && (
+                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No saved companies yet. Save companies from Prospect Search to see them here.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
 
           <TabsContent value="kanban" className="mt-4">
             {loading ? (
