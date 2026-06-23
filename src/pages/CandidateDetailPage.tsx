@@ -60,6 +60,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
+import { CandidateCVVersions } from '@/components/candidates/CandidateCVVersions';
 import { InternalCollaborationTab } from '@/components/clients/InternalCollaborationTab';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
