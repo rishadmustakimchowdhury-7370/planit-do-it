@@ -83,7 +83,7 @@ interface TeamInvitation {
   email: string;
   role: string;
   status: string;
-  token: string;
+  tenant_id?: string;
   expires_at: string;
   created_at: string;
   invited_by: string;
@@ -185,10 +185,11 @@ export default function TeamMembersPage() {
       // Fetch pending invitations from team_invitations table
       const { data: invitesData, error: invitesError } = await supabase
         .from('team_invitations')
-        .select('*')
+        .select('id, tenant_id, email, role, status, invited_by, expires_at, created_at')
         .eq('tenant_id', tenantId)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString());
+
 
       if (invitesError) throw invitesError;
       setInvitations(invitesData || []);
@@ -403,9 +404,9 @@ export default function TeamMembersPage() {
     try {
       const { error } = await supabase.functions.invoke('send-team-invitation', {
         body: {
+          invitation_id: invitation.id,
           email: invitation.email,
           role: invitation.role,
-          token: invitation.token, // resend the original token so the link stays valid
           tenant_id: tenantId,
           invited_by_name: profile?.full_name || 'Your team'
         }
@@ -418,6 +419,7 @@ export default function TeamMembersPage() {
       toast.error(error.message || 'Failed to resend invitation');
     }
   };
+
 
   const filteredMembers = teamMembers.filter(m => 
     m.profile?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||

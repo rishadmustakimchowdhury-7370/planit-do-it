@@ -124,15 +124,36 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      email, 
-      role, 
-      token, 
-      tenant_id, 
+    const body = await req.json();
+    const {
+      email,
+      role,
+      tenant_id,
       invited_by_id,
-      invited_by_name, 
-      owner_name 
-    } = await req.json();
+      invited_by_name,
+      owner_name,
+      invitation_id,
+    } = body;
+    let { token } = body;
+
+    // Resend flow: caller provides invitation_id, server resolves the token.
+    if (!token && invitation_id && invited_by_id) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, supabaseKey);
+      const { data: tokenResult, error: tokenErr } = await admin.rpc(
+        "get_team_invitation_token_for_resend",
+        { p_invitation_id: invitation_id, p_requester: invited_by_id }
+      );
+      if (tokenErr || !tokenResult) {
+        console.error('[SEND-TEAM-INVITATION] Could not resolve token for resend:', tokenErr);
+        return new Response(
+          JSON.stringify({ error: 'Invitation not found or not authorised' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      token = tokenResult as string;
+    }
 
     if (!email || !token) {
       console.error('[SEND-TEAM-INVITATION] Missing required fields');
@@ -145,6 +166,8 @@ serve(async (req) => {
     console.log('[SEND-TEAM-INVITATION] Processing invitation:', { 
       email, role, tenant_id, invited_by_id, hasToken: !!token 
     });
+
+
 
     // Dedup check
     const dedupKey = generateDedupKey(email, "team_invitation", token);

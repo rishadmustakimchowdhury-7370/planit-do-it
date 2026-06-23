@@ -38,34 +38,29 @@ export default function AcceptInvitationPage() {
   const validateToken = async () => {
     try {
       const { data, error } = await supabase
-        .from('team_invitations')
-        .select(`
-          *,
-          tenants:tenant_id (name)
-        `)
-        .eq('token', token)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .single();
+        .rpc('get_team_invitation_by_token', { p_token: token });
 
-      if (error || !data) {
-        // Check if already accepted
-        const { data: existingInvite } = await supabase
-          .from('team_invitations')
-          .select('status, email, role, tenants:tenant_id (name)')
-          .eq('token', token)
-          .single();
+      const invite = Array.isArray(data) ? data[0] : data;
 
-        if (existingInvite?.status === 'accepted') {
-          setError('This invitation has already been accepted. Please sign in with your existing account.');
-          return;
-        }
-
+      if (error || !invite) {
         setError('This invitation link is invalid or has expired');
         return;
       }
 
-      setInvitation(data);
+      if (invite.status === 'accepted') {
+        setError('This invitation has already been accepted. Please sign in with your existing account.');
+        return;
+      }
+
+      if (invite.status !== 'pending' || new Date(invite.expires_at) <= new Date()) {
+        setError('This invitation link is invalid or has expired');
+        return;
+      }
+
+      setInvitation({
+        ...invite,
+        tenants: invite.tenant_name ? { name: invite.tenant_name } : null,
+      });
     } catch (err) {
       console.error('Error validating token:', err);
       setError('Failed to validate invitation');
@@ -73,6 +68,7 @@ export default function AcceptInvitationPage() {
       setIsLoading(false);
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

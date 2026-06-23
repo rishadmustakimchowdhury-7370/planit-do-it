@@ -7573,7 +7573,6 @@ export type Database = {
           email: string
           expires_at: string
           id: string
-          invited_by: string
           role: string
           status: string
           tenant_id: string
@@ -7594,6 +7593,18 @@ export type Database = {
       get_public_billing_setting: { Args: { _key: string }; Returns: Json }
       get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
       get_public_platform_setting: { Args: { _key: string }; Returns: Json }
+      get_team_invitation_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          role: string
+          status: string
+          tenant_id: string
+          tenant_name: string
+        }[]
+      }
       get_tenant_feature: {
         Args: { _feature_key: string; _tenant_id: string }
         Returns: Json
