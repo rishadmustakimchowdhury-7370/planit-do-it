@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
 import { toast } from 'sonner';
+import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -43,6 +44,7 @@ const statusLabels: Record<PipelineStage, string> = {
 // showMatchScore is now false by default to prevent public exposure of scores
 export function CandidateCard({ candidate, showMatchScore = false, compact = false }: CandidateCardProps) {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const linkedInUrl = normalizeLinkedInUrl(candidate.linkedinUrl);
 
   if (compact) {
     return (
@@ -116,14 +118,14 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
               
               {/* Quick Action Icons */}
               <div className="flex items-center gap-1 mt-3" onClick={(e) => e.preventDefault()}>
-                {candidate.linkedinUrl && (
+                {linkedInUrl && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
                     onClick={(e) => {
                       e.preventDefault();
-                      window.open(candidate.linkedinUrl, '_blank', 'noopener,noreferrer');
+                      openLinkedInUrl(linkedInUrl);
                     }}
                     title="View LinkedIn Profile"
                   >
