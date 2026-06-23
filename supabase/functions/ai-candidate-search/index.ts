@@ -845,7 +845,7 @@ async function searchInternalCrm(admin: ReturnType<typeof createClient>, tenantI
         location: String(r.location ?? ""),
         country: null,
         languages: [],
-        linkedin_url: r.linkedin_url ? String(r.linkedin_url) : null,
+        linkedin_url: r.linkedin_url ? normalizeLinkedInUrlServer(String(r.linkedin_url)) : null,
         email: r.email ? String(r.email) : null,
         phone: r.phone ? String(r.phone) : null,
         skills: Array.isArray(r.skills) ? (r.skills as string[]).slice(0, 12) : [],
