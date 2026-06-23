@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { useCredits, CREDIT_COSTS } from '@/hooks/useCredits';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
 
 interface BulkUploadResult {
   fileName: string;
@@ -470,18 +471,26 @@ export default function AddCandidatePage() {
       return;
     }
 
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      toast.error('Name and email are required');
+    if (!formData.fullName.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+
+    const linkedinUrl = normalizeLinkedInUrl(formData.linkedinUrl);
+    if (formData.linkedinUrl.trim() && !linkedinUrl) {
+      toast.error('Enter a full LinkedIn profile URL, for example https://www.linkedin.com/in/john-smith');
       return;
     }
 
     // Check for duplicate email before submitting
-    const { data: existingCandidate } = await supabase
-      .from('candidates')
-      .select('id, full_name')
-      .eq('tenant_id', tenantId)
-      .ilike('email', formData.email.trim())
-      .maybeSingle();
+    const { data: existingCandidate } = formData.email.trim()
+      ? await supabase
+          .from('candidates')
+          .select('id, full_name')
+          .eq('tenant_id', tenantId)
+          .ilike('email', formData.email.trim())
+          .maybeSingle()
+      : { data: null } as any;
 
     if (existingCandidate) {
       toast.error(`A candidate with this email already exists: ${existingCandidate.full_name}`);
@@ -518,12 +527,12 @@ export default function AddCandidatePage() {
       const { data: newCand, error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         full_name: formData.fullName,
-        email: formData.email,
+        email: formData.email.trim() || null,
         phone: formData.phone || null,
         location: formData.location || null,
         current_title: formData.currentTitle || null,
         current_company: formData.currentCompany || null,
-        linkedin_url: formData.linkedinUrl || null,
+        linkedin_url: linkedinUrl,
         summary: formData.summary || null,
         skills: skillsArray.length > 0 ? skillsArray : null,
         experience_years: formData.experienceYears ? Math.floor(parseFloat(formData.experienceYears)) : null,

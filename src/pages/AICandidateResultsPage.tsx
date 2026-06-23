@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { normalizeLinkedInUrl } from '@/lib/discovery';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl } from '@/lib/discovery';
 import { friendlyDiscoveryError } from '@/lib/discoveryErrors';
 
 import {
@@ -208,7 +208,7 @@ export default function AICandidateResultsPage() {
       .map((r) => normalizeLinkedInUrl(r.linkedin_url))
       .filter(Boolean) as string[];
     const emails = subset
-      .map((r) => (r.email ?? '').toLowerCase().trim())
+      .map((r) => hasRealCandidateEmail(r.email) ? (r.email ?? '').toLowerCase().trim() : '')
       .filter(Boolean);
 
     const existingByLi = new Map<string, string>(); // li -> existing candidate id
@@ -235,11 +235,16 @@ export default function AICandidateResultsPage() {
 
     for (const r of subset) {
       const li = normalizeLinkedInUrl(r.linkedin_url);
-      const email = (r.email ?? '').toLowerCase().trim() || null;
+      const email = hasRealCandidateEmail(r.email) ? (r.email ?? '').toLowerCase().trim() : null;
       const existingId =
         (li && existingByLi.get(li)) ||
         (email && existingByEmail.get(email)) ||
         null;
+
+      if (!li && !email && !r.full_name?.trim()) {
+        failed++;
+        continue;
+      }
 
       const payload = {
         full_name: r.full_name,
@@ -248,6 +253,15 @@ export default function AICandidateResultsPage() {
         current_title: r.current_title,
         current_company: r.current_company,
         skills: r.skills,
+        summary: r.experience_summary ?? r.headline ?? null,
+        education: r.education ? [{ summary: r.education }] : null,
+        linkedin_data: {
+          headline: r.headline ?? null,
+          industry: r.industry ?? null,
+          languages: r.languages ?? [],
+          source_url: r.source_url ?? null,
+          confidence: r.confidence ?? null,
+        },
         experience_years: r.experience_years ?? null,
         source: r.source,
         linkedin_url: li,
@@ -268,7 +282,6 @@ export default function AICandidateResultsPage() {
       const { error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         created_by: user.id,
-        email: email ?? `${r.id}@no-email.local`,
         ...payload,
       } as never);
       if (error) { (error.code === '23505') ? duplicates++ : failed++; } else inserted++;
@@ -519,7 +532,7 @@ export default function AICandidateResultsPage() {
                     </TableCell>
                     <TableCell className="align-top">
                       <div className="flex gap-2">
-                        {r.email && <a href={`mailto:${r.email}`} title={r.email} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
+                        {hasRealCandidateEmail(r.email) && <a href={`mailto:${r.email}`} title={r.email ?? undefined} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
                         {r.phone && <a href={`tel:${r.phone}`} title={r.phone} className="text-muted-foreground hover:text-foreground"><Phone className="h-4 w-4" /></a>}
                         {(() => {
                           const li = normalizeLinkedInUrl(r.linkedin_url);
@@ -527,7 +540,7 @@ export default function AICandidateResultsPage() {
                             <a href={li} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>
                           ) : null;
                         })()}
-                        {!r.email && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">—</span>}
+                        {!hasRealCandidateEmail(r.email) && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">{displayCandidateEmail(r.email)}</span>}
 
                       </div>
                     </TableCell>

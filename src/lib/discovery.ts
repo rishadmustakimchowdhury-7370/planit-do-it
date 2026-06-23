@@ -41,20 +41,18 @@ export function discoveryMeta(cls: DiscoveryClassification | null | undefined) {
   return DISCOVERY_META[cls ?? 'needs_validation'];
 }
 
-/**
- * Normalize a LinkedIn URL so it always renders as a valid, embeddable
- * https://www.linkedin.com/in/<slug> link. Returns null if the input is
- * not a usable LinkedIn member profile (prevents "Refused to Connect").
- */
-export function normalizeLinkedInUrl(raw: string | null | undefined): string | null {
+type LinkedInPath = 'in' | 'company';
+
+function normalizeLinkedInUrlForPath(raw: string | null | undefined, allowed: LinkedInPath[]): string | null {
   if (!raw || typeof raw !== 'string') return null;
   let s = raw.trim();
   if (!s) return null;
+  if (/^(undefined|null|#|javascript:void\(0\)|javascript:;)$/i.test(s) || /^javascript:/i.test(s)) return null;
   const md = s.match(/\((https?:[^)]+)\)/i);
   if (md) s = md[1];
   if (s.startsWith('//')) s = 'https:' + s;
   if (/^linkedin\.com|^www\.linkedin\.com|^[a-z]{2}\.linkedin\.com/i.test(s)) s = 'https://' + s;
-  if (s.startsWith('/in/')) s = 'https://www.linkedin.com' + s;
+  if (/^\/(in|company)\//i.test(s)) s = 'https://www.linkedin.com' + s;
   let url: URL;
   try { url = new URL(s); } catch { return null; }
   if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
@@ -62,13 +60,40 @@ export function normalizeLinkedInUrl(raw: string | null | undefined): string | n
   url.protocol = 'https:';
   url.search = '';
   url.hash = '';
-  const m = url.pathname.match(/^\/in\/([^/?#]+)\/?/i);
+  const m = url.pathname.match(/^\/(in|company)\/([^/?#\s]+)\/?/i);
   if (!m) return null;
-  url.pathname = `/in/${m[1]}`;
+  const type = m[1].toLowerCase() as LinkedInPath;
+  if (!allowed.includes(type)) return null;
+  url.pathname = `/${type}/${m[2]}`;
   return url.toString();
+}
+
+/** Normalize a LinkedIn member profile URL. LinkedIn must open externally, never embedded. */
+export function normalizeLinkedInUrl(raw: string | null | undefined): string | null {
+  return normalizeLinkedInUrlForPath(raw, ['in']);
+}
+
+export function normalizeLinkedInAnyUrl(raw: string | null | undefined): string | null {
+  return normalizeLinkedInUrlForPath(raw, ['in', 'company']);
 }
 
 export function isValidLinkedInUrl(raw: string | null | undefined): boolean {
   return normalizeLinkedInUrl(raw) !== null;
+}
+
+export function openLinkedInUrl(raw: string | null | undefined): boolean {
+  const url = normalizeLinkedInAnyUrl(raw);
+  if (!url) return false;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
+export function displayCandidateEmail(email: string | null | undefined): string {
+  if (!email || /no-email\.local$/i.test(email)) return 'Email Not Available';
+  return email;
+}
+
+export function hasRealCandidateEmail(email: string | null | undefined): boolean {
+  return !!email && !/no-email\.local$/i.test(email);
 }
 

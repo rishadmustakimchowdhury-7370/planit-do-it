@@ -65,6 +65,7 @@ import { InternalCollaborationTab } from '@/components/clients/InternalCollabora
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
 import { useBrandedDownload } from '@/hooks/useBrandedDownload';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Candidate {
   id: string;
@@ -273,7 +274,7 @@ const CandidateDetailPage = () => {
                   )}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Mail className="w-4 h-4 text-info" />
-                    <span className="text-sm">{candidate.email}</span>
+                    <span className="text-sm">{displayCandidateEmail(candidate.email)}</span>
                   </div>
                   {candidate.phone && (
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -357,7 +358,7 @@ const CandidateDetailPage = () => {
                   variant="outline" 
                   size="sm" 
                   className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-info/50 hover:bg-info/5 hover:shadow-sm active:scale-[0.97]" 
-                  onClick={() => setEmailDialogOpen(true)}
+                  onClick={() => hasRealCandidateEmail(candidate.email) ? setEmailDialogOpen(true) : toast.error('Email Not Available')}
                 >
                   <Mail className="w-4 h-4 text-info" />
                   Send Email
@@ -397,12 +398,12 @@ const CandidateDetailPage = () => {
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {candidate.linkedin_url && (
+                {normalizeLinkedInUrl(candidate.linkedin_url) && (
                   <Button 
                     variant="outline" 
                     size="sm" 
                     className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 hover:shadow-sm active:scale-[0.97]"
-                    onClick={() => window.open(candidate.linkedin_url!, '_blank', 'noopener,noreferrer')}
+                    onClick={() => openLinkedInUrl(candidate.linkedin_url)}
                   >
                     <Linkedin className="w-4 h-4 text-[#0077B5]" />
                     LinkedIn
@@ -607,7 +608,7 @@ const CandidateDetailPage = () => {
         candidate={{
           id: candidate.id,
           full_name: candidate.full_name,
-          email: candidate.email,
+          email: hasRealCandidateEmail(candidate.email) ? candidate.email : '',
           phone: candidate.phone,
           current_title: candidate.current_title,
         }}

@@ -1106,7 +1106,7 @@ export type Database = {
           cv_file_url: string | null
           cv_parsed_data: Json | null
           education: Json | null
-          email: string
+          email: string | null
           experience_years: number | null
           full_name: string
           id: string
@@ -1141,7 +1141,7 @@ export type Database = {
           cv_file_url?: string | null
           cv_parsed_data?: Json | null
           education?: Json | null
-          email: string
+          email?: string | null
           experience_years?: number | null
           full_name: string
           id?: string
@@ -1176,7 +1176,7 @@ export type Database = {
           cv_file_url?: string | null
           cv_parsed_data?: Json | null
           education?: Json | null
-          email?: string
+          email?: string | null
           experience_years?: number | null
           full_name?: string
           id?: string
@@ -7662,6 +7662,10 @@ export type Database = {
           candidate_id: string
           similarity: number
         }[]
+      }
+      normalize_candidate_linkedin_url: {
+        Args: { raw: string }
+        Returns: string
       }
       owns_chat_conversation: {
         Args: { p_conversation_id: string; p_visitor_id: string }
