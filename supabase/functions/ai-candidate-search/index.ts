@@ -129,10 +129,20 @@ function expandTitleFilters(criteria: Criteria): string[] {
 function expandIndustryFilters(criteria: Criteria): string[] {
   const values = [...(criteria.industries ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
   const text = values.join(" ").toLowerCase();
-  const out = new Set(cleanList(criteria.industries ?? [], 10));
-  if (/ship|maritime|freight|logistics|supply chain/.test(text)) ["Shipping", "Logistics", "Maritime", "Freight"].forEach((v) => out.add(v));
-  if (/commod|trading|energy|oil|gas|metal|agri/.test(text)) ["Commodity Trading", "Commodities", "Trading", "Energy"].forEach((v) => out.add(v));
-  return cleanList(Array.from(out), 10);
+  const out = new Set(cleanList(criteria.industries ?? [], 20));
+  // Commodity trading family
+  if (/commod|physical trad|trading desk|energy trad|oil trad|gas trad|metal|agri|grain|softs/.test(text)) {
+    ["Commodity Trading", "Physical Trading", "Energy Trading", "Oil Trading", "Gas Trading", "Metals Trading", "Agricultural Trading"].forEach((v) => out.add(v));
+  }
+  // Shipping family
+  if (/ship|maritime|charter|vessel|dry bulk|tanker|container|port operations/.test(text)) {
+    ["Shipping", "Maritime", "Chartering", "Vessel Operations", "Dry Bulk", "Tanker", "Container Shipping"].forEach((v) => out.add(v));
+  }
+  // Freight & logistics family
+  if (/freight|logistics|supply chain|forwarder|3pl|4pl|warehous/.test(text)) {
+    ["Freight Forwarding", "Logistics", "Supply Chain", "Transportation"].forEach((v) => out.add(v));
+  }
+  return cleanList(Array.from(out), 20);
 }
 
 function expandLocationFilters(criteria: Criteria): string[] {
