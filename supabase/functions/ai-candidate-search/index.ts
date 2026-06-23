@@ -390,12 +390,50 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
   }
 }
 
+// ---------------- LinkedIn URL normalization ------------------------------
+function normalizeLinkedInUrlServer(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  let s = raw.trim();
+  if (!s) return null;
+  const md = s.match(/\((https?:[^)]+)\)/i);
+  if (md) s = md[1];
+  if (s.startsWith("//")) s = "https:" + s;
+  if (/^linkedin\.com|^www\.linkedin\.com|^[a-z]{2}\.linkedin\.com/i.test(s)) s = "https://" + s;
+  if (s.startsWith("/in/")) s = "https://www.linkedin.com" + s;
+  let url: URL;
+  try { url = new URL(s); } catch { return null; }
+  if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
+  url.hostname = "www.linkedin.com";
+  url.protocol = "https:";
+  url.search = "";
+  url.hash = "";
+  const m = url.pathname.match(/^\/in\/([^/?#]+)\/?/i);
+  if (!m) return null;
+  url.pathname = `/in/${m[1]}`;
+  return url.toString();
+}
+
 // ---------------- Hard pre-ranking filters --------------------------------
 function tokenize(s: string): string[] {
   return (s ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
 }
 
-function passesHardFilters(c: UnifiedCandidate, criteria: Criteria, requiredCountries: string[]): boolean {
+type IndustryMode = "strict" | "preferred" | "open";
+
+function isTransferableIndustry(c: UnifiedCandidate, criteria: Criteria): boolean {
+  const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
+  if (!wantedIndustryTokens.length) return false;
+  const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
+  const directMatch = wantedIndustryTokens.some((t) => haystack.includes(t));
+  return !directMatch; // cross-industry candidate that still passed title/location
+}
+
+function passesHardFilters(
+  c: UnifiedCandidate,
+  criteria: Criteria,
+  requiredCountries: string[],
+  industryMode: IndustryMode = "open",
+): boolean {
   // Title: at least one criterion title keyword present
   const titleTokens = new Set(tokenize(c.current_title));
   const wantedTitleTokens = (criteria.role_titles ?? []).flatMap(tokenize);
@@ -410,15 +448,18 @@ function passesHardFilters(c: UnifiedCandidate, criteria: Criteria, requiredCoun
       (c.location ? locationsToCountryCodes([c.location])[0] : null);
     if (!candCountryCode || !requiredCountries.includes(candCountryCode)) return false;
   }
-  // Industry: only filter when both sides have signal
-  const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
-  if (wantedIndustryTokens.length) {
-    const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
-    const industryOk = wantedIndustryTokens.some((t) => haystack.includes(t));
-    if (!industryOk) return false;
+  // Industry: SOFT signal by default. Only hard-filter when mode === "strict".
+  if (industryMode === "strict") {
+    const wantedIndustryTokens = (criteria.industries ?? []).flatMap(tokenize);
+    if (wantedIndustryTokens.length) {
+      const haystack = `${c.industry ?? ""} ${c.current_company ?? ""} ${(c.skills ?? []).join(" ")}`.toLowerCase();
+      const industryOk = wantedIndustryTokens.some((t) => haystack.includes(t));
+      if (!industryOk) return false;
+    }
   }
   return true;
 }
+
 
 // ---------------- OpenAI scoring ------------------------------------------
 async function scoreWithOpenAI(criteria: Criteria, candidates: UnifiedCandidate[]): Promise<UnifiedCandidate[]> {
