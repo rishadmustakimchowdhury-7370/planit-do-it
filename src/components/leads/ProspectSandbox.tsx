@@ -414,7 +414,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                         </a>
                       </TableCell>
                       <TableCell>
-                        <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
+                        <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
                           <Linkedin className="h-3 w-3" /> Page
                         </a>
                       </TableCell>
@@ -475,7 +475,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                     </a>
                   </Button>
                   <Button asChild size="sm" variant="outline">
-                    <a href={drawerCompany.linkedin_url} target="_blank" rel="noreferrer">
+                    <a href={drawerCompany.linkedin_url} target="_blank" rel="noopener noreferrer">
                       <Linkedin className="h-4 w-4 mr-1" /> LinkedIn
                     </a>
                   </Button>
@@ -506,7 +506,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                     <div className="text-muted-foreground">Email</div><div className="break-all">{drawerCompany.contact.email}</div>
                     <div className="text-muted-foreground">Phone</div><div>{drawerCompany.contact.phone}</div>
                     <div className="text-muted-foreground">LinkedIn</div>
-                    <div><a className="text-primary hover:underline" href={drawerCompany.contact.linkedin_url} target="_blank" rel="noreferrer">View profile</a></div>
+                    <div><a className="text-primary hover:underline" href={drawerCompany.contact.linkedin_url} target="_blank" rel="noopener noreferrer">View profile</a></div>
                   </div>
                 </section>
 

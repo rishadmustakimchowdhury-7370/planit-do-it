@@ -292,7 +292,7 @@ export default function AIProspectSearchPage() {
                       <TableCell>
                         <div className="flex gap-2">
                           {p.company.website_url && <a href={p.company.website_url} target="_blank" rel="noreferrer"><ExternalLink className="w-4 h-4" /></a>}
-                          {p.linkedin_url && <a href={p.linkedin_url} target="_blank" rel="noreferrer"><Linkedin className="w-4 h-4" /></a>}
+                          {p.linkedin_url && <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer"><Linkedin className="w-4 h-4" /></a>}
                         </div>
                       </TableCell>
                     </TableRow>
