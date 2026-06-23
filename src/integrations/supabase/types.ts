@@ -7232,9 +7232,7 @@ export type Database = {
       }
       whatsapp_settings: {
         Row: {
-          api_key: string | null
           api_provider: string | null
-          api_secret: string | null
           business_account_id: string | null
           id: string
           is_configured: boolean | null
@@ -7243,9 +7241,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          api_key?: string | null
           api_provider?: string | null
-          api_secret?: string | null
           business_account_id?: string | null
           id?: string
           is_configured?: boolean | null
@@ -7254,9 +7250,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          api_key?: string | null
           api_provider?: string | null
-          api_secret?: string | null
           business_account_id?: string | null
           id?: string
           is_configured?: boolean | null
@@ -7578,6 +7572,7 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      get_finance_bank_details: { Args: { _tenant_id: string }; Returns: Json }
       get_invitation_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -7702,11 +7697,27 @@ export type Database = {
         Args: { _note?: string; _submission_id: string; _to_status: string }
         Returns: undefined
       }
+      snapshot_invoice_bank_details: {
+        Args: { _tenant_id: string }
+        Returns: Json
+      }
       soft_delete_user: {
         Args: { p_deleted_by: string; p_user_id: string }
         Returns: boolean
       }
       sweep_pending_structuring: { Args: never; Returns: undefined }
+      upsert_finance_bank_details: {
+        Args: {
+          _bank_account_name: string
+          _bank_account_number: string
+          _bank_iban: string
+          _bank_name: string
+          _bank_sort_code: string
+          _bank_swift: string
+          _tenant_id: string
+        }
+        Returns: undefined
+      }
       user_belongs_to_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
