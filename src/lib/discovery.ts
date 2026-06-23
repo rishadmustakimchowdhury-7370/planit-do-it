@@ -48,10 +48,14 @@ function normalizeLinkedInUrlForPath(raw: string | null | undefined, allowed: Li
   let s = raw.trim();
   if (!s) return null;
   if (/^(undefined|null|#|javascript:void\(0\)|javascript:;)$/i.test(s) || /^javascript:/i.test(s)) return null;
+  const mdLabel = s.match(/^\[([^\]]+)\]\([^)]*\)$/i);
+  if (mdLabel) s = mdLabel[1].trim();
   const md = s.match(/\((https?:[^)]+)\)/i);
   if (md) s = md[1];
   if (s.startsWith('//')) s = 'https:' + s;
-  if (/^linkedin\.com|^www\.linkedin\.com|^[a-z]{2}\.linkedin\.com/i.test(s)) s = 'https://' + s;
+  if (/^linkedin\.com\//i.test(s)) s = s.replace(/^linkedin\.com\//i, 'https://www.linkedin.com/');
+  if (/^www\.linkedin\.com\//i.test(s)) s = s.replace(/^www\.linkedin\.com\//i, 'https://www.linkedin.com/');
+  if (/^[a-z]{2}\.linkedin\.com\//i.test(s)) s = s.replace(/^[a-z]{2}\.linkedin\.com\//i, 'https://www.linkedin.com/');
   if (/^\/(in|company)\//i.test(s)) s = 'https://www.linkedin.com' + s;
   let url: URL;
   try { url = new URL(s); } catch { return null; }
@@ -79,6 +83,11 @@ export function normalizeLinkedInAnyUrl(raw: string | null | undefined): string 
 
 export function isValidLinkedInUrl(raw: string | null | undefined): boolean {
   return normalizeLinkedInUrl(raw) !== null;
+}
+
+export function isCanonicalLinkedInProfileUrl(raw: string | null | undefined): boolean {
+  if (!raw || typeof raw !== 'string') return false;
+  return /^https:\/\/(www\.)?linkedin\.com\/in\/[^/?#\s]+\/?$/i.test(raw.trim());
 }
 
 export function openLinkedInUrl(raw: string | null | undefined): boolean {

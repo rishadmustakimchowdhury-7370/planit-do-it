@@ -139,7 +139,7 @@ export default function AddCandidatePage() {
           location: data.location || '',
           currentTitle: data.current_title || '',
           currentCompany: data.current_company || '',
-          linkedinUrl: data.linkedin_url || '',
+          linkedinUrl: normalizeLinkedInUrl(data.linkedin_url) || '',
           summary: data.summary || '',
           skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
           experienceYears: data.experience_years?.toString() || '',
@@ -161,10 +161,9 @@ export default function AddCandidatePage() {
       return;
     }
 
-    // Validate LinkedIn URL format
-    const linkedinRegex = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?/i;
-    if (!linkedinRegex.test(linkedinUrl.trim())) {
-      toast.error('Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/username)');
+    const canonicalLinkedInUrl = normalizeLinkedInUrl(linkedinUrl);
+    if (!canonicalLinkedInUrl) {
+      toast.error('Enter a full LinkedIn profile URL, for example https://www.linkedin.com/in/john-smith');
       return;
     }
 
@@ -177,14 +176,14 @@ export default function AddCandidatePage() {
     setIsParsing(true);
     try {
       const { data, error } = await supabase.functions.invoke('parse-cv', {
-        body: { linkedinUrl: linkedinUrl.trim() }
+        body: { linkedinUrl: canonicalLinkedInUrl }
       });
 
       if (error) throw error;
 
       if (data) {
         // Deduct credits after successful parse
-        await deductCredits('cv_parse', { linkedinUrl: linkedinUrl.trim() });
+        await deductCredits('cv_parse', { linkedinUrl: canonicalLinkedInUrl });
         
         // Map response fields correctly - API returns full_name, not name
         setFormData({
@@ -194,7 +193,7 @@ export default function AddCandidatePage() {
           location: data.location || '',
           currentTitle: data.current_title || '',
           currentCompany: data.current_company || '',
-          linkedinUrl: data.linkedin_url || linkedinUrl.trim(),
+          linkedinUrl: normalizeLinkedInUrl(data.linkedin_url) || canonicalLinkedInUrl,
           summary: data.summary || '',
           skills: Array.isArray(data.skills) ? data.skills.join(', ') : '',
           experienceYears: data.experience_years?.toString() || '',
@@ -392,7 +391,7 @@ export default function AddCandidatePage() {
           location: data.location || null,
           current_title: data.current_title || null,
           current_company: data.current_company || null,
-          linkedin_url: data.linkedin_url || null,
+          linkedin_url: normalizeLinkedInUrl(data.linkedin_url),
           summary: data.summary || null,
           skills: skillsArray.length > 0 ? skillsArray : null,
           experience_years: data.experience_years !== null && data.experience_years !== undefined ? Math.floor(Number(data.experience_years)) : null,
