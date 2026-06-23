@@ -539,55 +539,10 @@ Use only data provided; never invent skills or languages.`;
 }
 
 // ---------------- Open Web Discovery (fallback) ---------------------------
-// Uses OpenAI's web-search-enabled model to source REAL public profiles
-// (LinkedIn, GitHub, conference pages, personal sites) when external
-// providers (Apollo / Lusha / Vibe) are unavailable or out of credits.
-async function searchOpenWeb(
-  criteria: Criteria,
-  limit: number,
-): Promise<{ candidates: UnifiedCandidate[]; error?: string; debug?: { query: string } }> {
-  const key = Deno.env.get("OPENAI_API_KEY");
-  if (!key) return { candidates: [], error: "OpenAI key not configured" };
+// Multi-pass web search: generates 5-10 boolean variations, runs them in
+// parallel batches, deduplicates by LinkedIn URL, and re-ranks. Used when
+// Apollo / Lusha / Vibe are unavailable, exhausted, or return zero.
 
-  const titles = (criteria.role_titles ?? []).slice(0, 3);
-  const locations = (criteria.locations ?? []).slice(0, 3);
-  const skills = (criteria.skills ?? []).slice(0, 5);
-  const queryHint = [
-    titles.length ? `(${titles.map((t) => `"${t}"`).join(" OR ")})` : "",
-    locations.length ? `(${locations.map((l) => `"${l}"`).join(" OR ")})` : "",
-    skills.length ? skills.map((s) => `"${s}"`).join(" ") : "",
-  ].filter(Boolean).join(" ");
-
-  const system = `You are a senior recruitment sourcing assistant. Use web search to find up to ${limit} REAL public professional profiles matching the recruiter's criteria.
-
-PRIORITISE these sources (in order):
-1. LinkedIn public profiles (linkedin.com/in/...)
-2. Company "About / Team / People" pages on official corporate websites
-3. Professional directories (Crunchbase, Bloomberg executives, F6S, AngelList)
-4. Industry association member pages and conference speaker listings
-5. Reputable personal portfolio / GitHub / About.me pages
-
-AVOID: generic blog posts, news mentions without a profile link, social media posts, press releases, job boards.
-
-For EACH candidate, extract as much structured detail as the public profile reveals:
-- full_name
-- headline (LinkedIn-style one-liner)
-- current_title
-- current_company
-- industry (e.g. "Commodity Trading", "Shipping", "Freight Forwarding")
-- location (City, Country)
-- profile_url (LinkedIn preferred; otherwise the canonical professional page)
-- linkedin_url (if different from profile_url, else same)
-- skills (array of 5-12 concrete skills/tools)
-- experience_summary (2-3 lines covering past roles & companies)
-- education (degree + institution if visible, else null)
-- languages (array, else [])
-- confidence (0-100, based on profile completeness & match strength)
-- why (one sentence explaining the match)
-
-Do NOT invent profiles, names, companies or URLs — every entry must be traceable to a real web result.
-Return ONLY a JSON object wrapped in \`\`\`json fences:
-{"candidates":[{"full_name":"","headline":"","current_title":"","current_company":"","industry":"","location":"","profile_url":"","linkedin_url":"","skills":[],"experience_summary":"","education":"","languages":[],"confidence":0,"why":""}]}`;
 
 async function searchOpenWeb(
   criteria: Criteria,
