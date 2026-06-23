@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { normalizeLinkedInUrl } from '@/lib/discovery';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl } from '@/lib/discovery';
 import { friendlyDiscoveryError } from '@/lib/discoveryErrors';
 
 import {
@@ -235,11 +235,16 @@ export default function AICandidateResultsPage() {
 
     for (const r of subset) {
       const li = normalizeLinkedInUrl(r.linkedin_url);
-      const email = (r.email ?? '').toLowerCase().trim() || null;
+      const email = hasRealCandidateEmail(r.email) ? (r.email ?? '').toLowerCase().trim() : null;
       const existingId =
         (li && existingByLi.get(li)) ||
         (email && existingByEmail.get(email)) ||
         null;
+
+      if (!li && !email && !r.full_name?.trim()) {
+        failed++;
+        continue;
+      }
 
       const payload = {
         full_name: r.full_name,
@@ -248,6 +253,15 @@ export default function AICandidateResultsPage() {
         current_title: r.current_title,
         current_company: r.current_company,
         skills: r.skills,
+        summary: r.experience_summary ?? r.headline ?? null,
+        education: r.education ? [{ summary: r.education }] : null,
+        linkedin_data: {
+          headline: r.headline ?? null,
+          industry: r.industry ?? null,
+          languages: r.languages ?? [],
+          source_url: r.source_url ?? null,
+          confidence: r.confidence ?? null,
+        },
         experience_years: r.experience_years ?? null,
         source: r.source,
         linkedin_url: li,
@@ -268,7 +282,6 @@ export default function AICandidateResultsPage() {
       const { error } = await supabase.from('candidates').insert({
         tenant_id: tenantId,
         created_by: user.id,
-        email: email ?? `${r.id}@no-email.local`,
         ...payload,
       } as never);
       if (error) { (error.code === '23505') ? duplicates++ : failed++; } else inserted++;
