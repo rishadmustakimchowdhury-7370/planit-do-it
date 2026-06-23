@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { generateDemoCompanies } from '@/lib/apolloDemoData';
 import { ProspectSandbox } from '@/components/leads/ProspectSandbox';
-import { normalizeLinkedInAnyUrl, openLinkedInUrl } from '@/lib/discovery';
+import { normalizeLinkedInAnyUrl } from '@/lib/discovery';
 
 interface Person {
   id: string;
