@@ -58,12 +58,20 @@ export default function CandidateSourceDashboardPage() {
   const loadDailyUsage = async (provider: ProviderKey): Promise<number | null> => {
     try {
       const since = new Date(); since.setHours(0, 0, 0, 0);
-      const { count } = await supabase
+      const res = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string, o?: Record<string, unknown>) => {
+            gte: (c: string, v: string) => {
+              eq: (c: string, v: string) => Promise<{ count: number | null }>;
+            };
+          };
+        };
+      })
         .from('ai_usage')
         .select('id', { count: 'exact', head: true })
         .gte('created_at', since.toISOString())
         .eq('operation_type', `discovery_${provider}`);
-      return count ?? 0;
+      return res.count ?? 0;
     } catch {
       return null;
     }
