@@ -65,7 +65,20 @@ interface SearchResult {
   total_entries: number;
   total_pages: number;
   isDemo?: boolean;
+  source?: 'apollo' | 'open_web';
 }
+
+// Detect Apollo errors that should trigger automatic Open Web fallback.
+const shouldFallbackToOpenWeb = (data: any, invokeErr: any): boolean => {
+  if (invokeErr) return true;
+  if (!data) return true;
+  if (data.upgradeRequired) return true;
+  const status = data.apolloStatus;
+  if (status === 401 || status === 402 || status === 403 || status === 429 || (typeof status === 'number' && status >= 500)) return true;
+  const err = String(data.error ?? '').toLowerCase();
+  if (!err) return false;
+  return /not connected|encryption|decrypt|rate limit|credits|unavailable|free plan|inaccessible|paid apollo|apollo api 4|apollo api 5/.test(err);
+};
 
 const EMPLOYEE_RANGES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5001-10000', '10001+'];
 
@@ -95,6 +108,7 @@ export default function ProspectSearchPage() {
   const [filters, setFilters] = useState({
     keywords: '', industry: '', employeeRange: '', revenueMin: '', revenueMax: '', country: '', city: '',
   });
+  const [searchMode, setSearchMode] = useState<'strict' | 'balanced' | 'broad'>('balanced');
   const [page, setPage] = useState(1);
   const [perPage] = useState(25);
   const [loading, setLoading] = useState(false);
@@ -108,6 +122,8 @@ export default function ProspectSearchPage() {
   const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
   const [retesting, setRetesting] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [bypassFreeGate, setBypassFreeGate] = useState(false);
 
   const loadStatus = async () => {
     const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
@@ -206,9 +222,34 @@ export default function ProspectSearchPage() {
 
 
 
+  const runOpenWebFallback = async (reason: string) => {
+    const { data, error: invokeErr } = await supabase.functions.invoke('open-web-client-discovery', {
+      body: {
+        keywords: filters.keywords || undefined,
+        industry: filters.industry || undefined,
+        country: filters.country || undefined,
+        city: filters.city || undefined,
+        employeeRange: filters.employeeRange || undefined,
+        searchMode,
+        page: 1,
+        perPage,
+      },
+    });
+    if (invokeErr) throw new Error(invokeErr.message);
+    if (data?.error) throw new Error(data.error);
+    setResult({ ...data, source: 'open_web' } as SearchResult);
+    setMode('companies');
+    setPage(1);
+    setFallbackNotice(reason);
+    toast({
+      title: 'Open Web Discovery activated',
+      description: `${reason} Showing AI-discovered companies and decision makers.`,
+    });
+  };
+
   const runSearch = async (newPage = 1, overrideMode?: 'people' | 'companies') => {
     const useMode = overrideMode ?? mode;
-    setLoading(true); setError(null); setSelected(new Set());
+    setLoading(true); setError(null); setSelected(new Set()); setFallbackNotice(null);
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke('apollo-search', {
         body: {
@@ -220,11 +261,19 @@ export default function ProspectSearchPage() {
           page: newPage, perPage,
         },
       });
-      if (invokeErr) throw new Error(invokeErr.message);
+
+      // Auto-fallback to Open Web on Apollo invoke errors, rate limits, plan/credit failures, etc.
+      if (shouldFallbackToOpenWeb(data, invokeErr)) {
+        const reason = invokeErr?.message
+          || data?.error
+          || 'Apollo is currently unavailable.';
+        await runOpenWebFallback(reason);
+        return;
+      }
+
       if (data?.capabilities) setCapabilities(data.capabilities);
       if (data?.planTier) setPlanTier(data.planTier);
       if (data?.error) {
-        // Auto-fallback to companies if people search is plan-restricted
         if (data.fallback === 'companies' && useMode === 'people') {
           setMode('companies');
           toast({ title: 'Switched to Company search', description: data.error });
@@ -233,12 +282,18 @@ export default function ProspectSearchPage() {
         }
         throw new Error(data.error);
       }
-      setResult(data); setPage(newPage);
+      setResult({ ...data, source: 'apollo' } as SearchResult);
+      setPage(newPage);
       if (data?.mode && data.mode !== mode) setMode(data.mode);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Search failed';
-      setError(msg);
-      toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+      // Last-resort fallback: if Apollo path throws entirely, still try Open Web.
+      try {
+        await runOpenWebFallback(e instanceof Error ? e.message : 'Apollo search failed.');
+      } catch (e2) {
+        const msg = e2 instanceof Error ? e2.message : 'Search failed';
+        setError(msg);
+        toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+      }
     } finally { setLoading(false); }
   };
 
@@ -341,7 +396,7 @@ export default function ProspectSearchPage() {
     planTier === 'unknown' ? 'Unknown' :
     planTier.charAt(0).toUpperCase() + planTier.slice(1);
 
-  if (isFree) {
+  if (isFree && !bypassFreeGate) {
     const currentFeatures = [
       { label: 'Connect Apollo account', available: true },
       { label: 'Test API key', available: true },
@@ -423,6 +478,10 @@ export default function ProspectSearchPage() {
                   <Sparkles className="h-4 w-4 mr-2" />
                   {demoActive ? 'Sandbox loaded below' : 'Load Sample Apollo Results'}
                 </Button>
+                <Button variant="default" onClick={() => setBypassFreeGate(true)}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Use Open Web Discovery (Free)
+                </Button>
                 <Button variant="ghost" asChild>
                   <a href="/settings">Manage integration</a>
                 </Button>
@@ -445,6 +504,18 @@ export default function ProspectSearchPage() {
   return (
     <AppLayout title="Prospect Search" subtitle={isSuperAdmin ? 'Demo workspace — uses your own Apollo account' : 'Find companies and contacts via your connected Apollo account'}>
       <div className="space-y-6">
+
+        {fallbackNotice && (
+          <Alert>
+            <Sparkles className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Open Web Discovery active.</strong> {fallbackNotice} Results are AI-generated
+              from public web knowledge — verify before outreach.
+            </AlertDescription>
+          </Alert>
+        )}
+
+
 
 
         <Card>
@@ -506,6 +577,21 @@ export default function ProspectSearchPage() {
                 <Label htmlFor="city">City</Label>
                 <Input id="city" placeholder="e.g. San Francisco"
                   value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
+              </div>
+              <div className="md:col-span-3">
+                <Label>Search depth</Label>
+                <div className="inline-flex rounded-md border p-1 bg-muted/40">
+                  {(['strict', 'balanced', 'broad'] as const).map((m) => (
+                    <button key={m} type="button"
+                      className={`px-3 py-1.5 text-sm rounded capitalize ${searchMode === m ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}
+                      onClick={() => setSearchMode(m)}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Used by Open Web Discovery when Apollo is unavailable. Strict = highly targeted · Balanced = default · Broad = maximum coverage.
+                </p>
               </div>
               <div className="md:col-span-3 flex justify-end">
                 <Button type="submit" disabled={loading}>
