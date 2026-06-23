@@ -40,3 +40,35 @@ export const DISCOVERY_META: Record<
 export function discoveryMeta(cls: DiscoveryClassification | null | undefined) {
   return DISCOVERY_META[cls ?? 'needs_validation'];
 }
+
+/**
+ * Normalize a LinkedIn URL so it always renders as a valid, embeddable
+ * https://www.linkedin.com/in/<slug> link. Returns null if the input is
+ * not a usable LinkedIn member profile (prevents "Refused to Connect").
+ */
+export function normalizeLinkedInUrl(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim();
+  if (!s) return null;
+  const md = s.match(/\((https?:[^)]+)\)/i);
+  if (md) s = md[1];
+  if (s.startsWith('//')) s = 'https:' + s;
+  if (/^linkedin\.com|^www\.linkedin\.com|^[a-z]{2}\.linkedin\.com/i.test(s)) s = 'https://' + s;
+  if (s.startsWith('/in/')) s = 'https://www.linkedin.com' + s;
+  let url: URL;
+  try { url = new URL(s); } catch { return null; }
+  if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
+  url.hostname = 'www.linkedin.com';
+  url.protocol = 'https:';
+  url.search = '';
+  url.hash = '';
+  const m = url.pathname.match(/^\/in\/([^/?#]+)\/?/i);
+  if (!m) return null;
+  url.pathname = `/in/${m[1]}`;
+  return url.toString();
+}
+
+export function isValidLinkedInUrl(raw: string | null | undefined): boolean {
+  return normalizeLinkedInUrl(raw) !== null;
+}
+
