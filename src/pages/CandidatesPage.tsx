@@ -61,11 +61,12 @@ import {
 } from '@/components/ui/select';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 import { useEnforceFeature } from '@/hooks/useEnforceFeature';
+import { displayCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Candidate {
   id: string;
   full_name: string;
-  email: string;
+  email: string | null;
   current_title: string | null;
   current_company: string | null;
   location: string | null;
@@ -518,7 +519,7 @@ const CandidatesPage = () => {
       ['Name', 'Email', 'Phone', 'LinkedIn', 'Title', 'Company', 'Location', 'Status'].join(','),
       ...selectedCandidates.map(c => [
         `"${c.full_name}"`,
-        `"${c.email}"`,
+        `"${displayCandidateEmail(c.email)}"`,
         `"${c.phone || ''}"`,
         `"${c.linkedin_url || ''}"`,
         `"${c.current_title || ''}"`,
@@ -581,6 +582,12 @@ const CandidatesPage = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Profile
                     </DropdownMenuItem>
+                    {normalizeLinkedInUrl(candidate.linkedin_url) && (
+                      <DropdownMenuItem onClick={() => openLinkedInUrl(candidate.linkedin_url)}>
+                        <Linkedin className="w-4 h-4 mr-2" />
+                        Open LinkedIn
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       className="text-destructive"
@@ -722,7 +729,7 @@ const CandidatesPage = () => {
                 {candidate.email && (
                   <div className="flex items-center gap-1.5">
                     <Mail className="w-4 h-4" />
-                    <span className="max-w-[160px] truncate">{candidate.email}</span>
+                    <span className="max-w-[160px] truncate">{displayCandidateEmail(candidate.email)}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-1.5 text-xs">
@@ -748,6 +755,12 @@ const CandidatesPage = () => {
                     <Eye className="w-4 h-4 mr-2" />
                     View Profile
                   </DropdownMenuItem>
+                  {normalizeLinkedInUrl(candidate.linkedin_url) && (
+                    <DropdownMenuItem onClick={() => openLinkedInUrl(candidate.linkedin_url)}>
+                      <Linkedin className="w-4 h-4 mr-2" />
+                      Open LinkedIn
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="text-destructive"
@@ -823,7 +836,7 @@ const CandidatesPage = () => {
               </TableCell>
               <TableCell className="hidden md:table-cell">
                 <span className="text-sm text-muted-foreground truncate max-w-[180px] block">
-                  {candidate.email}
+                  {displayCandidateEmail(candidate.email)}
                 </span>
               </TableCell>
               <TableCell className="hidden lg:table-cell">
@@ -868,6 +881,12 @@ const CandidatesPage = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Profile
                     </DropdownMenuItem>
+                    {normalizeLinkedInUrl(candidate.linkedin_url) && (
+                      <DropdownMenuItem onClick={() => openLinkedInUrl(candidate.linkedin_url)}>
+                        <Linkedin className="w-4 h-4 mr-2" />
+                        Open LinkedIn
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       className="text-destructive"
