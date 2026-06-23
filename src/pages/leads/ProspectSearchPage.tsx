@@ -593,6 +593,7 @@ export default function ProspectSearchPage() {
                       ) : (
                         (result.companies ?? []).map((c) => {
                           const busy = rowSaving[c.id];
+                          const companyLinkedInUrl = normalizeLinkedInAnyUrl(c.linkedin_url);
                           return (
                             <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
                               <TableCell>
@@ -615,8 +616,8 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {normalizeLinkedInAnyUrl(c.linkedin_url) ? (
-                                  <button type="button" onClick={() => openLinkedInUrl(c.linkedin_url)} className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {companyLinkedInUrl ? (
+                                  <button type="button" onClick={() => openLinkedInUrl(companyLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Page
                                   </button>
                                 ) : '—'}
@@ -668,6 +669,7 @@ export default function ProspectSearchPage() {
                       ) : (
                         result.people.map((p) => {
                           const busy = rowSaving[p.id];
+                          const profileLinkedInUrl = normalizeLinkedInAnyUrl(p.linkedin_url);
                           return (
                             <TableRow key={p.id} data-state={selected.has(p.id) ? 'selected' : undefined}>
                               <TableCell>
@@ -687,8 +689,8 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {normalizeLinkedInAnyUrl(p.linkedin_url) ? (
-                                  <button type="button" onClick={() => openLinkedInUrl(p.linkedin_url)} className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {profileLinkedInUrl ? (
+                                  <button type="button" onClick={() => openLinkedInUrl(profileLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Profile
                                   </button>
                                 ) : '—'}

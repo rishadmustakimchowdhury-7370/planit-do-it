@@ -315,7 +315,10 @@ export default function SavedLeadsPage() {
               <div className="mt-4 space-y-2 text-sm">
                 {selected.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /> {selected.email}</div>}
                 {selected.phone && <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground" /> {selected.phone}</div>}
-                {normalizeLinkedInUrl(selected.linkedin_url) && <button type="button" onClick={() => openLinkedInUrl(selected.linkedin_url)} className="flex items-center gap-2 text-primary hover:underline"><Linkedin className="w-4 h-4" /> LinkedIn</button>}
+                {(() => {
+                  const linkedInUrl = normalizeLinkedInUrl(selected.linkedin_url);
+                  return linkedInUrl ? <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)} className="flex items-center gap-2 text-primary hover:underline"><Linkedin className="w-4 h-4" /> LinkedIn</button> : null;
+                })()}
                 {selected.lead_companies?.domain && <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground" /> {selected.lead_companies.domain}</div>}
               </div>
 

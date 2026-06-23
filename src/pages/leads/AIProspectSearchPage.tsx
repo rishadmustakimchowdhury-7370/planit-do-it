@@ -284,7 +284,9 @@ export default function AIProspectSearchPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {result.people.map((p) => (
+                  {result.people.map((p) => {
+                    const linkedInUrl = normalizeLinkedInUrl(p.linkedin_url);
+                    return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.company.name ?? '—'}</TableCell>
                       <TableCell>{p.name}</TableCell>
@@ -293,11 +295,12 @@ export default function AIProspectSearchPage() {
                       <TableCell>
                         <div className="flex gap-2">
                           {p.company.website_url && <a href={p.company.website_url} target="_blank" rel="noreferrer"><ExternalLink className="w-4 h-4" /></a>}
-                          {normalizeLinkedInUrl(p.linkedin_url) && <button type="button" onClick={() => openLinkedInUrl(p.linkedin_url)}><Linkedin className="w-4 h-4" /></button>}
+                          {linkedInUrl && <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)}><Linkedin className="w-4 h-4" /></button>}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {result.people.length === 0 && (
                     <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
                   )}
