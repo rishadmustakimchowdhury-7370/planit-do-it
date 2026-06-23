@@ -208,7 +208,7 @@ export default function AICandidateResultsPage() {
       .map((r) => normalizeLinkedInUrl(r.linkedin_url))
       .filter(Boolean) as string[];
     const emails = subset
-      .map((r) => (r.email ?? '').toLowerCase().trim())
+      .map((r) => hasRealCandidateEmail(r.email) ? (r.email ?? '').toLowerCase().trim() : '')
       .filter(Boolean);
 
     const existingByLi = new Map<string, string>(); // li -> existing candidate id
@@ -532,7 +532,7 @@ export default function AICandidateResultsPage() {
                     </TableCell>
                     <TableCell className="align-top">
                       <div className="flex gap-2">
-                        {r.email && <a href={`mailto:${r.email}`} title={r.email} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
+                        {hasRealCandidateEmail(r.email) && <a href={`mailto:${r.email}`} title={r.email ?? undefined} className="text-muted-foreground hover:text-foreground"><Mail className="h-4 w-4" /></a>}
                         {r.phone && <a href={`tel:${r.phone}`} title={r.phone} className="text-muted-foreground hover:text-foreground"><Phone className="h-4 w-4" /></a>}
                         {(() => {
                           const li = normalizeLinkedInUrl(r.linkedin_url);
@@ -540,7 +540,7 @@ export default function AICandidateResultsPage() {
                             <a href={li} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>
                           ) : null;
                         })()}
-                        {!r.email && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">—</span>}
+                        {!hasRealCandidateEmail(r.email) && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">{displayCandidateEmail(r.email)}</span>}
 
                       </div>
                     </TableCell>
