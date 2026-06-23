@@ -16,6 +16,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
+
 import {
   ArrowLeft, ArrowUpDown, BookmarkPlus, Download, ExternalLink, Mail, Phone,
   Linkedin, Sparkles, Loader2, AlertCircle, Bug, Check, X as XIcon,
