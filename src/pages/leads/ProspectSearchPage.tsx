@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { generateDemoCompanies } from '@/lib/apolloDemoData';
 import { ProspectSandbox } from '@/components/leads/ProspectSandbox';
+import { normalizeLinkedInAnyUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Person {
   id: string;
@@ -614,8 +615,8 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {c.linkedin_url ? (
-                                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {normalizeLinkedInAnyUrl(c.linkedin_url) ? (
+                                  <a href={normalizeLinkedInAnyUrl(c.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Page
                                   </a>
                                 ) : '—'}
@@ -686,8 +687,8 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {p.linkedin_url ? (
-                                  <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {normalizeLinkedInAnyUrl(p.linkedin_url) ? (
+                                  <a href={normalizeLinkedInAnyUrl(p.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Profile
                                   </a>
                                 ) : '—'}
