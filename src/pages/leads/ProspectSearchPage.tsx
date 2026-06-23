@@ -123,6 +123,7 @@ export default function ProspectSearchPage() {
   const [retesting, setRetesting] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [bypassFreeGate, setBypassFreeGate] = useState(false);
 
   const loadStatus = async () => {
     const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
