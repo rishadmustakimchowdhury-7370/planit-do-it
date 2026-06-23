@@ -23,6 +23,7 @@ import {
   LayoutGrid, Table as TableIcon, GripVertical,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
 
 type LeadStatus =
   | 'new' | 'contacted' | 'follow_up' | 'meeting_booked'
@@ -314,7 +315,7 @@ export default function SavedLeadsPage() {
               <div className="mt-4 space-y-2 text-sm">
                 {selected.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /> {selected.email}</div>}
                 {selected.phone && <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground" /> {selected.phone}</div>}
-                {selected.linkedin_url && <a href={selected.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline"><Linkedin className="w-4 h-4" /> LinkedIn</a>}
+                {normalizeLinkedInUrl(selected.linkedin_url) && <a href={normalizeLinkedInUrl(selected.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline"><Linkedin className="w-4 h-4" /> LinkedIn</a>}
                 {selected.lead_companies?.domain && <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground" /> {selected.lead_companies.domain}</div>}
               </div>
 
