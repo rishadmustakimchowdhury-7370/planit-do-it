@@ -1,133 +1,84 @@
-# Candidate Discovery — Recruiter-Grade Filters
+# Candidate & Client Discovery — Production Upgrade Plan
 
-Upgrade the Discovery search form and search engine to behave like Apollo / LinkedIn Recruiter.
+Scope is large. I'll ship it in 7 phases so you can verify each before the next. No DB destructive changes; only additive columns and one new table for client discovery cache.
 
-## 1. Global Location Picker (Country → State → City)
+---
 
-- Replace the current single country field with three cascading, searchable comboboxes:
-  - Country (full ISO list, ~250 entries)
-  - State / Province (loaded after country is chosen)
-  - City (loaded after state is chosen, free-text fallback if not in dataset)
-- Data source: bundle `country-state-city` (npm) at build time — covers all countries and major cities offline, no API cost.
-- Component: new `src/components/discovery/LocationPicker.tsx` using shadcn `Command` + `Popover` for autocomplete.
-- Output shape stored on the search request:
-  ```ts
-  location: { country: string; countryCode: string; state?: string; city?: string }
-  ```
+## Phase 1 — Scoring & Industry Soft Signal
+**Files:** `supabase/functions/ai-candidate-search/index.ts`, `supabase/functions/_shared/discovery-engine.ts`, `src/pages/AICandidateDiscoveryPage.tsx`, `src/pages/AICandidateResultsPage.tsx`
 
-## 2. Smart Location Hierarchy in Search
+- Replace hard industry filter with weighted score:
+  Skills 35 / Title 30 / Function 20 / Location 10 / Industry 5.
+- Add `industryMode: 'strict' | 'preferred' | 'open'` (default `open`).
+- Tag candidates from adjacent industries as **"Transferable Industry"** badge.
+- Remove industry-based exclusion from provider filters when mode = `open`.
 
-Edge function `ai-candidate-search` already has `CITY_HIERARCHY`. Extend it:
+## Phase 2 — LinkedIn URL Hardening
+**Files:** `src/lib/discovery.ts` (new helper `normalizeLinkedInUrl`), result/profile components.
 
-- Build passes from the most specific level upward: `city → metro (if known) → state → country`.
-- Never jump straight to country; metro/state must be exhausted first.
-- Metro mapping table seeded with the major recruiter metros (SF → Bay Area, NYC → Tri-State, London → Greater London, Dubai → UAE, etc.). Unknown metros simply skip that level.
+- Normalize to `https://www.linkedin.com/in/<slug>` on ingest + render.
+- Reject relative paths, `linkedin.com/pub/...` redirects, and tracking params.
+- All links: `target="_blank" rel="noopener noreferrer"`.
+- Hide LinkedIn badge when URL invalid/missing (no "Refused to connect").
 
-## 3. Advanced Skills Builder UI
+## Phase 3 — Open Web Discovery: Multi-pass + Pagination
+**Files:** `supabase/functions/ai-candidate-search/index.ts` (`searchOpenWeb`).
 
-New `src/components/discovery/SkillsBuilder.tsx` with two grouped sections:
+- Generate 10–15 boolean variations from JD (role synonyms × location × skill clusters).
+- Run passes in parallel batches (5 at a time), dedupe by normalized LinkedIn URL.
+- Re-rank merged pool with existing scorer; return Top 50.
+- Add `page` param → returns next 50 (cursor on rank position).
+- Cache pass results in `discovery_synonym_cache` keyed by JD hash for 24h.
 
-- **Required Skills (AND)** — chip list; each chip can be expanded into an OR-group of alternatives.
-- **Optional Skills (OR)** — flat chip list.
-- Languages and Industries reuse the same chip pattern (OR groups).
-- Add / remove via Enter key, paste-split on commas, drag to reorder.
+## Phase 4 — Location Hierarchy + Auto-broaden
+**Files:** `src/lib/discovery.ts`, `src/components/discovery/LocationPicker.tsx`, search edge function.
 
-Data shape sent to the backend:
-```ts
-skills: {
-  required: string[][];   // outer = AND, inner = OR alternatives
-  optional: string[];     // OR
-}
-languages: string[];      // OR
-industries: string[];     // OR
-```
+- Add `locationHierarchy` map (city → metro → state → country) covering top markets (US, UK, UAE, KSA, SG, IN, DE, CH, CA, AU, BD).
+- If strict city search yields < 10 results, auto-retry at metro, then state, then country; tag widened results with "Broadened location".
 
-## 4. Boolean Query Construction
+## Phase 5 — LinkedIn → AI Resume + Save-to-CRM dedupe
+**Files:** new edge function `supabase/functions/generate-ai-resume/index.ts`, `src/pages/AICandidateResultsPage.tsx` Save handler, migration for `candidates.ai_resume_url`, `candidates.resume_source` (`'ai' | 'uploaded'`), `candidates.use_uploaded_as_primary` (bool, default true).
 
-`buildSearchPasses` in `ai-candidate-search/index.ts` converts the shape above into:
+- On Save-to-CRM:
+  1. Lookup existing candidate by `linkedin_url` OR `email` (case-insensitive, normalized).
+  2. If found → UPDATE (merge skills/experience, keep existing CV).
+  3. Else → INSERT with structured profile + generated AI resume PDF stored in `candidate-resumes` bucket.
+- Setting "Use Uploaded Resume As Primary" (default ON) controls which renders in profile.
 
-- Pass 1 (strictest): every AND group joined with `AND`, each OR group wrapped in `(a OR b OR c)`, plus required language/industry.
-- Pass 2: drop optional skills.
-- Pass 3: keep only first AND group + location.
-- Pass 4: industry + location only.
-- Pass 5: title + country.
+## Phase 6 — Friendly Errors + Auto-fallback + Boolean Engine
+**Files:** `src/lib/discoveryErrors.ts` (already exists, extend), search edge function, results page.
 
-Each pass is mapped to native Lusha filters (titles / industries / locations) — never sent as raw booleans.
+- Map all provider errors to recruiter copy: "Lusha temporarily unavailable", "Apollo credits exhausted", etc.
+- Raw payloads only visible when `role IN ('owner','super_admin')` AND `?dev=1` query flag.
+- When all paid providers fail/empty → automatically run Open Web Discovery (no user click).
+- Boolean engine: AI generates 5–10 variations per search; merge + dedupe + rank.
 
-## 5. AI Synonym Expansion
+## Phase 7 — Client Discovery AI (BD Agent)
+**Files:** new edge function `supabase/functions/ai-client-discovery/index.ts`, new page `src/pages/AIClientDiscoveryPage.tsx`, route in `App.tsx`, migration for `clients.linkedin_company_url`, `clients.employee_count`, `clients.bd_potential` (`high|medium|low`).
 
-New edge function `discovery-expand-synonyms`:
+- Input: target industry, country, employee range, hiring-signal keywords.
+- Apollo first; on failure → Open Web Discovery (company sites + LinkedIn company pages).
+- Returns company + decision makers (CEO, Founder, MD, TA Manager, HR, Recruitment Manager) with LinkedIn URLs.
+- Score each company High/Medium/Low based on growth + hiring signals.
+- Save-to-CRM dedupe by domain OR LinkedIn company URL.
 
-- Input: `{ skills: string[] }`
-- Calls OpenAI `gpt-4o-mini` with a tight JSON schema: `{ term: string, synonyms: string[] }[]` (max 5 each).
-- Cached per-tenant in a new lightweight table `discovery_synonym_cache (term text pk, synonyms text[], updated_at timestamptz)` to avoid repeat spend.
-- Frontend: when a user adds a chip, a "✨ Expand" button calls the function and adds suggestions as OR alternatives the user can accept individually.
-
-## 6. Search Preview Panel
-
-Before submitting, show a read-only summary card:
-
-```
-Location:    San Francisco → Bay Area → California → USA
-Required:    React AND TypeScript AND (Node.js OR Deno)
-Optional:    Machine Learning OR AI
-Languages:   Russian OR Ukrainian
-Industries:  Commodity Trading OR Shipping
-Passes:      5 search passes will run
-```
-
-Rendered inside `AICandidateDiscoveryPage.tsx`.
-
-## 7. Saved Filter Templates
-
-New table `discovery_search_templates`:
-
-```sql
-create table public.discovery_search_templates (
-  id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null,
-  user_id uuid not null,
-  name text not null,
-  payload jsonb not null,
-  created_at timestamptz default now()
-);
-grant select, insert, update, delete on public.discovery_search_templates to authenticated;
-grant all on public.discovery_search_templates to service_role;
-alter table public.discovery_search_templates enable row level security;
-create policy "tenant read"  on ... using (tenant_id = current_tenant());
-create policy "owner write" on ... using (user_id = auth.uid());
-```
-
-UI: a "Templates" dropdown in the Discovery header with Save / Load / Delete. Renamed examples preloaded for new tenants (Commodity Trader, Freight Trader, Ops Manager UAE, Software Engineer AI).
-
-## 8. Files Touched
-
-**New**
-- `src/components/discovery/LocationPicker.tsx`
-- `src/components/discovery/SkillsBuilder.tsx`
-- `src/components/discovery/SearchPreview.tsx`
-- `src/components/discovery/TemplatesMenu.tsx`
-- `supabase/functions/discovery-expand-synonyms/index.ts`
-
-**Updated**
-- `src/pages/AICandidateDiscoveryPage.tsx` — wire new components, new request shape
-- `src/pages/AICandidateResultsPage.tsx` — display new pass breakdown / preview
-- `supabase/functions/ai-candidate-search/index.ts` — accept new shape, build AND/OR booleans, expand metro level
-- `package.json` — add `country-state-city`
-
-**Migration**
-- `discovery_search_templates` table + RLS + grants
-- `discovery_synonym_cache` table + grants
+---
 
 ## Technical notes
+- **Migrations** (Phase 5 + 7): additive columns + one storage bucket `candidate-resumes` (private, RLS by tenant). No drops.
+- **No new env secrets needed** — reuses existing `OPENAI_API_KEY`, Apollo/Lusha/Vibe keys, `LOVABLE_API_KEY` (if you want me to switch Open Web to Lovable AI Gateway, say so; current code uses OpenAI direct).
+- **Performance:** parallel passes capped at 5 concurrent; total Open Web budget ~15 calls per search to control cost.
+- **Backward compatible:** existing saved candidates unaffected; new fields nullable.
 
-- No breaking change to existing saved candidates / results.
-- Search request shape is versioned (`schemaVersion: 2`); edge function accepts both.
-- All synonym + template calls are tenant-scoped and RLS-enforced.
-- Country/state/city dataset adds ~600 KB gzipped — lazy-imported only on the Discovery page.
+---
 
-## Open questions
+## Verification per phase
+1. Run a Commodity Trading search → expect Banking/Shipping results tagged "Transferable Industry".
+2. Click any LinkedIn badge → opens real profile in new tab, no "Refused to connect".
+3. Open Web search returns 30–50 candidates from one JD.
+4. Search "San Francisco" with no hits auto-broadens to Bay Area / California.
+5. Save same candidate twice → second click updates, no duplicate row.
+6. Disconnect Apollo → search still returns results via Open Web with no user prompt.
+7. Client Discovery returns 10+ companies + decision makers for "SaaS, UAE, 50–200 employees".
 
-1. Should saved templates be **personal** (per user) or **shared across the tenant**? Plan currently scopes to user but exposes them tenant-wide for read.
-2. For AI synonym expansion, OK to default to `gpt-4o-mini` (cheap, fast) per project memory?
-3. Any countries you want preloaded as **suggested** at the top of the country picker (e.g. UK, UAE, USA, Singapore, India)?
+Reply **go** to start Phase 1, or tell me which phases to reorder/skip.
