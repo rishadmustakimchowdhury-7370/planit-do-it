@@ -73,15 +73,36 @@ OUTPUT — RETURN ONLY JSON, no prose, no markdown fences:
 }`;
 }
 
-async function callLovableAI(prompt: string, apiKey: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey,
-    },
-    body: JSON.stringify({
+type AIProvider = { url: string; headers: Record<string, string>; model: string; name: string };
+
+function pickProvider(): AIProvider | null {
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
+    return {
+      name: "openai",
+      url: "https://api.openai.com/v1/chat/completions",
+      headers: { "Authorization": `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+      model: "gpt-4o-mini",
+    };
+  }
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    return {
+      name: "lovable-gemini",
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      headers: { "Lovable-API-Key": lovableKey, "Content-Type": "application/json" },
       model: "google/gemini-2.5-flash",
+    };
+  }
+  return null;
+}
+
+async function callAI(prompt: string, provider: AIProvider) {
+  const res = await fetch(provider.url, {
+    method: "POST",
+    headers: provider.headers,
+    body: JSON.stringify({
+      model: provider.model,
       messages: [
         { role: "system", content: "You output only valid JSON. Never include markdown fences or prose." },
         { role: "user", content: prompt },
@@ -91,14 +112,13 @@ async function callLovableAI(prompt: string, apiKey: string) {
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`AI gateway ${res.status}: ${t.slice(0, 400)}`);
+    throw new Error(`AI ${provider.name} ${res.status}: ${t.slice(0, 400)}`);
   }
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content ?? "{}";
   try {
     return JSON.parse(content);
   } catch {
-    // Best-effort: strip code fences if model added them despite instructions.
     const stripped = String(content).replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
     return JSON.parse(stripped);
   }
@@ -194,15 +214,15 @@ Deno.serve(async (req) => {
     const allowed = tenantRoleSet.has("owner") || tenantRoleSet.has("manager") || roleSet.has("super_admin");
     if (!allowed) return json({ error: "Forbidden: Open Web discovery requires Owner or Manager role." }, 403);
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) return json({ error: "LOVABLE_API_KEY is not configured." }, 500);
+    const provider = pickProvider();
+    if (!provider) return json({ error: "No AI provider configured (set OPENAI_API_KEY or LOVABLE_API_KEY)." }, 500);
 
     const filters = (await req.json().catch(() => ({}))) as Filters;
     const prompt = buildPrompt(filters);
 
     let raw: any;
     try {
-      raw = await callLovableAI(prompt, lovableKey);
+      raw = await callAI(prompt, provider);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI gateway error";
       if (/\b429\b/.test(msg)) return json({ error: "AI rate limit exceeded — please retry shortly.", source: "open_web" }, 200);
