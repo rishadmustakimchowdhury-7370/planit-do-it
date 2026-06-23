@@ -120,9 +120,10 @@ async function callAI(prompt: string, provider: AIProvider) {
     body: JSON.stringify({
       model: provider.model,
       messages: [
-        { role: "system", content: "You output only valid JSON. Never include markdown fences or prose." },
+        { role: "system", content: "You output only valid JSON. Never include markdown fences or prose. You are an AI sourcing agent — return as many high-quality real companies as the brief allows." },
         { role: "user", content: prompt },
       ],
+      temperature: 0.4,
       response_format: { type: "json_object" },
     }),
   });
