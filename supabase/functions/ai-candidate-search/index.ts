@@ -269,7 +269,7 @@ async function searchVibe(apiKey: string, criteria: Criteria, size = 50): Promis
         location,
         country: p.country_name ?? null,
         languages: [],
-        linkedin_url: linkedin,
+        linkedin_url: normalizeLinkedInUrlServer(linkedin),
         email: null,
         phone: null,
         skills: Array.isArray(p.skills) ? p.skills.slice(0, 12) : [],
