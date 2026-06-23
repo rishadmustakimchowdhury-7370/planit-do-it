@@ -127,7 +127,7 @@ export default function AIProspectSearchPage() {
     XLSX.writeFile(wb, `ai-prospects-${Date.now()}.xlsx`);
   };
 
-  const saveOne = async (p: Person) => {
+  const saveOne = async (p: Person, opts: { silent?: boolean } = {}) => {
     const [first, ...rest] = (p.name ?? '').split(' ');
     const { data, error: e } = await supabase.functions.invoke('save-leads', {
       body: {
@@ -153,17 +153,19 @@ export default function AIProspectSearchPage() {
       },
     });
     if (e || data?.error) {
-      toast({ title: 'Save failed', description: e?.message ?? data?.error, variant: 'destructive' });
+      if (!opts.silent) toast({ title: 'Save failed', description: e?.message ?? data?.error, variant: 'destructive' });
       return false;
     }
     setSaved((prev) => new Set(prev).add(p.id));
-    toast({
-      title: 'Saved to CRM',
-      description: 'Lead added to Saved Leads pipeline.',
-      action: (
-        <Link to="/leads/saved" className="text-sm font-medium underline">View Saved Leads</Link>
-      ) as any,
-    });
+    if (!opts.silent) {
+      toast({
+        title: 'Saved to CRM',
+        description: 'Lead added to Saved Leads pipeline.',
+        action: (
+          <Link to="/leads/saved" className="text-sm font-medium underline">View Saved Leads</Link>
+        ) as any,
+      });
+    }
     return true;
   };
 
@@ -173,10 +175,16 @@ export default function AIProspectSearchPage() {
     let ok = 0;
     for (const p of result.people) {
       if (saved.has(p.id)) continue;
-      if (await saveOne(p)) ok++;
+      if (await saveOne(p, { silent: true })) ok++;
     }
     setSavingAll(false);
-    toast({ title: 'Saved to CRM', description: `${ok} leads saved.` });
+    toast({
+      title: 'Saved to CRM',
+      description: `${ok} leads saved to Saved Leads pipeline.`,
+      action: (
+        <Link to="/leads/saved" className="text-sm font-medium underline">View Saved Leads</Link>
+      ) as any,
+    });
   };
 
 
