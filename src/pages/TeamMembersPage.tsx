@@ -404,9 +404,9 @@ export default function TeamMembersPage() {
     try {
       const { error } = await supabase.functions.invoke('send-team-invitation', {
         body: {
+          invitation_id: invitation.id,
           email: invitation.email,
           role: invitation.role,
-          token: invitation.token, // resend the original token so the link stays valid
           tenant_id: tenantId,
           invited_by_name: profile?.full_name || 'Your team'
         }
@@ -419,6 +419,7 @@ export default function TeamMembersPage() {
       toast.error(error.message || 'Failed to resend invitation');
     }
   };
+
 
   const filteredMembers = teamMembers.filter(m => 
     m.profile?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
