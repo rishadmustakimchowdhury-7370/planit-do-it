@@ -50,14 +50,28 @@ export default function FinanceSettingsPage() {
       setLoading(true);
       const { data } = await supabase
         .from("finance_settings")
-        .select("*")
+        .select("id, tenant_id, agency_name, agency_address, agency_phone, agency_email, agency_website, agency_logo_url, bank_name, default_currency, default_payment_terms_days, default_tax_pct, default_vat_pct, invoice_number_prefix, invoice_footer_note")
         .eq("tenant_id", tenantId)
         .maybeSingle();
-      if (data) setForm({ ...form, ...data });
+      let merged: any = data || {};
+      if (isOwner) {
+        const { data: bank } = await (supabase as any).rpc("get_finance_bank_details", { _tenant_id: tenantId });
+        if (bank) merged = { ...merged, ...bank };
+      } else {
+        merged = {
+          ...merged,
+          bank_account_name: "••••••",
+          bank_account_number: "••••••",
+          bank_sort_code: "••••",
+          bank_iban: "•••• •••• •••• ••••",
+          bank_swift: "••••••",
+        };
+      }
+      setForm((f: any) => ({ ...f, ...merged }));
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
+  }, [tenantId, isOwner]);
 
   if (authLoading) return <AppLayout><div className="p-6"><Loader2 className="animate-spin" /></div></AppLayout>;
   if (!isOwner && !isManager) return <Navigate to="/dashboard" replace />;
@@ -65,13 +79,42 @@ export default function FinanceSettingsPage() {
   const handleSave = async () => {
     if (!tenantId) return;
     setSaving(true);
-    const payload = { ...form, tenant_id: tenantId };
+    const nonSensitive: any = {
+      tenant_id: tenantId,
+      agency_name: form.agency_name,
+      agency_address: form.agency_address,
+      agency_phone: form.agency_phone,
+      agency_email: form.agency_email,
+      agency_website: form.agency_website,
+      agency_logo_url: form.agency_logo_url,
+      bank_name: form.bank_name,
+      default_currency: form.default_currency,
+      default_payment_terms_days: form.default_payment_terms_days,
+      default_tax_pct: form.default_tax_pct,
+      default_vat_pct: form.default_vat_pct,
+      invoice_number_prefix: form.invoice_number_prefix,
+      invoice_footer_note: form.invoice_footer_note,
+    };
     const { error } = await supabase
       .from("finance_settings")
-      .upsert(payload, { onConflict: "tenant_id" });
+      .upsert(nonSensitive, { onConflict: "tenant_id" });
+
+    let bankErr: any = null;
+    if (isOwner) {
+      const { error: e2 } = await (supabase as any).rpc("upsert_finance_bank_details", {
+        _tenant_id: tenantId,
+        _bank_name: form.bank_name || null,
+        _bank_account_name: form.bank_account_name || null,
+        _bank_account_number: form.bank_account_number || null,
+        _bank_sort_code: form.bank_sort_code || null,
+        _bank_iban: form.bank_iban || null,
+        _bank_swift: form.bank_swift || null,
+      });
+      bankErr = e2;
+    }
     setSaving(false);
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    if (error || bankErr) {
+      toast({ title: "Save failed", description: (error || bankErr)?.message, variant: "destructive" });
     } else {
       toast({ title: "Finance settings saved" });
     }
