@@ -125,28 +125,64 @@ export default function AIProspectSearchPage() {
     });
   };
 
+  const runOpenWebFallback = async (reason: string, pageNum = 1) => {
+    if (!filters) return;
+    const { data, error: invokeErr } = await supabase.functions.invoke('open-web-client-discovery', {
+      body: {
+        keywords: filters.keywords || undefined,
+        industry: filters.industry || undefined,
+        country: filters.country || undefined,
+        city: filters.city || undefined,
+        employeeRange: filters.employeeRange || undefined,
+        searchMode: 'balanced',
+        page: pageNum,
+        perPage: 25,
+      },
+    });
+    if (invokeErr) throw new Error(invokeErr.message);
+    if (data?.error) throw new Error(data.error);
+    setResult({ ...data, source: 'open_web' } as SearchResult);
+    setPage(pageNum);
+    setFallbackNotice(
+      'Apollo credits unavailable. AI Open Web Discovery has been activated automatically. Companies are being sourced from public business data and ranked by AI relevance.',
+    );
+    toast({ title: 'Open Web Discovery activated', description: reason });
+  };
+
   const runSearch = async (pageNum = 1) => {
     if (!filters) return;
-    setSearching(true); setError(null);
-    const body = {
-      keywords: filters.keywords,
-      industry: filters.industry,
-      employeeRange: filters.employeeRange,
-      revenueMin: filters.revenueMin ? Number(filters.revenueMin) : undefined,
-      revenueMax: filters.revenueMax ? Number(filters.revenueMax) : undefined,
-      country: filters.country,
-      city: filters.city,
-      page: pageNum,
-      perPage: 25,
-    };
-    const { data, error: e } = await supabase.functions.invoke('apollo-search', { body });
-    setSearching(false);
-    if (e || data?.error) {
-      setError(data?.error ?? e?.message ?? 'Search failed');
-      return;
+    setSearching(true); setError(null); setFallbackNotice(null);
+    try {
+      const body = {
+        keywords: filters.keywords,
+        industry: filters.industry,
+        employeeRange: filters.employeeRange,
+        revenueMin: filters.revenueMin ? Number(filters.revenueMin) : undefined,
+        revenueMax: filters.revenueMax ? Number(filters.revenueMax) : undefined,
+        country: filters.country,
+        city: filters.city,
+        page: pageNum,
+        perPage: 25,
+      };
+      const { data, error: e } = await supabase.functions.invoke('apollo-search', { body });
+      if (shouldFallbackToOpenWeb(data, e)) {
+        const reason = e?.message || data?.error || 'Apollo is currently unavailable.';
+        await runOpenWebFallback(reason, pageNum);
+        return;
+      }
+      setResult({ ...data, source: 'apollo' } as SearchResult);
+      setPage(pageNum);
+    } catch (err) {
+      try {
+        await runOpenWebFallback(err instanceof Error ? err.message : 'Apollo search failed.', pageNum);
+      } catch (err2) {
+        const msg = err2 instanceof Error ? err2.message : 'Search failed';
+        setError(msg);
+        toast({ title: 'Search failed', description: msg, variant: 'destructive' });
+      }
+    } finally {
+      setSearching(false);
     }
-    setResult(data as SearchResult);
-    setPage(pageNum);
   };
 
   if (!canUse && isRecruiter) {
