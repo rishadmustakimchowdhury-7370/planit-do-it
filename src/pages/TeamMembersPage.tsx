@@ -83,7 +83,7 @@ interface TeamInvitation {
   email: string;
   role: string;
   status: string;
-  token: string;
+  tenant_id?: string;
   expires_at: string;
   created_at: string;
   invited_by: string;
