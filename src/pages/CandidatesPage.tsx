@@ -61,7 +61,7 @@ import {
 } from '@/components/ui/select';
 import { useRecruiterActivity } from '@/hooks/useRecruiterActivity';
 import { useEnforceFeature } from '@/hooks/useEnforceFeature';
-import { displayCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Candidate {
   id: string;
@@ -726,7 +726,7 @@ const CandidatesPage = () => {
                     <span>{extractCountry(candidate.location)}</span>
                   </div>
                 )}
-                {candidate.email && (
+                {hasRealCandidateEmail(candidate.email) && (
                   <div className="flex items-center gap-1.5">
                     <Mail className="w-4 h-4" />
                     <span className="max-w-[160px] truncate">{displayCandidateEmail(candidate.email)}</span>
