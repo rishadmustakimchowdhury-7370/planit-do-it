@@ -375,7 +375,7 @@ async function searchLusha(apiKey: string, criteria: Criteria, size = 50): Promi
         location,
         country: loc.country ?? null,
         languages: [],
-        linkedin_url: linkedin,
+        linkedin_url: normalizeLinkedInUrlServer(linkedin),
         email: null,
         phone: null,
         skills: [],
