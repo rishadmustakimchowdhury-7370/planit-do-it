@@ -73,11 +73,26 @@ function displayName(l: LeadRow) {
   return l.full_name || [l.first_name, l.last_name].filter(Boolean).join(' ') || l.email || 'Unnamed lead';
 }
 
+interface CompanyRow {
+  id: string;
+  name: string | null;
+  domain: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  industry: string | null;
+  country: string | null;
+  city: string | null;
+  enrichment_source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function SavedLeadsPage() {
   const { tenantId } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeadRow | null>(null);
@@ -92,21 +107,35 @@ export default function SavedLeadsPage() {
   const load = async () => {
     if (!tenantId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('lead_contacts')
-      .select('id, full_name, first_name, last_name, email, phone, title, linkedin_url, status, notes, company_id, updated_at, created_at, lead_companies(id, name, domain)')
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false })
-      .limit(500);
+    const [{ data, error }, { data: cData, error: cErr }] = await Promise.all([
+      supabase
+        .from('lead_contacts')
+        .select('id, full_name, first_name, last_name, email, phone, title, linkedin_url, status, notes, company_id, updated_at, created_at, lead_companies(id, name, domain)')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('lead_companies')
+        .select('id, name, domain, website, linkedin_url, industry, country, city, enrichment_source, created_at, updated_at')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+    ]);
     if (error) {
       toast({ title: 'Failed to load leads', description: error.message, variant: 'destructive' });
     } else {
       setLeads((data as any[]) ?? []);
     }
+    if (cErr) {
+      toast({ title: 'Failed to load companies', description: cErr.message, variant: 'destructive' });
+    } else {
+      setCompanies((cData as any[]) ?? []);
+    }
     setLoading(false);
   };
 
   useEffect(() => { load(); }, [tenantId]);
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
