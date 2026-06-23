@@ -262,6 +262,8 @@ Deno.serve(async (req) => {
       mode: "companies",
       planTier: "open_web",
       capabilities: { people_search: true, org_search: true },
+      strategy_summary: raw?.strategy_summary ?? null,
+      expansions: raw?.expansions ?? null,
       people: peopleOut,
       companies: companiesOut,
       page,
