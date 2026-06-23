@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { normalizeLinkedInUrl } from '@/lib/discovery';
+import { friendlyDiscoveryError } from '@/lib/discoveryErrors';
 
 import {
   ArrowLeft, ArrowUpDown, BookmarkPlus, Download, ExternalLink, Mail, Phone,
@@ -201,20 +202,47 @@ export default function AICandidateResultsPage() {
       return { inserted: 0, duplicates: 0, failed: subset.length };
     }
     let inserted = 0, duplicates = 0, failed = 0;
-    const emails = subset.map((r) => r.email).filter(Boolean) as string[];
-    const existing = new Set<string>();
-    if (emails.length) {
-      const { data } = await supabase.from('candidates').select('email').eq('tenant_id', tenantId).in('email', emails);
-      data?.forEach((d) => existing.add((d.email as string).toLowerCase()));
+
+    // Dedupe lookup: by normalized LinkedIn URL OR by email (case-insensitive).
+    const liUrls = subset
+      .map((r) => normalizeLinkedInUrl(r.linkedin_url))
+      .filter(Boolean) as string[];
+    const emails = subset
+      .map((r) => (r.email ?? '').toLowerCase().trim())
+      .filter(Boolean);
+
+    const existingByLi = new Map<string, string>(); // li -> existing candidate id
+    const existingByEmail = new Map<string, string>();
+    if (liUrls.length) {
+      const { data } = await supabase
+        .from('candidates')
+        .select('id, linkedin_url')
+        .eq('tenant_id', tenantId)
+        .in('linkedin_url', liUrls);
+      data?.forEach((d) => {
+        const norm = normalizeLinkedInUrl(d.linkedin_url as string);
+        if (norm) existingByLi.set(norm, d.id as string);
+      });
     }
+    if (emails.length) {
+      const { data } = await supabase
+        .from('candidates')
+        .select('id, email')
+        .eq('tenant_id', tenantId)
+        .in('email', emails);
+      data?.forEach((d) => existingByEmail.set((d.email as string).toLowerCase(), d.id as string));
+    }
+
     for (const r of subset) {
-      const email = (r.email ?? `${r.id}@no-email.local`).toLowerCase();
-      if (existing.has(email)) { duplicates++; continue; }
-      const { error } = await supabase.from('candidates').insert({
-        tenant_id: tenantId,
-        created_by: user.id,
+      const li = normalizeLinkedInUrl(r.linkedin_url);
+      const email = (r.email ?? '').toLowerCase().trim() || null;
+      const existingId =
+        (li && existingByLi.get(li)) ||
+        (email && existingByEmail.get(email)) ||
+        null;
+
+      const payload = {
         full_name: r.full_name,
-        email,
         phone: r.phone ?? null,
         location: r.location,
         current_title: r.current_title,
@@ -222,12 +250,32 @@ export default function AICandidateResultsPage() {
         skills: r.skills,
         experience_years: r.experience_years ?? null,
         source: r.source,
-        linkedin_url: r.linkedin_url ?? null,
-      } as any);
+        linkedin_url: li,
+        ...(email ? { email } : {}),
+      };
+
+      if (existingId) {
+        // Update existing record (merge), keep original CV.
+        const { error } = await supabase
+          .from('candidates')
+          .update(payload)
+          .eq('id', existingId)
+          .eq('tenant_id', tenantId);
+        if (error) failed++; else duplicates++;
+        continue;
+      }
+
+      const { error } = await supabase.from('candidates').insert({
+        tenant_id: tenantId,
+        created_by: user.id,
+        email: email ?? `${r.id}@no-email.local`,
+        ...payload,
+      } as never);
       if (error) { (error.code === '23505') ? duplicates++ : failed++; } else inserted++;
     }
     return { inserted, duplicates, failed };
   };
+
 
   const saveOne = async (id: string) => {
     const row = rows.find((r) => r.id === id);
@@ -237,7 +285,7 @@ export default function AICandidateResultsPage() {
     setImporting((s) => { const n = new Set(s); n.delete(id); return n; });
     if (inserted || duplicates) setSaved((s) => new Set(s).add(id));
     if (inserted) toast({ title: 'Imported to CRM', description: `${row.full_name} added (source: ${row.source}).` });
-    else if (duplicates) toast({ title: 'Already in CRM', description: `${row.full_name} matches an existing candidate.` });
+    else if (duplicates) toast({ title: 'Updated existing record', description: `${row.full_name} already in CRM — profile refreshed.` });
     else if (failed) toast({ title: 'Import failed', description: `Could not import ${row.full_name}.`, variant: 'destructive' });
   };
 
@@ -246,7 +294,7 @@ export default function AICandidateResultsPage() {
     const subset = rows.filter((r) => selected.has(r.id));
     const { inserted, duplicates, failed } = await importRows(subset);
     setSaved((s) => new Set([...s, ...subset.map((r) => r.id)]));
-    toast({ title: 'Import complete', description: `${inserted} added · ${duplicates} duplicate(s) · ${failed} failed`, variant: failed && !inserted ? 'destructive' : 'default' });
+    toast({ title: 'Import complete', description: `${inserted} added · ${duplicates} updated · ${failed} failed`, variant: failed && !inserted ? 'destructive' : 'default' });
   };
 
   const exportRows = (subset: ResultRow[], label: string) => {
@@ -311,17 +359,26 @@ export default function AICandidateResultsPage() {
         </div>
 
         {/* Provider errors: shown to everyone but as a quiet info banner for non-owners */}
-        {Object.entries(providerErrors).map(([p, msg]) => (
-          <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>{p}:</strong>{' '}
-              {developerMode
-                ? msg
-                : 'temporarily unavailable — continuing with other sources.'}
-            </AlertDescription>
-          </Alert>
-        ))}
+        {Object.entries(providerErrors).map(([p, msg]) => {
+          const pretty = friendlyDiscoveryError(String(msg));
+          const label =
+            p === 'lusha' ? 'Lusha'
+            : p === 'vibe_prospecting' ? 'Vibe Prospecting'
+            : p === 'apollo' ? 'Apollo'
+            : p === 'open_web' ? 'Open Web Discovery'
+            : p === 'internal_crm' ? 'Internal CRM'
+            : p;
+          return (
+            <Alert key={p} variant={developerMode ? 'destructive' : 'default'}>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>{label}:</strong>{' '}
+                {developerMode ? String(msg) : `${pretty} — continuing with other sources.`}
+              </AlertDescription>
+            </Alert>
+          );
+        })}
+
 
         {errorMsg && !loading && (
           <Alert>
