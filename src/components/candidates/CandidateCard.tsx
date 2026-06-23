@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { MapPin, Mail, Calendar, Linkedin, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
 import { toast } from 'sonner';
 import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
@@ -43,6 +43,7 @@ const statusLabels: Record<PipelineStage, string> = {
 // AI Match Score should ONLY be shown in job-specific context, not in global candidate lists
 // showMatchScore is now false by default to prevent public exposure of scores
 export function CandidateCard({ candidate, showMatchScore = false, compact = false }: CandidateCardProps) {
+  const navigate = useNavigate();
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const linkedInUrl = normalizeLinkedInUrl(candidate.linkedinUrl);
 
@@ -80,9 +81,14 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
         whileHover={{ y: -2 }}
         transition={{ duration: 0.2 }}
       >
-        <Link
-          to={`/candidates/${candidate.id}`}
-          className="block bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all"
+        <div
+          role="link"
+          tabIndex={0}
+          onClick={() => navigate(`/candidates/${candidate.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') navigate(`/candidates/${candidate.id}`);
+          }}
+          className="block cursor-pointer bg-card rounded-xl border border-border p-5 hover:shadow-lg hover:border-accent/30 transition-all"
         >
           <div className="flex items-start gap-4">
             <Avatar className="w-14 h-14">
@@ -117,14 +123,13 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
               </div>
               
               {/* Quick Action Icons */}
-              <div className="flex items-center gap-1 mt-3" onClick={(e) => e.preventDefault()}>
+              <div className="flex items-center gap-1 mt-3">
                 {linkedInUrl && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
                     onClick={(e) => {
-                      e.preventDefault();
                       e.stopPropagation();
                       openLinkedInUrl(linkedInUrl);
                     }}
@@ -155,7 +160,6 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
                           size="icon"
                           className="h-8 w-8 opacity-50 cursor-not-allowed"
                           onClick={(e) => {
-                            e.preventDefault();
                             e.stopPropagation();
                             toast.error('WhatsApp number not added');
                           }}
@@ -176,7 +180,6 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
                   size="icon"
                   className="h-8 w-8"
                   onClick={(e) => {
-                    e.preventDefault();
                     e.stopPropagation();
                     setEmailDialogOpen(true);
                   }}
@@ -206,7 +209,7 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
               </div>
             )}
           </div>
-        </Link>
+        </div>
       </motion.div>
 
       <SendEmailDialog
