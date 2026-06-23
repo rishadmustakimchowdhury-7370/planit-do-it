@@ -502,6 +502,68 @@ export type Database = {
           },
         ]
       }
+      candidate_cv_versions: {
+        Row: {
+          ai_content: string | null
+          candidate_id: string
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          is_active: boolean
+          label: string | null
+          mime_type: string | null
+          source: string
+          tenant_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          ai_content?: string | null
+          candidate_id: string
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          mime_type?: string | null
+          source?: string
+          tenant_id: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          ai_content?: string | null
+          candidate_id?: string
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          mime_type?: string | null
+          source?: string
+          tenant_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_cv_versions_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_discussions: {
         Row: {
           author_type: string
