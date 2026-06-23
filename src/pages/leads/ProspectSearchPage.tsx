@@ -65,7 +65,20 @@ interface SearchResult {
   total_entries: number;
   total_pages: number;
   isDemo?: boolean;
+  source?: 'apollo' | 'open_web';
 }
+
+// Detect Apollo errors that should trigger automatic Open Web fallback.
+const shouldFallbackToOpenWeb = (data: any, invokeErr: any): boolean => {
+  if (invokeErr) return true;
+  if (!data) return true;
+  if (data.upgradeRequired) return true;
+  const status = data.apolloStatus;
+  if (status === 401 || status === 402 || status === 403 || status === 429 || (typeof status === 'number' && status >= 500)) return true;
+  const err = String(data.error ?? '').toLowerCase();
+  if (!err) return false;
+  return /not connected|encryption|decrypt|rate limit|credits|unavailable|free plan|inaccessible|paid apollo|apollo api 4|apollo api 5/.test(err);
+};
 
 const EMPLOYEE_RANGES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5001-10000', '10001+'];
 
