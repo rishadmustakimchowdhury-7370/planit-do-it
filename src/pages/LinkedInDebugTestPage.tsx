@@ -20,6 +20,8 @@ export default function LinkedInDebugTestPage() {
   const { tenantId } = useAuth();
   const [rows, setRows] = useState<CandidateLinkedInRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const rawTestLinkedInUrl = 'linkedin.com/in/aymericdethier';
+  const canonicalTestLinkedInUrl = normalizeLinkedInUrl(rawTestLinkedInUrl);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -45,6 +47,21 @@ export default function LinkedInDebugTestPage() {
   return (
     <AppLayout title="LinkedIn Debug Test" subtitle="Audit candidate LinkedIn URL storage, validation, and external opening.">
       <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">External-open test</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              <div>Raw: {rawTestLinkedInUrl}</div>
+              <div>Opens: {canonicalTestLinkedInUrl}</div>
+            </div>
+            <Button type="button" variant="outline" disabled={!canonicalTestLinkedInUrl} onClick={() => openLinkedInUrl(rawTestLinkedInUrl)}>
+              <ExternalLink className="mr-2 h-4 w-4" /> Open Raw LinkedIn URL
+            </Button>
+          </CardContent>
+        </Card>
+
         <div className="grid gap-3 sm:grid-cols-4">
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Audited</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{audit.total}</CardContent></Card>
           <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Valid URLs</CardTitle></CardHeader><CardContent className="text-2xl font-semibold text-success">{audit.valid}</CardContent></Card>
