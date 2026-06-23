@@ -425,6 +425,12 @@ export default function AICandidateResultsPage() {
         })}
 
 
+        {fallbackNotice && !loading && (
+          <Alert>
+            <Sparkles className="h-4 w-4" />
+            <AlertDescription>{fallbackNotice}</AlertDescription>
+          </Alert>
+        )}
         {errorMsg && !loading && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
