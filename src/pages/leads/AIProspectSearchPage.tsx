@@ -14,9 +14,10 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import {
   Sparkles, Loader2, Search, ExternalLink, Linkedin, AlertCircle, Wand2,
-  ChevronLeft, ChevronRight, Lock,
+  ChevronLeft, ChevronRight, Lock, Download, FileSpreadsheet, BookmarkPlus, Check,
 } from 'lucide-react';
 import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
+import * as XLSX from 'xlsx';
 
 const EMPLOYEE_RANGES = ['', '1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5001-10000', '10001+'];
 
@@ -88,6 +89,88 @@ export default function AIProspectSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [savingAll, setSavingAll] = useState(false);
+
+  const exportRows = () => (result?.people ?? []).map((p) => ({
+    'Company Name': p.company.name ?? '',
+    'Website': p.company.website_url ?? '',
+    'Company LinkedIn URL': p.company.linkedin_url ?? '',
+    'Contact Name': p.name ?? '',
+    'Contact Title': p.title ?? '',
+    'Contact LinkedIn URL': p.linkedin_url ?? '',
+    'Industry': p.company.industry ?? '',
+    'Country': p.country ?? p.company.country ?? '',
+    'City': p.city ?? p.company.city ?? '',
+  }));
+
+  const downloadCSV = () => {
+    const rows = exportRows();
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => esc((r as any)[h])).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `ai-prospects-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadXLSX = () => {
+    const rows = exportRows();
+    if (!rows.length) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Prospects');
+    XLSX.writeFile(wb, `ai-prospects-${Date.now()}.xlsx`);
+  };
+
+  const saveOne = async (p: Person) => {
+    const [first, ...rest] = (p.name ?? '').split(' ');
+    const { data, error: e } = await supabase.functions.invoke('save-leads', {
+      body: {
+        mode: 'lead',
+        company: {
+          name: p.company.name,
+          website: p.company.website_url,
+          linkedin_url: p.company.linkedin_url,
+          industry: p.company.industry,
+          employee_count: p.company.estimated_num_employees,
+          city: p.company.city,
+          country: p.company.country,
+        },
+        contact: {
+          first_name: first || null,
+          last_name: rest.join(' ') || null,
+          full_name: p.name,
+          title: p.title,
+          linkedin_url: p.linkedin_url,
+          city: p.city,
+          country: p.country,
+        },
+      },
+    });
+    if (e || data?.error) {
+      toast({ title: 'Save failed', description: e?.message ?? data?.error, variant: 'destructive' });
+      return false;
+    }
+    setSaved((prev) => new Set(prev).add(p.id));
+    return true;
+  };
+
+  const saveAll = async () => {
+    if (!result?.people?.length) return;
+    setSavingAll(true);
+    let ok = 0;
+    for (const p of result.people) {
+      if (saved.has(p.id)) continue;
+      if (await saveOne(p)) ok++;
+    }
+    setSavingAll(false);
+    toast({ title: 'Saved to CRM', description: `${ok} leads saved.` });
+  };
+
 
   useEffect(() => {
     (async () => {
@@ -314,9 +397,19 @@ export default function AIProspectSearchPage() {
         {result && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
+              <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
                 <span>Results ({result.total_entries})</span>
                 <div className="flex items-center gap-2 text-sm font-normal">
+                  <Button size="sm" variant="outline" onClick={saveAll} disabled={savingAll || !result.people.length}>
+                    {savingAll ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <BookmarkPlus className="w-4 h-4 mr-1" />}
+                    Save all to CRM
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadCSV} disabled={!result.people.length}>
+                    <Download className="w-4 h-4 mr-1" /> CSV
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={downloadXLSX} disabled={!result.people.length}>
+                    <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+                  </Button>
                   <Button size="sm" variant="outline" disabled={page <= 1 || searching} onClick={() => runSearch(page - 1)}>
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -336,11 +429,13 @@ export default function AIProspectSearchPage() {
                     <TableHead>Title</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Links</TableHead>
+                    <TableHead className="w-28">Save</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {result.people.map((p) => {
                     const linkedInUrl = normalizeLinkedInUrl(p.linkedin_url);
+                    const isSaved = saved.has(p.id);
                     return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.company.name ?? '—'}</TableCell>
@@ -353,11 +448,16 @@ export default function AIProspectSearchPage() {
                           {linkedInUrl && <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)}><Linkedin className="w-4 h-4" /></button>}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant={isSaved ? 'secondary' : 'outline'} disabled={isSaved} onClick={() => saveOne(p)}>
+                          {isSaved ? <><Check className="w-3 h-3 mr-1" /> Saved</> : <><BookmarkPlus className="w-3 h-3 mr-1" /> Save</>}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     );
                   })}
                   {result.people.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
