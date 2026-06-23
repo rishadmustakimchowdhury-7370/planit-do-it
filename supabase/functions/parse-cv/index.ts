@@ -90,6 +90,32 @@ function extractFromLinkedInUrl(linkedinUrl: string): { username: string; inferr
   return { username, inferredName };
 }
 
+function normalizeLinkedInProfileUrl(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim();
+  if (!s || /^(undefined|null|#|javascript:void\(0\)|javascript:;)$/i.test(s) || /^javascript:/i.test(s)) return null;
+  const mdLabel = s.match(/^\[([^\]]+)\]\([^)]*\)$/i);
+  if (mdLabel) s = mdLabel[1].trim();
+  const md = s.match(/\((https?:[^)]+)\)/i);
+  if (md) s = md[1];
+  if (s.startsWith('//')) s = 'https:' + s;
+  if (/^linkedin\.com\//i.test(s)) s = s.replace(/^linkedin\.com\//i, 'https://www.linkedin.com/');
+  if (/^www\.linkedin\.com\//i.test(s)) s = s.replace(/^www\.linkedin\.com\//i, 'https://www.linkedin.com/');
+  if (/^[a-z]{2}\.linkedin\.com\//i.test(s)) s = s.replace(/^[a-z]{2}\.linkedin\.com\//i, 'https://www.linkedin.com/');
+  if (s.startsWith('/in/')) s = 'https://www.linkedin.com' + s;
+  let url: URL;
+  try { url = new URL(s); } catch { return null; }
+  if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) return null;
+  url.hostname = 'www.linkedin.com';
+  url.protocol = 'https:';
+  url.search = '';
+  url.hash = '';
+  const match = url.pathname.match(/^\/in\/([^/?#\s]+)\/?/i);
+  if (!match) return null;
+  url.pathname = `/in/${match[1]}`;
+  return url.toString();
+}
+
 // Try to fetch LinkedIn page and extract basic info from HTML meta tags
 async function fetchLinkedInProfile(linkedinUrl: string): Promise<{
   name?: string;
