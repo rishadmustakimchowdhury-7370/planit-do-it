@@ -157,6 +157,13 @@ export default function AIProspectSearchPage() {
       return false;
     }
     setSaved((prev) => new Set(prev).add(p.id));
+    toast({
+      title: 'Saved to CRM',
+      description: 'Lead added to Saved Leads pipeline.',
+      action: (
+        <Link to="/leads/saved" className="text-sm font-medium underline">View Saved Leads</Link>
+      ) as any,
+    });
     return true;
   };
 
