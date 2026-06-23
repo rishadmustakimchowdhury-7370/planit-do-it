@@ -401,7 +401,7 @@ const CandidateDetailPage = () => {
                     variant="outline" 
                     size="sm" 
                     className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 hover:shadow-sm active:scale-[0.97]"
-                    onClick={() => window.open(candidate.linkedin_url!, '_blank')}
+                    onClick={() => window.open(candidate.linkedin_url!, '_blank', 'noopener,noreferrer')}
                   >
                     <Linkedin className="w-4 h-4 text-[#0077B5]" />
                     LinkedIn
