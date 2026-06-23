@@ -136,7 +136,7 @@ export default function AIProspectSearchPage() {
         employeeRange: filters.employeeRange || undefined,
         searchMode: 'balanced',
         page: pageNum,
-        perPage: 25,
+        perPage: 50,
       },
     });
     if (invokeErr) throw new Error(invokeErr.message);
