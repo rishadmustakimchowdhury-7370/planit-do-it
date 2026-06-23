@@ -31,7 +31,7 @@ async function decryptKey(ct: string, iv: string): Promise<string> {
 // ---------------- Shared types --------------------------------------------
 interface UnifiedCandidate {
   id: string;
-  source: "Lusha" | "Vibe Prospecting" | "Internal CRM";
+  source: "Lusha" | "Vibe Prospecting" | "Internal CRM" | "Open Web Discovery";
   source_url?: string | null;
   full_name: string;
   current_title: string;
