@@ -73,15 +73,36 @@ OUTPUT — RETURN ONLY JSON, no prose, no markdown fences:
 }`;
 }
 
-async function callLovableAI(prompt: string, apiKey: string) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey,
-    },
-    body: JSON.stringify({
+type AIProvider = { url: string; headers: Record<string, string>; model: string; name: string };
+
+function pickProvider(): AIProvider | null {
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
+    return {
+      name: "openai",
+      url: "https://api.openai.com/v1/chat/completions",
+      headers: { "Authorization": `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+      model: "gpt-4o-mini",
+    };
+  }
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    return {
+      name: "lovable-gemini",
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      headers: { "Lovable-API-Key": lovableKey, "Content-Type": "application/json" },
       model: "google/gemini-2.5-flash",
+    };
+  }
+  return null;
+}
+
+async function callAI(prompt: string, provider: AIProvider) {
+  const res = await fetch(provider.url, {
+    method: "POST",
+    headers: provider.headers,
+    body: JSON.stringify({
+      model: provider.model,
       messages: [
         { role: "system", content: "You output only valid JSON. Never include markdown fences or prose." },
         { role: "user", content: prompt },
@@ -91,14 +112,13 @@ async function callLovableAI(prompt: string, apiKey: string) {
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`AI gateway ${res.status}: ${t.slice(0, 400)}`);
+    throw new Error(`AI ${provider.name} ${res.status}: ${t.slice(0, 400)}`);
   }
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content ?? "{}";
   try {
     return JSON.parse(content);
   } catch {
-    // Best-effort: strip code fences if model added them despite instructions.
     const stripped = String(content).replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
     return JSON.parse(stripped);
   }
