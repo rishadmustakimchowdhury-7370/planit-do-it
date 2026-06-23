@@ -37,7 +37,7 @@ interface Criteria {
 
 interface ResultRow {
   id: string;
-  source: 'Lusha' | 'Vibe Prospecting' | 'Internal CRM';
+  source: 'Lusha' | 'Vibe Prospecting' | 'Internal CRM' | 'Open Web Discovery';
   source_url?: string | null;
   full_name: string;
   current_title: string;
@@ -464,7 +464,13 @@ export default function AICandidateResultsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <Badge variant="outline" className="gap-1 text-xs">{r.source}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={`gap-1 text-xs ${r.source === 'Open Web Discovery' ? 'border-primary/40 text-primary bg-primary/10' : ''}`}
+                        title={r.source === 'Open Web Discovery' ? 'Found via public web search (fallback)' : undefined}
+                      >
+                        {r.source}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {r.matchScore != null ? (
