@@ -358,7 +358,7 @@ const CandidateDetailPage = () => {
                   variant="outline" 
                   size="sm" 
                   className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-info/50 hover:bg-info/5 hover:shadow-sm active:scale-[0.97]" 
-                  onClick={() => setEmailDialogOpen(true)}
+                  onClick={() => hasRealCandidateEmail(candidate.email) ? setEmailDialogOpen(true) : toast.error('Email Not Available')}
                 >
                   <Mail className="w-4 h-4 text-info" />
                   Send Email
