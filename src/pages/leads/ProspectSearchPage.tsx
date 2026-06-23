@@ -478,6 +478,10 @@ export default function ProspectSearchPage() {
                   <Sparkles className="h-4 w-4 mr-2" />
                   {demoActive ? 'Sandbox loaded below' : 'Load Sample Apollo Results'}
                 </Button>
+                <Button variant="default" onClick={() => setBypassFreeGate(true)}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Use Open Web Discovery (Free)
+                </Button>
                 <Button variant="ghost" asChild>
                   <a href="/settings">Manage integration</a>
                 </Button>
