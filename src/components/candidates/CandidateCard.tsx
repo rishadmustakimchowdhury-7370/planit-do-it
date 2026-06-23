@@ -125,6 +125,7 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
                     className="h-8 w-8"
                     onClick={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       openLinkedInUrl(linkedInUrl);
                     }}
                     title="View LinkedIn Profile"
