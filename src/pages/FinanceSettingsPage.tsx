@@ -208,11 +208,12 @@ export default function FinanceSettingsPage() {
               <CardHeader><CardTitle className="flex items-center gap-2"><Banknote className="w-5 h-5" />Bank Details</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-2 gap-4">
                 <div><Label>Bank name</Label><Input value={form.bank_name || ""} onChange={e => set("bank_name", e.target.value)} /></div>
-                <div><Label>Account name</Label><Input value={form.bank_account_name || ""} onChange={e => set("bank_account_name", e.target.value)} /></div>
-                <div><Label>Account number</Label><Input value={form.bank_account_number || ""} onChange={e => set("bank_account_number", e.target.value)} /></div>
-                <div><Label>Sort code</Label><Input value={form.bank_sort_code || ""} onChange={e => set("bank_sort_code", e.target.value)} /></div>
-                <div><Label>IBAN</Label><Input value={form.bank_iban || ""} onChange={e => set("bank_iban", e.target.value)} /></div>
-                <div><Label>SWIFT/BIC</Label><Input value={form.bank_swift || ""} onChange={e => set("bank_swift", e.target.value)} /></div>
+                <div><Label>Account name</Label><Input disabled={!isOwner} value={form.bank_account_name || ""} onChange={e => set("bank_account_name", e.target.value)} /></div>
+                <div><Label>Account number</Label><Input disabled={!isOwner} value={form.bank_account_number || ""} onChange={e => set("bank_account_number", e.target.value)} /></div>
+                <div><Label>Sort code</Label><Input disabled={!isOwner} value={form.bank_sort_code || ""} onChange={e => set("bank_sort_code", e.target.value)} /></div>
+                <div><Label>IBAN</Label><Input disabled={!isOwner} value={form.bank_iban || ""} onChange={e => set("bank_iban", e.target.value)} /></div>
+                <div><Label>SWIFT/BIC</Label><Input disabled={!isOwner} value={form.bank_swift || ""} onChange={e => set("bank_swift", e.target.value)} /></div>
+                {!isOwner && <p className="md:col-span-2 text-xs text-muted-foreground">Bank details are masked. Only Owners can view or edit them.</p>}
               </CardContent>
             </Card>
 
