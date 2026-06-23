@@ -245,7 +245,14 @@ serve(async (req) => {
   }
 
   try {
-    const { cvText, cvBase64, mimeType, linkedinUrl, candidate_id, skip_structured } = await req.json();
+    const { cvText, cvBase64, mimeType, linkedinUrl: rawLinkedinUrl, candidate_id, skip_structured } = await req.json();
+    const linkedinUrl = normalizeLinkedInProfileUrl(rawLinkedinUrl);
+    if (rawLinkedinUrl && !linkedinUrl) {
+      return new Response(JSON.stringify({ error: 'LinkedIn URL must be a member profile URL like https://www.linkedin.com/in/username' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
@@ -500,6 +507,10 @@ ${cvText}`
     console.log('CV parsing complete, generating structured profile...');
 
     let structured_profile: StructuredCandidateProfile | null = null;
+    if (linkedinUrl) {
+      parsedCV.linkedin_url = linkedinUrl;
+    }
+
     if (!skip_structured) {
       structured_profile = await buildStructuredProfile(parsedCV, OPENAI_API_KEY, linkedinUrl);
     }
