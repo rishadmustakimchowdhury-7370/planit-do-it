@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
+import { normalizeLinkedInUrl } from '@/lib/discovery';
 
 type CandidateStatus = Database['public']['Enums']['candidate_status'];
 
@@ -98,8 +99,14 @@ export default function EditCandidatePage() {
       return;
     }
 
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      toast.error('Name and email are required');
+    if (!formData.fullName.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+
+    const linkedinUrl = normalizeLinkedInUrl(formData.linkedinUrl);
+    if (formData.linkedinUrl.trim() && !linkedinUrl) {
+      toast.error('Enter a full LinkedIn profile URL, for example https://www.linkedin.com/in/john-smith');
       return;
     }
 
@@ -115,12 +122,12 @@ export default function EditCandidatePage() {
         .from('candidates')
         .update({
           full_name: formData.fullName.trim(),
-          email: formData.email.trim(),
+          email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
           location: formData.location.trim() || null,
           current_title: formData.currentTitle.trim() || null,
           current_company: formData.currentCompany.trim() || null,
-          linkedin_url: formData.linkedinUrl.trim() || null,
+          linkedin_url: linkedinUrl,
           summary: formData.summary.trim() || null,
           skills: skillsArray.length > 0 ? skillsArray : null,
           experience_years: formData.experienceYears ? parseInt(formData.experienceYears) : null,
