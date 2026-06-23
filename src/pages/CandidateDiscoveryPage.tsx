@@ -1,7 +1,9 @@
+import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { CandidateSourceIntegrationCard } from '@/components/settings/CandidateSourceIntegrationCard';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
-import { UserSearch } from 'lucide-react';
+import { UserSearch, Activity, Database } from 'lucide-react';
 
 export default function CandidateDiscoveryPage() {
   const { isOwner, isManager } = useAuth();
