@@ -31,9 +31,10 @@ async function decryptKey(ct: string, iv: string): Promise<string> {
 // ---------------- Shared types --------------------------------------------
 interface UnifiedCandidate {
   id: string;
-  source: "Lusha" | "Vibe Prospecting" | "Internal CRM" | "Open Web Discovery";
+  source: "Apollo" | "Lusha" | "Vibe Prospecting" | "LinkedIn" | "Internal CRM" | "Open Web Discovery";
   source_url?: string | null;
   full_name: string;
+  headline?: string | null;
   current_title: string;
   current_company: string;
   industry?: string | null;
@@ -45,7 +46,10 @@ interface UnifiedCandidate {
   phone?: string | null;
   skills: string[];
   experience_years?: number | null;
+  experience_summary?: string | null;
+  education?: string | null;
   seniority?: string | null;
+  confidence?: number | null;
   matchScore?: number;
   matchReasons?: string[];
   matchMissing?: string[];
@@ -125,10 +129,20 @@ function expandTitleFilters(criteria: Criteria): string[] {
 function expandIndustryFilters(criteria: Criteria): string[] {
   const values = [...(criteria.industries ?? []), ...(criteria.keywords ?? []), criteria.notes ?? ""];
   const text = values.join(" ").toLowerCase();
-  const out = new Set(cleanList(criteria.industries ?? [], 10));
-  if (/ship|maritime|freight|logistics|supply chain/.test(text)) ["Shipping", "Logistics", "Maritime", "Freight"].forEach((v) => out.add(v));
-  if (/commod|trading|energy|oil|gas|metal|agri/.test(text)) ["Commodity Trading", "Commodities", "Trading", "Energy"].forEach((v) => out.add(v));
-  return cleanList(Array.from(out), 10);
+  const out = new Set(cleanList(criteria.industries ?? [], 20));
+  // Commodity trading family
+  if (/commod|physical trad|trading desk|energy trad|oil trad|gas trad|metal|agri|grain|softs/.test(text)) {
+    ["Commodity Trading", "Physical Trading", "Energy Trading", "Oil Trading", "Gas Trading", "Metals Trading", "Agricultural Trading"].forEach((v) => out.add(v));
+  }
+  // Shipping family
+  if (/ship|maritime|charter|vessel|dry bulk|tanker|container|port operations/.test(text)) {
+    ["Shipping", "Maritime", "Chartering", "Vessel Operations", "Dry Bulk", "Tanker", "Container Shipping"].forEach((v) => out.add(v));
+  }
+  // Freight & logistics family
+  if (/freight|logistics|supply chain|forwarder|3pl|4pl|warehous/.test(text)) {
+    ["Freight Forwarding", "Logistics", "Supply Chain", "Transportation"].forEach((v) => out.add(v));
+  }
+  return cleanList(Array.from(out), 20);
 }
 
 function expandLocationFilters(criteria: Criteria): string[] {
@@ -503,14 +517,38 @@ async function searchOpenWeb(
     skills.length ? skills.map((s) => `"${s}"`).join(" ") : "",
   ].filter(Boolean).join(" ");
 
-  const system = `You are a recruitment sourcing assistant. Use web search to find up to ${limit} REAL public professional profiles matching the recruiter's criteria.
-Search LinkedIn, GitHub, company About pages, conference speaker listings and personal sites.
-Only return people you actually found via web search results — do NOT invent profiles, names, or URLs.
-For each candidate extract: full_name, current_title, current_company, location, profile_url, confidence (0-100), and a short "why" explaining the match.
-Respond ONLY with a single JSON object wrapped in \`\`\`json fences:
-{"candidates":[{"full_name":"","current_title":"","current_company":"","location":"","profile_url":"","confidence":0,"why":""}]}`;
+  const system = `You are a senior recruitment sourcing assistant. Use web search to find up to ${limit} REAL public professional profiles matching the recruiter's criteria.
 
-  const user = `Criteria:\n${JSON.stringify(criteria)}\n\nBoolean hint: ${queryHint}\nReturn at most ${limit} candidates.`;
+PRIORITISE these sources (in order):
+1. LinkedIn public profiles (linkedin.com/in/...)
+2. Company "About / Team / People" pages on official corporate websites
+3. Professional directories (Crunchbase, Bloomberg executives, F6S, AngelList)
+4. Industry association member pages and conference speaker listings
+5. Reputable personal portfolio / GitHub / About.me pages
+
+AVOID: generic blog posts, news mentions without a profile link, social media posts, press releases, job boards.
+
+For EACH candidate, extract as much structured detail as the public profile reveals:
+- full_name
+- headline (LinkedIn-style one-liner)
+- current_title
+- current_company
+- industry (e.g. "Commodity Trading", "Shipping", "Freight Forwarding")
+- location (City, Country)
+- profile_url (LinkedIn preferred; otherwise the canonical professional page)
+- linkedin_url (if different from profile_url, else same)
+- skills (array of 5-12 concrete skills/tools)
+- experience_summary (2-3 lines covering past roles & companies)
+- education (degree + institution if visible, else null)
+- languages (array, else [])
+- confidence (0-100, based on profile completeness & match strength)
+- why (one sentence explaining the match)
+
+Do NOT invent profiles, names, companies or URLs — every entry must be traceable to a real web result.
+Return ONLY a JSON object wrapped in \`\`\`json fences:
+{"candidates":[{"full_name":"","headline":"","current_title":"","current_company":"","industry":"","location":"","profile_url":"","linkedin_url":"","skills":[],"experience_summary":"","education":"","languages":[],"confidence":0,"why":""}]}`;
+
+  const user = `Criteria:\n${JSON.stringify(criteria)}\n\nBoolean hint: ${queryHint}\nReturn at most ${limit} HIGH-QUALITY candidates. Quality beats quantity.`;
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -538,19 +576,29 @@ Respond ONLY with a single JSON object wrapped in \`\`\`json fences:
     const cands: UnifiedCandidate[] = raw.slice(0, limit).map((r, i) => {
       const o = r as Record<string, unknown>;
       const url = typeof o.profile_url === "string" ? o.profile_url : null;
+      const li = typeof o.linkedin_url === "string" ? o.linkedin_url : (url && url.includes("linkedin.com") ? url : null);
       const conf = Math.max(0, Math.min(100, Number(o.confidence ?? 65)));
       const why = typeof o.why === "string" ? o.why : "";
+      const skills = Array.isArray(o.skills) ? (o.skills as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 12) : [];
+      const languages = Array.isArray(o.languages) ? (o.languages as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 8) : [];
+      // Treat LinkedIn-sourced profiles as their own source for clarity.
+      const isLinkedIn = !!li && /linkedin\.com\/in\//i.test(li);
       return {
         id: `openweb-${Date.now()}-${i}`,
-        source: "Open Web Discovery",
+        source: isLinkedIn ? "LinkedIn" : "Open Web Discovery",
         source_url: url,
         full_name: String(o.full_name ?? "").trim(),
+        headline: typeof o.headline === "string" ? o.headline : null,
         current_title: String(o.current_title ?? "").trim(),
         current_company: String(o.current_company ?? "").trim(),
+        industry: typeof o.industry === "string" ? o.industry : null,
         location: String(o.location ?? "").trim(),
-        languages: [],
-        linkedin_url: url && url.includes("linkedin.com") ? url : null,
-        skills: [],
+        languages,
+        linkedin_url: li,
+        skills,
+        experience_summary: typeof o.experience_summary === "string" ? o.experience_summary : null,
+        education: typeof o.education === "string" ? o.education : null,
+        confidence: conf,
         matchScore: conf,
         matchReasons: why ? [`✓ ${why}`] : ["✓ Public web signal match"],
         matchMissing: [],
