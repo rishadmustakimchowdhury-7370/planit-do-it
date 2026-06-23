@@ -109,7 +109,7 @@ function Row({ label, value, isLink }: { label: string; value: string | null | u
     <div className="flex items-start gap-4">
       <span className="text-xs uppercase tracking-wide text-muted-foreground w-32 shrink-0 pt-0.5">{label}</span>
       {isLink ? (
-        <a href={value} target="_blank" rel="noreferrer" className="text-primary hover:underline break-all">{value}</a>
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{value}</a>
       ) : (
         <span className="text-foreground break-words">{value}</span>
       )}
