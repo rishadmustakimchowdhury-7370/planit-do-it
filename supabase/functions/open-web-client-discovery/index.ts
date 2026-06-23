@@ -98,7 +98,7 @@ function pickProvider(): AIProvider | null {
       name: "openai",
       url: "https://api.openai.com/v1/chat/completions",
       headers: { "Authorization": `Bearer ${openaiKey}`, "Content-Type": "application/json" },
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
     };
   }
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
