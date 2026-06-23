@@ -1054,7 +1054,7 @@ Deno.serve(async (req) => {
     let openWebCandidates: UnifiedCandidate[] = [];
     if (shouldFallback) {
       console.log("[search] triggering Open Web Discovery fallback");
-      const ow = await searchOpenWeb(criteria, Math.min(15, perProviderLimit));
+      const ow = await searchOpenWeb(criteria, Math.max(30, perProviderLimit));
       if (ow.error) errors["open_web"] = ow.error;
       openWebCandidates = ow.candidates;
       ranQueries.push({
