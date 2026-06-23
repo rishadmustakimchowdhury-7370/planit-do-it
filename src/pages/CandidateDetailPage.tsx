@@ -60,6 +60,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { CandidateNotesPanel } from '@/components/candidates/CandidateNotesPanel';
 import { CVSubmissionHistory } from '@/components/candidates/CVSubmissionHistory';
+import { CandidateCVVersions } from '@/components/candidates/CandidateCVVersions';
 import { InternalCollaborationTab } from '@/components/clients/InternalCollaborationTab';
 import { AddToJobDialog } from '@/components/candidates/AddToJobDialog';
 import { getWhatsAppUrl, formatWhatsAppNumber } from '@/lib/whatsapp';
@@ -474,8 +475,23 @@ const CandidateDetailPage = () => {
 
         <TabsContent value="cv" className="mt-6">
           <div className="space-y-6">
+            {tenantId && (
+              <CandidateCVVersions
+                candidateId={candidate.id}
+                tenantId={tenantId}
+                candidate={{
+                  full_name: candidate.full_name,
+                  summary: candidate.summary,
+                  current_title: candidate.current_title,
+                  current_company: candidate.current_company,
+                  skills: candidate.skills,
+                  experience_years: candidate.experience_years,
+                }}
+              />
+            )}
             {/* CV Submission History */}
             <CVSubmissionHistory candidateId={candidate.id} />
+            
             
             <motion.div 
               initial={{ opacity: 0 }}
