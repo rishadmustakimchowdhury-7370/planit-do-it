@@ -108,6 +108,7 @@ export default function ProspectSearchPage() {
   const [filters, setFilters] = useState({
     keywords: '', industry: '', employeeRange: '', revenueMin: '', revenueMax: '', country: '', city: '',
   });
+  const [searchMode, setSearchMode] = useState<'strict' | 'balanced' | 'broad'>('balanced');
   const [page, setPage] = useState(1);
   const [perPage] = useState(25);
   const [loading, setLoading] = useState(false);
@@ -121,6 +122,7 @@ export default function ProspectSearchPage() {
   const [capabilities, setCapabilities] = useState<{ people_search?: boolean; org_search?: boolean }>({});
   const [retesting, setRetesting] = useState(false);
   const [demoActive, setDemoActive] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
   const loadStatus = async () => {
     const { data } = await supabase.functions.invoke('apollo-integration', { body: { action: 'status' } });
