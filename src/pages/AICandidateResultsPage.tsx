@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl } from '@/lib/discovery';
+import { displayCandidateEmail, hasRealCandidateEmail, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 import { friendlyDiscoveryError } from '@/lib/discoveryErrors';
 
 import {
@@ -537,7 +537,7 @@ export default function AICandidateResultsPage() {
                         {(() => {
                           const li = normalizeLinkedInUrl(r.linkedin_url);
                           return li ? (
-                            <a href={li} target="_blank" rel="noopener noreferrer" title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></a>
+                            <button type="button" onClick={() => openLinkedInUrl(li)} title="View LinkedIn Profile" className="text-muted-foreground hover:text-[#0A66C2]"><Linkedin className="h-4 w-4" /></button>
                           ) : null;
                         })()}
                         {!hasRealCandidateEmail(r.email) && !r.phone && !normalizeLinkedInUrl(r.linkedin_url) && <span className="text-xs text-muted-foreground">{displayCandidateEmail(r.email)}</span>}
