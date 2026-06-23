@@ -177,11 +177,10 @@ export function InvoiceEditorDialog({ open, onOpenChange, invoiceId, placementId
       notes: form.notes,
       payment_terms: form.payment_terms,
       status: form.status,
-      bank_details: settings ? {
-        bank_name: settings.bank_name, bank_account_name: settings.bank_account_name,
-        bank_account_number: settings.bank_account_number, bank_sort_code: settings.bank_sort_code,
-        bank_iban: settings.bank_iban, bank_swift: settings.bank_swift,
-      } : null,
+      bank_details: await (async () => {
+        const { data } = await (supabase as any).rpc("snapshot_invoice_bank_details", { _tenant_id: tenantId });
+        return data || null;
+      })(),
       company_name: settings?.agency_name,
       company_address: settings?.agency_address,
       company_phone: settings?.agency_phone,
