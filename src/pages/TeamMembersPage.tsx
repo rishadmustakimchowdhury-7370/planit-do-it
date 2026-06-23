@@ -185,10 +185,11 @@ export default function TeamMembersPage() {
       // Fetch pending invitations from team_invitations table
       const { data: invitesData, error: invitesError } = await supabase
         .from('team_invitations')
-        .select('*')
+        .select('id, tenant_id, email, role, status, invited_by, expires_at, created_at')
         .eq('tenant_id', tenantId)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString());
+
 
       if (invitesError) throw invitesError;
       setInvitations(invitesData || []);
