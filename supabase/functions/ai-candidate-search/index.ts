@@ -1244,18 +1244,20 @@ Deno.serve(async (req) => {
       || externalCandidates.length === 0;
 
     let openWebCandidates: UnifiedCandidate[] = [];
+    let openWebDebug: NonNullable<Awaited<ReturnType<typeof searchOpenWeb>>["debug"]> | undefined;
     if (shouldFallback) {
-      console.log("[search] triggering Open Web Discovery fallback");
-      const ow = await searchOpenWeb(criteria, Math.max(30, perProviderLimit));
+      console.log("[search] triggering Open Web Discovery (recruiter-grade sourcing)");
+      const ow = await searchOpenWeb(criteria, 100);
       if (ow.error) errors["open_web"] = ow.error;
       openWebCandidates = ow.candidates;
+      openWebDebug = ow.debug;
       ranQueries.push({
         id: "openweb",
-        label: "Open Web Discovery (fallback)",
+        label: `Open Web Discovery (${ow.debug?.passes ?? 0} strategies, ${ow.debug?.rawFound ?? 0} raw → ${ow.debug?.deduped ?? 0} unique)`,
         boolean: ow.debug?.query ?? "(web search)",
-        raw: ow.candidates.length,
+        raw: ow.debug?.rawFound ?? ow.candidates.length,
         accepted: ow.candidates.length,
-        rejected: 0,
+        rejected: Math.max(0, (ow.debug?.rawFound ?? 0) - ow.candidates.length),
         providers: [{ provider: "open_web" as unknown as "lusha", records: ow.candidates.length, ...(ow.error ? { error: ow.error } : {}) }],
       });
     }
@@ -1273,13 +1275,30 @@ Deno.serve(async (req) => {
       candidates: final,
       errors,
       queries: ranQueries,
-      stats: { raw: pool.length, after_hard_filters: hardFiltered.length, returned: final.length },
+      stats: {
+        raw: pool.length + (openWebDebug?.rawFound ?? 0),
+        after_hard_filters: hardFiltered.length,
+        returned: final.length,
+        open_web: openWebDebug
+          ? {
+              strategies: openWebDebug.passes,
+              title_variants: openWebDebug.titleVariants,
+              skill_variants: openWebDebug.skillVariants,
+              location_levels: openWebDebug.locationLevels,
+              raw_profiles_found: openWebDebug.rawFound,
+              profiles_deduped: openWebDebug.deduped,
+              profiles_scored: openWebDebug.scored,
+              profiles_returned: openWebDebug.returned,
+            }
+          : undefined,
+      },
       message: final.length
         ? null
         : (Object.keys(errors).length
             ? `Search ran across ${ranQueries.length} strategies but no candidates met the 60% relevance bar. Provider issues: ${Object.entries(errors).map(([p, e]) => `${p}: ${e}`).join("; ")}`
             : `Search ran across ${ranQueries.length} strategies but no candidates met the 60% relevance bar. Try broadening the criteria.`),
     });
+
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[search] error", msg);
