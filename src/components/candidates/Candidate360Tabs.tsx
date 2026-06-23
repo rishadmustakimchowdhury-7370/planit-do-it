@@ -14,7 +14,7 @@ import { Loader2, Mic, Square, Trash2, Briefcase, Star, Award, Trophy } from 'lu
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { MarkAsPlacementDialog } from '@/components/placements/MarkAsPlacementDialog';
-import { normalizeLinkedInUrl } from '@/lib/discovery';
+import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 type Candidate = {
   id: string;
@@ -110,7 +110,7 @@ function Row({ label, value, isLink }: { label: string; value: string | null | u
     <div className="flex items-start gap-4">
       <span className="text-xs uppercase tracking-wide text-muted-foreground w-32 shrink-0 pt-0.5">{label}</span>
       {isLink ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{value}</a>
+        <button type="button" onClick={() => openLinkedInUrl(value)} className="text-left text-primary hover:underline break-all">{value}</button>
       ) : (
         <span className="text-foreground break-words">{value}</span>
       )}
