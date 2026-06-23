@@ -293,7 +293,7 @@ export default function AICandidateResultsPage() {
     const subset = rows.filter((r) => selected.has(r.id));
     const { inserted, duplicates, failed } = await importRows(subset);
     setSaved((s) => new Set([...s, ...subset.map((r) => r.id)]));
-    toast({ title: 'Import complete', description: `${inserted} added · ${duplicates} duplicate(s) · ${failed} failed`, variant: failed && !inserted ? 'destructive' : 'default' });
+    toast({ title: 'Import complete', description: `${inserted} added · ${duplicates} updated · ${failed} failed`, variant: failed && !inserted ? 'destructive' : 'default' });
   };
 
   const exportRows = (subset: ResultRow[], label: string) => {
