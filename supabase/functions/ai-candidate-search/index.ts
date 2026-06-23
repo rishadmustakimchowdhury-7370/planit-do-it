@@ -1004,7 +1004,7 @@ Deno.serve(async (req) => {
     const dedupe = (arr: UnifiedCandidate[]) => {
       const seen = new Set<string>();
       return arr.filter((c) => {
-        const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
+        const k = (normalizeLinkedInUrlServer(c.linkedin_url ?? undefined) || `${c.full_name}|${c.current_company}`).toLowerCase();
         if (seen.has(k)) return false;
         seen.add(k); return true;
       });
