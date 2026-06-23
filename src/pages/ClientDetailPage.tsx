@@ -67,7 +67,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { SendClientEmailModal } from '@/components/email/SendClientEmailModal';
-import { normalizeLinkedInAnyUrl } from '@/lib/discovery';
+import { normalizeLinkedInAnyUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Client {
   id: string;
@@ -561,13 +561,16 @@ export default function ClientDetailPage() {
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
-                {normalizeLinkedInAnyUrl(client.linkedin_url) && (
-                  <a href={normalizeLinkedInAnyUrl(client.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-accent">
-                    <Linkedin className="w-4 h-4" />
-                    LinkedIn
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
+                {(() => {
+                  const linkedInUrl = normalizeLinkedInAnyUrl(client.linkedin_url);
+                  return linkedInUrl ? (
+                    <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)} className="flex items-center gap-1 hover:text-accent">
+                      <Linkedin className="w-4 h-4" />
+                      LinkedIn
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  ) : null;
+                })()}
               </div>
             </div>
           </div>

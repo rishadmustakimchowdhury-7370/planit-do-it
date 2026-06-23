@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { generateDemoCompanies } from '@/lib/apolloDemoData';
 import { ProspectSandbox } from '@/components/leads/ProspectSandbox';
-import { normalizeLinkedInAnyUrl } from '@/lib/discovery';
+import { normalizeLinkedInAnyUrl, openLinkedInUrl } from '@/lib/discovery';
 
 interface Person {
   id: string;
@@ -593,6 +593,7 @@ export default function ProspectSearchPage() {
                       ) : (
                         (result.companies ?? []).map((c) => {
                           const busy = rowSaving[c.id];
+                          const companyLinkedInUrl = normalizeLinkedInAnyUrl(c.linkedin_url);
                           return (
                             <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
                               <TableCell>
@@ -615,10 +616,10 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {normalizeLinkedInAnyUrl(c.linkedin_url) ? (
-                                  <a href={normalizeLinkedInAnyUrl(c.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {companyLinkedInUrl ? (
+                                  <button type="button" onClick={() => openLinkedInUrl(companyLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Page
-                                  </a>
+                                  </button>
                                 ) : '—'}
                               </TableCell>
                               <TableCell className="text-sm">{[c.city, c.state, c.country].filter(Boolean).join(', ') || '—'}</TableCell>
@@ -668,6 +669,7 @@ export default function ProspectSearchPage() {
                       ) : (
                         result.people.map((p) => {
                           const busy = rowSaving[p.id];
+                          const profileLinkedInUrl = normalizeLinkedInAnyUrl(p.linkedin_url);
                           return (
                             <TableRow key={p.id} data-state={selected.has(p.id) ? 'selected' : undefined}>
                               <TableCell>
@@ -687,10 +689,10 @@ export default function ProspectSearchPage() {
                                 ) : '—'}
                               </TableCell>
                               <TableCell>
-                                {normalizeLinkedInAnyUrl(p.linkedin_url) ? (
-                                  <a href={normalizeLinkedInAnyUrl(p.linkedin_url)!} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                {profileLinkedInUrl ? (
+                                  <button type="button" onClick={() => openLinkedInUrl(profileLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Profile
-                                  </a>
+                                  </button>
                                 ) : '—'}
                               </TableCell>
                               <TableCell className="text-sm">{locationText(p)}</TableCell>

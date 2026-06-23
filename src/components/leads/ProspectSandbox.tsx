@@ -18,6 +18,7 @@ import {
 import {
   DEMO_TABS, getDemoCompanies, type DemoCompany, type DemoDataset,
 } from '@/lib/apolloDemoData';
+import { normalizeLinkedInAnyUrl, normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 type Recruiter = { id: string; full_name: string | null; email: string | null };
 
@@ -378,6 +379,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                 {companies.map((c) => {
                   const busy = savingIds.has(c.id);
                   const saved = savedIds.has(c.id);
+                  const companyLinkedInUrl = normalizeLinkedInAnyUrl(c.linkedin_url);
                   return (
                     <TableRow key={c.id} data-state={selected.has(c.id) ? 'selected' : undefined}>
                       <TableCell>
@@ -414,9 +416,9 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                         </a>
                       </TableCell>
                       <TableCell>
-                        <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
+                        <button type="button" onClick={() => openLinkedInUrl(companyLinkedInUrl)} className="text-primary inline-flex items-center gap-1 hover:underline text-sm">
                           <Linkedin className="h-3 w-3" /> Page
-                        </a>
+                        </button>
                       </TableCell>
                       <TableCell className="text-sm">{c.contact.email}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{c.contact.phone}</TableCell>
@@ -474,10 +476,8 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                       <ExternalLink className="h-4 w-4 mr-1" /> Website
                     </a>
                   </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <a href={drawerCompany.linkedin_url} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" onClick={() => openLinkedInUrl(normalizeLinkedInAnyUrl(drawerCompany.linkedin_url))}>
                       <Linkedin className="h-4 w-4 mr-1" /> LinkedIn
-                    </a>
                   </Button>
                   <Button size="sm" onClick={() => handleRowSave(drawerCompany)} disabled={savingIds.has(drawerCompany.id)}>
                     {savingIds.has(drawerCompany.id) ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Bookmark className="h-4 w-4 mr-1" />}
@@ -506,7 +506,7 @@ export function ProspectSandbox({ tenantId }: { tenantId: string | null }) {
                     <div className="text-muted-foreground">Email</div><div className="break-all">{drawerCompany.contact.email}</div>
                     <div className="text-muted-foreground">Phone</div><div>{drawerCompany.contact.phone}</div>
                     <div className="text-muted-foreground">LinkedIn</div>
-                    <div><a className="text-primary hover:underline" href={drawerCompany.contact.linkedin_url} target="_blank" rel="noopener noreferrer">View profile</a></div>
+                    <div><button type="button" className="text-primary hover:underline" onClick={() => openLinkedInUrl(normalizeLinkedInUrl(drawerCompany.contact.linkedin_url))}>View profile</button></div>
                   </div>
                 </section>
 

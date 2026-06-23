@@ -222,6 +222,8 @@ const CandidateDetailPage = () => {
   }
 
 
+  const linkedInUrl = normalizeLinkedInUrl(candidate.linkedin_url);
+
   return (
     <AppLayout title={candidate.full_name} subtitle={candidate.current_title || undefined}>
       {/* Header */}
@@ -398,12 +400,12 @@ const CandidateDetailPage = () => {
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                {normalizeLinkedInUrl(candidate.linkedin_url) && (
+                {linkedInUrl && (
                   <Button 
                     variant="outline" 
                     size="sm" 
                     className="gap-2 h-10 px-4 rounded-lg transition-all duration-200 ease-out hover:border-[#0077B5]/50 hover:bg-[#0077B5]/5 hover:shadow-sm active:scale-[0.97]"
-                    onClick={() => openLinkedInUrl(candidate.linkedin_url)}
+                    onClick={() => openLinkedInUrl(linkedInUrl)}
                   >
                     <Linkedin className="w-4 h-4 text-[#0077B5]" />
                     LinkedIn

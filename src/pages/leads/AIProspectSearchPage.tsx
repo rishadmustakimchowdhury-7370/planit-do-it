@@ -16,7 +16,7 @@ import {
   Sparkles, Loader2, Search, ExternalLink, Linkedin, AlertCircle, Wand2,
   ChevronLeft, ChevronRight, Lock,
 } from 'lucide-react';
-import { normalizeLinkedInUrl } from '@/lib/discovery';
+import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
 
 const EMPLOYEE_RANGES = ['', '1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5001-10000', '10001+'];
 
@@ -284,7 +284,9 @@ export default function AIProspectSearchPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {result.people.map((p) => (
+                  {result.people.map((p) => {
+                    const linkedInUrl = normalizeLinkedInUrl(p.linkedin_url);
+                    return (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.company.name ?? '—'}</TableCell>
                       <TableCell>{p.name}</TableCell>
@@ -293,11 +295,12 @@ export default function AIProspectSearchPage() {
                       <TableCell>
                         <div className="flex gap-2">
                           {p.company.website_url && <a href={p.company.website_url} target="_blank" rel="noreferrer"><ExternalLink className="w-4 h-4" /></a>}
-                          {normalizeLinkedInUrl(p.linkedin_url) && <a href={normalizeLinkedInUrl(p.linkedin_url)!} target="_blank" rel="noopener noreferrer"><Linkedin className="w-4 h-4" /></a>}
+                          {linkedInUrl && <button type="button" onClick={() => openLinkedInUrl(linkedInUrl)}><Linkedin className="w-4 h-4" /></button>}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {result.people.length === 0 && (
                     <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No results</TableCell></TableRow>
                   )}

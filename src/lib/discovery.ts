@@ -91,9 +91,10 @@ export function isCanonicalLinkedInProfileUrl(raw: string | null | undefined): b
 }
 
 export function openLinkedInUrl(raw: string | null | undefined): boolean {
-  const url = normalizeLinkedInAnyUrl(raw);
-  if (!url) return false;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  const linkedinUrl = normalizeLinkedInAnyUrl(raw);
+  if (!linkedinUrl) return false;
+  console.log(linkedinUrl);
+  window.open(linkedinUrl, '_blank', 'noopener,noreferrer');
   return true;
 }
 
