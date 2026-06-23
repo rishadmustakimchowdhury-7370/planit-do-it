@@ -542,59 +542,222 @@ Use only data provided; never invent skills or languages.`;
   }
 }
 
-// ---------------- Open Web Discovery (fallback) ---------------------------
-// Multi-pass web search: generates 5-10 boolean variations, runs them in
-// parallel batches, deduplicates by LinkedIn URL, and re-ranks. Used when
-// Apollo / Lusha / Vibe are unavailable, exhausted, or return zero.
+// ---------------- Open Web Discovery (recruiter-grade) --------------------
+// Generates 10-20 search strategies by expanding titles, skills and location
+// hierarchy, runs them in parallel batches, targets 100-500 raw profiles,
+// dedupes by LinkedIn URL, AI-scores, and returns top 50-100 candidates.
 
+// Title synonym families. Hits a token in any family -> add all members.
+const TITLE_SYNONYM_FAMILIES: string[][] = [
+  ["Software Engineer", "Software Developer", "Software Development Engineer", "SDE"],
+  ["Backend Engineer", "Backend Developer", "Back-End Engineer", "Back-End Developer", "Server Engineer"],
+  ["Frontend Engineer", "Frontend Developer", "Front-End Engineer", "Front-End Developer", "UI Engineer"],
+  ["Full Stack Engineer", "Full Stack Developer", "Fullstack Engineer", "Fullstack Developer"],
+  ["React Developer", "React Engineer", "ReactJS Developer", "React.js Developer"],
+  ["Node Developer", "Node.js Developer", "NodeJS Developer", "Node Engineer"],
+  ["Mobile Engineer", "Mobile Developer", "iOS Developer", "Android Developer", "React Native Developer"],
+  ["Data Engineer", "Data Platform Engineer", "Analytics Engineer", "ETL Developer"],
+  ["Data Scientist", "Applied Scientist", "Research Scientist"],
+  ["Machine Learning Engineer", "ML Engineer", "AI Engineer", "MLOps Engineer", "Applied ML Engineer"],
+  ["DevOps Engineer", "Site Reliability Engineer", "SRE", "Platform Engineer", "Cloud Engineer"],
+  ["Security Engineer", "Application Security Engineer", "AppSec Engineer", "Cybersecurity Engineer"],
+  ["QA Engineer", "Test Engineer", "SDET", "Quality Engineer", "Automation Engineer"],
+  ["Product Manager", "Product Owner", "Technical Product Manager"],
+  ["Project Manager", "Programme Manager", "Program Manager", "Delivery Manager"],
+  ["Engineering Manager", "Tech Lead", "Technical Lead", "Lead Engineer", "Staff Engineer", "Principal Engineer"],
+  ["Solutions Architect", "Software Architect", "Cloud Architect", "Enterprise Architect"],
+  ["UX Designer", "Product Designer", "UI/UX Designer", "Interaction Designer"],
+];
+
+// Skill synonym dictionary.
+const SKILL_SYNONYMS: Record<string, string[]> = {
+  "react": ["React", "ReactJS", "React.js"],
+  "reactjs": ["React", "ReactJS", "React.js"],
+  "react.js": ["React", "ReactJS", "React.js"],
+  "react native": ["React Native", "ReactNative"],
+  "node": ["Node.js", "NodeJS", "Node"],
+  "node.js": ["Node.js", "NodeJS", "Node"],
+  "nodejs": ["Node.js", "NodeJS", "Node"],
+  "javascript": ["JavaScript", "JS", "ECMAScript"],
+  "typescript": ["TypeScript", "TS"],
+  "python": ["Python", "Py"],
+  "machine learning": ["Machine Learning", "ML", "ML Engineering", "Applied ML"],
+  "ml": ["Machine Learning", "ML", "ML Engineering"],
+  "ai": ["Artificial Intelligence", "AI", "Machine Learning"],
+  "deep learning": ["Deep Learning", "Neural Networks", "DL"],
+  "nlp": ["NLP", "Natural Language Processing", "LLM"],
+  "llm": ["LLM", "Large Language Models", "Generative AI", "GenAI"],
+  "aws": ["AWS", "Amazon Web Services"],
+  "gcp": ["GCP", "Google Cloud", "Google Cloud Platform"],
+  "azure": ["Azure", "Microsoft Azure"],
+  "kubernetes": ["Kubernetes", "K8s"],
+  "docker": ["Docker", "Containers"],
+  "postgres": ["PostgreSQL", "Postgres"],
+  "postgresql": ["PostgreSQL", "Postgres"],
+  "graphql": ["GraphQL", "Apollo GraphQL"],
+  "nextjs": ["Next.js", "NextJS"],
+  "next.js": ["Next.js", "NextJS"],
+  "vue": ["Vue", "Vue.js", "VueJS"],
+  "angular": ["Angular", "AngularJS"],
+  "django": ["Django"],
+  "flask": ["Flask"],
+  "spring": ["Spring", "Spring Boot"],
+  ".net": [".NET", "dotnet", "C#"],
+  "c#": ["C#", ".NET", "dotnet"],
+  "golang": ["Go", "Golang"],
+  "go": ["Go", "Golang"],
+  "rust": ["Rust"],
+  "java": ["Java", "JVM"],
+  "kotlin": ["Kotlin"],
+  "swift": ["Swift", "iOS"],
+};
+
+function expandTitleVariants(titles: string[]): string[] {
+  const out = new Set<string>();
+  for (const t of titles) {
+    if (!t) continue;
+    out.add(t);
+    const low = t.toLowerCase();
+    for (const family of TITLE_SYNONYM_FAMILIES) {
+      if (family.some((f) => low.includes(f.toLowerCase()) || f.toLowerCase().includes(low))) {
+        family.forEach((f) => out.add(f));
+      }
+    }
+    if (/manager/i.test(t)) {
+      out.add(t.replace(/manager/gi, "Lead"));
+      out.add(t.replace(/manager/gi, "Specialist"));
+      out.add(`Head of ${t.replace(/manager/gi, "").trim()}`);
+    }
+  }
+  return Array.from(out).filter(Boolean).slice(0, 20);
+}
+
+function expandSkillVariants(skills: string[]): string[] {
+  const out = new Set<string>();
+  for (const s of skills) {
+    if (!s) continue;
+    out.add(s);
+    const low = s.toLowerCase().trim();
+    const syns = SKILL_SYNONYMS[low];
+    if (syns) syns.forEach((v) => out.add(v));
+  }
+  return Array.from(out).filter(Boolean).slice(0, 25);
+}
+
+function expandLocationHierarchy(locations: string[]): string[] {
+  const out = new Set<string>();
+  for (const raw of locations) {
+    if (!raw) continue;
+    out.add(raw);
+    const lvl = resolveLocation(raw);
+    if (lvl.city) out.add(lvl.city);
+    if (lvl.metro) out.add(lvl.metro);
+    if (lvl.state) out.add(lvl.state);
+    if (lvl.country) out.add(lvl.country);
+  }
+  return Array.from(out).filter(Boolean).slice(0, 10);
+}
 
 async function searchOpenWeb(
   criteria: Criteria,
   limit: number,
-): Promise<{ candidates: UnifiedCandidate[]; error?: string; debug?: { query: string; passes: number } }> {
+): Promise<{
+  candidates: UnifiedCandidate[];
+  error?: string;
+  debug?: {
+    query: string;
+    passes: number;
+    rawFound: number;
+    deduped: number;
+    scored: number;
+    returned: number;
+    titleVariants: number;
+    skillVariants: number;
+    locationLevels: number;
+  };
+}> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) return { candidates: [], error: "OpenAI key not configured" };
 
-  const titles = (criteria.role_titles ?? []).filter(Boolean).slice(0, 5);
-  const locations = (criteria.locations ?? []).filter(Boolean).slice(0, 3);
-  const skills = (criteria.skills ?? []).filter(Boolean).slice(0, 6);
-  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 3);
+  const rawTitles = (criteria.role_titles ?? []).filter(Boolean);
+  const rawSkills = (criteria.skills ?? []).filter(Boolean);
+  const rawLocations = (criteria.locations ?? []).filter(Boolean);
+  const industries = (criteria.industries ?? []).filter(Boolean).slice(0, 4);
 
-  // Build 5-10 boolean variations: title × location × (skill or industry).
-  const variations: string[] = [];
-  const locTokens = locations.length ? locations : [""];
-  const titleVariants = uniq([
-    ...titles,
-    ...titles.flatMap((t) => [
-      t.replace(/manager/i, "Specialist"),
-      t.replace(/manager/i, "Executive"),
-      t.replace(/manager/i, "Lead"),
-      `Head of ${t.replace(/^Head of /i, "")}`,
-    ]),
-  ]).filter(Boolean).slice(0, 5);
+  const titles = expandTitleVariants(rawTitles);
+  const skills = expandSkillVariants(rawSkills);
+  const locations = expandLocationHierarchy(rawLocations);
 
-  for (const t of titleVariants) {
-    for (const loc of locTokens) {
-      const tail = skills[0] ?? industries[0] ?? "";
-      const q = [`site:linkedin.com/in`, `"${t}"`, loc ? `"${loc}"` : "", tail ? `"${tail}"` : ""].filter(Boolean).join(" ");
-      variations.push(q);
-      if (variations.length >= 10) break;
+  console.log(`[openweb] expanded: ${titles.length} titles, ${skills.length} skills, ${locations.length} locations`);
+
+  // Build 10-20 strategies. Mix title-variants × location-tiers, layering skills.
+  const strategies: { label: string; query: string }[] = [];
+  const seenStrategies = new Set<string>();
+  const pushStrategy = (label: string, parts: string[]) => {
+    const q = ["site:linkedin.com/in", ...parts.filter(Boolean)].join(" ");
+    if (seenStrategies.has(q)) return;
+    seenStrategies.add(q);
+    strategies.push({ label, query: q });
+  };
+
+  const titlePool = titles.length ? titles : [""];
+  const locPool = locations.length ? locations : [""];
+  const skillPool = skills.length ? skills : [""];
+
+  // Strategy 1: title × location × top skill (the recruiter's primary intent)
+  for (const t of titlePool.slice(0, 6)) {
+    for (const loc of locPool.slice(0, 3)) {
+      const sk = skillPool[0] ?? "";
+      pushStrategy(
+        `${t || "Any title"} @ ${loc || "anywhere"}${sk ? ` + ${sk}` : ""}`,
+        [t ? `"${t}"` : "", loc ? `"${loc}"` : "", sk ? `"${sk}"` : ""],
+      );
+      if (strategies.length >= 20) break;
     }
-    if (variations.length >= 10) break;
+    if (strategies.length >= 20) break;
   }
-  // Fallback variation if nothing built
-  if (variations.length === 0) {
-    variations.push(`site:linkedin.com/in ${[...titles, ...locations, ...skills].slice(0, 5).map((x) => `"${x}"`).join(" ")}`);
+  // Strategy 2: title × skill variants (drop location)
+  for (const t of titlePool.slice(0, 4)) {
+    for (const sk of skillPool.slice(0, 3)) {
+      pushStrategy(`${t || "Any title"} + ${sk || "skill"}`, [t ? `"${t}"` : "", sk ? `"${sk}"` : ""]);
+      if (strategies.length >= 20) break;
+    }
+    if (strategies.length >= 20) break;
+  }
+  // Strategy 3: location × top skill (catch atypical titles)
+  for (const loc of locPool.slice(0, 3)) {
+    for (const sk of skillPool.slice(0, 2)) {
+      pushStrategy(`${loc || "anywhere"} + ${sk || "skill"}`, [loc ? `"${loc}"` : "", sk ? `"${sk}"` : ""]);
+      if (strategies.length >= 20) break;
+    }
+  }
+  // Strategy 4: industry sweep
+  for (const ind of industries.slice(0, 2)) {
+    pushStrategy(`Industry: ${ind}`, [titlePool[0] ? `"${titlePool[0]}"` : "", `"${ind}"`]);
   }
 
-  const perPassLimit = Math.max(5, Math.ceil(limit / Math.max(1, Math.min(variations.length, 3))));
+  if (strategies.length === 0) {
+    pushStrategy("Fallback", [...rawTitles, ...rawLocations, ...rawSkills].slice(0, 5).map((x) => `"${x}"`));
+  }
 
-  const system = `You are a senior recruitment sourcing assistant. Use web search to find REAL public LinkedIn profiles for the given boolean query.
-Return up to ${perPassLimit} candidates. Each must have a real linkedin.com/in/<slug> URL.
-PRIORITISE LinkedIn member profiles. AVOID generic blog posts, job boards, press releases.
-For each candidate provide: full_name, headline, current_title, current_company, industry, location, profile_url, linkedin_url, skills[], experience_summary, education, languages[], confidence (0-100), why.
+  // Ensure we have at least 10
+  while (strategies.length < 10 && strategies.length < titlePool.length * locPool.length * skillPool.length) {
+    const t = titlePool[strategies.length % titlePool.length];
+    const loc = locPool[(strategies.length + 1) % locPool.length];
+    const sk = skillPool[(strategies.length + 2) % skillPool.length];
+    pushStrategy(`Extra ${strategies.length + 1}`, [t ? `"${t}"` : "", loc ? `"${loc}"` : "", sk ? `"${sk}"` : ""]);
+  }
+
+  const RAW_TARGET = 100;
+  const RAW_CAP = 500;
+  const perPassLimit = 15;
+
+  const system = `You are a senior recruitment sourcing assistant. Use web search to find REAL public LinkedIn profiles matching the boolean query.
+Return up to ${perPassLimit} candidates per query. Each MUST have a real linkedin.com/in/<slug> URL.
+PRIORITISE LinkedIn member profiles. AVOID job boards, blog posts, press releases, company pages.
+For each candidate provide: full_name, headline, current_title, current_company, industry, location, profile_url, linkedin_url, skills[], experience_years (number if known), experience_summary, education, languages[], confidence (0-100), why.
 Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
-{"candidates":[{"full_name":"","headline":"","current_title":"","current_company":"","industry":"","location":"","profile_url":"","linkedin_url":"","skills":[],"experience_summary":"","education":"","languages":[],"confidence":0,"why":""}]}`;
+{"candidates":[{"full_name":"","headline":"","current_title":"","current_company":"","industry":"","location":"","profile_url":"","linkedin_url":"","skills":[],"experience_years":0,"experience_summary":"","education":"","languages":[],"confidence":0,"why":""}]}`;
 
   async function runOne(query: string): Promise<UnifiedCandidate[]> {
     try {
@@ -605,7 +768,7 @@ Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
           model: "gpt-4o-search-preview",
           messages: [
             { role: "system", content: system },
-            { role: "user", content: `Boolean query:\n${query}\n\nCriteria context:\n${JSON.stringify({ titles, locations, skills, industries })}` },
+            { role: "user", content: `Boolean query:\n${query}\n\nCriteria context:\n${JSON.stringify({ titles: rawTitles, locations: rawLocations, skills: rawSkills, industries })}` },
           ],
         }),
       });
@@ -624,8 +787,9 @@ Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
         const li = normalizeLinkedInUrlServer(liRaw);
         const conf = Math.max(0, Math.min(100, Number(o.confidence ?? 65)));
         const why = typeof o.why === "string" ? o.why : "";
-        const skillsArr = Array.isArray(o.skills) ? (o.skills as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 12) : [];
+        const skillsArr = Array.isArray(o.skills) ? (o.skills as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 15) : [];
         const languages = Array.isArray(o.languages) ? (o.languages as unknown[]).map((s) => String(s)).filter(Boolean).slice(0, 8) : [];
+        const years = Number(o.experience_years);
         return {
           id: `openweb-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
           source: li ? "LinkedIn" : "Open Web Discovery",
@@ -639,6 +803,7 @@ Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
           languages,
           linkedin_url: li,
           skills: skillsArr,
+          experience_years: Number.isFinite(years) && years > 0 ? years : null,
           experience_summary: typeof o.experience_summary === "string" ? o.experience_summary : null,
           education: typeof o.education === "string" ? o.education : null,
           confidence: conf,
@@ -653,29 +818,52 @@ Do NOT invent profiles. Return ONLY JSON wrapped in \`\`\`json fences:
     }
   }
 
-  // Run in parallel batches of 5 to control concurrency.
+  // Run in parallel batches of 5. Stop once we have RAW_TARGET deduped profiles
+  // or all strategies are exhausted (whichever comes first), but never exceed RAW_CAP.
   const all: UnifiedCandidate[] = [];
+  const seenUrls = new Set<string>();
+  const dedupedRunning: UnifiedCandidate[] = [];
   const batchSize = 5;
-  for (let i = 0; i < variations.length; i += batchSize) {
-    const batch = variations.slice(i, i + batchSize);
-    const results = await Promise.all(batch.map(runOne));
-    for (const r of results) all.push(...r);
-    if (all.length >= limit * 2) break; // enough raw; dedupe will trim
+  let passesRun = 0;
+  for (let i = 0; i < strategies.length; i += batchSize) {
+    const batch = strategies.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map((s) => runOne(s.query)));
+    passesRun += batch.length;
+    for (const r of results) {
+      for (const c of r) {
+        all.push(c);
+        const k = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
+        if (!seenUrls.has(k)) {
+          seenUrls.add(k);
+          dedupedRunning.push(c);
+        }
+      }
+    }
+    if (dedupedRunning.length >= RAW_TARGET || all.length >= RAW_CAP) break;
   }
 
-  // Dedupe by normalized LinkedIn URL (fallback: name|company)
-  const seen = new Set<string>();
-  const deduped = all.filter((c) => {
-    const key = (c.linkedin_url || `${c.full_name}|${c.current_company}`).toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // Final sort by confidence (already AI-scored per-pass). Return top N.
+  const returnLimit = Math.min(Math.max(50, limit), 100);
+  const final = dedupedRunning
+    .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0))
+    .slice(0, returnLimit);
 
-  // Sort by confidence and trim to limit
-  const final = deduped.sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0)).slice(0, limit);
-  console.log(`[openweb] ${variations.length} passes -> ${all.length} raw -> ${deduped.length} unique -> ${final.length} returned`);
-  return { candidates: final, debug: { query: variations.join(" || "), passes: variations.length } };
+  console.log(`[openweb] strategies=${strategies.length} ran=${passesRun} raw=${all.length} deduped=${dedupedRunning.length} scored=${dedupedRunning.length} returned=${final.length}`);
+
+  return {
+    candidates: final,
+    debug: {
+      query: strategies.map((s) => s.label).join(" || "),
+      passes: passesRun,
+      rawFound: all.length,
+      deduped: dedupedRunning.length,
+      scored: dedupedRunning.length,
+      returned: final.length,
+      titleVariants: titles.length,
+      skillVariants: skills.length,
+      locationLevels: locations.length,
+    },
+  };
 }
 
 
