@@ -615,7 +615,7 @@ export default function ProspectSearchPage() {
                               </TableCell>
                               <TableCell>
                                 {c.linkedin_url ? (
-                                  <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Page
                                   </a>
                                 ) : '—'}
@@ -687,7 +687,7 @@ export default function ProspectSearchPage() {
                               </TableCell>
                               <TableCell>
                                 {p.linkedin_url ? (
-                                  <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
+                                  <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary inline-flex items-center gap-1 hover:underline">
                                     <Linkedin className="h-3 w-3" /> Profile
                                   </a>
                                 ) : '—'}
