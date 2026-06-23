@@ -264,6 +264,13 @@ export default function AIProspectSearchPage() {
           </Alert>
         )}
 
+        {fallbackNotice && (
+          <Alert>
+            <Sparkles className="w-4 h-4" />
+            <AlertDescription>{fallbackNotice}</AlertDescription>
+          </Alert>
+        )}
+
         {filters && (
           <Card>
             <CardHeader>
