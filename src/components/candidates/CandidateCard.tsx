@@ -123,7 +123,7 @@ export function CandidateCard({ candidate, showMatchScore = false, compact = fal
                     className="h-8 w-8"
                     onClick={(e) => {
                       e.preventDefault();
-                      window.open(candidate.linkedinUrl, '_blank');
+                      window.open(candidate.linkedinUrl, '_blank', 'noopener,noreferrer');
                     }}
                     title="View LinkedIn Profile"
                   >
