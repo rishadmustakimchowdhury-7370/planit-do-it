@@ -679,7 +679,9 @@ const CandidatesPage = () => {
   const renderListView = () => (
     <div className="space-y-2">
       <AnimatePresence mode="popLayout">
-        {filteredCandidates.map((candidate, index) => (
+        {filteredCandidates.map((candidate, index) => {
+          const linkedInUrl = normalizeLinkedInUrl(candidate.linkedin_url);
+          return (
           <motion.div
             key={candidate.id}
             initial={{ opacity: 0, x: -20 }}
@@ -758,8 +760,8 @@ const CandidatesPage = () => {
                     <Eye className="w-4 h-4 mr-2" />
                     View Profile
                   </DropdownMenuItem>
-                  {normalizeLinkedInUrl(candidate.linkedin_url) && (
-                    <DropdownMenuItem onClick={() => openLinkedInUrl(candidate.linkedin_url)}>
+                  {linkedInUrl && (
+                    <DropdownMenuItem onClick={() => openLinkedInUrl(linkedInUrl)}>
                       <Linkedin className="w-4 h-4 mr-2" />
                       Open LinkedIn
                     </DropdownMenuItem>
@@ -779,7 +781,8 @@ const CandidatesPage = () => {
               </DropdownMenu>
             </div>
           </motion.div>
-        ))}
+          );
+        })}
       </AnimatePresence>
     </div>
   );
@@ -805,7 +808,9 @@ const CandidatesPage = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredCandidates.map((candidate) => (
+          {filteredCandidates.map((candidate) => {
+            const linkedInUrl = normalizeLinkedInUrl(candidate.linkedin_url);
+            return (
             <TableRow 
               key={candidate.id}
               className={cn(
@@ -884,8 +889,8 @@ const CandidatesPage = () => {
                       <Eye className="w-4 h-4 mr-2" />
                       View Profile
                     </DropdownMenuItem>
-                    {normalizeLinkedInUrl(candidate.linkedin_url) && (
-                      <DropdownMenuItem onClick={() => openLinkedInUrl(candidate.linkedin_url)}>
+                    {linkedInUrl && (
+                      <DropdownMenuItem onClick={() => openLinkedInUrl(linkedInUrl)}>
                         <Linkedin className="w-4 h-4 mr-2" />
                         Open LinkedIn
                       </DropdownMenuItem>
@@ -905,7 +910,8 @@ const CandidatesPage = () => {
                 </DropdownMenu>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </div>
