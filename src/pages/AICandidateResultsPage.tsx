@@ -37,9 +37,10 @@ interface Criteria {
 
 interface ResultRow {
   id: string;
-  source: 'Lusha' | 'Vibe Prospecting' | 'Internal CRM' | 'Open Web Discovery';
+  source: 'Apollo' | 'Lusha' | 'Vibe Prospecting' | 'LinkedIn' | 'Internal CRM' | 'Open Web Discovery';
   source_url?: string | null;
   full_name: string;
+  headline?: string | null;
   current_title: string;
   current_company: string;
   industry?: string | null;
@@ -50,7 +51,10 @@ interface ResultRow {
   phone?: string | null;
   skills: string[];
   experience_years?: number | null;
+  experience_summary?: string | null;
+  education?: string | null;
   seniority?: string | null;
+  confidence?: number | null;
   matchScore?: number;
   matchReasons?: string[];
   matchMissing?: string[];
