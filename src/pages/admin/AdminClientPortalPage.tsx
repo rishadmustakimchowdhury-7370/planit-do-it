@@ -26,7 +26,7 @@ export default function AdminClientPortalPage() {
     const [{ data: o }, { data: u }, { data: i }] = await Promise.all([
       supabase.from('client_organizations').select('*').order('created_at', { ascending: false }),
       supabase.from('client_portal_users').select('*, profiles:user_id(full_name, email)').order('created_at', { ascending: false }),
-      supabase.from('client_invitations').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('client_invitations').select('id, tenant_id, client_org_id, email, role, status, invited_by, expires_at, accepted_at, accepted_by, created_at').order('created_at', { ascending: false }).limit(50),
     ]);
     setOrgs(o || []);
     setUsers(u || []);
