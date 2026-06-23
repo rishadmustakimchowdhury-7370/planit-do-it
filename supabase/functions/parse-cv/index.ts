@@ -182,48 +182,12 @@ If certain information is not available, use null for those fields.`;
     
     if (linkedinUrl) {
       console.log('Processing LinkedIn URL:', linkedinUrl);
-      
-      // Try to fetch actual LinkedIn profile data
-      const linkedInData = await fetchLinkedInProfile(linkedinUrl);
-      
-      // Extract info from URL as fallback
       const { username, inferredName } = extractFromLinkedInUrl(linkedinUrl);
       console.log('URL extraction - username:', username, 'inferredName:', inferredName);
-      
-      if (linkedInData && (linkedInData.name || linkedInData.title)) {
-        // We got some data from LinkedIn
-        console.log('Successfully extracted LinkedIn data:', JSON.stringify(linkedInData));
-        
-        messages.push({
-          role: 'user',
-          content: `I have extracted the following information from a LinkedIn profile at ${linkedinUrl}:
 
-Name: ${linkedInData.name || inferredName || 'Unknown'}
-Current Title/Headline: ${linkedInData.title || 'Not available'}
-Company: ${linkedInData.company || 'Not available'}
-Location: ${linkedInData.location || 'Not available'}
-Summary/About: ${linkedInData.summary || 'Not available'}
-
-Please create a structured candidate profile JSON from this information:
-1. full_name: Use "${linkedInData.name || inferredName}"
-2. current_title: ${linkedInData.title ? `Use "${linkedInData.title}"` : 'null'}
-3. current_company: ${linkedInData.company ? `Use "${linkedInData.company}"` : 'null'}
-4. location: ${linkedInData.location ? `Use "${linkedInData.location}"` : 'null'}
-5. summary: ${linkedInData.summary ? `Create a brief professional summary based on: "${linkedInData.summary.substring(0, 500)}"` : 'null'}
-6. linkedin_url: "${linkedinUrl}"
-7. email, phone: null (not available from LinkedIn)
-8. skills: Try to infer relevant skills based on the title and summary if available, otherwise empty array
-9. experience_years: Try to estimate based on the title seniority (e.g., "Senior" = 5+, "Lead" = 7+, "Director" = 10+), otherwise null
-
-IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
-        });
-      } else {
-        // Could not fetch LinkedIn data, use URL-based extraction
-        console.log('Could not fetch LinkedIn data, using URL extraction');
-        
-        messages.push({
-          role: 'user',
-          content: `I have a LinkedIn profile URL: ${linkedinUrl}
+      messages.push({
+        role: 'user',
+        content: `I have a LinkedIn profile URL: ${linkedinUrl}
 
 The username extracted from the URL is: "${username}"
 The inferred name (formatted from username) is: "${inferredName}"
@@ -234,8 +198,7 @@ Please create a candidate profile with:
 3. All other fields should be null since we cannot access the actual LinkedIn content (LinkedIn requires authentication to view profiles)
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanations.`
-        });
-      }
+      });
     } else if (cvBase64 && mimeType) {
       console.log('Processing document, mimeType:', mimeType);
       
