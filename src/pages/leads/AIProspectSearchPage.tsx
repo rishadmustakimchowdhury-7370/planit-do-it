@@ -87,6 +87,7 @@ export default function AIProspectSearchPage() {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
