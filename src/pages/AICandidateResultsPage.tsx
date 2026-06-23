@@ -284,7 +284,7 @@ export default function AICandidateResultsPage() {
     setImporting((s) => { const n = new Set(s); n.delete(id); return n; });
     if (inserted || duplicates) setSaved((s) => new Set(s).add(id));
     if (inserted) toast({ title: 'Imported to CRM', description: `${row.full_name} added (source: ${row.source}).` });
-    else if (duplicates) toast({ title: 'Already in CRM', description: `${row.full_name} matches an existing candidate.` });
+    else if (duplicates) toast({ title: 'Updated existing record', description: `${row.full_name} already in CRM — profile refreshed.` });
     else if (failed) toast({ title: 'Import failed', description: `Could not import ${row.full_name}.`, variant: 'destructive' });
   };
 
