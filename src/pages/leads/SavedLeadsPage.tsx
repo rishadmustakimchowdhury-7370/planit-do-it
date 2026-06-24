@@ -101,6 +101,8 @@ export default function SavedLeadsPage() {
   const [noteDraft, setNoteDraft] = useState('');
   const [newActivity, setNewActivity] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [convertedCompanyIds, setConvertedCompanyIds] = useState<Record<string, string>>({});
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
