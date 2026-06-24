@@ -474,12 +474,15 @@ export default function SavedLeadsPage() {
                         <TableHead>Source</TableHead>
                         <TableHead>Links</TableHead>
                         <TableHead>Saved</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {companies
                         .filter(c => !search.trim() || (c.name ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (c.domain ?? '').toLowerCase().includes(search.trim().toLowerCase()))
-                        .map(c => (
+                        .map(c => {
+                          const convertedClientId = convertedCompanyIds[c.id];
+                          return (
                           <TableRow key={c.id}>
                             <TableCell className="font-medium">{c.name ?? '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{c.industry ?? '—'}</TableCell>
@@ -492,10 +495,23 @@ export default function SavedLeadsPage() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</TableCell>
+                            <TableCell className="text-right">
+                              {convertedClientId ? (
+                                <a href={`/clients/${convertedClientId}`}>
+                                  <Button size="sm" variant="outline"><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />View Client</Button>
+                                </a>
+                              ) : (
+                                <Button size="sm" onClick={() => handleConvertCompany(c)} disabled={convertingId === c.id}>
+                                  {convertingId === c.id ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Trophy className="w-3.5 h-3.5 mr-1.5" />}
+                                  Mark as Client Won
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       {companies.length === 0 && (
-                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No saved companies yet. Save companies from Prospect Search to see them here.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No saved companies yet. Save companies from Prospect Search to see them here.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
