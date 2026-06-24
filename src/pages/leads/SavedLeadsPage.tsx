@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/core';
 import {
   Loader2, Mail, Phone, Linkedin, Building2, Search, Clock, StickyNote,
-  LayoutGrid, Table as TableIcon, GripVertical,
+  LayoutGrid, Table as TableIcon, GripVertical, Trophy, CheckCircle2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { normalizeLinkedInUrl, openLinkedInUrl } from '@/lib/discovery';
