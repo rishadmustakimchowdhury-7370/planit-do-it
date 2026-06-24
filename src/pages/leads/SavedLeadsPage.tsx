@@ -246,6 +246,95 @@ export default function SavedLeadsPage() {
     return clientId;
   };
 
+  const convertCompanyToClient = async (company: CompanyRow): Promise<string | null> => {
+    if (!tenantId) return null;
+    const companyName = company.name || company.domain || 'Unnamed company';
+    const website = company.website || (company.domain ? `https://${company.domain}` : null);
+    const linkedinUrl = company.linkedin_url ?? null;
+
+    // Find primary contact (most recently updated lead for this company)
+    let primaryContact: LeadRow | null = null;
+    if (company.id) {
+      const match = leads.filter(l => l.company_id === company.id);
+      primaryContact = match[0] ?? null;
+    }
+
+    // Duplicate check
+    const orParts: string[] = [];
+    if (website) orParts.push(`website.eq.${website}`);
+    if (linkedinUrl) orParts.push(`linkedin_url.eq.${linkedinUrl}`);
+    if (companyName) orParts.push(`name.eq.${companyName}`);
+    let existingId: string | null = null;
+    if (orParts.length) {
+      const { data: existing } = await supabase
+        .from('clients').select('id').eq('tenant_id', tenantId).or(orParts.join(','))
+        .limit(1).maybeSingle();
+      existingId = existing?.id ?? null;
+    }
+
+    const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+    const payload: any = {
+      tenant_id: tenantId,
+      name: companyName,
+      website,
+      linkedin_url: linkedinUrl,
+      industry: company.industry ?? null,
+      country: company.country ?? null,
+      city: company.city ?? null,
+      contact_name: primaryContact ? displayName(primaryContact) : null,
+      contact_email: primaryContact?.email ?? null,
+      contact_phone: primaryContact?.phone ?? null,
+      notes: primaryContact?.notes ?? null,
+      is_active: true,
+    };
+
+    let clientId = existingId;
+    if (existingId) {
+      const updates: any = {};
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && k !== 'tenant_id') updates[k] = v;
+      });
+      const { error } = await supabase.from('clients').update(updates).eq('id', existingId);
+      if (error) { toast({ title: 'Client update failed', description: error.message, variant: 'destructive' }); return null; }
+    } else {
+      payload.created_by = userId;
+      const { data: inserted, error } = await supabase.from('clients').insert(payload).select('id').single();
+      if (error) { toast({ title: 'Client creation failed', description: error.message, variant: 'destructive' }); return null; }
+      clientId = inserted.id;
+    }
+
+    await supabase.from('lead_activities').insert({
+      tenant_id: tenantId,
+      company_id: company.id,
+      contact_id: primaryContact?.id ?? null,
+      activity_type: 'converted_to_client',
+      subject: existingId ? `Updated existing client: ${companyName}` : `Converted to client: ${companyName}`,
+      notes: `client_id=${clientId} source=${company.enrichment_source ?? 'manual'}`,
+      performed_by: userId,
+    });
+
+    return clientId;
+  };
+
+  const handleConvertCompany = async (company: CompanyRow) => {
+    setConvertingId(company.id);
+    const clientId = await convertCompanyToClient(company);
+    setConvertingId(null);
+    if (clientId) {
+      setConvertedCompanyIds(prev => ({ ...prev, [company.id]: clientId }));
+      toast({
+        title: 'Lead converted to Client successfully.',
+        description: 'The client record is now available in the Clients module.',
+        action: (
+          <a href={`/clients/${clientId}`}
+            className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90">
+            View Client
+          </a>
+        ) as any,
+      });
+    }
+  };
+
   const updateStatus = async (id: string, status: LeadStatus) => {
     const prev = leads;
     setLeads(ls => ls.map(l => l.id === id ? { ...l, status } : l));
