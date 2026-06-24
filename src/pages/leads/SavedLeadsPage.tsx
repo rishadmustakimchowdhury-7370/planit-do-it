@@ -155,6 +155,95 @@ export default function SavedLeadsPage() {
     return map;
   }, [filtered]);
 
+  const convertLeadToClient = async (lead: LeadRow): Promise<string | null> => {
+    if (!tenantId) return null;
+    // Load company details
+    let company: CompanyRow | null = null;
+    if (lead.company_id) {
+      const found = companies.find(c => c.id === lead.company_id);
+      if (found) company = found;
+      else {
+        const { data } = await supabase
+          .from('lead_companies')
+          .select('id, name, domain, website, linkedin_url, industry, country, city, enrichment_source, created_at, updated_at')
+          .eq('id', lead.company_id)
+          .maybeSingle();
+        if (data) company = data as CompanyRow;
+      }
+    }
+    const companyName = company?.name || lead.lead_companies?.name || displayName(lead);
+    const website = company?.website || (company?.domain ? `https://${company.domain}` : null);
+    const linkedinUrl = company?.linkedin_url ?? null;
+
+    // Duplicate check: website OR linkedin OR name within tenant
+    const orParts: string[] = [];
+    if (website) orParts.push(`website.eq.${website}`);
+    if (linkedinUrl) orParts.push(`linkedin_url.eq.${linkedinUrl}`);
+    if (companyName) orParts.push(`name.eq.${companyName}`);
+    let existingId: string | null = null;
+    if (orParts.length) {
+      const { data: existing } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .or(orParts.join(','))
+        .limit(1)
+        .maybeSingle();
+      existingId = existing?.id ?? null;
+    }
+
+    const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+    const payload: any = {
+      tenant_id: tenantId,
+      name: companyName,
+      website,
+      linkedin_url: linkedinUrl,
+      industry: company?.industry ?? null,
+      country: company?.country ?? null,
+      city: company?.city ?? null,
+      contact_name: displayName(lead),
+      contact_email: lead.email,
+      contact_phone: lead.phone,
+      notes: lead.notes,
+      is_active: true,
+    };
+
+    let clientId = existingId;
+    if (existingId) {
+      // Update non-null fields only
+      const updates: any = {};
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && k !== 'tenant_id') updates[k] = v;
+      });
+      const { error } = await supabase.from('clients').update(updates).eq('id', existingId);
+      if (error) {
+        toast({ title: 'Client update failed', description: error.message, variant: 'destructive' });
+        return null;
+      }
+    } else {
+      payload.created_by = userId;
+      const { data: inserted, error } = await supabase.from('clients').insert(payload).select('id').single();
+      if (error) {
+        toast({ title: 'Client creation failed', description: error.message, variant: 'destructive' });
+        return null;
+      }
+      clientId = inserted.id;
+    }
+
+    // Audit activity
+    await supabase.from('lead_activities').insert({
+      tenant_id: tenantId,
+      contact_id: lead.id,
+      company_id: lead.company_id ?? null,
+      activity_type: 'converted_to_client',
+      subject: existingId ? `Updated existing client: ${companyName}` : `Converted to client: ${companyName}`,
+      notes: `client_id=${clientId} source=${company?.enrichment_source ?? 'manual'}`,
+      performed_by: userId,
+    });
+
+    return clientId;
+  };
+
   const updateStatus = async (id: string, status: LeadStatus) => {
     const prev = leads;
     setLeads(ls => ls.map(l => l.id === id ? { ...l, status } : l));
@@ -173,6 +262,24 @@ export default function SavedLeadsPage() {
       subject: `Status → ${statusMeta(status).label}`,
       performed_by: (await supabase.auth.getUser()).data.user?.id ?? null,
     });
+
+    if (status === 'client_won' && lead) {
+      const clientId = await convertLeadToClient(lead);
+      if (clientId) {
+        toast({
+          title: 'Lead converted to Client successfully.',
+          description: 'The client record is now available in the Clients module.',
+          action: (
+            <a
+              href={`/clients/${clientId}`}
+              className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              View Client
+            </a>
+          ) as any,
+        });
+      }
+    }
   };
 
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
