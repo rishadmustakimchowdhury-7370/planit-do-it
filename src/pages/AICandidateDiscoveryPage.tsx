@@ -149,13 +149,17 @@ export default function AICandidateDiscoveryPage() {
     }
   };
 
-  const runSearch = (criteria: Criteria) => {
+  const runSearch = (criteria: Criteria, target?: number) => {
     try {
       sessionStorage.setItem('ai-discovery-criteria', JSON.stringify(criteria));
+      if (target && [25, 50, 100, 250, 500].includes(target)) {
+        sessionStorage.setItem('ai-discovery-target', String(target));
+      }
     } catch { /* ignore quota */ }
     const params = new URLSearchParams();
     const q = [...(criteria.role_titles ?? []), ...(criteria.skills ?? [])].filter(Boolean).join(' ');
     if (q) params.set('q', q);
+    if (target) params.set('target', String(target));
     navigate(`/candidate-discovery/results?${params.toString()}`);
   };
 
