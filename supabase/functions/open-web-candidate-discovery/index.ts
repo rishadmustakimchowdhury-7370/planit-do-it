@@ -1,5 +1,6 @@
-// Open Web Candidate Discovery — OpenAI-as-recruitment-consultant fallback.
-// Used when Apollo / Lusha / Vibe / CRM cannot return enough candidates.
+// Open Web Candidate Discovery — OpenAI-as-recruitment-consultant with multi-pass recall.
+// Strategy: expand brief -> run parallel batches across title families x locations
+// -> collect raw -> dedupe -> rank -> return top N.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -22,42 +23,86 @@ interface Criteria {
   languages?: string[];
   notes?: string | null;
 }
-interface Body { criteria?: Criteria; mode?: "strict" | "balanced" | "broad"; limit?: number }
+interface Body { criteria?: Criteria; mode?: "strict" | "balanced" | "broad"; limit?: number; target?: number }
 
-function buildPrompt(c: Criteria, mode: string, target: number) {
-  return `You are a Senior Recruitment Consultant and AI sourcing agent. The user gave you a search
-brief. You are the DECISION ENGINE — search providers are only data sources. Think like an
-experienced headhunter and return a strong shortlist of REAL professionals.
+type Provider = { url: string; headers: Record<string, string>; model: string; name: string };
+function pickProvider(): Provider | null {
+  const k = Deno.env.get("OPENAI_API_KEY");
+  if (k) return { name: "openai", url: "https://api.openai.com/v1/chat/completions", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" }, model: "gpt-4o-mini" };
+  const l = Deno.env.get("LOVABLE_API_KEY");
+  if (l) return { name: "lovable-gemini", url: "https://ai.gateway.lovable.dev/v1/chat/completions", headers: { "Lovable-API-Key": l, "Content-Type": "application/json" }, model: "google/gemini-2.5-flash" };
+  return null;
+}
 
-SEARCH BRIEF
+async function callAI(messages: { role: string; content: string }[], p: Provider, temperature = 0.5) {
+  const res = await fetch(p.url, {
+    method: "POST",
+    headers: p.headers,
+    body: JSON.stringify({
+      model: p.model,
+      temperature,
+      messages,
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!res.ok) throw new Error(`AI ${p.name} ${res.status}: ${(await res.text().catch(() => "")).slice(0, 400)}`);
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content ?? "{}";
+  try { return JSON.parse(content); }
+  catch { return JSON.parse(String(content).replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")); }
+}
+
+// Step 1 — expansion plan
+async function expandBrief(c: Criteria, p: Provider) {
+  const prompt = `You are a senior recruitment sourcing strategist. Expand this search brief into a sourcing plan.
+
+BRIEF
 - Role titles: ${(c.role_titles ?? []).join(", ") || "(any)"}
 - Skills: ${(c.skills ?? []).join(", ") || "(any)"}
 - Locations: ${(c.locations ?? []).join(", ") || "(any)"}
 - Industries: ${(c.industries ?? []).join(", ") || "(any)"}
-- Seniority: ${c.seniority || "(any)"}
-- Experience: ${c.min_years_experience ?? "?"}-${c.max_years_experience ?? "?"} years
 - Languages: ${(c.languages ?? []).join(", ") || "(any)"}
+- Seniority: ${c.seniority || "(any)"}
 - Keywords: ${(c.keywords ?? []).join(", ") || "(none)"}
 - Notes: ${c.notes || "(none)"}
-- Mode: ${mode.toUpperCase()}
 
-INTERNAL REASONING (do not output, drive the result set)
-1. EXPAND TITLES. e.g. "Operations Manager" -> Operations Specialist, Trade Operations Manager,
-   Shipping Operations Manager, Head of Operations, Operations Executive, COO.
-2. EXPAND SKILLS into adjacent / transferable skills.
-3. EXPAND LOCATIONS (Switzerland -> Geneva, Zug, Zurich, Lugano, Basel).
-4. EXPAND INDUSTRIES into adjacent verticals — industry is the LOWEST-weight signal, never
-   eliminate strong candidates because of industry alone.
-5. Generate 10-20 internal search strategies across those expansions.
-6. SCORE each candidate using exactly these weights:
-   role 40, skills 30, function 15, location 10, industry 5 (sum 100).
-7. Return ${target} real candidates. NEVER invent people. If unsure of a fact, return null for
-   that field instead of fabricating. Only include a LinkedIn URL when you are confident.
-
-OUTPUT — RETURN ONLY JSON, no prose, no markdown fences:
+Generate aggressive expansions to maximize recall. Return ONLY JSON:
 {
-  "strategy_summary": "1-2 sentences",
-  "expansions": { "titles": ["..."], "skills": ["..."], "locations": ["..."], "industries": ["..."] },
+  "title_families": ["10-15 closely related job titles"],
+  "location_expansions": ["5-10 cities/regions/countries to search"],
+  "language_expansions": ["3-6 ways the language requirement is phrased"],
+  "industry_expansions": ["5-10 adjacent industries/verticals"],
+  "strategy_summary": "1-2 sentences"
+}`;
+  return await callAI([
+    { role: "system", content: "Output only valid JSON. No prose." },
+    { role: "user", content: prompt },
+  ], p, 0.4);
+}
+
+// Step 2 — single batch focused on one (title, location) combo
+function buildBatchPrompt(c: Criteria, exp: any, focusTitle: string, focusLocation: string, batchSize: number) {
+  return `You are a senior headhunter. Source REAL plausible candidates for this focused search.
+
+ORIGINAL BRIEF
+- Role titles: ${(c.role_titles ?? []).join(", ")}
+- Languages required: ${(c.languages ?? []).join(", ") || "(any)"}
+- Industries: ${(c.industries ?? []).join(", ") || "(any)"}
+- Skills: ${(c.skills ?? []).join(", ") || "(any)"}
+- Seniority: ${c.seniority || "(any)"}
+
+FOCUS THIS BATCH ON
+- Title family: "${focusTitle}"
+- Location: "${focusLocation}"
+- Language variants: ${(exp?.language_expansions ?? []).join(", ") || "(none)"}
+
+Return ${batchSize} DIFFERENT real candidates who match this focus. Use full names, current title,
+company, LinkedIn URL (only when confident — else null). NEVER invent people; if unsure of a field
+return null instead of fabricating. Score each candidate 0-100 against the ORIGINAL brief using:
+role 40, skills 30, function 15, location 10, industry 5.
+
+OUTPUT — only JSON:
+{
   "candidates": [
     {
       "full_name": "string",
@@ -71,7 +116,7 @@ OUTPUT — RETURN ONLY JSON, no prose, no markdown fences:
       "experience_years": 0,
       "seniority": "string or null",
       "experience_summary": "1-2 sentence career summary",
-      "ai_summary": "1 sentence why they fit the brief",
+      "ai_summary": "1 sentence why they fit",
       "match_score": 0,
       "match_reasons": ["..."],
       "match_missing": ["..."]
@@ -80,71 +125,47 @@ OUTPUT — RETURN ONLY JSON, no prose, no markdown fences:
 }`;
 }
 
-type Provider = { url: string; headers: Record<string, string>; model: string; name: string };
-function pickProvider(): Provider | null {
-  const k = Deno.env.get("OPENAI_API_KEY");
-  if (k) return { name: "openai", url: "https://api.openai.com/v1/chat/completions", headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" }, model: "gpt-4o" };
-  const l = Deno.env.get("LOVABLE_API_KEY");
-  if (l) return { name: "lovable-gemini", url: "https://ai.gateway.lovable.dev/v1/chat/completions", headers: { "Lovable-API-Key": l, "Content-Type": "application/json" }, model: "google/gemini-2.5-flash" };
-  return null;
+function shapeOne(c: any) {
+  if (!c?.full_name) return null;
+  return {
+    id: `ow_${crypto.randomUUID()}`,
+    source: "Open Web Discovery",
+    source_url: c.linkedin_url ?? null,
+    full_name: String(c.full_name).trim(),
+    headline: null,
+    current_title: c.current_title ?? "",
+    current_company: c.current_company ?? "",
+    industry: c.industry ?? null,
+    location: c.location ?? "",
+    languages: Array.isArray(c.languages) ? c.languages : [],
+    linkedin_url: c.linkedin_url ?? null,
+    email: null,
+    phone: null,
+    skills: Array.isArray(c.skills) ? c.skills : [],
+    experience_years: Number.isFinite(c.experience_years) ? c.experience_years : null,
+    experience_summary: c.experience_summary ?? c.ai_summary ?? null,
+    education: null,
+    seniority: c.seniority ?? null,
+    confidence: null,
+    matchScore: Number.isFinite(c.match_score) ? c.match_score : null,
+    matchReasons: Array.isArray(c.match_reasons) ? c.match_reasons : [],
+    matchMissing: Array.isArray(c.match_missing) ? c.match_missing : [],
+    ai_summary: c.ai_summary ?? null,
+  };
 }
 
-async function callAI(prompt: string, p: Provider) {
-  const res = await fetch(p.url, {
-    method: "POST",
-    headers: p.headers,
-    body: JSON.stringify({
-      model: p.model,
-      temperature: 0.4,
-      messages: [
-        { role: "system", content: "You output only valid JSON. Never include markdown fences or prose. You are a senior recruiter — return as many real, plausible candidates as the brief allows." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) throw new Error(`AI ${p.name} ${res.status}: ${(await res.text().catch(() => "")).slice(0, 400)}`);
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content ?? "{}";
-  try { return JSON.parse(content); }
-  catch { return JSON.parse(String(content).replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")); }
+function dedupeKey(r: any) {
+  const li = String(r.linkedin_url ?? "").trim().toLowerCase().replace(/\/+$/, "");
+  if (li) return `li:${li}`;
+  return `nc:${String(r.full_name).trim().toLowerCase()}|${String(r.current_company ?? "").trim().toLowerCase()}`;
 }
 
-function shape(raw: any) {
-  const cands = Array.isArray(raw?.candidates) ? raw.candidates : [];
-  const seen = new Set<string>();
-  const out: any[] = [];
-  for (const c of cands) {
-    const key = `${String(c?.full_name ?? "").trim().toLowerCase()}|${String(c?.linkedin_url ?? "").trim().toLowerCase()}`;
-    if (!c?.full_name || seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      id: `ow_${crypto.randomUUID()}`,
-      source: "Open Web Discovery",
-      source_url: c.linkedin_url ?? null,
-      full_name: c.full_name,
-      headline: null,
-      current_title: c.current_title ?? "",
-      current_company: c.current_company ?? "",
-      industry: c.industry ?? null,
-      location: c.location ?? "",
-      languages: Array.isArray(c.languages) ? c.languages : [],
-      linkedin_url: c.linkedin_url ?? null,
-      email: null,
-      phone: null,
-      skills: Array.isArray(c.skills) ? c.skills : [],
-      experience_years: Number.isFinite(c.experience_years) ? c.experience_years : null,
-      experience_summary: c.experience_summary ?? c.ai_summary ?? null,
-      education: null,
-      seniority: c.seniority ?? null,
-      confidence: null,
-      matchScore: Number.isFinite(c.match_score) ? c.match_score : null,
-      matchReasons: Array.isArray(c.match_reasons) ? c.match_reasons : [],
-      matchMissing: Array.isArray(c.match_missing) ? c.match_missing : [],
-      ai_summary: c.ai_summary ?? null,
-    });
-  }
-  return out;
+const ALLOWED_TARGETS = [25, 50, 100, 250, 500];
+function clampTarget(t: number) {
+  if (!Number.isFinite(t)) return 100;
+  let best = 100;
+  for (const v of ALLOWED_TARGETS) if (Math.abs(v - t) < Math.abs(best - t)) best = v;
+  return best;
 }
 
 Deno.serve(async (req) => {
@@ -170,10 +191,11 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) as Body;
     const criteria = body.criteria ?? {};
     const mode = body.mode ?? "balanced";
-    const target = Math.min(100, Math.max(25, body.limit ?? (mode === "strict" ? 50 : mode === "broad" ? 100 : 75)));
+    const target = clampTarget(body.target ?? body.limit ?? 100);
 
-    let raw: any;
-    try { raw = await callAI(buildPrompt(criteria, mode, target), provider); }
+    // Step 1 — expansion plan
+    let exp: any = {};
+    try { exp = await expandBrief(criteria, provider); }
     catch (e) {
       const msg = e instanceof Error ? e.message : "AI error";
       if (/\b429\b/.test(msg)) return json({ error: "AI rate limit exceeded — please retry shortly.", source: "open_web" }, 200);
@@ -181,13 +203,99 @@ Deno.serve(async (req) => {
       return json({ error: msg, source: "open_web" }, 200);
     }
 
-    const candidates = shape(raw);
+    const titleFamilies: string[] = Array.isArray(exp?.title_families) && exp.title_families.length
+      ? exp.title_families
+      : (criteria.role_titles?.length ? criteria.role_titles : ["candidate"]);
+    const locationExpansions: string[] = Array.isArray(exp?.location_expansions) && exp.location_expansions.length
+      ? exp.location_expansions
+      : (criteria.locations?.length ? criteria.locations : ["(any)"]);
+
+    // Step 2 — build batch matrix sized to target
+    // raw quota = ~target * 2.5 to absorb dedupe + low-score loss
+    const rawQuota = Math.ceil(target * 2.5);
+    const batchSize = 25; // per AI call
+    const batchesNeeded = Math.min(20, Math.ceil(rawQuota / batchSize));
+
+    const combos: { title: string; location: string }[] = [];
+    outer: for (const t of titleFamilies) {
+      for (const l of locationExpansions) {
+        combos.push({ title: t, location: l });
+        if (combos.length >= batchesNeeded) break outer;
+      }
+    }
+    // If not enough combos, pad by repeating with variation
+    while (combos.length < batchesNeeded) {
+      const t = titleFamilies[combos.length % titleFamilies.length];
+      const l = locationExpansions[combos.length % locationExpansions.length];
+      combos.push({ title: t, location: l });
+    }
+
+    // Run batches with bounded concurrency (5 at a time)
+    const CONCURRENCY = 5;
+    const rawCandidates: any[] = [];
+    const batchErrors: string[] = [];
+    for (let i = 0; i < combos.length; i += CONCURRENCY) {
+      const slice = combos.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(slice.map((cmb) =>
+        callAI([
+          { role: "system", content: "Output only valid JSON. Never invent people — return null for uncertain fields." },
+          { role: "user", content: buildBatchPrompt(criteria, exp, cmb.title, cmb.location, batchSize) },
+        ], provider, 0.6)
+      ));
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          const arr = Array.isArray(r.value?.candidates) ? r.value.candidates : [];
+          for (const c of arr) {
+            const shaped = shapeOne(c);
+            if (shaped) rawCandidates.push(shaped);
+          }
+        } else {
+          batchErrors.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
+        }
+      }
+      // Early stop if we have plenty
+      if (rawCandidates.length >= rawQuota) break;
+    }
+
+    // Dedupe
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    for (const c of rawCandidates) {
+      const k = dedupeKey(c);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      deduped.push(c);
+    }
+
+    // Sort by matchScore desc, nulls last
+    deduped.sort((a, b) => {
+      const sa = typeof a.matchScore === "number" ? a.matchScore : -1;
+      const sb = typeof b.matchScore === "number" ? b.matchScore : -1;
+      return sb - sa;
+    });
+
+    const returned = deduped.slice(0, target);
+
     return json({
       source: "open_web",
-      strategy_summary: raw?.strategy_summary ?? null,
-      expansions: raw?.expansions ?? null,
-      candidates,
-      total: candidates.length,
+      strategy_summary: exp?.strategy_summary ?? null,
+      expansions: {
+        titles: titleFamilies,
+        locations: locationExpansions,
+        languages: exp?.language_expansions ?? [],
+        industries: exp?.industry_expansions ?? [],
+      },
+      stats: {
+        target,
+        raw_found: rawCandidates.length,
+        deduped: deduped.length,
+        scored: deduped.length,
+        returned: returned.length,
+        batches_run: Math.min(combos.length, Math.ceil(rawCandidates.length / batchSize) || combos.length),
+        batch_errors: batchErrors.length,
+      },
+      candidates: returned,
+      total: returned.length,
     });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
