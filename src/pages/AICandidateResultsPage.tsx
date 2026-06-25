@@ -401,6 +401,20 @@ export default function AICandidateResultsPage() {
                 </button>
               ))}
             </div>
+            {/* Target Result Count */}
+            <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              Target:
+              <select
+                value={targetCount}
+                onChange={(e) => changeTarget(Number(e.target.value))}
+                className="rounded-md border bg-background px-2 py-1 text-xs text-foreground"
+                title="Target number of candidates to return"
+              >
+                {[25, 50, 100, 250, 500].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
             {isOwner && (
               <Button
                 variant={developerMode ? 'default' : 'outline'}
