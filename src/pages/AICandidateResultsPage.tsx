@@ -119,6 +119,10 @@ export default function AICandidateResultsPage() {
     const m = sessionStorage.getItem('ai-discovery-mode');
     return (m === 'strict' || m === 'broad') ? m : 'balanced';
   });
+  const [targetCount, setTargetCount] = useState<number>(() => {
+    const n = Number(sessionStorage.getItem('ai-discovery-target'));
+    return [25, 50, 100, 250, 500].includes(n) ? n : 100;
+  });
   const [developerMode, setDeveloperMode] = useState<boolean>(() => {
     return isOwner && localStorage.getItem('ai-discovery-dev-mode') === '1';
   });
@@ -128,6 +132,7 @@ export default function AICandidateResultsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [providerErrors, setProviderErrors] = useState<Record<string, string>>({});
   const [queries, setQueries] = useState<SearchPassDebug[]>([]);
+  const [searchStats, setSearchStats] = useState<{ raw_found: number; deduped: number; scored: number; returned: number; target: number } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('matchScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
