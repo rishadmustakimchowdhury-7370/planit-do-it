@@ -145,9 +145,9 @@ export default function AICandidateResultsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]); setFallbackNotice(null);
+      setLoading(true); setErrorMsg(null); setProviderErrors({}); setQueries([]); setFallbackNotice(null); setSearchStats(null);
       const { data, error } = await supabase.functions.invoke('ai-candidate-search', {
-        body: { criteria, limit: 25, mode },
+        body: { criteria, limit: targetCount, mode },
       });
       if (cancelled) return;
 
@@ -157,26 +157,37 @@ export default function AICandidateResultsPage() {
       const noResults = !error && !data?.error && primaryCandidates.length === 0;
 
       // Auto-fallback to Open Web Candidate Discovery when providers are exhausted/unavailable or returned nothing.
-      if (error || data?.error || allProvidersFailed || noResults) {
+      if (error || data?.error || allProvidersFailed || noResults || primaryCandidates.length < targetCount) {
         const reason = error?.message
           || data?.error
-          || (allProvidersFailed ? 'All search providers returned errors (credits, rate limits, or not connected).' : 'Providers returned no results.');
+          || (allProvidersFailed ? 'All search providers returned errors (credits, rate limits, or not connected).' : 'Providers returned fewer than the target.');
         try {
           const { data: ow, error: owErr } = await supabase.functions.invoke('open-web-candidate-discovery', {
-            body: { criteria, mode, limit: mode === 'strict' ? 50 : mode === 'broad' ? 100 : 75 },
+            body: { criteria, mode, target: targetCount },
           });
           if (cancelled) return;
           if (owErr) throw new Error(owErr.message);
           if (ow?.error) throw new Error(ow.error);
           setRows((ow?.candidates ?? []) as ResultRow[]);
+          setSearchStats(ow?.stats ?? null);
           setProviderErrors(providerErrs);
           setQueries(data?.queries ?? []);
-          setFallbackNotice(
-            `Provider unavailable (${reason}). HireMetrics AI has automatically switched to Open Web Discovery and is sourcing candidates from public web data.`,
-          );
+          if (primaryCandidates.length === 0) {
+            setFallbackNotice(
+              `HireMetrics AI is sourcing from public web data (${reason}).`,
+            );
+          }
           setLoading(false);
           return;
         } catch (owErr) {
+          if (primaryCandidates.length > 0) {
+            // We at least have primary results — show them, suppress fallback error.
+            setRows(primaryCandidates);
+            setProviderErrors(providerErrs);
+            setQueries(data?.queries ?? []);
+            setLoading(false);
+            return;
+          }
           setErrorMsg(error?.message || data?.error || (owErr instanceof Error ? owErr.message : 'Search failed'));
           setRows([]); setLoading(false); return;
         }
@@ -189,11 +200,15 @@ export default function AICandidateResultsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [criteria, mode]);
+  }, [criteria, mode, targetCount]);
 
   const changeMode = (m: SearchMode) => {
     sessionStorage.setItem('ai-discovery-mode', m);
     setMode(m);
+  };
+  const changeTarget = (n: number) => {
+    sessionStorage.setItem('ai-discovery-target', String(n));
+    setTargetCount(n);
   };
   const toggleDeveloperMode = () => {
     const next = !developerMode;
