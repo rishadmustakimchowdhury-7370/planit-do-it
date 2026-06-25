@@ -472,6 +472,21 @@ export default function AICandidateResultsPage() {
           </Alert>
         )}
 
+        {searchStats && !loading && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span className="font-medium text-muted-foreground">Discovery stats:</span>
+                <Badge variant="secondary">Raw found: {searchStats.raw_found}</Badge>
+                <Badge variant="secondary">Deduped: {searchStats.deduped}</Badge>
+                <Badge variant="secondary">Scored: {searchStats.scored}</Badge>
+                <Badge variant="default">Returned: {searchStats.returned} / target {searchStats.target}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+
         {/* Recruiter-facing pass progress (no payloads / no JSON) */}
         {!developerMode && queries.length > 0 && !loading && (
           <Card>
