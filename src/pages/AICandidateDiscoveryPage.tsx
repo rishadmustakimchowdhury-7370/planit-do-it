@@ -318,8 +318,12 @@ const EMPTY_BUILDER: BuilderState = {
   industries: [],
 };
 
-function AdvancedBuilder({ onSearch }: { onSearch: (c: Criteria) => void }) {
+function AdvancedBuilder({ onSearch }: { onSearch: (c: Criteria, target?: number) => void }) {
   const [state, setState] = useState<BuilderState>(EMPTY_BUILDER);
+  const [targetCount, setTargetCount] = useState<number>(() => {
+    const n = Number(sessionStorage.getItem('ai-discovery-target'));
+    return [25, 50, 100, 250, 500].includes(n) ? n : 100;
+  });
 
   const toCriteria = (s: BuilderState): Criteria => {
     const locations: string[] = [];
@@ -379,11 +383,42 @@ function AdvancedBuilder({ onSearch }: { onSearch: (c: Criteria) => void }) {
         industries={state.industries}
       />
 
-      <div className="flex justify-end">
-        <Button size="lg" disabled={!canSearch} onClick={() => onSearch(toCriteria(state))} className="gap-2">
-          <Search className="h-4 w-4" /> Search Candidates
-        </Button>
-      </div>
+      <Card className="border-primary/20">
+        <CardContent className="pt-6 flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
+          <div>
+            <label htmlFor="target-result-count" className="text-sm font-medium block mb-1">
+              Target Result Count
+            </label>
+            <p className="text-xs text-muted-foreground mb-2">
+              How many profiles should the AI try to return.
+            </p>
+            <select
+              id="target-result-count"
+              value={targetCount}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setTargetCount(n);
+                try { sessionStorage.setItem('ai-discovery-target', String(n)); } catch { /* ignore */ }
+              }}
+              className="h-10 rounded-md border bg-background px-3 text-sm min-w-[140px]"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100 (default)</option>
+              <option value={250}>250</option>
+              <option value={500}>500</option>
+            </select>
+          </div>
+          <Button
+            size="lg"
+            disabled={!canSearch}
+            onClick={() => onSearch(toCriteria(state), targetCount)}
+            className="gap-2"
+          >
+            <Search className="h-4 w-4" /> Search Candidates
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
