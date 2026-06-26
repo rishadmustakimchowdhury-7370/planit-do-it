@@ -403,22 +403,22 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
 
               const open = openSections[section.id] ?? true;
               return (
-                <Collapsible
-                  key={section.id}
-                  open={open}
-                  onOpenChange={(v) => setOpenSections((s) => ({ ...s, [section.id]: v }))}
-                  className="mb-1"
-                >
-                  <CollapsibleTrigger asChild>
-                    <button className="flex items-center justify-between w-full px-3 mt-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors">
-                      <span>{section.title}</span>
-                      <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', !open && '-rotate-90')} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-0.5 data-[state=open]:animate-fade-in">
-                    {visible.map((i) => renderItem(i))}
-                  </CollapsibleContent>
-                </Collapsible>
+                  <Collapsible
+                    key={section.id}
+                    open={open}
+                    onOpenChange={(v) => setOpenSections((s) => ({ ...s, [section.id]: v }))}
+                    className="mb-4"
+                  >
+                    <CollapsibleTrigger asChild>
+                      <button className="flex items-center justify-between w-full px-3 mt-5 mb-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors">
+                        <span>{section.title}</span>
+                        <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', !open && '-rotate-90')} />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 data-[state=open]:animate-fade-in">
+                      {visible.map((i) => renderItem(i))}
+                    </CollapsibleContent>
+                  </Collapsible>
               );
             })}
           </>
