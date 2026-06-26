@@ -278,7 +278,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
     return init;
   });
   const [favorites, setFavorites] = useState<string[]>(() => readJSON<string[]>(LS_FAV, []));
-  const [recents, setRecents] = useState<string[]>(() => readJSON<string[]>(LS_RECENT, []));
   const [query, setQuery] = useState('');
 
   useEffect(() => {
