@@ -289,16 +289,7 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
     localStorage.setItem(LS_FAV, JSON.stringify(favorites));
   }, [favorites]);
 
-  // Track recents
-  useEffect(() => {
-    const match = allItems.find((i) => location.pathname === i.href || (i.href !== '/' && location.pathname.startsWith(i.href)));
-    if (!match) return;
-    setRecents((prev) => {
-      const next = [match.href, ...prev.filter((h) => h !== match.href)].slice(0, 4);
-      localStorage.setItem(LS_RECENT, JSON.stringify(next));
-      return next;
-    });
-  }, [location.pathname, allItems]);
+  // Recents tracking removed — navigation items are always available in sections
 
   const gateFor = (href: string): 'show' | 'lock' | 'hide' => {
     const fk = FEATURE_BY_HREF[href];
