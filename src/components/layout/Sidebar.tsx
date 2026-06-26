@@ -388,16 +388,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
               </div>
             )}
 
-            {/* Recent */}
-            {!collapsed && recentItems.length > 0 && (
-              <div className="mb-3">
-                <p className="px-3 mt-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 flex items-center gap-1.5">
-                  <Clock className="w-3 h-3" /> Recent
-                </p>
-                <div className="space-y-0.5">{recentItems.slice(0, 3).map((i) => renderItem(i))}</div>
-              </div>
-            )}
-
             {/* Sections */}
             {sections.map((section) => {
               const visible = section.items.filter(isItemVisible);
