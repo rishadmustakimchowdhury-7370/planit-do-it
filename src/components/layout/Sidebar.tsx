@@ -171,7 +171,6 @@ function getSections(roles: { isOwner: boolean; isManager: boolean; isRecruiter:
 // localStorage helpers
 const LS_OPEN = 'hm-sidebar-open-sections';
 const LS_FAV = 'hm-sidebar-favorites';
-const LS_RECENT = 'hm-sidebar-recents';
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
