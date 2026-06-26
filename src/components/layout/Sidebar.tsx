@@ -77,17 +77,17 @@ interface NavSection {
 }
 
 const BADGE_STYLES: Record<Badge, string> = {
-  NEW: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  BETA: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  PRO: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  AI: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  NEW: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/20',
+  BETA: 'bg-amber-400/10 text-amber-300 border-amber-400/20',
+  PRO: 'bg-violet-400/10 text-violet-300 border-violet-400/20',
+  AI: 'bg-sky-400/10 text-sky-300 border-sky-400/20',
 };
 
 function NavBadge({ badge }: { badge: Badge }) {
   return (
     <span
       className={cn(
-        'ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded border tracking-wide',
+        'ml-auto text-[9px] font-medium px-1.5 py-[2px] rounded-full border tracking-wider opacity-75',
         BADGE_STYLES[badge]
       )}
     >
