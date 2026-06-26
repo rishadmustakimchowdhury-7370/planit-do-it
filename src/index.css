@@ -55,15 +55,15 @@
 
     --radius: 0.5rem;
 
-    /* Sidebar - Dark Blue #00008B */
-    --sidebar-background: 240 100% 27%;
+    /* Sidebar - Premium Navy #162A6B */
+    --sidebar-background: 224 66% 25%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 240 100% 27%;
-    --sidebar-accent: 240 100% 35%;
+    --sidebar-primary-foreground: 224 66% 25%;
+    --sidebar-accent: 224 50% 33%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 100% 32%;
-    --sidebar-ring: 240 100% 40%;
+    --sidebar-border: 224 50% 30%;
+    --sidebar-ring: 224 50% 40%;
 
     /* Shadows - Soft, diffused */
     --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
