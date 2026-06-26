@@ -328,10 +328,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
   const favItems = favorites
     .map((h) => allItems.find((i) => i.href === h))
     .filter((i): i is NavItem => !!i && isItemVisible(i));
-  const recentItems = recents
-    .map((h) => allItems.find((i) => i.href === h))
-    .filter((i): i is NavItem => !!i && isItemVisible(i))
-    .filter((i) => !favorites.includes(i.href));
 
   const renderItem = (item: NavItem, opts?: { showFav?: boolean }) => {
     const gate = gateFor(item.href);
