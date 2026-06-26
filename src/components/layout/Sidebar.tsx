@@ -207,10 +207,10 @@ function NavLinkItem({
       onClick={onNavigate}
       title={collapsed ? item.name : locked ? `${item.name} — upgrade required` : undefined}
       className={cn(
-        'group relative flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150',
+        'group relative flex items-center gap-3.5 px-3 py-[9px] rounded-lg transition-all duration-200 ease-out',
         isActive
           ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5',
         collapsed && 'justify-center px-2',
         locked && 'opacity-60'
       )}
