@@ -426,15 +426,17 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
       </nav>
 
       {/* Fixed bottom: workspace + user + sign out */}
-      <div className="border-t border-sidebar-border/50 bg-sidebar">
+      <div className="border-t border-sidebar-border/40 bg-sidebar">
         {!collapsed && (
-          <div className="px-4 pt-3 pb-2">
-            <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">Workspace</p>
-            <p className="text-xs text-sidebar-foreground/80 truncate">{workspaceName}</p>
+          <div className="px-4 pt-4 pb-3">
+            <div className="bg-sidebar-accent/40 rounded-lg px-3 py-2.5 border border-sidebar-border/30">
+              <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold mb-0.5">Workspace</p>
+              <p className="text-xs text-sidebar-foreground/90 truncate font-medium">{workspaceName}</p>
+            </div>
           </div>
         )}
-        <div className={cn('px-3 py-2 flex items-center gap-3', collapsed && 'justify-center')}>
-          <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-sidebar-border">
+        <div className={cn('px-3 py-2.5 flex items-center gap-3', collapsed && 'justify-center')}>
+          <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-sidebar-border/60">
             <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium">
               {userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
@@ -452,7 +454,7 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
             variant="ghost"
             onClick={handleSignOut}
             className={cn(
-              'w-full text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground justify-start',
+              'w-full text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground justify-start rounded-lg',
               collapsed && 'px-2 justify-center'
             )}
             size="sm"
