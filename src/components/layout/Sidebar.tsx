@@ -395,8 +395,8 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
 
               if (collapsed) {
                 return (
-                  <div key={section.id} className="py-1 border-t border-sidebar-border/30 first:border-t-0">
-                    <div className="space-y-0.5 py-1">{visible.map((i) => renderItem(i))}</div>
+                  <div key={section.id} className="py-2 border-t border-sidebar-border/30 first:border-t-0">
+                    <div className="space-y-1 py-1">{visible.map((i) => renderItem(i))}</div>
                   </div>
                 );
               }
