@@ -77,17 +77,17 @@ interface NavSection {
 }
 
 const BADGE_STYLES: Record<Badge, string> = {
-  NEW: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  BETA: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  PRO: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  AI: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  NEW: 'bg-emerald-400/10 text-emerald-300 border-emerald-400/20',
+  BETA: 'bg-amber-400/10 text-amber-300 border-amber-400/20',
+  PRO: 'bg-violet-400/10 text-violet-300 border-violet-400/20',
+  AI: 'bg-sky-400/10 text-sky-300 border-sky-400/20',
 };
 
 function NavBadge({ badge }: { badge: Badge }) {
   return (
     <span
       className={cn(
-        'ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded border tracking-wide',
+        'ml-auto text-[9px] font-medium px-1.5 py-[2px] rounded-full border tracking-wider opacity-75',
         BADGE_STYLES[badge]
       )}
     >
@@ -171,7 +171,6 @@ function getSections(roles: { isOwner: boolean; isManager: boolean; isRecruiter:
 // localStorage helpers
 const LS_OPEN = 'hm-sidebar-open-sections';
 const LS_FAV = 'hm-sidebar-favorites';
-const LS_RECENT = 'hm-sidebar-recents';
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
@@ -207,10 +206,10 @@ function NavLinkItem({
       onClick={onNavigate}
       title={collapsed ? item.name : locked ? `${item.name} — upgrade required` : undefined}
       className={cn(
-        'group relative flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150',
+        'group relative flex items-center gap-3.5 px-3 py-[9px] rounded-lg transition-all duration-200 ease-out',
         isActive
           ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-0.5',
         collapsed && 'justify-center px-2',
         locked && 'opacity-60'
       )}
@@ -279,7 +278,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
     return init;
   });
   const [favorites, setFavorites] = useState<string[]>(() => readJSON<string[]>(LS_FAV, []));
-  const [recents, setRecents] = useState<string[]>(() => readJSON<string[]>(LS_RECENT, []));
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -289,16 +287,7 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
     localStorage.setItem(LS_FAV, JSON.stringify(favorites));
   }, [favorites]);
 
-  // Track recents
-  useEffect(() => {
-    const match = allItems.find((i) => location.pathname === i.href || (i.href !== '/' && location.pathname.startsWith(i.href)));
-    if (!match) return;
-    setRecents((prev) => {
-      const next = [match.href, ...prev.filter((h) => h !== match.href)].slice(0, 4);
-      localStorage.setItem(LS_RECENT, JSON.stringify(next));
-      return next;
-    });
-  }, [location.pathname, allItems]);
+  // Recents tracking removed — navigation items are always available in sections
 
   const gateFor = (href: string): 'show' | 'lock' | 'hide' => {
     const fk = FEATURE_BY_HREF[href];
@@ -339,10 +328,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
   const favItems = favorites
     .map((h) => allItems.find((i) => i.href === h))
     .filter((i): i is NavItem => !!i && isItemVisible(i));
-  const recentItems = recents
-    .map((h) => allItems.find((i) => i.href === h))
-    .filter((i): i is NavItem => !!i && isItemVisible(i))
-    .filter((i) => !favorites.includes(i.href));
 
   const renderItem = (item: NavItem, opts?: { showFav?: boolean }) => {
     const gate = gateFor(item.href);
@@ -403,16 +388,6 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
               </div>
             )}
 
-            {/* Recent */}
-            {!collapsed && recentItems.length > 0 && (
-              <div className="mb-3">
-                <p className="px-3 mt-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 flex items-center gap-1.5">
-                  <Clock className="w-3 h-3" /> Recent
-                </p>
-                <div className="space-y-0.5">{recentItems.slice(0, 3).map((i) => renderItem(i))}</div>
-              </div>
-            )}
-
             {/* Sections */}
             {sections.map((section) => {
               const visible = section.items.filter(isItemVisible);
@@ -420,30 +395,30 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
 
               if (collapsed) {
                 return (
-                  <div key={section.id} className="py-1 border-t border-sidebar-border/30 first:border-t-0">
-                    <div className="space-y-0.5 py-1">{visible.map((i) => renderItem(i))}</div>
+                  <div key={section.id} className="py-2 border-t border-sidebar-border/30 first:border-t-0">
+                    <div className="space-y-1 py-1">{visible.map((i) => renderItem(i))}</div>
                   </div>
                 );
               }
 
               const open = openSections[section.id] ?? true;
               return (
-                <Collapsible
-                  key={section.id}
-                  open={open}
-                  onOpenChange={(v) => setOpenSections((s) => ({ ...s, [section.id]: v }))}
-                  className="mb-1"
-                >
-                  <CollapsibleTrigger asChild>
-                    <button className="flex items-center justify-between w-full px-3 mt-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors">
-                      <span>{section.title}</span>
-                      <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', !open && '-rotate-90')} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-0.5 data-[state=open]:animate-fade-in">
-                    {visible.map((i) => renderItem(i))}
-                  </CollapsibleContent>
-                </Collapsible>
+                  <Collapsible
+                    key={section.id}
+                    open={open}
+                    onOpenChange={(v) => setOpenSections((s) => ({ ...s, [section.id]: v }))}
+                    className="mb-4"
+                  >
+                    <CollapsibleTrigger asChild>
+                      <button className="flex items-center justify-between w-full px-3 mt-5 mb-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors">
+                        <span>{section.title}</span>
+                        <ChevronDown className={cn('w-3 h-3 transition-transform duration-200', !open && '-rotate-90')} />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 data-[state=open]:animate-fade-in">
+                      {visible.map((i) => renderItem(i))}
+                    </CollapsibleContent>
+                  </Collapsible>
               );
             })}
           </>
@@ -451,15 +426,17 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
       </nav>
 
       {/* Fixed bottom: workspace + user + sign out */}
-      <div className="border-t border-sidebar-border/50 bg-sidebar">
+      <div className="border-t border-sidebar-border/40 bg-sidebar">
         {!collapsed && (
-          <div className="px-4 pt-3 pb-2">
-            <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">Workspace</p>
-            <p className="text-xs text-sidebar-foreground/80 truncate">{workspaceName}</p>
+          <div className="px-4 pt-4 pb-3">
+            <div className="bg-sidebar-accent/40 rounded-lg px-3 py-2.5 border border-sidebar-border/30">
+              <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold mb-0.5">Workspace</p>
+              <p className="text-xs text-sidebar-foreground/90 truncate font-medium">{workspaceName}</p>
+            </div>
           </div>
         )}
-        <div className={cn('px-3 py-2 flex items-center gap-3', collapsed && 'justify-center')}>
-          <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-sidebar-border">
+        <div className={cn('px-3 py-2.5 flex items-center gap-3', collapsed && 'justify-center')}>
+          <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-sidebar-border/60">
             <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium">
               {userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
@@ -477,7 +454,7 @@ function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean
             variant="ghost"
             onClick={handleSignOut}
             className={cn(
-              'w-full text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground justify-start',
+              'w-full text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground justify-start rounded-lg',
               collapsed && 'px-2 justify-center'
             )}
             size="sm"
