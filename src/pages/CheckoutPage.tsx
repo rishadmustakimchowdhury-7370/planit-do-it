@@ -342,38 +342,12 @@ export default function CheckoutPage() {
                 <CardTitle>Payment Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Promo Code */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Promo Code</label>
-                  {appliedPromo ? (
-                    <div className="flex items-center gap-2 p-2 bg-success/10 rounded-lg border border-success/30">
-                      <Tag className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">{appliedPromo.code}</span>
-                      <span className="text-sm text-muted-foreground">
-                        -{appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}%` : `$${appliedPromo.discount_value}`}
-                      </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={removePromoCode}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter code"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        className="font-mono"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={validatePromoCode}
-                        disabled={!promoCode.trim() || validatingPromo}
-                      >
-                        {validatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                {/* Promo Code — server-validated, live discount preview */}
+                <PromoCodeInput
+                  planId={planId}
+                  interval="monthly"
+                  onChange={setAppliedPromo}
+                />
 
                 <Separator />
 
