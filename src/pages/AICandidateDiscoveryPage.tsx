@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 import {
   Sparkles, Send, Paperclip, Loader2, AlertCircle, FileText, X, MapPin,
   Briefcase, Wrench, Calendar, Search,
@@ -79,6 +80,7 @@ async function readFilePayload(file: File): Promise<{ fileText?: string; fileBas
 export default function AICandidateDiscoveryPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const enforce = useEnforceFeature();
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [prompt, setPrompt] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -104,6 +106,8 @@ export default function AICandidateDiscoveryPage() {
   const send = async (overridePrompt?: string) => {
     const promptText = (overridePrompt ?? prompt).trim();
     if (!promptText && !file) return;
+    const ok = await enforce.guard('ai_candidate_discovery', async () => true, { meter: true });
+    if (!ok) return;
     setSending(true);
     const userTurn: ChatTurn = {
       id: crypto.randomUUID(),
@@ -298,6 +302,7 @@ export default function AICandidateDiscoveryPage() {
           </TabsContent>
         </Tabs>
       </div>
+      {enforce.dialog}
     </AppLayout>
   );
 }

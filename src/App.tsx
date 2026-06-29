@@ -38,6 +38,7 @@ const TeamUsagePage = lazy(() => import("./pages/TeamUsagePage"));
 const BrandingSettingsPage = lazy(() => import("./pages/BrandingSettingsPage"));
 const AcceptInvitationPage = lazy(() => import("./pages/AcceptInvitationPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
+const UsagePage = lazy(() => import("./pages/UsagePage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const CandidateDiscoveryPage = lazy(() => import("./pages/CandidateDiscoveryPage"));
@@ -237,6 +238,7 @@ const AppRoutes = () => (
       
       <Route path="/branding" element={<ProtectedRoute><FeatureRoute featureKey="custom_branding"><BrandingSettingsPage /></FeatureRoute></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+      <Route path="/usage" element={<ProtectedRoute><UsagePage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><FeatureRoute featureKey="advanced_analytics"><ReportsPage /></FeatureRoute></ProtectedRoute>} />
       <Route path="/placements" element={<ProtectedRoute><PlacementsPage /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute><FeatureRoute featureKey="finance_dashboard"><FinanceDashboardPage /></FeatureRoute></ProtectedRoute>} />
