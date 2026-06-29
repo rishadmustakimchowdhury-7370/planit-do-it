@@ -209,7 +209,12 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      allow_promotion_codes: true,
+      // If we have a synced Stripe promotion code, attach it so Hosted Checkout
+      // and the invoice display identical pricing. Otherwise let the customer
+      // enter a Stripe-native code at checkout.
+      ...(validPromoCode?.stripe_promotion_code_id
+        ? { discounts: [{ promotion_code: validPromoCode.stripe_promotion_code_id }] }
+        : { allow_promotion_codes: true }),
       success_url: `${req.headers.get("origin")}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
       cancel_url: `${req.headers.get("origin")}/checkout/cancel?order_id=${order.id}`,
       metadata: {
