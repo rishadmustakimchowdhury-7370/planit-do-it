@@ -119,81 +119,8 @@ export default function CheckoutPage() {
     }
   };
 
-  const validatePromoCode = async () => {
-    if (!promoCode.trim() || !plan) return;
-    
-    setValidatingPromo(true);
-    try {
-      const { data, error } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('code', promoCode.toUpperCase().trim())
-        .eq('is_active', true)
-        .single();
-
-      if (error || !data) {
-        toast.error('Invalid promo code');
-        return;
-      }
-
-      // Check validity
-      const now = new Date();
-      const validUntil = data.valid_until ? new Date(data.valid_until) : null;
-      const withinUsageLimit = !data.max_uses || data.uses_count < data.max_uses;
-      
-      if (!withinUsageLimit) {
-        toast.error('Promo code has reached its usage limit');
-        return;
-      }
-      
-      if (validUntil && validUntil < now) {
-        toast.error('Promo code has expired');
-        return;
-      }
-
-      // Check if user already used this promo code
-      if (user) {
-        const { data: usageData } = await supabase
-          .from('promo_code_usage')
-          .select('id')
-          .eq('promo_code_id', data.id)
-          .eq('user_id', user.id)
-          .single();
-        
-        if (usageData) {
-          toast.error('You have already used this promo code');
-          return;
-        }
-      }
-
-      // Calculate discount
-      let discountAmount = 0;
-      if (data.discount_type === 'percentage') {
-        discountAmount = (plan.price_monthly * data.discount_value) / 100;
-      } else {
-        discountAmount = Math.min(data.discount_value, plan.price_monthly);
-      }
-
-      setAppliedPromo({
-        valid: true,
-        code: data.code,
-        discount_type: data.discount_type,
-        discount_value: data.discount_value,
-        discount_amount: discountAmount,
-      });
-      
-      toast.success(`Promo code applied! You save $${discountAmount.toFixed(2)}`);
-    } catch (error: any) {
-      toast.error('Failed to validate promo code');
-    } finally {
-      setValidatingPromo(false);
-    }
-  };
-
-  const removePromoCode = () => {
-    setAppliedPromo(null);
-    setPromoCode('');
-  };
+  // Promo validation lives entirely inside <PromoCodeInput>; this page just
+  // mirrors the latest server-validated result.
 
   const handleCheckout = async () => {
     if (!user) {
