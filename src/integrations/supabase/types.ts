@@ -6248,7 +6248,11 @@ export type Database = {
           feature_key: string
           feature_name: string
           id: string
+          is_addon: boolean
+          is_metered: boolean
+          show_on_pricing_page: boolean
           sort_order: number
+          unit: string | null
           updated_at: string
         }
         Insert: {
@@ -6258,7 +6262,11 @@ export type Database = {
           feature_key: string
           feature_name: string
           id?: string
+          is_addon?: boolean
+          is_metered?: boolean
+          show_on_pricing_page?: boolean
           sort_order?: number
+          unit?: string | null
           updated_at?: string
         }
         Update: {
@@ -6268,7 +6276,11 @@ export type Database = {
           feature_key?: string
           feature_name?: string
           id?: string
+          is_addon?: boolean
+          is_metered?: boolean
+          show_on_pricing_page?: boolean
           sort_order?: number
+          unit?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -6280,7 +6292,9 @@ export type Database = {
           feature_id: string
           id: string
           limit_value: number | null
+          monthly_reset: boolean
           plan_id: string
+          unlimited: boolean
           updated_at: string
         }
         Insert: {
@@ -6289,7 +6303,9 @@ export type Database = {
           feature_id: string
           id?: string
           limit_value?: number | null
+          monthly_reset?: boolean
           plan_id: string
+          unlimited?: boolean
           updated_at?: string
         }
         Update: {
@@ -6298,7 +6314,9 @@ export type Database = {
           feature_id?: string
           id?: string
           limit_value?: number | null
+          monthly_reset?: boolean
           plan_id?: string
+          unlimited?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -6321,11 +6339,14 @@ export type Database = {
       subscription_plans: {
         Row: {
           created_at: string | null
+          cta_label: string
+          currency: string
           description: string | null
           display_order: number | null
           features: Json | null
           id: string
           is_active: boolean | null
+          is_featured: boolean
           match_credits_monthly: number | null
           max_candidates: number | null
           max_jobs: number | null
@@ -6333,18 +6354,24 @@ export type Database = {
           name: string
           price_monthly: number
           price_yearly: number
+          show_on_pricing: boolean
           slug: string
           stripe_price_id_monthly: string | null
           stripe_price_id_yearly: string | null
+          stripe_product_id: string | null
+          trial_days: number
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          cta_label?: string
+          currency?: string
           description?: string | null
           display_order?: number | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean
           match_credits_monthly?: number | null
           max_candidates?: number | null
           max_jobs?: number | null
@@ -6352,18 +6379,24 @@ export type Database = {
           name: string
           price_monthly: number
           price_yearly: number
+          show_on_pricing?: boolean
           slug: string
           stripe_price_id_monthly?: string | null
           stripe_price_id_yearly?: string | null
+          stripe_product_id?: string | null
+          trial_days?: number
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          cta_label?: string
+          currency?: string
           description?: string | null
           display_order?: number | null
           features?: Json | null
           id?: string
           is_active?: boolean | null
+          is_featured?: boolean
           match_credits_monthly?: number | null
           max_candidates?: number | null
           max_jobs?: number | null
@@ -6371,10 +6404,46 @@ export type Database = {
           name?: string
           price_monthly?: number
           price_yearly?: number
+          show_on_pricing?: boolean
           slug?: string
           stripe_price_id_monthly?: string | null
           stripe_price_id_yearly?: string | null
+          stripe_product_id?: string | null
+          trial_days?: number
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      subscription_usage_counters: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          period_end: string
+          period_start: string
+          tenant_id: string
+          updated_at: string
+          used: number
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          period_end: string
+          period_start: string
+          tenant_id: string
+          updated_at?: string
+          used?: number
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          tenant_id?: string
+          updated_at?: string
+          used?: number
         }
         Relationships: []
       }
@@ -7448,6 +7517,16 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string }
         Returns: undefined
       }
+      _seed_plan_feature: {
+        Args: {
+          _enabled: boolean
+          _feature_key: string
+          _limit: number
+          _plan_slug: string
+          _unlimited?: boolean
+        }
+        Returns: undefined
+      }
       add_chat_message: {
         Args: {
           p_conversation_id: string
@@ -7522,6 +7601,13 @@ export type Database = {
         }
         Returns: string
       }
+      current_billing_period: {
+        Args: { _tenant_id: string }
+        Returns: {
+          period_end: string
+          period_start: string
+        }[]
+      }
       deduct_credits: {
         Args: {
           p_action_type: string
@@ -7571,6 +7657,10 @@ export type Database = {
           status: string
           tenant_id: string
         }[]
+      }
+      get_feature_usage: {
+        Args: { _feature_key: string; _tenant_id: string }
+        Returns: number
       }
       get_finance_bank_details: { Args: { _tenant_id: string }; Returns: Json }
       get_invitation_by_token: {
@@ -7640,6 +7730,10 @@ export type Database = {
       has_user_ai_credits: {
         Args: { _credits_needed: number; _user_id: string }
         Returns: boolean
+      }
+      increment_feature_usage: {
+        Args: { _amount?: number; _feature_key: string; _tenant_id: string }
+        Returns: number
       }
       increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
       is_client_user: { Args: { _user_id: string }; Returns: boolean }
