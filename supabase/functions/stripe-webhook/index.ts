@@ -1077,6 +1077,12 @@ serve(async (req) => {
             .eq('id', order.tenant_id);
           
           logStep("Tenant set to grace period", { tenantId: order.tenant_id, graceUntil });
+          await notifyBillingEvent(supabase, {
+            tenantId: order.tenant_id,
+            event: 'subscription_cancelled',
+            message: `Your subscription has been cancelled. You retain access until ${graceUntil.toLocaleDateString()}.`,
+            metadata: { stripe_subscription_id: subscription.id, grace_until: graceUntil.toISOString() },
+          });
         }
         break;
       }
