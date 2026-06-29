@@ -1102,14 +1102,31 @@ serve(async (req) => {
             'trialing': 'trial'
           };
 
+          const mappedStatus = statusMap[subscription.status] || subscription.status;
+          const tenantUpdate: any = {
+            subscription_status: mappedStatus,
+            subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          if (mappedStatus === 'past_due') {
+            tenantUpdate.past_due_since = new Date().toISOString();
+          } else if (mappedStatus === 'active' || mappedStatus === 'trial') {
+            tenantUpdate.past_due_since = null;
+          }
           await supabase
             .from('tenants')
-            .update({
-              subscription_status: statusMap[subscription.status] || subscription.status,
-              subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .update(tenantUpdate)
             .eq('id', order.tenant_id);
+          await supabase.rpc('write_audit_log', {
+            _action: 'subscription_updated',
+            _entity_type: 'subscription',
+            _entity_id: null,
+            _old: null,
+            _new: { status: mappedStatus, cancel_at_period_end: subscription.cancel_at_period_end },
+            _metadata: { stripe_subscription_id: subscription.id },
+            _tenant_id: order.tenant_id,
+            _user_id: null,
+          });
         }
         break;
       }
