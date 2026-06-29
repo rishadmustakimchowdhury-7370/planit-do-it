@@ -1010,6 +1010,13 @@ serve(async (req) => {
                 _period_start: newPeriodStart,
                 _period_end: newPeriodEnd,
               });
+              await notifyBillingEvent(supabase, {
+                tenantId: order.tenant_id,
+                event: 'subscription_renewed',
+                title: 'Subscription renewed',
+                message: `Your ${planName} subscription has been renewed. Next billing date: ${nextBillingDate}.`,
+                metadata: { invoice_id: invoice.id, amount_paid: invoice.amount_paid, currency: invoice.currency },
+              });
 
               if (userEmail) {
                 const renewalEmailHtml = generateSubscriptionEmailHTML('renewal', {
