@@ -369,7 +369,7 @@ export function ClientDeliveryWorkspace({
       }
       const { error: updErr } = await supabase
         .from("candidate_submissions")
-        .update(patch)
+        .update(patch as any)
         .eq("id", existing.id);
       if (updErr) throw new Error(`Pipeline update failed: ${updErr.message}`);
       return existing.id;
