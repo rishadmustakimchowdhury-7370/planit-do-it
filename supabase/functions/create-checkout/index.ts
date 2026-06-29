@@ -80,7 +80,9 @@ serve(async (req) => {
     }
 
     // Validate promo code via strict RPC (with full eligibility checks + audit on failure)
-    let validPromoCode: { id: string; code: string; discount_type: string; discount_value: number } | null = null;
+    let validPromoCode:
+      | { id: string; code: string; discount_type: string; discount_value: number; stripe_promotion_code_id?: string | null }
+      | null = null;
     let discountAmount = 0;
 
     if (promoCode) {
@@ -99,7 +101,6 @@ serve(async (req) => {
       logStep("Promo validation", promoResult);
 
       if (!promoResult?.valid) {
-        // Audit + notify owners about failed promo attempt, then reject
         await supabaseClient.rpc('write_audit_log', {
           _action: 'promo_validation_failed',
           _entity_type: 'promo_code',
@@ -115,12 +116,19 @@ serve(async (req) => {
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      validPromoCode = { id: promoResult.promo_id, code: promoResult.code, discount_type: promoResult.discount_type, discount_value: Number(promoResult.discount_value) };
-      if (validPromoCode.discount_type === 'percentage') {
-        discountAmount = (Number(plan.price_monthly) * validPromoCode.discount_value) / 100;
-      } else {
-        discountAmount = validPromoCode.discount_value;
-      }
+      validPromoCode = {
+        id: promoResult.promo_id,
+        code: promoResult.code,
+        discount_type: promoResult.discount_type,
+        discount_value: Number(promoResult.discount_value),
+        stripe_promotion_code_id: promoResult.stripe_promotion_code_id ?? null,
+      };
+      // Trust server-computed amount; fall back to local calc only if absent.
+      discountAmount = typeof promoResult.discount_amount === 'number'
+        ? Number(promoResult.discount_amount)
+        : (validPromoCode.discount_type === 'percentage'
+            ? (Number(plan.price_monthly) * validPromoCode.discount_value) / 100
+            : validPromoCode.discount_value);
     }
 
 
