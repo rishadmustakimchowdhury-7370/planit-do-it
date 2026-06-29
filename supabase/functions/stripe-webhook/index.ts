@@ -441,30 +441,82 @@ serve(async (req) => {
 
   // SMTP is used for all emails now (no Resend API key needed)
 
+  const signature = req.headers.get("stripe-signature");
+  const body = await req.text();
+  const webhookSecret = stripeCredentials.webhookSecret;
+
+  // STRICT signature verification — no fallback
+  if (!webhookSecret) {
+    logStep("Missing STRIPE_WEBHOOK_SECRET");
+    return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (!signature) {
+    logStep("Missing stripe-signature header");
+    return new Response(JSON.stringify({ error: "Missing signature" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  let event: Stripe.Event;
   try {
-    const signature = req.headers.get("stripe-signature");
-    const body = await req.text();
-    const webhookSecret = stripeCredentials.webhookSecret;
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    logStep("Webhook signature verified", { type: event.type, id: event.id });
+  } catch (err) {
+    logStep("Webhook signature verification failed", { error: err instanceof Error ? err.message : String(err) });
+    return new Response(JSON.stringify({ error: "Invalid signature" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-    let event: Stripe.Event;
+  // Idempotency: refuse to process the same event twice
+  const { data: insertedDedup, error: dedupErr } = await supabase
+    .from('stripe_processed_events')
+    .insert({ event_id: event.id, type: event.type })
+    .select('event_id')
+    .maybeSingle();
 
-    // Verify webhook signature if secret is configured
-    if (webhookSecret && signature) {
-      try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-        logStep("Webhook signature verified");
-      } catch (err) {
-        logStep("Webhook signature verification failed", { error: err });
-        return new Response(JSON.stringify({ error: "Webhook signature verification failed" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      event = JSON.parse(body);
-      logStep("Webhook received (no signature verification)", { type: event.type });
+  if (dedupErr) {
+    // Unique-violation → already processed
+    const isDup = (dedupErr as any).code === '23505' || String(dedupErr.message || '').includes('duplicate');
+    if (isDup) {
+      logStep("Duplicate event skipped", { id: event.id });
+      await supabase.from('webhook_logs').insert({
+        event_id: event.id, event_type: event.type, status: 'skipped',
+        error: 'duplicate', processed_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    logStep("Idempotency insert failed (continuing)", { error: dedupErr });
+  }
 
+  // Insert a received row in webhook_logs
+  await supabase.from('webhook_logs').insert({
+    event_id: event.id,
+    event_type: event.type,
+    status: 'received',
+    payload: event as any,
+  });
+
+  const markProcessed = async (extra: Record<string, any> = {}) => {
+    await supabase.from('webhook_logs').update({
+      status: 'processed', processed_at: new Date().toISOString(), ...extra,
+    }).eq('event_id', event.id);
+  };
+  const markFailed = async (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    await supabase.from('webhook_logs').update({
+      status: 'failed', error: msg, processed_at: new Date().toISOString(),
+    }).eq('event_id', event.id);
+  };
+
+  try {
     logStep("Processing event", { type: event.type, id: event.id });
 
     switch (event.type) {
