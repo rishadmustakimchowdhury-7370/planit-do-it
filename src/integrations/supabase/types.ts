@@ -7939,10 +7939,21 @@ export type Database = {
         Args: { _credits_needed: number; _user_id: string }
         Returns: boolean
       }
-      increment_feature_usage: {
-        Args: { _amount?: number; _feature_key: string; _tenant_id: string }
-        Returns: number
-      }
+      increment_feature_usage:
+        | {
+            Args: { _amount?: number; _feature_key: string; _tenant_id: string }
+            Returns: number
+          }
+        | {
+            Args: {
+              _amount?: number
+              _feature_key: string
+              _period_end?: string
+              _period_start?: string
+              _tenant_id: string
+            }
+            Returns: number
+          }
       increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
       is_client_user: { Args: { _user_id: string }; Returns: boolean }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
@@ -8042,20 +8053,34 @@ export type Database = {
         Args: { _code: string; _interval?: string; _plan_id?: string }
         Returns: Json
       }
-      write_audit_log: {
-        Args: {
-          _action: string
-          _entity_id?: string
-          _entity_type?: string
-          _ip_address?: string
-          _new_values?: Json
-          _old_values?: Json
-          _tenant_id?: string
-          _user_agent?: string
-          _user_id?: string
-        }
-        Returns: string
-      }
+      write_audit_log:
+        | {
+            Args: {
+              _action: string
+              _entity_id?: string
+              _entity_type?: string
+              _ip_address?: string
+              _new_values?: Json
+              _old_values?: Json
+              _tenant_id?: string
+              _user_agent?: string
+              _user_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _action: string
+              _entity_id?: string
+              _entity_type: string
+              _metadata?: Json
+              _new?: Json
+              _old?: Json
+              _tenant_id?: string
+              _user_id?: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       app_role:

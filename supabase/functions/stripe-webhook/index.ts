@@ -441,30 +441,82 @@ serve(async (req) => {
 
   // SMTP is used for all emails now (no Resend API key needed)
 
+  const signature = req.headers.get("stripe-signature");
+  const body = await req.text();
+  const webhookSecret = stripeCredentials.webhookSecret;
+
+  // STRICT signature verification — no fallback
+  if (!webhookSecret) {
+    logStep("Missing STRIPE_WEBHOOK_SECRET");
+    return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (!signature) {
+    logStep("Missing stripe-signature header");
+    return new Response(JSON.stringify({ error: "Missing signature" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  let event: Stripe.Event;
   try {
-    const signature = req.headers.get("stripe-signature");
-    const body = await req.text();
-    const webhookSecret = stripeCredentials.webhookSecret;
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    logStep("Webhook signature verified", { type: event.type, id: event.id });
+  } catch (err) {
+    logStep("Webhook signature verification failed", { error: err instanceof Error ? err.message : String(err) });
+    return new Response(JSON.stringify({ error: "Invalid signature" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-    let event: Stripe.Event;
+  // Idempotency: refuse to process the same event twice
+  const { data: insertedDedup, error: dedupErr } = await supabase
+    .from('stripe_processed_events')
+    .insert({ event_id: event.id, type: event.type })
+    .select('event_id')
+    .maybeSingle();
 
-    // Verify webhook signature if secret is configured
-    if (webhookSecret && signature) {
-      try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-        logStep("Webhook signature verified");
-      } catch (err) {
-        logStep("Webhook signature verification failed", { error: err });
-        return new Response(JSON.stringify({ error: "Webhook signature verification failed" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      event = JSON.parse(body);
-      logStep("Webhook received (no signature verification)", { type: event.type });
+  if (dedupErr) {
+    // Unique-violation → already processed
+    const isDup = (dedupErr as any).code === '23505' || String(dedupErr.message || '').includes('duplicate');
+    if (isDup) {
+      logStep("Duplicate event skipped", { id: event.id });
+      await supabase.from('webhook_logs').insert({
+        event_id: event.id, event_type: event.type, status: 'skipped',
+        error: 'duplicate', processed_at: new Date().toISOString(),
+      });
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    logStep("Idempotency insert failed (continuing)", { error: dedupErr });
+  }
 
+  // Insert a received row in webhook_logs
+  await supabase.from('webhook_logs').insert({
+    event_id: event.id,
+    event_type: event.type,
+    status: 'received',
+    payload: event as any,
+  });
+
+  const markProcessed = async (extra: Record<string, any> = {}) => {
+    await supabase.from('webhook_logs').update({
+      status: 'processed', processed_at: new Date().toISOString(), ...extra,
+    }).eq('event_id', event.id);
+  };
+  const markFailed = async (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    await supabase.from('webhook_logs').update({
+      status: 'failed', error: msg, processed_at: new Date().toISOString(),
+    }).eq('event_id', event.id);
+  };
+
+  try {
     logStep("Processing event", { type: event.type, id: event.id });
 
     switch (event.type) {
@@ -939,16 +991,24 @@ serve(async (req) => {
                 day: 'numeric'
               });
 
-              // Update tenant subscription end date
+              // Update tenant subscription end date + reset usage if new period started
+              const newPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+              const newPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
               await supabase
                 .from('tenants')
                 .update({
-                  subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+                  subscription_ends_at: newPeriodEnd,
                   subscription_status: 'active',
+                  past_due_since: null,
                   is_paused: false,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', order.tenant_id);
+              await supabase.rpc('reset_usage_counters_for_period', {
+                _tenant_id: order.tenant_id,
+                _period_start: newPeriodStart,
+                _period_end: newPeriodEnd,
+              });
 
               if (userEmail) {
                 const renewalEmailHtml = generateSubscriptionEmailHTML('renewal', {
@@ -1042,14 +1102,84 @@ serve(async (req) => {
             'trialing': 'trial'
           };
 
+          const mappedStatus = statusMap[subscription.status] || subscription.status;
+          const tenantUpdate: any = {
+            subscription_status: mappedStatus,
+            subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          if (mappedStatus === 'past_due') {
+            tenantUpdate.past_due_since = new Date().toISOString();
+          } else if (mappedStatus === 'active' || mappedStatus === 'trial') {
+            tenantUpdate.past_due_since = null;
+          }
           await supabase
             .from('tenants')
-            .update({
-              subscription_status: statusMap[subscription.status] || subscription.status,
-              subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .update(tenantUpdate)
             .eq('id', order.tenant_id);
+          await supabase.rpc('write_audit_log', {
+            _action: 'subscription_updated',
+            _entity_type: 'subscription',
+            _entity_id: null,
+            _old: null,
+            _new: { status: mappedStatus, cancel_at_period_end: subscription.cancel_at_period_end },
+            _metadata: { stripe_subscription_id: subscription.id },
+            _tenant_id: order.tenant_id,
+            _user_id: null,
+          });
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        logStep("Invoice payment failed", { invoiceId: invoice.id, subscriptionId: invoice.subscription });
+        if (invoice.subscription) {
+          const { data: order } = await supabase
+            .from('orders')
+            .select('tenant_id')
+            .eq('stripe_subscription_id', invoice.subscription as string)
+            .maybeSingle();
+          if (order?.tenant_id) {
+            await supabase
+              .from('tenants')
+              .update({
+                subscription_status: 'past_due',
+                past_due_since: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', order.tenant_id);
+            await supabase.rpc('write_audit_log', {
+              _action: 'invoice_failed',
+              _entity_type: 'subscription',
+              _entity_id: null,
+              _old: null,
+              _new: { invoice_id: invoice.id, amount_due: invoice.amount_due },
+              _metadata: { stripe_subscription_id: invoice.subscription },
+              _tenant_id: order.tenant_id,
+              _user_id: null,
+            });
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.trial_will_end": {
+        const subscription = event.data.object as Stripe.Subscription;
+        logStep("Trial will end", { subscriptionId: subscription.id, trialEnd: subscription.trial_end });
+        const { data: order } = await supabase
+          .from('orders')
+          .select('tenant_id, user_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+        if (order?.tenant_id) {
+          await supabase.from('notifications').insert({
+            tenant_id: order.tenant_id,
+            user_id: order.user_id,
+            type: 'trial_ending',
+            title: 'Your trial is ending soon',
+            message: 'Add a payment method to keep your workspace active.',
+          });
         }
         break;
       }
@@ -1058,6 +1188,7 @@ serve(async (req) => {
         logStep("Unhandled event type", { type: event.type });
     }
 
+    await markProcessed();
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -1065,9 +1196,11 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    await markFailed(error);
+    // Return 200 so Stripe does not retry on app bugs — failure is recorded in webhook_logs
+    return new Response(JSON.stringify({ received: true, error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });
