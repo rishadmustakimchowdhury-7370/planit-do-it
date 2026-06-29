@@ -491,6 +491,7 @@ export default function AIProspectSearchPage() {
           </Card>
         )}
       </div>
+      {enforce.dialog}
     </AppLayout>
   );
 }
