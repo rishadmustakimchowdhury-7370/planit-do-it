@@ -6823,6 +6823,75 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_billing_details: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          billing_email: string | null
+          city: string | null
+          company_name: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          postal_code: string | null
+          region: string | null
+          tax_number: string | null
+          tenant_id: string
+          timezone: string | null
+          updated_at: string
+          vat_number: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_email?: string | null
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          postal_code?: string | null
+          region?: string | null
+          tax_number?: string | null
+          tenant_id: string
+          timezone?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_email?: string | null
+          city?: string | null
+          company_name?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          postal_code?: string | null
+          region?: string | null
+          tax_number?: string | null
+          tenant_id?: string
+          timezone?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_billing_details_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_billing_details_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_work_settings: {
         Row: {
           auto_end_time: string | null
@@ -7726,6 +7795,33 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_billing_overview: {
+        Args: never
+        Returns: {
+          is_suspended: boolean
+          last_order_at: string
+          last_webhook_at: string
+          past_due_since: string
+          plan_name: string
+          plan_slug: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          subscription_ends_at: string
+          subscription_status: string
+          tenant_id: string
+          tenant_name: string
+          total_orders: number
+          trial_expires_at: string
+        }[]
+      }
+      admin_request_stripe_resync: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      admin_reset_tenant_usage: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       admin_set_plan_feature: {
         Args: {
           _enabled: boolean
@@ -7868,6 +7964,31 @@ export type Database = {
         Returns: undefined
       }
       generate_invoice_number: { Args: never; Returns: string }
+      get_billing_notifications: {
+        Args: { p_limit?: number; p_tenant_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string
+          message: string
+          metadata: Json
+          title: string
+          type: string
+        }[]
+      }
+      get_billing_timeline: {
+        Args: { p_limit?: number; p_offset?: number; p_tenant_id: string }
+        Returns: {
+          action: string
+          actor: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json
+        }[]
+      }
       get_chat_messages: {
         Args: { p_conversation_id: string; p_visitor_id: string }
         Returns: {
