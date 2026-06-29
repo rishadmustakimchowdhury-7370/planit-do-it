@@ -28,11 +28,23 @@ export function LiveChatWidget() {
   const [waitingForAgent, setWaitingForAgent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Generate/get visitor ID from localStorage
+  // Generate/get visitor ID from localStorage.
+  // Uses crypto.randomUUID() (122 bits of entropy) so visitor IDs
+  // cannot be enumerated or guessed by an attacker setting the
+  // x-visitor-id header. Legacy IDs from prior sessions are
+  // transparently upgraded on next visit (when no conversation exists).
   const getVisitorId = () => {
     let visitorId = localStorage.getItem('chat_visitor_id');
-    if (!visitorId) {
-      visitorId = `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const isStrong = visitorId && /^visitor_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(visitorId);
+    if (!visitorId || !isStrong) {
+      const uuid = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+      // Preserve existing legacy id if a conversation is already linked to it,
+      // so currently-open chats are not orphaned.
+      const hasExistingConv = !!localStorage.getItem('chat_conversation_id');
+      if (visitorId && hasExistingConv) return visitorId;
+      visitorId = `visitor_${uuid}`;
       localStorage.setItem('chat_visitor_id', visitorId);
     }
     return visitorId;

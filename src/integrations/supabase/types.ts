@@ -7621,6 +7621,7 @@ export type Database = {
           visitor_name: string
         }[]
       }
+      grant_super_admin: { Args: { _user_id: string }; Returns: undefined }
       hard_delete_user: {
         Args: { p_deleted_by: string; p_user_id: string }
         Returns: boolean
