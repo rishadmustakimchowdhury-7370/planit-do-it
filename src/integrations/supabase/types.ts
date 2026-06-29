@@ -5368,10 +5368,15 @@ export type Database = {
           eligible_yearly: boolean
           id: string
           is_active: boolean | null
+          last_synced_at: string | null
           max_uses: number | null
           min_purchase_amount: number | null
           per_customer_limit: number | null
           show_as_banner: boolean | null
+          stripe_coupon_id: string | null
+          stripe_promotion_code_id: string | null
+          sync_error: string | null
+          sync_status: string | null
           updated_at: string | null
           uses_count: number | null
           valid_from: string | null
@@ -5392,10 +5397,15 @@ export type Database = {
           eligible_yearly?: boolean
           id?: string
           is_active?: boolean | null
+          last_synced_at?: string | null
           max_uses?: number | null
           min_purchase_amount?: number | null
           per_customer_limit?: number | null
           show_as_banner?: boolean | null
+          stripe_coupon_id?: string | null
+          stripe_promotion_code_id?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string | null
           uses_count?: number | null
           valid_from?: string | null
@@ -5416,10 +5426,15 @@ export type Database = {
           eligible_yearly?: boolean
           id?: string
           is_active?: boolean | null
+          last_synced_at?: string | null
           max_uses?: number | null
           min_purchase_amount?: number | null
           per_customer_limit?: number | null
           show_as_banner?: boolean | null
+          stripe_coupon_id?: string | null
+          stripe_promotion_code_id?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string | null
           uses_count?: number | null
           valid_from?: string | null
@@ -7998,6 +8013,17 @@ export type Database = {
       normalize_candidate_linkedin_url: {
         Args: { raw: string }
         Returns: string
+      }
+      notify_billing_event: {
+        Args: {
+          _event: string
+          _link?: string
+          _message: string
+          _metadata?: Json
+          _tenant_id: string
+          _title: string
+        }
+        Returns: number
       }
       notify_workspace_owners: {
         Args: {

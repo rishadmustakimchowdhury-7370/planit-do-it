@@ -36,13 +36,9 @@ interface SubscriptionPlan {
   match_credits_monthly: number | null;
 }
 
-interface PromoCodeValidation {
-  valid: boolean;
-  code: string;
-  discount_type: string;
-  discount_value: number;
-  discount_amount: number;
-}
+// Promo validation is fully server-driven via <PromoCodeInput>.
+// We keep a normalized handle so the order summary can render server amounts.
+import { PromoCodeInput, type PromoValidationResult } from '@/components/billing/PromoCodeInput';
 
 interface BillingOption {
   months: number;
@@ -74,9 +70,7 @@ export default function CheckoutPage() {
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
-  const [validatingPromo, setValidatingPromo] = useState(false);
-  const [appliedPromo, setAppliedPromo] = useState<PromoCodeValidation | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<PromoValidationResult | null>(null);
   const [selectedBilling, setSelectedBilling] = useState<number>(1);
   const [discounts, setDiscounts] = useState<Record<number, number>>(defaultDiscounts);
 
@@ -125,81 +119,8 @@ export default function CheckoutPage() {
     }
   };
 
-  const validatePromoCode = async () => {
-    if (!promoCode.trim() || !plan) return;
-    
-    setValidatingPromo(true);
-    try {
-      const { data, error } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('code', promoCode.toUpperCase().trim())
-        .eq('is_active', true)
-        .single();
-
-      if (error || !data) {
-        toast.error('Invalid promo code');
-        return;
-      }
-
-      // Check validity
-      const now = new Date();
-      const validUntil = data.valid_until ? new Date(data.valid_until) : null;
-      const withinUsageLimit = !data.max_uses || data.uses_count < data.max_uses;
-      
-      if (!withinUsageLimit) {
-        toast.error('Promo code has reached its usage limit');
-        return;
-      }
-      
-      if (validUntil && validUntil < now) {
-        toast.error('Promo code has expired');
-        return;
-      }
-
-      // Check if user already used this promo code
-      if (user) {
-        const { data: usageData } = await supabase
-          .from('promo_code_usage')
-          .select('id')
-          .eq('promo_code_id', data.id)
-          .eq('user_id', user.id)
-          .single();
-        
-        if (usageData) {
-          toast.error('You have already used this promo code');
-          return;
-        }
-      }
-
-      // Calculate discount
-      let discountAmount = 0;
-      if (data.discount_type === 'percentage') {
-        discountAmount = (plan.price_monthly * data.discount_value) / 100;
-      } else {
-        discountAmount = Math.min(data.discount_value, plan.price_monthly);
-      }
-
-      setAppliedPromo({
-        valid: true,
-        code: data.code,
-        discount_type: data.discount_type,
-        discount_value: data.discount_value,
-        discount_amount: discountAmount,
-      });
-      
-      toast.success(`Promo code applied! You save $${discountAmount.toFixed(2)}`);
-    } catch (error: any) {
-      toast.error('Failed to validate promo code');
-    } finally {
-      setValidatingPromo(false);
-    }
-  };
-
-  const removePromoCode = () => {
-    setAppliedPromo(null);
-    setPromoCode('');
-  };
+  // Promo validation lives entirely inside <PromoCodeInput>; this page just
+  // mirrors the latest server-validated result.
 
   const handleCheckout = async () => {
     if (!user) {
@@ -421,38 +342,12 @@ export default function CheckoutPage() {
                 <CardTitle>Payment Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Promo Code */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Promo Code</label>
-                  {appliedPromo ? (
-                    <div className="flex items-center gap-2 p-2 bg-success/10 rounded-lg border border-success/30">
-                      <Tag className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">{appliedPromo.code}</span>
-                      <span className="text-sm text-muted-foreground">
-                        -{appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}%` : `$${appliedPromo.discount_value}`}
-                      </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto" onClick={removePromoCode}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter code"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        className="font-mono"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={validatePromoCode}
-                        disabled={!promoCode.trim() || validatingPromo}
-                      >
-                        {validatingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                {/* Promo Code — server-validated, live discount preview */}
+                <PromoCodeInput
+                  planId={planId}
+                  interval="monthly"
+                  onChange={setAppliedPromo}
+                />
 
                 <Separator />
 

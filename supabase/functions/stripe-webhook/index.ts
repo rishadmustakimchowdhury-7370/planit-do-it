@@ -8,6 +8,7 @@ import {
   sendAuditEmail,
   SUPER_ADMIN_EMAIL,
 } from "../_shared/smtp-sender.ts";
+import { notifyBillingEvent } from "../_shared/billing-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1009,6 +1010,13 @@ serve(async (req) => {
                 _period_start: newPeriodStart,
                 _period_end: newPeriodEnd,
               });
+              await notifyBillingEvent(supabase, {
+                tenantId: order.tenant_id,
+                event: 'subscription_renewed',
+                title: 'Subscription renewed',
+                message: `Your ${planName} subscription has been renewed. Next billing date: ${nextBillingDate}.`,
+                metadata: { invoice_id: invoice.id, amount_paid: invoice.amount_paid, currency: invoice.currency },
+              });
 
               if (userEmail) {
                 const renewalEmailHtml = generateSubscriptionEmailHTML('renewal', {
@@ -1076,6 +1084,12 @@ serve(async (req) => {
             .eq('id', order.tenant_id);
           
           logStep("Tenant set to grace period", { tenantId: order.tenant_id, graceUntil });
+          await notifyBillingEvent(supabase, {
+            tenantId: order.tenant_id,
+            event: 'subscription_cancelled',
+            message: `Your subscription has been cancelled. You retain access until ${graceUntil.toLocaleDateString()}.`,
+            metadata: { stripe_subscription_id: subscription.id, grace_until: graceUntil.toISOString() },
+          });
         }
         break;
       }
@@ -1127,6 +1141,14 @@ serve(async (req) => {
             _tenant_id: order.tenant_id,
             _user_id: null,
           });
+          // Notify on meaningful state transitions
+          if (mappedStatus === 'past_due') {
+            await notifyBillingEvent(supabase, { tenantId: order.tenant_id, event: 'payment_failed', message: 'Your last payment failed. Please update your payment method to avoid service interruption.', metadata: { stripe_subscription_id: subscription.id } });
+          } else if (mappedStatus === 'active') {
+            await notifyBillingEvent(supabase, { tenantId: order.tenant_id, event: 'subscription_reactivated', message: 'Your subscription is active again. Thanks!', metadata: { stripe_subscription_id: subscription.id } });
+          } else if (mappedStatus === 'cancelled') {
+            await notifyBillingEvent(supabase, { tenantId: order.tenant_id, event: 'subscription_cancelled', message: 'Your subscription has been cancelled.', metadata: { stripe_subscription_id: subscription.id } });
+          }
         }
         break;
       }
@@ -1159,6 +1181,12 @@ serve(async (req) => {
               _tenant_id: order.tenant_id,
               _user_id: null,
             });
+            await notifyBillingEvent(supabase, {
+              tenantId: order.tenant_id,
+              event: 'payment_failed',
+              message: 'A scheduled payment failed. Please update your payment method.',
+              metadata: { invoice_id: invoice.id, amount_due: invoice.amount_due },
+            });
           }
         }
         break;
@@ -1173,12 +1201,11 @@ serve(async (req) => {
           .eq('stripe_subscription_id', subscription.id)
           .maybeSingle();
         if (order?.tenant_id) {
-          await supabase.from('notifications').insert({
-            tenant_id: order.tenant_id,
-            user_id: order.user_id,
-            type: 'trial_ending',
-            title: 'Your trial is ending soon',
-            message: 'Add a payment method to keep your workspace active.',
+          await notifyBillingEvent(supabase, {
+            tenantId: order.tenant_id,
+            event: 'trial_will_end',
+            message: 'Your trial ends soon. Add a payment method to keep your workspace active.',
+            metadata: { stripe_subscription_id: subscription.id, trial_end: subscription.trial_end },
           });
         }
         break;

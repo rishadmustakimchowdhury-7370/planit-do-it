@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Percent, PoundSterling, Copy, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit, Percent, PoundSterling, Copy, Calendar, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PromoCode {
@@ -171,6 +171,33 @@ export default function AdminPromoCodesPage() {
     toast.success('Code copied to clipboard');
   };
 
+  const syncOne = async (id: string) => {
+    const tid = toast.loading('Syncing to Stripe...');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-stripe-coupons', { body: { promoId: id } });
+      if (error) throw error;
+      const res = (data as any)?.results?.[0];
+      if (res?.ok) toast.success('Synced to Stripe', { id: tid });
+      else toast.error(res?.error || 'Sync failed', { id: tid });
+      fetchPromoCodes();
+    } catch (e: any) {
+      toast.error(e.message || 'Sync failed', { id: tid });
+    }
+  };
+
+  const syncAll = async () => {
+    const tid = toast.loading('Syncing all promo codes to Stripe...');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-stripe-coupons', { body: {} });
+      if (error) throw error;
+      const okCount = ((data as any)?.results ?? []).filter((r: any) => r.ok).length;
+      toast.success(`Synced ${okCount} promo code(s)`, { id: tid });
+      fetchPromoCodes();
+    } catch (e: any) {
+      toast.error(e.message || 'Sync failed', { id: tid });
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout title="Promo Codes" description="Manage discount codes">
@@ -193,6 +220,10 @@ export default function AdminPromoCodesPage() {
               {promoCodes.length} promo code{promoCodes.length !== 1 ? 's' : ''} created
             </p>
           </div>
+          <Button variant="outline" onClick={syncAll}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync all to Stripe
+          </Button>
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
             Create Promo Code
@@ -271,6 +302,9 @@ export default function AdminPromoCodesPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => syncOne(code.id)} title="Sync to Stripe">
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(code)}>
                             <Edit className="h-4 w-4" />
                           </Button>
