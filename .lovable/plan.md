@@ -1,71 +1,97 @@
-# Commit 4 — Production Billing Foundation
+# Milestone B — Enterprise Billing Center
 
-Completes the billing foundation before Milestone B (Billing Portal + Invoice History). Everything stays database-driven; no hardcoded prices, plans, or discounts.
+This is a large scope (13 sections across UI, edge functions, RPCs, admin). I'll ship it in 5 atomic commits so each lands in a working state. Existing billing primitives (`useSubscriptionStatus`, `SubscriptionStatusBanner`, `PromoCodeInput`, `useUsageLimits`, `notify_billing_event`, audit log) are reused — no redesign of working surfaces.
 
-## 1. Live Promo Validation (BillingPage + CheckoutPage)
+## Architecture
 
-- Add a `PromoCodeInput` component (`src/components/billing/PromoCodeInput.tsx`) that:
-  - Debounces input (400ms) and calls the existing `validate-promo` edge function.
-  - Shows inline success/error messages (server-supplied `message`).
-  - Renders a backend-calculated discount preview: original price, discount, new total.
-  - Never computes the discount on the frontend — displays whatever `validate-promo` returns.
-- Extend `validate-promo` to also return computed `original_amount`, `discount_amount`, `final_amount`, `currency` for the requested `planId`/`interval` so the preview is server-truth.
-- Wire it into `CheckoutPage.tsx` (replacing any inline promo logic) and surface a compact preview block on `BillingPage` plan cards when a code is being entered.
+```text
+/billing (Workspace Owner)
+├── Overview      → dashboard cards, plan, usage snapshot, banners
+├── Subscription  → upgrade / downgrade / cancel / resume / monthly↔yearly
+├── Invoices      → history table + invoice drawer + PDF + Stripe link
+├── Payment Method→ card brand/last4/exp + Stripe Portal launcher
+├── Usage         → reuses UsageMetersCard + upgrade CTAs
+├── Promo Codes   → applied promo + add new (uses validate-promo)
+├── Timeline      → audit_log filtered to billing events
+├── Notifications → in-app billing notifications feed
+└── Details       → editable company/VAT/address/billing email
 
-## 2. Global Subscription Status Hook
+/admin/billing (Super Admin) — extend existing AdminBillingPage
+├── Workspaces tab: per-tenant subscription, invoices, Stripe sync status
+├── Webhooks tab : stripe_processed_events history
+└── Actions     : resync, reset usage, manual invoice, suspend, reactivate
+```
 
-- New `src/hooks/useSubscriptionStatus.ts` returning a single normalized object:
-  `{ status, planName, trialEnd, renewalDate, pastDue, cancelled, suspended, gracePeriod, remainingTrialDays, remainingUsage }`.
-- Source: one query joining `tenants` + `subscriptions` + `subscription_plans` + `subscription_usage_counters` (already populated by Commits 1–3). Live updates via Supabase realtime on `tenants` and `subscriptions`.
-- New `src/components/billing/SubscriptionStatusBanner.tsx` (single component, all messages driven by the hook):
-  - Payment failed (past_due)
-  - Trial ending (≤ 3 days)
-  - Renewal in N days
-  - Usage near/at limit (per feature)
-  - Suspended / cancelled
-- Mounted once inside `AppLayout` so every protected page shows the right banner without duplicating logic.
+All pricing/discount math stays server-side (RPCs + Stripe). Frontend never computes prices.
 
-## 3. Stripe Coupon Synchronization
+## Commit 1 — Data layer
 
-- DB: add `stripe_coupon_id`, `stripe_promotion_code_id`, `last_synced_at`, `sync_status`, `sync_error` columns to `promo_codes`.
-- New edge function `sync-stripe-coupons`:
-  - Idempotent upsert into Stripe for each active promo code (creates/updates Coupon + Promotion Code).
-  - Maps percentage vs fixed amount, duration (once/repeating/forever), max redemptions, expiry, plan restrictions (via `applies_to.products`), per-customer limit (stored as metadata; enforced by `validate_promo_code`).
-  - Writes back `stripe_coupon_id` + `stripe_promotion_code_id`.
-  - Audit-logs every sync.
-- Trigger: called automatically from `AdminPromoCodesPage.tsx` on create/update, plus a manual "Sync to Stripe" button.
-- `create-checkout`: when a validated promo has a `stripe_promotion_code_id`, pass `discounts: [{ promotion_code }]` to Stripe so the Hosted Checkout and invoice show the same discount. Falls back to current server-recorded discount when Stripe sync is unavailable.
+Migration:
+- Add `tenant_billing_details` (company_name, billing_email, vat_number, tax_number, address_line1/2, city, region, postal_code, country, currency, timezone). RLS: owners read/write own tenant; service_role all. Includes GRANTs.
+- RPC `get_billing_timeline(p_tenant_id, p_limit, p_offset)` — reads `audit_log` filtered to billing event types, returns normalized timeline rows.
+- RPC `get_billing_notifications(p_tenant_id, p_limit)` — reads `notifications` where category in billing set.
+- RPC `admin_billing_overview()` — super-admin only; returns per-tenant subscription + invoice totals + sync state.
+- RPC `admin_resync_tenant_subscription(p_tenant_id)` — flags tenant for resync; audited.
+- RPC `admin_reset_tenant_usage(p_tenant_id)` — zeroes `subscription_usage_counters` for current period; audited.
 
-## 4. Billing Notifications
+## Commit 2 — Edge functions
 
-- Reuse the existing `notify_workspace_owners` RPC (added in Commit 3).
-- Extend `stripe-webhook/index.ts` to fan out notifications for: `payment_failed`, `payment_succeeded`, `trial_will_end`, `trial_ended`, `subscription_renewed`, `subscription_cancelled`, `subscription_suspended`, `subscription_reactivated`, `promo_applied`, `promo_expired`.
-- New scheduled edge function `usage-threshold-notifier` (cron-ready, daily) that scans `subscription_usage_counters` and fires `ai_usage_almost_full`, `storage_almost_full`, `open_web_almost_full` at 80% / 95% / 100% thresholds (dedup via `notifications.metadata.threshold`).
-- All events flow through one helper `_shared/billing-events.ts` so future providers (Slack, etc.) can be added in one place. Delivery = in-app `notifications` table + existing email pipeline.
+- `stripe-list-invoices` — list customer invoices with pagination/filters (returns number, date, amount, tax, discount, status, hosted_invoice_url, invoice_pdf, payment_intent).
+- `stripe-get-invoice` — single invoice detail.
+- `stripe-payment-method` — returns default PM (brand, last4, exp).
+- `customer-portal` — confirm/extend existing one; ensure return_url=/billing.
+- `change-subscription` — upgrade/downgrade and monthly↔yearly switch via Stripe Subscription Update; prorations enabled; audited via `notify_billing_event`.
+- `cancel-subscription` / `resume-subscription` — cancel_at_period_end toggle; audited.
+- `admin-stripe-resync` — pulls subscription from Stripe and rewrites tenant row; super-admin only.
+- `admin-manual-invoice` — creates one-off Stripe invoice for a tenant.
 
-## 5. Billing Consistency Audit
+All use shared `notifyBillingEvent` + `write_audit_log`.
 
-- Single source of truth document: `docs/billing-architecture.md` (one diagram, one event list, one ownership table).
-- Code audit pass — remove any remaining inline discount math or hardcoded plan checks; centralize on:
-  - `validate_promo_code` (RPC) for validation
-  - `record_promo_use` (RPC) for redemption
-  - `useSubscriptionStatus` for UI gating
-  - `useEnforceFeature` for limit checks
-  - `stripe-webhook` for state mutations from Stripe
-- Verify each flow (upgrade / downgrade / trial / renewal / cancel / resume / promo / webhook / invoice / usage reset / audit / portal) hits exactly one of those primitives.
+## Commit 3 — Workspace Owner UI
 
-## 6. Final Verification
+- New `/billing` route with tabbed shell (`BillingCenterPage.tsx`) replacing existing `BillingPage` (keep route, redirect old links).
+- Components in `src/components/billing/center/`:
+  - `OverviewTab.tsx` — cards: Plan, Status, Next Renewal, Trial, Monthly Cost, Discount, Payment Status, Storage.
+  - `SubscriptionTab.tsx` — plan switcher, billing cycle toggle, cancel/resume buttons.
+  - `InvoicesTab.tsx` — TanStack table with pagination, search, status filter, PDF + Stripe link, row → drawer.
+  - `InvoiceDetailDrawer.tsx`.
+  - `PaymentMethodTab.tsx` — card display + Stripe Portal CTA.
+  - `UsageTab.tsx` — wraps existing `UsageMetersCard` + per-feature breakdown.
+  - `PromoTab.tsx` — applied promo + `PromoCodeInput` for new code.
+  - `TimelineTab.tsx` — vertical timeline from `get_billing_timeline`.
+  - `NotificationsTab.tsx`.
+  - `BillingDetailsTab.tsx` — form bound to `tenant_billing_details`.
+- Hooks: `useStripeInvoices`, `useStripePaymentMethod`, `useBillingTimeline`, `useBillingNotifications`, `useTenantBillingDetails`.
+- Skeletons + empty states for every tab.
 
-- Typecheck pass.
-- Edge function smoke tests via `supabase--test_edge_functions` for `validate-promo`, `sync-stripe-coupons`, and `stripe-webhook` idempotency.
-- Manual log review in `audit_log` + `webhook_logs` to confirm events fire once.
+## Commit 4 — Admin extensions
 
-## Deliverables at the end
-- Files changed (list)
-- DB migrations (one: promo_codes Stripe columns + indexes)
-- Edge Functions updated/added: `validate-promo`, `create-checkout`, `stripe-webhook`, `sync-stripe-coupons` (new), `usage-threshold-notifier` (new)
-- Billing architecture summary
-- Remaining production tasks
-- Production readiness score
+Extend `AdminBillingPage`:
+- Workspaces table (uses `admin_billing_overview`): plan, MRR, status, sync state, last webhook.
+- Row actions: Resync, Reset Usage, Manual Invoice, Suspend, Reactivate (already exist for some — wire missing).
+- Webhooks tab from `stripe_processed_events` joined with `webhook_logs`.
+- All actions write audit log entries via existing RPC.
 
-After this commit, Milestone B (Billing Portal + Invoice History) builds cleanly on top.
+## Commit 5 — Polish & verification
+
+- Wire `notify_billing_event` calls for: card updated (from `payment_method.updated` webhook), plan changed, promo applied, invoice paid/failed (confirm coverage).
+- Responsive review at 360 / 768 / 1280.
+- Playwright smoke: open `/billing`, switch tabs, open invoice drawer, click Manage Payment (asserts Stripe URL returned), apply promo (validates server response), cancel + resume toggles state.
+- Update `docs/billing-architecture.md` with Billing Center map.
+
+## Technical notes
+
+- Stripe is source of truth for invoices/PMs; DB mirrors subscription state via webhook only.
+- No card data ever touches our backend — payment method changes always route through Stripe Customer Portal.
+- Currency formatting via `Intl.NumberFormat` with tenant currency from `tenant_billing_details`.
+- All new tables follow `CREATE TABLE → GRANT → ENABLE RLS → POLICY` ordering.
+
+## Out of scope (call out)
+
+- Yearly Stripe prices: requires the user to create yearly `price_*` IDs in Stripe Dashboard and add them to `subscription_plans.stripe_price_id_yearly`. UI will show "Yearly unavailable" until present.
+- Manual invoice line items beyond a single description+amount (v2).
+- Tax ID validation against VIES (v2).
+
+## Deliverable on completion
+
+Files changed, migrations applied, edge functions deployed, manual Stripe setup list (yearly prices, webhook events to enable), and production readiness score.
