@@ -5363,10 +5363,14 @@ export type Database = {
           description: string | null
           discount_type: string
           discount_value: number
+          eligible_monthly: boolean
+          eligible_trial: boolean
+          eligible_yearly: boolean
           id: string
           is_active: boolean | null
           max_uses: number | null
           min_purchase_amount: number | null
+          per_customer_limit: number | null
           show_as_banner: boolean | null
           updated_at: string | null
           uses_count: number | null
@@ -5383,10 +5387,14 @@ export type Database = {
           description?: string | null
           discount_type?: string
           discount_value: number
+          eligible_monthly?: boolean
+          eligible_trial?: boolean
+          eligible_yearly?: boolean
           id?: string
           is_active?: boolean | null
           max_uses?: number | null
           min_purchase_amount?: number | null
+          per_customer_limit?: number | null
           show_as_banner?: boolean | null
           updated_at?: string | null
           uses_count?: number | null
@@ -5403,10 +5411,14 @@ export type Database = {
           description?: string | null
           discount_type?: string
           discount_value?: number
+          eligible_monthly?: boolean
+          eligible_trial?: boolean
+          eligible_yearly?: boolean
           id?: string
           is_active?: boolean | null
           max_uses?: number | null
           min_purchase_amount?: number | null
+          per_customer_limit?: number | null
           show_as_banner?: boolean | null
           updated_at?: string | null
           uses_count?: number | null
@@ -7987,6 +7999,17 @@ export type Database = {
         Args: { raw: string }
         Returns: string
       }
+      notify_workspace_owners: {
+        Args: {
+          _link?: string
+          _message: string
+          _metadata?: Json
+          _tenant_id: string
+          _title: string
+          _type: string
+        }
+        Returns: number
+      }
       owns_chat_conversation: {
         Args: { p_conversation_id: string; p_visitor_id: string }
         Returns: boolean
@@ -7994,6 +8017,10 @@ export type Database = {
       promote_to_super_admin: {
         Args: { user_email: string }
         Returns: undefined
+      }
+      record_promo_use: {
+        Args: { _discount: number; _order_id: string; _promo_id: string }
+        Returns: string
       }
       recruiter_intelligence_summary: {
         Args: { _tenant_id: string }
