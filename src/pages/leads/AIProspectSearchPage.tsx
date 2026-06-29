@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useEnforceFeature } from '@/hooks/useEnforceFeature';
 import {
   Sparkles, Loader2, Search, ExternalLink, Linkedin, AlertCircle, Wand2,
   ChevronLeft, ChevronRight, Lock, Download, FileSpreadsheet, BookmarkPlus, Check,
@@ -80,6 +81,7 @@ export default function AIProspectSearchPage() {
   const { tenantId, isOwner, isManager, isSuperAdmin, isRecruiter } = useAuth();
   const canUse = isOwner || isManager || isSuperAdmin;
   const { toast } = useToast();
+  const enforce = useEnforceFeature();
   const [query, setQuery] = useState('');
   const [planSlug, setPlanSlug] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
