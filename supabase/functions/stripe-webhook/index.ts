@@ -1106,10 +1106,64 @@ serve(async (req) => {
         break;
       }
 
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        logStep("Invoice payment failed", { invoiceId: invoice.id, subscriptionId: invoice.subscription });
+        if (invoice.subscription) {
+          const { data: order } = await supabase
+            .from('orders')
+            .select('tenant_id')
+            .eq('stripe_subscription_id', invoice.subscription as string)
+            .maybeSingle();
+          if (order?.tenant_id) {
+            await supabase
+              .from('tenants')
+              .update({
+                subscription_status: 'past_due',
+                past_due_since: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', order.tenant_id);
+            await supabase.rpc('write_audit_log', {
+              _action: 'invoice_failed',
+              _entity_type: 'subscription',
+              _entity_id: null,
+              _old: null,
+              _new: { invoice_id: invoice.id, amount_due: invoice.amount_due },
+              _metadata: { stripe_subscription_id: invoice.subscription },
+              _tenant_id: order.tenant_id,
+              _user_id: null,
+            });
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.trial_will_end": {
+        const subscription = event.data.object as Stripe.Subscription;
+        logStep("Trial will end", { subscriptionId: subscription.id, trialEnd: subscription.trial_end });
+        const { data: order } = await supabase
+          .from('orders')
+          .select('tenant_id, user_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+        if (order?.tenant_id) {
+          await supabase.from('notifications').insert({
+            tenant_id: order.tenant_id,
+            user_id: order.user_id,
+            type: 'trial_ending',
+            title: 'Your trial is ending soon',
+            message: 'Add a payment method to keep your workspace active.',
+          });
+        }
+        break;
+      }
+
       default:
         logStep("Unhandled event type", { type: event.type });
     }
 
+    await markProcessed();
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -1117,9 +1171,11 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    await markFailed(error);
+    // Return 200 so Stripe does not retry on app bugs — failure is recorded in webhook_logs
+    return new Response(JSON.stringify({ received: true, error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });
