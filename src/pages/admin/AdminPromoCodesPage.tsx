@@ -220,6 +220,10 @@ export default function AdminPromoCodesPage() {
               {promoCodes.length} promo code{promoCodes.length !== 1 ? 's' : ''} created
             </p>
           </div>
+          <Button variant="outline" onClick={syncAll}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync all to Stripe
+          </Button>
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
             Create Promo Code
