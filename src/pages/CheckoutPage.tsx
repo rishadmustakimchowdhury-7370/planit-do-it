@@ -70,9 +70,7 @@ export default function CheckoutPage() {
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
-  const [validatingPromo, setValidatingPromo] = useState(false);
-  const [appliedPromo, setAppliedPromo] = useState<PromoCodeValidation | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<PromoValidationResult | null>(null);
   const [selectedBilling, setSelectedBilling] = useState<number>(1);
   const [discounts, setDiscounts] = useState<Record<number, number>>(defaultDiscounts);
 
