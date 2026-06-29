@@ -6755,6 +6755,7 @@ export type Database = {
           created_by: string | null
           id: string
           last_error: string | null
+          last_status: string | null
           last_sync_at: string | null
           last_tested_at: string | null
           provider: string
@@ -6769,6 +6770,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           last_error?: string | null
+          last_status?: string | null
           last_sync_at?: string | null
           last_tested_at?: string | null
           provider: string
@@ -6783,6 +6785,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           last_error?: string | null
+          last_status?: string | null
           last_sync_at?: string | null
           last_tested_at?: string | null
           provider?: string
@@ -6847,6 +6850,7 @@ export type Database = {
           match_credits_limit: number | null
           match_credits_remaining: number | null
           name: string
+          past_due_since: string | null
           paused_at: string | null
           paused_reason: string | null
           primary_color: string | null
@@ -6872,6 +6876,7 @@ export type Database = {
           match_credits_limit?: number | null
           match_credits_remaining?: number | null
           name: string
+          past_due_since?: string | null
           paused_at?: string | null
           paused_reason?: string | null
           primary_color?: string | null
@@ -6897,6 +6902,7 @@ export type Database = {
           match_credits_limit?: number | null
           match_credits_remaining?: number | null
           name?: string
+          past_due_since?: string | null
           paused_at?: string | null
           paused_reason?: string | null
           primary_color?: string | null
@@ -7323,6 +7329,60 @@ export type Database = {
           youtube_id?: string
         }
         Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_id: string
+          event_type: string
+          payload: Json | null
+          processed_at: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_id: string
+          event_type: string
+          payload?: Json | null
+          processed_at?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+          processed_at?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "structuring_backfill_progress"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "webhook_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_logs: {
         Row: {
@@ -7928,6 +7988,10 @@ export type Database = {
         Args: { _tenant_id: string }
         Returns: Json
       }
+      reset_usage_counters_for_period: {
+        Args: { _period_end: string; _period_start: string; _tenant_id: string }
+        Returns: undefined
+      }
       respond_to_submission: {
         Args: { _decision: string; _submission_id: string }
         Returns: string
@@ -7973,6 +8037,24 @@ export type Database = {
       user_belongs_to_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      validate_promo_code: {
+        Args: { _code: string; _interval?: string; _plan_id?: string }
+        Returns: Json
+      }
+      write_audit_log: {
+        Args: {
+          _action: string
+          _entity_id?: string
+          _entity_type?: string
+          _ip_address?: string
+          _new_values?: Json
+          _old_values?: Json
+          _tenant_id?: string
+          _user_agent?: string
+          _user_id?: string
+        }
+        Returns: string
       }
     }
     Enums: {
