@@ -36,13 +36,9 @@ interface SubscriptionPlan {
   match_credits_monthly: number | null;
 }
 
-interface PromoCodeValidation {
-  valid: boolean;
-  code: string;
-  discount_type: string;
-  discount_value: number;
-  discount_amount: number;
-}
+// Promo validation is fully server-driven via <PromoCodeInput>.
+// We keep a normalized handle so the order summary can render server amounts.
+import { PromoCodeInput, type PromoValidationResult } from '@/components/billing/PromoCodeInput';
 
 interface BillingOption {
   months: number;
