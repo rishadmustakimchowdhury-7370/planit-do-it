@@ -8,6 +8,7 @@ import {
   sendAuditEmail,
   SUPER_ADMIN_EMAIL,
 } from "../_shared/smtp-sender.ts";
+import { notifyBillingEvent } from "../_shared/billing-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
