@@ -72,21 +72,28 @@ export default function UsagePage() {
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
-      const { data: row } = await supabase
+      const { data: trow } = await supabase
         .from('tenants')
-        .select('subscription_plan_id, subscription_status, current_period_end, subscription_plans(name, price_monthly, currency)')
+        .select('subscription_plan_id, subscription_status, current_period_end')
         .eq('id', tenantId)
         .maybeSingle();
-      if (row) {
-        const p: any = (row as any).subscription_plans;
-        setPlan({
-          name: p?.name ?? 'Free',
-          price_monthly: p?.price_monthly ?? null,
-          currency: p?.currency ?? 'USD',
-          current_period_end: (row as any).current_period_end,
-          status: (row as any).subscription_status,
-        });
+      const t: any = trow;
+      let p: any = null;
+      if (t?.subscription_plan_id) {
+        const { data: prow } = await supabase
+          .from('subscription_plans')
+          .select('name, price_monthly, currency')
+          .eq('id', t.subscription_plan_id)
+          .maybeSingle();
+        p = prow;
       }
+      setPlan({
+        name: p?.name ?? 'Free',
+        price_monthly: p?.price_monthly ?? null,
+        currency: p?.currency ?? 'USD',
+        current_period_end: t?.current_period_end ?? null,
+        status: t?.subscription_status ?? null,
+      });
     })();
   }, [tenantId]);
 
