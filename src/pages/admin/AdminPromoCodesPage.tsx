@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Percent, PoundSterling, Copy, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit, Percent, PoundSterling, Copy, Calendar, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PromoCode {
