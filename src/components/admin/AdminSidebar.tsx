@@ -36,6 +36,7 @@ const adminNavItems = [
   { title: 'User Marketing', url: '/admin/marketing', icon: Megaphone },
   { title: 'Orders', url: '/admin/orders', icon: CreditCard },
   { title: 'Packages', url: '/admin/packages', icon: Package },
+  { title: 'Plans & Pricing', url: '/admin/plans', icon: Sparkles },
   { title: 'Promo Codes', url: '/admin/promo-codes', icon: Tag },
   { title: 'Billing Settings', url: '/admin/billing-settings', icon: CreditCard },
   { title: 'Stripe Connect', url: '/admin/stripe-connect', icon: Link2 },

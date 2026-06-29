@@ -6007,6 +6007,24 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_processed_events: {
+        Row: {
+          event_id: string
+          processed_at: string
+          type: string
+        }
+        Insert: {
+          event_id: string
+          processed_at?: string
+          type: string
+        }
+        Update: {
+          event_id?: string
+          processed_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       structuring_backfill_runs: {
         Row: {
           completed_at: string | null
@@ -6239,6 +6257,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          plan_slug: string | null
+          stripe_event_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          plan_slug?: string | null
+          stripe_event_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          plan_slug?: string | null
+          stripe_event_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
       }
       subscription_features: {
         Row: {
@@ -6697,6 +6745,51 @@ export type Database = {
           token_hash?: string
           used_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      tenant_api_connections: {
+        Row: {
+          api_key_encrypted: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          last_tested_at: string | null
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_tested_at?: string | null
+          provider: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_tested_at?: string | null
+          provider?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          usage_count?: number
         }
         Relationships: []
       }
@@ -7546,6 +7639,53 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_set_plan_feature: {
+        Args: {
+          _enabled: boolean
+          _feature_id: string
+          _limit_value: number
+          _monthly_reset: boolean
+          _plan_id: string
+          _unlimited: boolean
+        }
+        Returns: undefined
+      }
+      admin_upsert_feature: {
+        Args: {
+          _category: string
+          _description: string
+          _feature_key: string
+          _feature_name: string
+          _id: string
+          _is_addon: boolean
+          _is_metered: boolean
+          _show_on_pricing_page: boolean
+          _sort_order: number
+          _unit: string
+        }
+        Returns: string
+      }
+      admin_upsert_plan: {
+        Args: {
+          _cta_label: string
+          _currency: string
+          _description: string
+          _display_order: number
+          _id: string
+          _is_active: boolean
+          _is_featured: boolean
+          _name: string
+          _price_monthly: number
+          _price_yearly: number
+          _show_on_pricing: boolean
+          _slug: string
+          _stripe_price_id_monthly: string
+          _stripe_price_id_yearly: string
+          _stripe_product_id: string
+          _trial_days: number
+        }
+        Returns: string
+      }
       candidates_missing_embeddings: {
         Args: { p_limit?: number }
         Returns: {
@@ -7628,6 +7768,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      disconnect_tenant_api: {
+        Args: { _provider: string; _tenant_id: string }
+        Returns: undefined
+      }
       enforce_feature_limit: {
         Args: { _feature_key: string; _increment?: number; _tenant_id: string }
         Returns: Json
@@ -7689,6 +7833,10 @@ export type Database = {
           tenant_id: string
           tenant_name: string
         }[]
+      }
+      get_tenant_api_key_ciphertext: {
+        Args: { _provider: string; _tenant_id: string }
+        Returns: string
       }
       get_tenant_feature: {
         Args: { _feature_key: string; _tenant_id: string }
@@ -7787,6 +7935,15 @@ export type Database = {
       restore_user: {
         Args: { p_restored_by: string; p_user_id: string }
         Returns: boolean
+      }
+      save_tenant_api_connection: {
+        Args: {
+          _ciphertext: string
+          _provider: string
+          _status: string
+          _tenant_id: string
+        }
+        Returns: undefined
       }
       set_submission_status: {
         Args: { _note?: string; _submission_id: string; _to_status: string }

@@ -27,8 +27,9 @@ serve(async (req) => {
   try {
     logStep("Function started");
     
-    const { planId, promoCode, billingMonths = 1 } = await req.json();
-    logStep("Request params", { planId, promoCode, billingMonths });
+    const { planId, promoCode, billingMonths = 1, billingPeriod } = await req.json();
+    logStep("Request params", { planId, promoCode, billingMonths, billingPeriod });
+    const isYearly = billingPeriod === 'yearly';
 
     if (!planId) {
       throw new Error("Missing planId");
@@ -99,13 +100,15 @@ serve(async (req) => {
       }
     }
 
-    // Get monthly price ID only
-    const priceId = plan.stripe_price_id_monthly;
+    // Pick price ID based on billing period
+    const priceId = isYearly
+      ? (plan.stripe_price_id_yearly || plan.stripe_price_id_monthly)
+      : plan.stripe_price_id_monthly;
 
     if (!priceId) {
-      throw new Error(`Stripe price ID not configured for ${plan.name}. Please add the stripe_price_id_monthly in the subscription_plans table.`);
+      throw new Error(`Stripe price ID not configured for ${plan.name} (${isYearly ? 'yearly' : 'monthly'}).`);
     }
-    logStep("Using price ID", { priceId });
+    logStep("Using price ID", { priceId, isYearly });
 
     // Initialize Stripe with dynamic credentials
     const stripeCredentials = await getStripeCredentials(supabaseClient);
@@ -168,16 +171,13 @@ serve(async (req) => {
     logStep("Order created", { orderId: order.id });
 
     // Build checkout session options
+    const trialDays = Number(plan.trial_days || 0);
     const checkoutOptions: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
+      allow_promotion_codes: true,
       success_url: `${req.headers.get("origin")}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
       cancel_url: `${req.headers.get("origin")}/checkout/cancel?order_id=${order.id}`,
       metadata: {
@@ -186,12 +186,15 @@ serve(async (req) => {
         user_id: user.id,
         tenant_id: profile?.tenant_id || '',
         promo_code: validPromoCode?.code || '',
+        billing_period: isYearly ? 'yearly' : 'monthly',
       },
       subscription_data: {
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
         metadata: {
           order_id: order.id,
           plan_id: planId,
           user_id: user.id,
+          billing_period: isYearly ? 'yearly' : 'monthly',
         }
       },
     };

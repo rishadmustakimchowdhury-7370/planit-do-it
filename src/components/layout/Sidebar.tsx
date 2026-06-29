@@ -137,6 +137,7 @@ function getSections(roles: { isOwner: boolean; isManager: boolean; isRecruiter:
 
   const system: NavItem[] = [
     { name: 'Integrations', href: '/candidate-discovery', icon: Plug },
+    { name: 'API Connections', href: '/settings/api-connections', icon: Plug },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Billing', href: '/billing', icon: CreditCard, permission: 'can_view_billing' as Permission },
   ];
