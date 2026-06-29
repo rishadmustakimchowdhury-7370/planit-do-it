@@ -217,7 +217,7 @@ export function ImportClientsWizard({
                 if (Object.keys(updateData).length > 0) {
                   await supabase
                     .from('clients')
-                    .update(updateData)
+                    .update(updateData as any)
                     .eq('id', existingClient.id);
                 }
                 successCount++;

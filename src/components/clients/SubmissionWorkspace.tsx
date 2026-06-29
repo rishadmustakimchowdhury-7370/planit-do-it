@@ -231,7 +231,7 @@ export function SubmissionWorkspace({
       const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
       const url = pub?.publicUrl || path;
       const { error: updErr } = await supabase.from("candidate_submissions")
-        .update({ [kind]: url }).eq("id", submissionId);
+        .update({ [kind]: url } as any).eq("id", submissionId);
       if (updErr) throw updErr;
       setRow(prev => prev ? { ...prev, [kind]: url } as any : prev);
       toast.success(kind === "branded_cv_url" ? "Branded CV uploaded" : "Original CV uploaded");

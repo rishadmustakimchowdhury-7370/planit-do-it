@@ -1,0 +1,2 @@
+ALTER FUNCTION public.compute_jd_signature(text, text, text, text, text, text, jsonb, text) SET search_path = public, pg_temp;
+ALTER FUNCTION public.tg_jobs_signature_and_stale() SET search_path = public, pg_temp;
