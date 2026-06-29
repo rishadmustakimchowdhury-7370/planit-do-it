@@ -171,6 +171,33 @@ export default function AdminPromoCodesPage() {
     toast.success('Code copied to clipboard');
   };
 
+  const syncOne = async (id: string) => {
+    const tid = toast.loading('Syncing to Stripe...');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-stripe-coupons', { body: { promoId: id } });
+      if (error) throw error;
+      const res = (data as any)?.results?.[0];
+      if (res?.ok) toast.success('Synced to Stripe', { id: tid });
+      else toast.error(res?.error || 'Sync failed', { id: tid });
+      fetchPromoCodes();
+    } catch (e: any) {
+      toast.error(e.message || 'Sync failed', { id: tid });
+    }
+  };
+
+  const syncAll = async () => {
+    const tid = toast.loading('Syncing all promo codes to Stripe...');
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-stripe-coupons', { body: {} });
+      if (error) throw error;
+      const okCount = ((data as any)?.results ?? []).filter((r: any) => r.ok).length;
+      toast.success(`Synced ${okCount} promo code(s)`, { id: tid });
+      fetchPromoCodes();
+    } catch (e: any) {
+      toast.error(e.message || 'Sync failed', { id: tid });
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout title="Promo Codes" description="Manage discount codes">
