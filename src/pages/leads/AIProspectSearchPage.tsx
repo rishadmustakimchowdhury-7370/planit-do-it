@@ -252,6 +252,11 @@ export default function AIProspectSearchPage() {
 
   const runSearch = async (pageNum = 1) => {
     if (!filters) return;
+    // Only meter the first page of a new search; pagination is free.
+    if (pageNum === 1) {
+      const ok = await enforce.guard('ai_prospect_search', async () => true, { meter: true });
+      if (!ok) return;
+    }
     setSearching(true); setError(null); setFallbackNotice(null);
     try {
       const body = {
