@@ -59,46 +59,70 @@ serve(async (req) => {
     }
     logStep("Plan fetched", { planName: plan.name, priceMonthly: plan.price_monthly });
 
-    // Validate promo code if provided
-    let validPromoCode = null;
+    // Reject if the user already has an active (non-cancelled) subscription
+    const { data: existingSub } = await supabaseClient
+      .from('subscriptions')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .maybeSingle();
+    if (existingSub) {
+      logStep("Active subscription exists", { id: existingSub.id, status: existingSub.status });
+      return new Response(JSON.stringify({
+        error: "You already have an active subscription. Use the Billing Portal to change plans.",
+        code: "subscription_exists",
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Plan must be active
+    if (plan.is_active === false) {
+      throw new Error("Selected plan is not available.");
+    }
+
+    // Validate promo code via strict RPC (with full eligibility checks + audit on failure)
+    let validPromoCode: { id: string; code: string; discount_type: string; discount_value: number } | null = null;
     let discountAmount = 0;
-    
+
     if (promoCode) {
-      const { data: promo } = await supabaseClient
-        .from('promo_codes')
-        .select('*')
-        .eq('code', promoCode.toUpperCase())
-        .eq('is_active', true)
-        .single();
-      
-      if (promo) {
-        // Check if promo is still valid
-        const now = new Date();
-        const validUntil = promo.valid_until ? new Date(promo.valid_until) : null;
-        const withinUsageLimit = !promo.max_uses || promo.uses_count < promo.max_uses;
-        
-        // Check if user has already used this promo code
-        const { data: existingUsage } = await supabaseClient
-          .from('promo_code_usage')
-          .select('id')
-          .eq('promo_code_id', promo.id)
-          .eq('user_id', user.id)
-          .single();
-        
-        if (existingUsage) {
-          logStep("User already used this promo code", { code: promo.code, userId: user.id });
-          // Don't apply the promo code if already used
-        } else if (withinUsageLimit && (!validUntil || validUntil > now)) {
-          validPromoCode = promo;
-          if (promo.discount_type === 'percentage') {
-            discountAmount = (plan.price_monthly * promo.discount_value) / 100;
-          } else {
-            discountAmount = promo.discount_value;
-          }
-          logStep("Promo code validated", { code: promo.code, discount: discountAmount });
-        }
+      const interval = isYearly ? 'yearly' : 'monthly';
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } },
+      );
+      const { data: result, error: rpcErr } = await userClient.rpc('validate_promo_code', {
+        _code: promoCode,
+        _plan_id: planId,
+        _interval: interval,
+      });
+      const promoResult = (rpcErr ? { valid: false, reason: 'rpc_error', message: rpcErr.message } : result) as any;
+      logStep("Promo validation", promoResult);
+
+      if (!promoResult?.valid) {
+        // Audit + notify owners about failed promo attempt, then reject
+        await supabaseClient.rpc('write_audit_log', {
+          _action: 'promo_validation_failed',
+          _entity_type: 'promo_code',
+          _entity_id: null,
+          _new: { code: promoCode, reason: promoResult?.reason, message: promoResult?.message, plan_id: planId, interval },
+          _tenant_id: null,
+          _user_id: user.id,
+        });
+        return new Response(JSON.stringify({
+          error: promoResult?.message || 'This promo code is not valid.',
+          code: 'promo_invalid',
+          reason: promoResult?.reason,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      validPromoCode = { id: promoResult.promo_id, code: promoResult.code, discount_type: promoResult.discount_type, discount_value: Number(promoResult.discount_value) };
+      if (validPromoCode.discount_type === 'percentage') {
+        discountAmount = (Number(plan.price_monthly) * validPromoCode.discount_value) / 100;
+      } else {
+        discountAmount = validPromoCode.discount_value;
       }
     }
+
 
     // Pick price ID based on billing period
     const priceId = isYearly
