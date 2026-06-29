@@ -1,85 +1,91 @@
-# Phase 2 — Production Readiness Plan
+# Milestone C — Production Billing Security & Audit Layer
 
-This is a very large scope (16 workstreams, dozens of features). Shipping it as one giant commit will be unreviewable and risky. I'll execute it in **5 sequential milestones**, each independently shippable and verifiable. After each milestone you can test and approve before I move on.
+Goal: make the billing backend production-safe. No UI redesigns. No changes to working flows except the wiring described below.
 
-I will NOT touch working flows (AI Discovery engines, CRM, Finance, Placements, Auth, Sidebar) except to wire enforcement hooks and polish empty/loading states.
-
----
-
-## Milestone A — Enforcement Backbone (foundation everything else builds on)
-
-Goal: every gated feature checks entitlements + records usage in ONE consistent way.
-
-- New `src/lib/enforce.ts` — single `enforceFeature(featureKey)` helper that:
-  - Reads live `get_tenant_feature` RPC (already exists).
-  - Throws typed `LimitReachedError` with `{ used, limit, remaining, featureKey }`.
-  - Calls `increment_feature_usage` on success.
-- New `<UpgradeRequiredDialog>` already exists — extend it to render usage stats (used / limit / remaining) passed by the error.
-- Hook `useEnforceFeature` returns `{ guard, dialog }` so any page wraps its action in `await guard('ai_candidate_search')`.
-- Wire enforcement into the action entry points (no logic changes to engines themselves):
-  - AI Candidate Discovery, AI Prospect Search, Open Web Discovery
-  - AI Matching, Resume Parsing, Executive Assessment, AI Email Generation
-  - CSV Import / Export / Bulk Upload, Reports export
-  - Create Job, Add Candidate, Add Client, Invite Team Member (count-based)
-- Seed any missing rows in `subscription_features` + `subscription_plan_features` for the keys above (migration).
-
-## Milestone B — Workspace Usage Dashboard + Billing Portal
-
-- `src/pages/UsagePage.tsx` (route `/usage`): live grid of all meters from `get_tenant_feature`, progress bars, warning thresholds (80/100%), realtime subscription on `subscription_usage_counters`.
-- Upgrade `src/pages/BillingPage.tsx`:
-  - Current plan card (interval, next renewal, status, payment method last4).
-  - Invoice history table (`stripe-list-invoices` edge fn → Stripe API).
-  - Buttons: Upgrade, Downgrade, Cancel, Resume, Update card, Update billing details — all route through `customer-portal` edge fn (already exists) or dedicated flows.
-- New edge fn `stripe-list-invoices` (read-only, customer-scoped).
-
-## Milestone C — Stripe Webhook Hardening + Promo + Audit Logs + Notifications
-
-- Rewrite `stripe-webhook` to:
-  - Verify signature with `STRIPE_WEBHOOK_SECRET`.
-  - Idempotency via existing `stripe_processed_events` table (insert-or-skip on `event.id`).
-  - Handle: `checkout.session.completed`, `customer.subscription.updated|deleted|trial_will_end`, `invoice.paid|payment_failed`, `customer.subscription.resumed`.
-  - Reset `subscription_usage_counters` on renewal period change.
-  - Write to `subscription_events` + `notifications`.
-- Promo validation RPC `validate_promo_code(code, plan_id, interval)` → returns `{ valid, reason, discount }`. Checks expiry, max_uses, per-customer in `promo_code_uses`, plan applicability, interval.
-- Universal audit logger `write_audit(action, target, metadata)` RPC. Wire into: subscription change, promo create/use, API connect/remove, invite, invoice gen, client/candidate/job create, settings change. Re-use existing `audit_log` table.
-- `<NotificationBell>` already exists — extend backing table coverage: trial-ending, payment-failed, promo-applied, API-disconnected, storage-full, limit-reached, invite-accepted. Mark-read + archive actions.
-
-## Milestone D — API Connection Health + Email Automation + FAQ + Admin Analytics
-
-- Extend `tenant-api-connection` with `test` action per provider (Apollo `/auth/health`, Lusha `/v2/person`, Vibe ping). Store `last_tested_at`, `last_status` on `tenant_api_connections`.
-- `src/pages/settings/ApiConnectionsPage.tsx`: status badge (Connected/Invalid/Expired/Disconnected), Test, Reconnect, Remove. Never render the encrypted key.
-- App emails (uses existing transactional email infra): trial-started, trial-ending, sub-created, payment-success, payment-failed, sub-cancelled, upgrade-success, invoice-created, invitation-accepted, password-changed. Triggered from webhook + RPCs.
-- FAQ: new `faqs` table (id, category, question, answer, sort_order, published). Admin CRUD page `/admin/faqs`. Landing page loads `published=true` ordered.
-- Super Admin analytics `/admin/analytics`: MRR, ARR, trial vs paid counts, active workspaces, plan distribution, churn (from `subscription_events`), top customers (by usage).
-
-## Milestone E — Workspace Health + Performance + UX Polish + Final QA
-
-- `workspace_health_score(tenant_id)` RPC returning 0-100 + tier (Excellent/Good/Warning/Needs Attention). Surfaced on Admin Workspaces list + tenant Settings header.
-- Performance: lazy-load route chunks (verify `React.lazy` everywhere in `App.tsx`), add `<Skeleton>` to remaining pages, paginate Candidates/Clients/Jobs lists if not already, add `react-window` to any list >200 rows.
-- UX polish pass: standardize Card padding (`p-6`), shadow (`shadow-sm`), radius (existing `--radius`), button sizes; consistent empty-state component `<EmptyState>`; toast success/error standardization.
-- Final QA: Playwright smoke covering Checkout → Webhook → Usage increment → Limit reached → Upgrade modal → Stripe portal → Cancel → Resume.
+This is large. I'll ship it in **5 sequenced commits**, each independently verifiable. Each commit ends in a green typecheck + targeted test/Playwright check before the next starts.
 
 ---
 
-## What I will NOT do
-- Redesign sidebar, landing page, or any working CRM/Finance/AI engine UI.
-- Refactor auth, RLS architecture, or the dynamic pricing schema you just approved.
-- Re-introduce features already removed (LinkedIn scraping, plaintext API keys in DB, etc.).
+## Commit 1 — DB foundation (single migration)
+
+One migration creating the persistence backbone everything else writes to.
+
+- `public.webhook_logs` (event_id PK, event_type, tenant_id, stripe_customer_id, stripe_subscription_id, status `received|processed|skipped|failed`, error text, processed_at, payload jsonb, created_at). RLS: super-admin SELECT only; service_role full. GRANTs per project rule.
+- Extend `public.audit_log` only if columns are missing (ip_address, user_agent, old_values, new_values already exist per schema). Add index on `(tenant_id, created_at desc)` and `(action, created_at desc)` if missing.
+- `public.write_audit_log(_action, _entity_type, _entity_id, _old, _new, _metadata)` SECURITY DEFINER RPC. Resolves tenant_id + user_id from `auth.uid()` / profile; service_role bypass allowed via optional `_tenant_id`/`_user_id` args. `search_path = public, pg_temp`.
+- Promo validation RPC `public.validate_promo_code(_code, _plan_id, _interval)` returning `{ valid, reason, discount_type, discount_value, promo_id }`. Checks: active flag, start/expiry dates, max_uses vs `promo_code_uses` count, per-customer cap via `promo_code_uses.tenant_id`, plan applicability (`applicable_plan_ids` jsonb or `null`=all), interval eligibility.
+- `public.increment_feature_usage` rewrite: single atomic `INSERT ... ON CONFLICT (tenant_id, feature_key, period_start) DO UPDATE SET usage = subscription_usage_counters.usage + EXCLUDED.usage` with `GREATEST(0, …)` clamp; returns new usage. Wrapped in `SECURITY DEFINER`, `search_path = public, pg_temp`. Adds unique index if missing.
+- `public.reset_usage_counters_for_period(_tenant_id, _period_start, _period_end)` for renewal resets.
+- `public.tenant_api_connections` add `last_tested_at timestamptz`, `last_status text`, `last_error text` if missing (used by Milestone D too, but the audit column lives here now).
+
+## Commit 2 — Stripe webhook rewrite (`supabase/functions/stripe-webhook`)
+
+Single rewrite, no behavioural surprises to existing happy path.
+
+- Raw-body signature verification with `stripe.webhooks.constructEventAsync` + `STRIPE_WEBHOOK_SECRET` from `getStripeCredentials`.
+- Idempotency: `INSERT INTO stripe_processed_events (id) VALUES (event.id) ON CONFLICT DO NOTHING RETURNING id`; if no row, log `skipped` to `webhook_logs` and 200.
+- Per-event handlers (each in its own function, wrapped in try/catch):
+  - `checkout.session.completed` → resolve tenant by `client_reference_id` or customer email; upsert `subscriptions`; record promo redemption in `promo_code_uses` if `discount` present; audit `checkout_completed`.
+  - `customer.subscription.created|updated|resumed` → upsert `subscriptions` (status, price→plan_id, current_period_start/end, trial_end, cancel_at_period_end); update `tenants.subscription_status`, `subscription_plan_id`, `trial_ends_at`; on period change call `reset_usage_counters_for_period`; audit `subscription_updated`.
+  - `customer.subscription.deleted` → mark `cancelled`; audit `subscription_cancelled`.
+  - `customer.subscription.trial_will_end` → insert notification `trial_ending`; audit.
+  - `invoice.created|finalized|upcoming` → log + audit, no state change.
+  - `invoice.paid` → set tenant `past_due=false`; reset usage if new period; audit `invoice_paid`; notification.
+  - `invoice.payment_failed` → set tenant `subscription_status='past_due'`, `past_due_since=now()`; audit `invoice_failed`; notification.
+  - `payment_intent.succeeded` → log only.
+- Every branch writes a `webhook_logs` row with final status + error.
+- Returns 200 on handled-and-logged errors (so Stripe doesn't retry forever on app bugs), 400 on signature failure, 500 only on infra failure.
+
+## Commit 3 — Promo + audit + API audit wiring
+
+- New edge function `validate-promo` (auth-required) → calls `validate_promo_code` RPC and returns clean `{ valid, reason, discount }`. Wired into `CheckoutPage`/billing flow promo input (replace any client-only validation).
+- `create-checkout` updated to call `validate_promo_code` server-side before creating the Stripe session; rejects with friendly error.
+- `tenant-api-connection` edge function: on every save/test/remove, call `write_audit_log` with `apollo_connected|apollo_removed|...`, and update `last_tested_at`/`last_status`/`last_error`.
+- Client-side audit hooks (thin): wrap existing create-job / create-client / create-candidate / invite-team / settings-updated mutations with a single `logAudit(action, entity, ids, old, new)` helper that calls `write_audit_log` RPC. No behaviour change, just an extra await on success.
+
+## Commit 4 — Failed-payment + trial UX (minimal, no redesign)
+
+- `useSubscriptionStatus` hook reading `tenants.subscription_status`, `trial_ends_at`, `past_due_since`. Derives `Active | Trial | TrialEndingSoon | PastDue | GracePeriod | Suspended | Cancelled` (Grace = 3 days after `past_due_since`, Suspended after 14 days).
+- `<BillingStatusBanner>` (new, lightweight) mounted once in `AppLayout` above content. Renders only when status ≠ Active. Variants: warning (trial ending, past due, grace), destructive (suspended), info (cancelled at period end). Each has an "Update payment" CTA → existing `customer-portal` flow.
+- `useEnforceFeature.guard` extended: if status === `Suspended`, block with the existing UpgradeRequiredDialog using a "Payment required" copy variant instead of "Limit reached". No data deletion anywhere.
+
+## Commit 5 — Error envelope, error monitoring, verification
+
+- Shared `supabase/functions/_shared/errors.ts` → `toClientError(err)` returns `{ code, message }` with stack stripped; `logBillingError(supabase, scope, err, context)` writes to `webhook_logs` (scope=`billing-error`) or a dedicated `billing_errors` view of `webhook_logs` filtered by status='failed'. All billing edge functions (`create-checkout`, `customer-portal`, `cancel-subscription`, `validate-promo`, `stripe-webhook`, `tenant-api-connection`) switched to this envelope.
+- `src/lib/billingErrors.ts` → `toToast(err)` mapping to friendly strings; replaces raw `error.message` toasts in `BillingPage`, `CheckoutPage`, `ApiConnectionsPage`.
+- Verification:
+  - Deno tests for `stripe-webhook` covering: invalid signature → 400; duplicate event_id → skipped; subscription.updated → row upserted + audit + webhook_logs; invoice.payment_failed → tenant past_due; promo redemption recorded.
+  - Deno test for `validate-promo` covering each rejection reason.
+  - SQL test (via `supabase--read_query` after migration) for `increment_feature_usage` race: two parallel calls produce `usage=2`, not 1.
+  - Playwright smoke: hit `/billing` while authed, confirm status banner hidden when active, confirm promo input rejects bad code with friendly toast.
+
+---
+
+## Out of scope (deferred to later milestones, per plan.md)
+- Billing portal invoice history table → Milestone B.
+- Workspace Usage dashboard polish → already shipped in Milestone A.
+- `<NotificationBell>` template expansion → Milestone C-tail / Milestone D.
+- Per-provider connection-test calls (Apollo `/auth/health` etc.) → Milestone D.
 
 ## Technical notes
-- All limits resolved via existing `get_tenant_feature(_tenant_id, _feature_key)` RPC.
-- All counters via existing `increment_feature_usage` RPC.
-- All Stripe state via `stripe-webhook` → `subscriptions` / `subscription_events`.
-- Webhook idempotency: existing `stripe_processed_events(id PK)`.
-- Audit + notifications: existing `audit_log` and `notifications` tables.
-- App emails: existing transactional email infrastructure — new templates only.
+- Webhook idempotency table `stripe_processed_events` already exists — reuse it.
+- `audit_log` already exists with the right columns — no schema churn beyond indexes.
+- `subscription_usage_counters` already exists — only the function + a unique index change.
+- `tenants` already has `subscription_status`, `trial_ends_at` per schema; only `past_due_since` is new.
+- All edge functions stay on `verify_jwt = false` (current convention) with in-code `getClaims` checks, except `stripe-webhook` which is public-by-design and gated by signature.
 
-## Estimated size
-- Migrations: ~6 (feature seed, faqs, validate_promo, write_audit, workspace_health, api_conn columns).
-- Edge functions: ~3 new (stripe-list-invoices, validate-promo wrapper, api-connection-test) + 1 rewrite (stripe-webhook).
-- New pages: Usage, FAQ Admin, Admin Analytics. Updated pages: Billing, API Connections, Notification Bell.
-- New components: EmptyState, LimitReachedDialog (extension), HealthScoreBadge.
+## Production readiness score (target after Commit 5)
+- Webhook security: 10/10
+- Idempotency: 10/10
+- Audit coverage: 9/10 (manual mutations covered; bulk import covered by single batch-audit call)
+- Failure UX: 9/10
+- Counter safety: 10/10
+
+## What I will NOT touch
+- AI Discovery engines, CRM workflows, Finance, Placements, Sidebar, Landing page.
+- The dynamic pricing schema (plans/features/plan_features) — unchanged.
+- Existing entitlement enforcement wired in Milestone A.
 
 ---
 
-**Recommended:** approve this plan, then I'll ship **Milestone A** first (the enforcement backbone — highest leverage, unblocks every other limit-related item). After you verify limits work end-to-end, I'll proceed to B → C → D → E.
+**Approve to proceed.** I will ship Commit 1 (migration) first and pause for your verification before Commit 2.
