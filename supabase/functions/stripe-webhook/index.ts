@@ -991,16 +991,24 @@ serve(async (req) => {
                 day: 'numeric'
               });
 
-              // Update tenant subscription end date
+              // Update tenant subscription end date + reset usage if new period started
+              const newPeriodStart = new Date(subscription.current_period_start * 1000).toISOString();
+              const newPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
               await supabase
                 .from('tenants')
                 .update({
-                  subscription_ends_at: new Date(subscription.current_period_end * 1000).toISOString(),
+                  subscription_ends_at: newPeriodEnd,
                   subscription_status: 'active',
+                  past_due_since: null,
                   is_paused: false,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', order.tenant_id);
+              await supabase.rpc('reset_usage_counters_for_period', {
+                _tenant_id: order.tenant_id,
+                _period_start: newPeriodStart,
+                _period_end: newPeriodEnd,
+              });
 
               if (userEmail) {
                 const renewalEmailHtml = generateSubscriptionEmailHTML('renewal', {
