@@ -7939,10 +7939,21 @@ export type Database = {
         Args: { _credits_needed: number; _user_id: string }
         Returns: boolean
       }
-      increment_feature_usage: {
-        Args: { _amount?: number; _feature_key: string; _tenant_id: string }
-        Returns: number
-      }
+      increment_feature_usage:
+        | {
+            Args: { _amount?: number; _feature_key: string; _tenant_id: string }
+            Returns: number
+          }
+        | {
+            Args: {
+              _amount?: number
+              _feature_key: string
+              _period_end?: string
+              _period_start?: string
+              _tenant_id: string
+            }
+            Returns: number
+          }
       increment_promo_uses: { Args: { promo_id: string }; Returns: undefined }
       is_client_user: { Args: { _user_id: string }; Returns: boolean }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
