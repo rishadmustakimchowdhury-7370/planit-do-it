@@ -302,6 +302,7 @@ export default function AICandidateDiscoveryPage() {
           </TabsContent>
         </Tabs>
       </div>
+      {enforce.dialog}
     </AppLayout>
   );
 }
