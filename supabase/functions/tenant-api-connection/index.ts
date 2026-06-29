@@ -67,6 +67,26 @@ serve(async (req) => {
     const action = body.action as string;
     const provider = (body.provider || "").toLowerCase();
 
+    // Capture request metadata for audit (never log secrets)
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("cf-connecting-ip")
+      || req.headers.get("x-real-ip")
+      || null;
+    const userAgent = req.headers.get("user-agent") || null;
+
+    const audit = async (auditAction: string, meta: Record<string, unknown>) => {
+      try {
+        await supabase.rpc("write_audit_log", {
+          _action: auditAction,
+          _entity_type: "tenant_api_connection",
+          _entity_id: null,
+          _new: { ...meta, provider, ip, user_agent: userAgent },
+          _tenant_id: tenantId,
+          _user_id: user.id,
+        });
+      } catch (_) { /* never block on audit */ }
+    };
+
     if (action === "list") {
       const { data, error } = await supabase
         .from("tenant_api_connections")
@@ -87,6 +107,11 @@ serve(async (req) => {
       const encrypted = await encryptSecret(apiKey);
       const hint = maskKey(apiKey);
 
+      // Was a previous connection present? (drives connect vs. update audit)
+      const { data: prior } = await supabase
+        .from("tenant_api_connections")
+        .select("id").eq("tenant_id", tenantId).eq("provider", provider).maybeSingle();
+
       const { error } = await supabase
         .from("tenant_api_connections")
         .upsert({
@@ -101,6 +126,7 @@ serve(async (req) => {
         }, { onConflict: "tenant_id,provider" });
 
       if (error) throw error;
+      await audit(prior ? "api_connection_updated" : "api_connection_connected", { key_hint: hint, label: body.label ?? null });
       return new Response(JSON.stringify({ ok: true, key_hint: hint }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -119,6 +145,17 @@ serve(async (req) => {
         last_tested_at: new Date().toISOString(),
         last_error: result.ok ? null : (result.detail ?? "Unknown error"),
       }).eq("tenant_id", tenantId).eq("provider", provider);
+      await audit("api_connection_tested", { ok: result.ok, detail: result.detail ?? null });
+      if (!result.ok) {
+        await supabase.rpc("notify_workspace_owners", {
+          _tenant_id: tenantId,
+          _type: "api_disconnected",
+          _title: `${provider} connection failed`,
+          _message: `Test against ${provider} returned: ${result.detail ?? "Unknown error"}`,
+          _link: "/settings/api-connections",
+          _metadata: { provider, detail: result.detail ?? null },
+        });
+      }
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -129,6 +166,15 @@ serve(async (req) => {
         .from("tenant_api_connections")
         .delete().eq("tenant_id", tenantId).eq("provider", provider);
       if (error) throw error;
+      await audit("api_connection_disconnected", {});
+      await supabase.rpc("notify_workspace_owners", {
+        _tenant_id: tenantId,
+        _type: "api_disconnected",
+        _title: `${provider} disconnected`,
+        _message: `The ${provider} integration was disconnected from your workspace.`,
+        _link: "/settings/api-connections",
+        _metadata: { provider },
+      });
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -143,3 +189,4 @@ serve(async (req) => {
     });
   }
 });
+
