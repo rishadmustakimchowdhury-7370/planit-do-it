@@ -8053,20 +8053,34 @@ export type Database = {
         Args: { _code: string; _interval?: string; _plan_id?: string }
         Returns: Json
       }
-      write_audit_log: {
-        Args: {
-          _action: string
-          _entity_id?: string
-          _entity_type?: string
-          _ip_address?: string
-          _new_values?: Json
-          _old_values?: Json
-          _tenant_id?: string
-          _user_agent?: string
-          _user_id?: string
-        }
-        Returns: string
-      }
+      write_audit_log:
+        | {
+            Args: {
+              _action: string
+              _entity_id?: string
+              _entity_type?: string
+              _ip_address?: string
+              _new_values?: Json
+              _old_values?: Json
+              _tenant_id?: string
+              _user_agent?: string
+              _user_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _action: string
+              _entity_id?: string
+              _entity_type: string
+              _metadata?: Json
+              _new?: Json
+              _old?: Json
+              _tenant_id?: string
+              _user_id?: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       app_role:
