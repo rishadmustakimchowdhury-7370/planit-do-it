@@ -238,10 +238,53 @@ serve(async (req) => {
       .update({ stripe_checkout_session_id: session.id })
       .eq('id', order.id);
 
+    // Audit log: checkout initiated (never log secrets)
+    try {
+      await supabaseClient.rpc('write_audit_log', {
+        _action: 'checkout_initiated',
+        _entity_type: 'order',
+        _entity_id: order.id,
+        _new: {
+          plan_id: planId,
+          plan_name: plan.name,
+          billing_period: isYearly ? 'yearly' : 'monthly',
+          billing_months: billingMonths,
+          amount: finalAmount,
+          promo_code: validPromoCode?.code ?? null,
+          stripe_session_id: session.id,
+        },
+        _tenant_id: profile?.tenant_id ?? null,
+        _user_id: user.id,
+      });
+      if (validPromoCode) {
+        await supabaseClient.rpc('write_audit_log', {
+          _action: 'promo_applied',
+          _entity_type: 'promo_code',
+          _entity_id: validPromoCode.id,
+          _new: { code: validPromoCode.code, order_id: order.id, discount: promoDiscountAmount },
+          _tenant_id: profile?.tenant_id ?? null,
+          _user_id: user.id,
+        });
+        if (profile?.tenant_id) {
+          await supabaseClient.rpc('notify_workspace_owners', {
+            _tenant_id: profile.tenant_id,
+            _type: 'promo_applied',
+            _title: 'Promo code applied',
+            _message: `Promo code ${validPromoCode.code} was applied to your checkout.`,
+            _link: '/billing',
+            _metadata: { code: validPromoCode.code, order_id: order.id },
+          });
+        }
+      }
+    } catch (auditErr) {
+      logStep("audit log warning", { error: (auditErr as Error).message });
+    }
+
     return new Response(JSON.stringify({ url: session.url, orderId: order.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
