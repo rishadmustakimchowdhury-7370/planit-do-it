@@ -65,6 +65,20 @@ interface MeterOptions {
   meter?: boolean;
 }
 
+function limitFromRpc(data: Record<string, unknown>, featureKey: string): FeatureLimitError {
+  return {
+    ok: false,
+    code: "FEATURE_LIMIT_EXCEEDED",
+    feature_key: (data.feature_key as string) ?? featureKey,
+    current_usage: Number(data.current_usage ?? 0),
+    allowed_usage: Number(data.allowed_usage ?? 0),
+    remaining: Number(data.remaining ?? 0),
+    upgrade_required: true,
+    message: `You have reached your plan limit for "${featureKey}". Upgrade to continue.`,
+  };
+}
+
+// Legacy fallback: older RPC versions RAISE-EXCEPTION with the payload embedded in the message.
 function parseLimitError(raw: string, featureKey: string): FeatureLimitError {
   // Postgres raises: "FEATURE_LIMIT_EXCEEDED:<feature>:<json>"
   const jsonStart = raw.indexOf("{");
@@ -72,17 +86,9 @@ function parseLimitError(raw: string, featureKey: string): FeatureLimitError {
   if (jsonStart >= 0) {
     try { details = JSON.parse(raw.slice(jsonStart)); } catch { /* ignore */ }
   }
-  return {
-    ok: false,
-    code: "FEATURE_LIMIT_EXCEEDED",
-    feature_key: (details.feature_key as string) ?? featureKey,
-    current_usage: Number(details.current_usage ?? 0),
-    allowed_usage: Number(details.allowed_usage ?? 0),
-    remaining: Number(details.remaining ?? 0),
-    upgrade_required: true,
-    message: `You have reached your plan limit for "${featureKey}". Upgrade to continue.`,
-  };
+  return limitFromRpc({ ...details, feature_key: details.feature_key ?? featureKey }, featureKey);
 }
+
 
 async function writeAudit(
   admin: SupabaseClient,
@@ -140,7 +146,7 @@ export async function meterFeature<T>(
     }
   }
 
-  // 1. Atomic check + reserve.
+  // 1. Atomic check + reserve. Non-raising contract: returns {allowed:false,...} on block.
   const reserve = await admin.rpc("check_and_reserve_feature_usage", {
     _tenant_id: tenantId,
     _feature_key: opts.featureKey,
@@ -148,7 +154,10 @@ export async function meterFeature<T>(
     _user_id: userId,
   });
 
+  let reserveOk = true;
+
   if (reserve.error) {
+    // Backwards compat: if an older RPC is still installed and RAISEs, parse the message.
     const msg = reserve.error.message ?? "";
     if (msg.includes("FEATURE_LIMIT_EXCEEDED")) {
       const parsed = parseLimitError(msg, opts.featureKey);
@@ -156,11 +165,12 @@ export async function meterFeature<T>(
         tenantId, userId,
         action: `${opts.featureKey}.blocked`,
         featureKey: opts.featureKey,
-        metadata: { current_usage: parsed.current_usage, allowed_usage: parsed.allowed_usage },
+        metadata: { current_usage: parsed.current_usage, allowed_usage: parsed.allowed_usage, path: "legacy_raise" },
       });
       return parsed;
     }
     console.error(`[metering] reserve failed for ${opts.featureKey}`, msg);
+    reserveOk = false;
     // Fail open: never block user for infra errors, but audit.
     await writeAudit(admin, {
       tenantId, userId,
@@ -171,6 +181,13 @@ export async function meterFeature<T>(
   }
 
   const usage = (reserve.data ?? {}) as Record<string, unknown>;
+
+  // Non-raising block: RPC returned cleanly with allowed=false. Audit row was already
+  // persisted inside the RPC (blocked event via _meter_log). Return 402 to the client.
+  if (reserveOk && usage.allowed === false) {
+    return limitFromRpc(usage, opts.featureKey);
+  }
+
 
   // 2. Run the real action; commit on success, refund on failure.
   try {
