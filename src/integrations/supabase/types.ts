@@ -8084,6 +8084,7 @@ export type Database = {
       get_public_billing_setting: { Args: { _key: string }; Returns: Json }
       get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
       get_public_platform_setting: { Args: { _key: string }; Returns: Json }
+      get_public_pricing: { Args: never; Returns: Json }
       get_team_invitation_by_token: {
         Args: { p_token: string }
         Returns: {
