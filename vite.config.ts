@@ -15,4 +15,29 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    sourcemap: false,
+    reportCompressedSize: false,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('react-dom') || id.includes('scheduler') || id.match(/[\\/]react[\\/]/)) return 'react-vendor';
+          if (id.includes('react-router')) return 'router';
+          if (id.includes('@tanstack')) return 'query';
+          if (id.includes('@supabase')) return 'supabase';
+          if (id.includes('@radix-ui')) return 'radix';
+          if (id.includes('lucide-react')) return 'icons';
+          if (id.includes('framer-motion')) return 'motion';
+          if (id.includes('recharts') || id.includes('d3-')) return 'charts';
+          if (id.includes('date-fns')) return 'date';
+          if (id.includes('react-hook-form') || id.includes('zod') || id.includes('@hookform')) return 'forms';
+          return 'vendor';
+        },
+      },
+    },
+  },
 }));
