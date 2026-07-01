@@ -20,11 +20,48 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Batch A / Phase 2 metering state
+  let __meterAdmin: any = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_email_generation";
+
   try {
+    // Auth + tenant + meter (payload unchanged)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const admin = createClient(supabaseUrl, serviceKey);
+    const { data: profile } = await admin.from('profiles').select('tenant_id').eq('id', userData.user.id).maybeSingle();
+    const tenantId = (profile?.tenant_id as string | null) ?? null;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userData.user.id;
+    if (tenantId) {
+      const __r = await admin.rpc('check_and_reserve_feature_usage', {
+        _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userData.user.id,
+      });
+      if (__r.error) {
+        const m = __r.error.message ?? '';
+        if (m.includes('FEATURE_LIMIT_EXCEEDED')) {
+          return new Response(JSON.stringify({
+            error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+            code: 'FEATURE_LIMIT_EXCEEDED', feature_key: __meterFeatureKey, upgrade_required: true,
+          }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        console.error('[meter] reserve error', m);
+      } else { __meterReserved = true; }
+    }
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
     }
+
 
     const body: GenerateTemplateRequest = await req.json();
     const { template_purpose, variables, tone, company_name } = body;
