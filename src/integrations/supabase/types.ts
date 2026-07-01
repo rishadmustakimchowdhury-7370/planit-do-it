@@ -6550,6 +6550,7 @@ export type Database = {
           id: string
           period_end: string
           period_start: string
+          reserved: number
           tenant_id: string
           updated_at: string
           used: number
@@ -6560,6 +6561,7 @@ export type Database = {
           id?: string
           period_end: string
           period_start: string
+          reserved?: number
           tenant_id: string
           updated_at?: string
           used?: number
@@ -6570,6 +6572,7 @@ export type Database = {
           id?: string
           period_end?: string
           period_start?: string
+          reserved?: number
           tenant_id?: string
           updated_at?: string
           used?: number
@@ -7823,6 +7826,17 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string }
         Returns: undefined
       }
+      _meter_log: {
+        Args: {
+          _action: string
+          _delta: number
+          _feature_key: string
+          _metadata: Json
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
       _seed_plan_feature: {
         Args: {
           _enabled: boolean
@@ -7965,6 +7979,15 @@ export type Database = {
         Returns: undefined
       }
       client_tenant_for_user: { Args: { _user_id: string }; Returns: string }
+      commit_feature_usage: {
+        Args: {
+          _amount?: number
+          _feature_key: string
+          _tenant_id: string
+          _user_id?: string
+        }
+        Returns: Json
+      }
       compute_jd_signature: {
         Args: {
           _description: string
