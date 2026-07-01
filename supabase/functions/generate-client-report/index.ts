@@ -104,6 +104,12 @@ const REPORT_TOOL = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "executive_assessment";
+
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return j({ error: "Unauthorized" }, 401);
@@ -125,6 +131,23 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", user.id).maybeSingle();
     const tenant_id = profile?.tenant_id;
     if (!tenant_id) return j({ error: "No tenant" }, 403);
+    __meterAdmin = admin; __meterTenant = tenant_id; __meterUser = user.id;
+
+    // Server-side metering (Batch A / Phase 2)
+    const __r = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenant_id, _feature_key: __meterFeatureKey, _amount: 1, _user_id: user.id,
+    });
+    if (__r.error) {
+      const m = __r.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
+
 
     const [candidateRes, jobRes, assessmentRes, brandingRes, tenantRes] = await Promise.all([
       admin.from("candidates").select("*").eq("id", candidate_id).maybeSingle(),
