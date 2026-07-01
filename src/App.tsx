@@ -312,23 +312,28 @@ const AppRoutes = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <CookieConsentProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <DynamicHead />
-            <AppRoutes />
-            <Suspense fallback={null}>
-              <LiveChatWidget />
-            </Suspense>
-            <CookieConsentBanner />
-          </BrowserRouter>
-        </TooltipProvider>
-      </CookieConsentProvider>
-    </AuthProvider>
+    <ErrorBoundary label="Application">
+      <AuthProvider>
+        <CookieConsentProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <DynamicHead />
+              <ErrorBoundary label="Routes">
+                <AppRoutes />
+              </ErrorBoundary>
+              <Suspense fallback={null}>
+                <LiveChatWidget />
+              </Suspense>
+              <CookieConsentBanner />
+            </BrowserRouter>
+          </TooltipProvider>
+        </CookieConsentProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </QueryClientProvider>
 );
 
 export default App;
+
