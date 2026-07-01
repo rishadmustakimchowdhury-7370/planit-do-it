@@ -39,12 +39,12 @@ export function SubscriptionTab() {
   const currentSlug = sub.planSlug;
 
   const change = async (plan: Plan, mode: 'upgrade' | 'downgrade' | 'switch') => {
-    const targetPriceId = interval === 'yearly' ? plan.stripe_price_id_yearly : plan.stripe_price_id_monthly;
+    const targetPriceId = billingInterval === 'yearly' ? plan.stripe_price_id_yearly : plan.stripe_price_id_monthly;
     if (!targetPriceId) { toast.error('This plan is not configured for Stripe yet.'); return; }
     setBusy(plan.id);
     try {
       const { data, error } = await supabase.functions.invoke('change-subscription', {
-        body: { plan_id: plan.id, interval, mode },
+        body: { plan_id: plan.id, billingInterval, mode },
       });
       if (error) throw error;
       if ((data as any)?.checkout_url) { window.location.href = (data as any).checkout_url; return; }
@@ -117,19 +117,19 @@ export function SubscriptionTab() {
       </Card>
 
       <div className="flex items-center justify-end gap-2">
-        <span className="text-sm text-muted-foreground">Billing interval:</span>
+        <span className="text-sm text-muted-foreground">Billing billingInterval:</span>
         <div className="inline-flex rounded-md border p-0.5">
-          <button onClick={() => setInterval('monthly')}
-            className={`px-3 py-1 text-xs rounded ${interval === 'monthly' ? 'bg-primary text-primary-foreground' : ''}`}>Monthly</button>
-          <button onClick={() => setInterval('yearly')}
-            className={`px-3 py-1 text-xs rounded ${interval === 'yearly' ? 'bg-primary text-primary-foreground' : ''}`}>Yearly</button>
+          <button onClick={() => setBillingInterval("monthly")}
+            className={`px-3 py-1 text-xs rounded ${billingInterval === 'monthly' ? 'bg-primary text-primary-foreground' : ''}`}>Monthly</button>
+          <button onClick={() => setBillingInterval("yearly")}
+            className={`px-3 py-1 text-xs rounded ${billingInterval === 'yearly' ? 'bg-primary text-primary-foreground' : ''}`}>Yearly</button>
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
         {plans.map((p) => {
           const isCurrent = currentSlug === p.slug;
-          const price = interval === 'yearly' ? p.price_yearly ?? (p.price_monthly * 10) : p.price_monthly;
+          const price = billingInterval === 'yearly' ? p.price_yearly ?? (p.price_monthly * 10) : p.price_monthly;
           return (
             <Card key={p.id} className={isCurrent ? 'border-primary ring-1 ring-primary/40' : ''}>
               <CardHeader>
@@ -140,7 +140,7 @@ export function SubscriptionTab() {
                 <CardDescription>{p.description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-3xl font-bold">${price}<span className="text-sm font-normal text-muted-foreground">/{interval === 'yearly' ? 'yr' : 'mo'}</span></div>
+                <div className="text-3xl font-bold">${price}<span className="text-sm font-normal text-muted-foreground">/{billingInterval === 'yearly' ? 'yr' : 'mo'}</span></div>
                 <ul className="text-sm space-y-1 text-muted-foreground">
                   <li>{p.max_users === -1 ? 'Unlimited' : p.max_users} users</li>
                   <li>{p.max_jobs === -1 ? 'Unlimited' : p.max_jobs} jobs</li>
@@ -155,7 +155,7 @@ export function SubscriptionTab() {
                 )}
                 {isCurrent && (
                   <Button variant="outline" className="w-full" disabled={busy === p.id} onClick={() => change(p, 'switch')}>
-                    <RefreshCcw className="h-4 w-4" /> Switch to {interval === 'monthly' ? 'Monthly' : 'Yearly'}
+                    <RefreshCcw className="h-4 w-4" /> Switch to {billingInterval === 'monthly' ? 'Monthly' : 'Yearly'}
                   </Button>
                 )}
               </CardContent>
