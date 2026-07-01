@@ -38,11 +38,12 @@ const TONE: Record<string, string> = {
   'promo.applied': 'text-primary bg-primary/10 border-primary/30',
 };
 
-function pickIcon(action: string) {
+function pickIcon(action: string | null | undefined) {
   return ICON[action] ?? CheckCircle2;
 }
 
-function label(action: string) {
+function label(action: string | null | undefined) {
+  if (!action) return 'Billing Event';
   return action.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -57,20 +58,20 @@ export function TimelineTab() {
         {entries.length === 0 && <div className="text-sm text-muted-foreground">No billing activity yet.</div>}
         <ol className="relative border-l border-border ml-3 space-y-6">
           {entries.map((e) => {
-            const Icon = pickIcon(e.action);
-            const tone = TONE[e.action] ?? 'text-muted-foreground bg-muted border-border';
+            const Icon = pickIcon(e?.action);
+            const tone = TONE[e?.action ?? ''] ?? 'text-muted-foreground bg-muted border-border';
             return (
               <li key={e.id} className="ml-6">
                 <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full border ${tone}`}>
                   <Icon className="h-3.5 w-3.5" />
                 </span>
                 <div className="flex flex-wrap items-baseline gap-x-3">
-                  <h4 className="font-medium text-sm">{label(e.action)}</h4>
+                  <h4 className="font-medium text-sm">{label(e?.action)}</h4>
                   <time className="text-xs text-muted-foreground">
                     {(() => { try { return e.created_at ? formatDistanceToNow(new Date(e.created_at), { addSuffix: true }) : ''; } catch { return ''; } })()}
                   </time>
                 </div>
-                {e.metadata && Object.keys(e.metadata).length > 0 && (
+                {e?.metadata && typeof e.metadata === 'object' && Object.keys(e.metadata).length > 0 && (
                   <pre className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap break-words">
                     {JSON.stringify(e.metadata, null, 0).slice(0, 200)}
                   </pre>

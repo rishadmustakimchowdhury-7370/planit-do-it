@@ -14,20 +14,21 @@ import { PromoTab } from '@/components/billing/center/PromoTab';
 import { TimelineTab } from '@/components/billing/center/TimelineTab';
 import { NotificationsTab } from '@/components/billing/center/NotificationsTab';
 import { BillingDetailsTab } from '@/components/billing/center/BillingDetailsTab';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import {
   LayoutDashboard, Sparkles, Receipt, CreditCard, Gauge, Tag, History, Bell, Building2,
 } from 'lucide-react';
 
 const TABS = [
-  { value: 'overview', label: 'Overview', icon: LayoutDashboard, render: () => { console.log('BillingOverview'); return <OverviewTab />; } },
-  { value: 'subscription', label: 'Subscription', icon: Sparkles, render: () => { console.log('BillingSubscription'); return <SubscriptionTab />; } },
-  { value: 'invoices', label: 'Invoices', icon: Receipt, render: () => { console.log('BillingInvoices'); return <InvoicesTab />; } },
-  { value: 'payment-method', label: 'Payment Method', icon: CreditCard, render: () => { console.log('BillingPaymentMethod'); return <PaymentMethodTab />; } },
-  { value: 'usage', label: 'Usage', icon: Gauge, render: () => { console.log('BillingUsage'); return <UsageTab />; } },
-  { value: 'promo', label: 'Promo Codes', icon: Tag, render: () => { console.log('BillingPromo'); return <PromoTab />; } },
-  { value: 'timeline', label: 'Timeline', icon: History, render: () => { console.log('BillingTimeline'); return <TimelineTab />; } },
-  { value: 'notifications', label: 'Notifications', icon: Bell, render: () => { console.log('BillingNotifications'); return <NotificationsTab />; } },
-  { value: 'details', label: 'Billing Details', icon: Building2, render: () => { console.log('BillingDetails'); return <BillingDetailsTab />; } },
+  { value: 'overview', label: 'Overview', icon: LayoutDashboard, render: () => <OverviewTab /> },
+  { value: 'subscription', label: 'Subscription', icon: Sparkles, render: () => <SubscriptionTab /> },
+  { value: 'invoices', label: 'Invoices', icon: Receipt, render: () => <InvoicesTab /> },
+  { value: 'payment-method', label: 'Payment Method', icon: CreditCard, render: () => <PaymentMethodTab /> },
+  { value: 'usage', label: 'Usage', icon: Gauge, render: () => <UsageTab /> },
+  { value: 'promo', label: 'Promo Codes', icon: Tag, render: () => <PromoTab /> },
+  { value: 'timeline', label: 'Timeline', icon: History, render: () => <TimelineTab /> },
+  { value: 'notifications', label: 'Notifications', icon: Bell, render: () => <NotificationsTab /> },
+  { value: 'details', label: 'Billing Details', icon: Building2, render: () => <BillingDetailsTab /> },
 ];
 
 export default function BillingPage() {
@@ -35,8 +36,11 @@ export default function BillingPage() {
 
   return (
     <AppLayout title="Billing Center" subtitle="Manage your subscription, invoices and billing">
-      <div className="space-y-6">
+      <ErrorBoundary label="Billing Center">
+        <div className="space-y-6">
+          <ErrorBoundary label="Subscription status">
           <SubscriptionStatusBanner />
+          </ErrorBoundary>
 
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             <div className="overflow-x-auto -mx-1">
@@ -53,11 +57,14 @@ export default function BillingPage() {
 
             {TABS.map(t => (
               <TabsContent key={t.value} value={t.value} className="mt-6 focus-visible:outline-none">
-                {t.render()}
+                <ErrorBoundary label={t.label}>
+                  {t.render()}
+                </ErrorBoundary>
               </TabsContent>
             ))}
           </Tabs>
         </div>
+      </ErrorBoundary>
     </AppLayout>
   );
 }

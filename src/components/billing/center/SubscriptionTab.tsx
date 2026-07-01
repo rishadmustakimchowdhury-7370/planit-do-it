@@ -10,6 +10,12 @@ import { useAuth } from '@/lib/auth';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { toast } from 'sonner';
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? format(date, 'PP') : '—';
+}
+
 interface Plan {
   id: string; name: string; slug: string; description: string | null;
   price_monthly: number; price_yearly: number | null;
@@ -29,8 +35,9 @@ export function SubscriptionTab() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('subscription_plans')
+      const { data, error } = await supabase.from('subscription_plans')
         .select('*').eq('is_active', true).order('display_order');
+      if (error) console.error('[SubscriptionTab] subscription_plans query failed', error);
       setPlans((data as any) ?? []);
       setLoading(false);
     })();
@@ -108,11 +115,11 @@ export function SubscriptionTab() {
         </CardHeader>
         <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
           <div><div className="text-muted-foreground text-xs uppercase">Renewal</div>
-            {sub.renewalDate ? format(new Date(sub.renewalDate), 'PP') : '—'}</div>
+            {formatDate(sub.renewalDate)}</div>
           <div><div className="text-muted-foreground text-xs uppercase">Trial Ends</div>
-            {sub.trialEnd ? format(new Date(sub.trialEnd), 'PP') : '—'}</div>
+            {formatDate(sub.trialEnd)}</div>
           <div><div className="text-muted-foreground text-xs uppercase">Grace Until</div>
-            {sub.graceUntil ? format(new Date(sub.graceUntil), 'PP') : '—'}</div>
+            {formatDate(sub.graceUntil)}</div>
         </CardContent>
       </Card>
 

@@ -16,6 +16,12 @@ function money(amount: number, currency: string) {
     .format((amount ?? 0) / 100);
 }
 
+function formatUnix(seconds: number | null | undefined, token: string) {
+  if (!Number.isFinite(Number(seconds))) return '—';
+  const date = new Date(Number(seconds) * 1000);
+  return Number.isFinite(date.getTime()) ? format(date, token) : '—';
+}
+
 const statusVariant = (s: string | null) => ({
   paid: 'default', open: 'secondary', uncollectible: 'destructive',
   draft: 'outline', void: 'outline',
@@ -86,7 +92,7 @@ export function InvoicesTab() {
               {paged.map((inv) => (
                 <TableRow key={inv.id} className="cursor-pointer" onClick={() => setOpen(inv)}>
                   <TableCell className="font-medium">{inv.number ?? inv.id}</TableCell>
-                  <TableCell>{format(new Date(inv.created * 1000), 'PP')}</TableCell>
+                  <TableCell>{formatUnix(inv.created, 'PP')}</TableCell>
                   <TableCell>{money(inv.total, inv.currency)}</TableCell>
                   <TableCell>{inv.discount_amount ? money(inv.discount_amount, inv.currency) : '—'}</TableCell>
                   <TableCell>{inv.tax ? money(inv.tax, inv.currency) : '—'}</TableCell>
@@ -128,9 +134,9 @@ export function InvoicesTab() {
               <div className="mt-6 space-y-4 text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div><div className="text-xs uppercase text-muted-foreground">Status</div><Badge variant={statusVariant(open.status)}>{open.status}</Badge></div>
-                  <div><div className="text-xs uppercase text-muted-foreground">Issued</div>{format(new Date(open.created * 1000), 'PPP')}</div>
-                  <div><div className="text-xs uppercase text-muted-foreground">Period Start</div>{format(new Date(open.period_start * 1000), 'PP')}</div>
-                  <div><div className="text-xs uppercase text-muted-foreground">Period End</div>{format(new Date(open.period_end * 1000), 'PP')}</div>
+                  <div><div className="text-xs uppercase text-muted-foreground">Issued</div>{formatUnix(open.created, 'PPP')}</div>
+                  <div><div className="text-xs uppercase text-muted-foreground">Period Start</div>{formatUnix(open.period_start, 'PP')}</div>
+                  <div><div className="text-xs uppercase text-muted-foreground">Period End</div>{formatUnix(open.period_end, 'PP')}</div>
                 </div>
                 <div className="border-t pt-3 space-y-1">
                   <div className="flex justify-between"><span>Subtotal</span><span>{money(open.subtotal, open.currency)}</span></div>

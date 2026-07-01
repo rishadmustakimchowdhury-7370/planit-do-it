@@ -7,6 +7,12 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { useStripePaymentMethod } from '@/hooks/useBillingCenter';
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? format(date, 'MMM d, yyyy') : '—';
+}
+
 function Stat({ icon: Icon, label, value, hint, tone = 'default' }: {
   icon: any; label: string; value: string; hint?: string;
   tone?: 'default' | 'success' | 'warning' | 'destructive';
@@ -55,10 +61,10 @@ export function OverviewTab() {
         <Stat icon={TrendingUp} label="Status" value={sub.status ?? 'inactive'} tone={statusTone as any}
               hint={sub.cancelled ? 'Will not renew' : sub.pastDue ? 'Past due' : 'Active'} />
         <Stat icon={Calendar} label="Next Renewal"
-              value={sub.renewalDate ? format(new Date(sub.renewalDate), 'MMM d, yyyy') : '—'} />
+              value={formatDate(sub.renewalDate)} />
         <Stat icon={Clock} label="Trial"
               value={sub.inTrial ? `${sub.remainingTrialDays ?? 0} days left` : '—'}
-              hint={sub.trialEnd ? format(new Date(sub.trialEnd), 'MMM d, yyyy') : ''} />
+              hint={sub.trialEnd ? formatDate(sub.trialEnd) : ''} />
         <Stat icon={CreditCard} label="Payment Method"
               value={pmLoading ? '…' : paymentMethod ? `${(paymentMethod.brand ?? 'CARD').toUpperCase()} •••• ${paymentMethod.last4 ?? '••••'}` : 'Not set'}
               hint={paymentMethod ? `Expires ${paymentMethod.exp_month ?? '--'}/${paymentMethod.exp_year ?? '----'}` : ''} />
