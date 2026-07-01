@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('recharts') || id.includes('d3-')) return 'charts';
           if (id.includes('date-fns')) return 'date';
           if (id.includes('react-hook-form') || id.includes('zod') || id.includes('@hookform')) return 'forms';
+          if (id.includes('country-state-city')) return 'country-data';
+          if (id.includes('xlsx')) return 'xlsx';
+          if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor';
+          if (id.includes('@dnd-kit')) return 'dnd';
+          if (id.includes('embla-carousel')) return 'carousel';
           return 'vendor';
         },
       },
