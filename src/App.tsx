@@ -206,8 +206,14 @@ const AppRoutes = () => (
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/return-policy" element={<ReturnPolicyPage />} />
+      <Route path="/refund-policy" element={<ReturnPolicyPage />} />
+      <Route path="/refund" element={<Navigate to="/refund-policy" replace />} />
       <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/cookies" element={<Navigate to="/cookie-policy" replace />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/help" element={<Navigate to="/faq" replace />} />
       <Route path="/share/candidate/:token" element={<PublicCandidateSharePage />} />
+
       
       {/* Protected routes */}
       <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />
