@@ -838,6 +838,16 @@ serve(async (req) => {
         }).eq("id", submissionIdForStatus);
       } catch {}
     }
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser,
+          _reason: (e instanceof Error ? e.message : "err").slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return fail("Package generation temporarily failed. Please retry.", e);
   }
+
 });
