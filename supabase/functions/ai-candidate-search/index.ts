@@ -1328,13 +1328,14 @@ Deno.serve(async (req) => {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[search] error", msg);
     // Refund reservation — failed requests must never consume quota.
-    try {
-      // @ts-ignore best-effort refund
-      if (typeof __meterReserved !== "undefined" && __meterReserved && typeof tenantId !== "undefined") {
-        // @ts-ignore
-        await admin.rpc("refund_feature_usage", { _tenant_id: tenantId, _feature_key: "ai_candidate_discovery", _amount: 1, _user_id: userData?.user?.id ?? null, _reason: msg.slice(0, 200) });
-      }
-    } catch (_) { /* noop */ }
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     // Always return 200 so the client can render fallback UI
     return json({ candidates: [], errors: { server: msg }, queries: [], message: msg });
   }
