@@ -163,7 +163,9 @@ export function useUsageLimits() {
           newWarnings.add('teamMembers');
         }
         
-        setLastWarned(prev => new Set([...prev, ...newWarnings]));
+        if (newWarnings.size > 0) {
+          setLastWarned(prev => new Set([...prev, ...newWarnings]));
+        }
       }
     } catch (error) {
       console.error('Error fetching usage stats:', error);
