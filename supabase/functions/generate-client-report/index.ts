@@ -309,8 +309,18 @@ CLEAN REGENERATION — IGNORE PRIOR EDITS:
 
     return j({ report: inserted });
   } catch (e) {
-    return j({ error: e instanceof Error ? e.message : String(e) }, 500);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
+    return j({ error: msg }, 500);
   }
+
 });
 
 function j(body: unknown, status = 200) {
