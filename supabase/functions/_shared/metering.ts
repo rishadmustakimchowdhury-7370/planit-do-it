@@ -65,6 +65,20 @@ interface MeterOptions {
   meter?: boolean;
 }
 
+function limitFromRpc(data: Record<string, unknown>, featureKey: string): FeatureLimitError {
+  return {
+    ok: false,
+    code: "FEATURE_LIMIT_EXCEEDED",
+    feature_key: (data.feature_key as string) ?? featureKey,
+    current_usage: Number(data.current_usage ?? 0),
+    allowed_usage: Number(data.allowed_usage ?? 0),
+    remaining: Number(data.remaining ?? 0),
+    upgrade_required: true,
+    message: `You have reached your plan limit for "${featureKey}". Upgrade to continue.`,
+  };
+}
+
+// Legacy fallback: older RPC versions RAISE-EXCEPTION with the payload embedded in the message.
 function parseLimitError(raw: string, featureKey: string): FeatureLimitError {
   // Postgres raises: "FEATURE_LIMIT_EXCEEDED:<feature>:<json>"
   const jsonStart = raw.indexOf("{");
@@ -72,17 +86,9 @@ function parseLimitError(raw: string, featureKey: string): FeatureLimitError {
   if (jsonStart >= 0) {
     try { details = JSON.parse(raw.slice(jsonStart)); } catch { /* ignore */ }
   }
-  return {
-    ok: false,
-    code: "FEATURE_LIMIT_EXCEEDED",
-    feature_key: (details.feature_key as string) ?? featureKey,
-    current_usage: Number(details.current_usage ?? 0),
-    allowed_usage: Number(details.allowed_usage ?? 0),
-    remaining: Number(details.remaining ?? 0),
-    upgrade_required: true,
-    message: `You have reached your plan limit for "${featureKey}". Upgrade to continue.`,
-  };
+  return limitFromRpc({ ...details, feature_key: details.feature_key ?? featureKey }, featureKey);
 }
+
 
 async function writeAudit(
   admin: SupabaseClient,
