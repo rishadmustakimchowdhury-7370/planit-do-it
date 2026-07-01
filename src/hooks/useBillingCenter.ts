@@ -141,12 +141,16 @@ export function useTenantBillingDetails() {
   const [data, setData] = useState<TenantBillingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setData(null); setLoading(false); return; }
     setLoading(true);
-    const { data: row } = await supabase
-      .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
-    setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
-    setLoading(false);
+    try {
+      const { data: row } = await supabase
+        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
+      setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+    } catch (e) {
+      console.warn('[useTenantBillingDetails]', e);
+      setData({ tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
 
