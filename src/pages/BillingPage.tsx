@@ -36,29 +36,35 @@ export default function BillingPage() {
 
   return (
     <AppLayout title="Billing Center" subtitle="Manage your subscription, invoices and billing">
-      <div className="space-y-6">
-        <SubscriptionStatusBanner />
+      <ErrorBoundary label="Billing Center">
+        <div className="space-y-6">
+          <ErrorBoundary label="Subscription status">
+            <SubscriptionStatusBanner />
+          </ErrorBoundary>
 
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <div className="overflow-x-auto -mx-1">
-            <TabsList className="bg-muted/40 p-1 h-auto flex flex-wrap gap-1">
-              {TABS.map(t => (
-                <TabsTrigger key={t.value} value={t.value}
-                  className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-2 px-3 py-2">
-                  <t.icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+          <Tabs value={tab} onValueChange={setTab} className="w-full">
+            <div className="overflow-x-auto -mx-1">
+              <TabsList className="bg-muted/40 p-1 h-auto flex flex-wrap gap-1">
+                {TABS.map(t => (
+                  <TabsTrigger key={t.value} value={t.value}
+                    className="data-[state=active]:bg-background data-[state=active]:shadow-sm gap-2 px-3 py-2">
+                    <t.icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-          {TABS.map(t => (
-            <TabsContent key={t.value} value={t.value} className="mt-6 focus-visible:outline-none">
-              {t.render()}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
+            {TABS.map(t => (
+              <TabsContent key={t.value} value={t.value} className="mt-6 focus-visible:outline-none">
+                <ErrorBoundary label={t.label}>
+                  {t.render()}
+                </ErrorBoundary>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+      </ErrorBoundary>
     </AppLayout>
   );
 }
