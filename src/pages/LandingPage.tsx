@@ -728,50 +728,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============ PRICING ============ */}
-      <section id="pricing" className="py-20 md:py-32 px-5 sm:px-6">
-        <div className="container mx-auto max-w-7xl">
-          <motion.div {...fadeUp} className="text-center max-w-3xl mx-auto mb-14">
-            <Eyebrow>Pricing</Eyebrow>
-            <h2 className="mt-4 text-3xl md:text-5xl font-semibold tracking-tight" style={{ color: NAVY }}>
-              Simple, transparent pricing
-            </h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Choose the plan that fits your team — full pricing details published soon.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {[
-              { name: 'Starter', desc: 'For solo recruiters getting started.', cta: 'Coming Soon' },
-              { name: 'Professional', desc: 'For growing recruitment teams.', cta: 'Coming Soon', highlight: true },
-              { name: 'Enterprise', desc: 'For multi-region recruitment agencies.', cta: 'Contact Sales' },
-            ].map((p) => (
-              <motion.div
-                key={p.name}
-                {...fadeUp}
-                className={`rounded-[20px] p-8 border transition-all ${
-                  p.highlight
-                    ? 'bg-white shadow-[0_30px_80px_-30px_rgba(24,44,111,0.35)] border-[color:var(--navy-15)] scale-[1.02]'
-                    : 'bg-white border-slate-200'
-                }`}
-              >
-                <h3 className="text-xl font-semibold" style={{ color: NAVY }}>{p.name}</h3>
-                <p className="mt-2 text-sm text-slate-600">{p.desc}</p>
-                <div className="mt-6 text-3xl font-semibold text-slate-400">—</div>
-                <p className="text-xs text-slate-500 mt-1">Pricing announced soon</p>
-                <Button
-                  className="mt-8 w-full text-white rounded-xl"
-                  style={{ background: p.highlight ? NAVY : '#0F172A' }}
-                  onClick={() => setBookDemoOpen(true)}
-                >
-                  {p.cta}
-                </Button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ============ PRICING (fully dynamic — driven by get_public_pricing) ============ */}
+      <PricingSection onContactSales={() => setBookDemoOpen(true)} />
 
       {/* ============ FINAL CTA ============ */}
       <section className="py-20 md:py-32 px-5 sm:px-6">
