@@ -208,6 +208,12 @@ function shapeResults(raw: any, f: Filters) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // Hoisted metering state for outer-catch refund (Batch A / Phase 2)
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "open_web_discovery";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
@@ -230,6 +236,22 @@ Deno.serve(async (req) => {
     const tenantRoleSet = new Set((roles ?? []).filter((r: any) => r.tenant_id === tenantId).map((r: any) => r.role));
     const allowed = tenantRoleSet.has("owner") || tenantRoleSet.has("manager") || roleSet.has("super_admin");
     if (!allowed) return json({ error: "Forbidden: Open Web discovery requires Owner or Manager role." }, 403);
+
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userId;
+    // ── Server-side metering ────────────────────────────────────────────────
+    const __reserve = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userId,
+    });
+    if (__reserve.error) {
+      const m = __reserve.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
 
     const provider = pickProvider();
     if (!provider) return json({ error: "No AI provider configured (set OPENAI_API_KEY or LOVABLE_API_KEY)." }, 500);
