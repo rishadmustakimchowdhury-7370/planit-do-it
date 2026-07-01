@@ -163,9 +163,9 @@ export function useTenantBillingDetails() {
     setLoading(true);
     try {
       const { data: row, error } = await supabase
-        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
+        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).limit(1);
       if (error) console.error('[useTenantBillingDetails] tenant_billing_details query failed', error);
-      setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+      setData(((row as any[])?.[0] as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
     } catch (e) {
       console.warn('[useTenantBillingDetails]', e);
       setData({ tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
