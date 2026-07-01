@@ -23,24 +23,20 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
+        // IMPORTANT: keep manualChunks limited to LEAF libraries only.
+        // Splitting React/react-dom or shared runtime deps into their own
+        // chunk while other vendor libs land in a generic "vendor" chunk
+        // creates a circular import (vendor <-> react-vendor) that leaves
+        // React's exports undefined on hard reload ("Cannot read properties
+        // of undefined (reading 'forwardRef')"). Let Rollup handle the
+        // shared graph automatically; only isolate large, route-specific
+        // libraries so they lazy-load with their routes.
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-          if (id.includes('react-dom') || id.includes('scheduler') || id.match(/[\\/]react[\\/]/)) return 'react-vendor';
-          if (id.includes('react-router')) return 'router';
-          if (id.includes('@tanstack')) return 'query';
-          if (id.includes('@supabase')) return 'supabase';
-          if (id.includes('@radix-ui')) return 'radix';
-          if (id.includes('lucide-react')) return 'icons';
-          if (id.includes('framer-motion')) return 'motion';
-          if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-          if (id.includes('date-fns')) return 'date';
-          if (id.includes('react-hook-form') || id.includes('zod') || id.includes('@hookform')) return 'forms';
           if (id.includes('country-state-city')) return 'country-data';
           if (id.includes('xlsx')) return 'xlsx';
           if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor';
-          if (id.includes('@dnd-kit')) return 'dnd';
-          if (id.includes('embla-carousel')) return 'carousel';
-          return 'vendor';
+          if (id.includes('recharts') || id.includes('d3-')) return 'charts';
         },
       },
     },
