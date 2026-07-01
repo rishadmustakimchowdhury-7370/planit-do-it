@@ -14,30 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _rc_lifecycle_probe: {
-        Row: {
-          correlation_id: string | null
-          id: number
-          ran_at: string
-          result: Json | null
-          step: string
-        }
-        Insert: {
-          correlation_id?: string | null
-          id?: number
-          ran_at?: string
-          result?: Json | null
-          step: string
-        }
-        Update: {
-          correlation_id?: string | null
-          id?: number
-          ran_at?: string
-          result?: Json | null
-          step?: string
-        }
-        Relationships: []
-      }
       activities: {
         Row: {
           action: string
