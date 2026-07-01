@@ -296,6 +296,14 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[open-web-client-discovery] fatal", msg);
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return json({ error: msg }, 500);
   }
 });
