@@ -9,7 +9,9 @@ import { CookieConsentProvider } from "@/lib/cookie-consent";
 import { DynamicHead } from "@/components/DynamicHead";
 import { CookieConsentBanner } from "@/components/cookie/CookieConsentBanner";
 import { FeatureRoute } from "@/components/routing/FeatureRoute";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { Loader2 } from "lucide-react";
+
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -131,10 +133,17 @@ const queryClient = new QueryClient({
 
 // Loading fallback component
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <Loader2 className="h-8 w-8 animate-spin text-accent" />
+  <div
+    className="min-h-screen flex items-center justify-center bg-background"
+    role="status"
+    aria-live="polite"
+    aria-label="Loading"
+  >
+    <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+    <span className="sr-only">Loading…</span>
   </div>
 );
+
 
 // Protected route wrapper with role-based dashboard routing
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -303,23 +312,28 @@ const AppRoutes = () => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <CookieConsentProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <DynamicHead />
-            <AppRoutes />
-            <Suspense fallback={null}>
-              <LiveChatWidget />
-            </Suspense>
-            <CookieConsentBanner />
-          </BrowserRouter>
-        </TooltipProvider>
-      </CookieConsentProvider>
-    </AuthProvider>
+    <ErrorBoundary label="Application">
+      <AuthProvider>
+        <CookieConsentProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <DynamicHead />
+              <ErrorBoundary label="Routes">
+                <AppRoutes />
+              </ErrorBoundary>
+              <Suspense fallback={null}>
+                <LiveChatWidget />
+              </Suspense>
+              <CookieConsentBanner />
+            </BrowserRouter>
+          </TooltipProvider>
+        </CookieConsentProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   </QueryClientProvider>
 );
 
 export default App;
+
