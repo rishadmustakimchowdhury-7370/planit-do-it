@@ -28,7 +28,7 @@ const statusVariant = (s: string | null) => ({
 } as Record<string, any>)[s ?? ''] ?? 'outline';
 
 export function InvoicesTab() {
-  const { invoices, loading, error, refresh } = useStripeInvoices();
+  const { invoices, loading, error, message, refresh } = useStripeInvoices();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [page, setPage] = useState(0);
@@ -69,7 +69,10 @@ export function InvoicesTab() {
         </CardContent>
       </Card>
 
-      {error && <div className="text-sm text-destructive">{error}</div>}
+      {error && <div className="text-sm text-muted-foreground">{error}</div>}
+      {!error && message && invoices.length === 0 && (
+        <div className="text-sm text-muted-foreground">{message}</div>
+      )}
 
       <Card>
         <CardContent className="p-0">

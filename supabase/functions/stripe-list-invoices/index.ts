@@ -15,7 +15,12 @@ serve(async (req) => {
 
   try {
     const { secretKey } = await getStripeCredentials(supabase);
-    if (!secretKey) throw new Error("Stripe is not configured");
+    if (!secretKey) {
+      return new Response(
+        JSON.stringify({ invoices: [], has_more: false, message: "No invoices available yet." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const stripe = new Stripe(secretKey, { apiVersion: "2025-08-27.basil" });
 
     const url = new URL(req.url);
@@ -23,9 +28,17 @@ serve(async (req) => {
     const startingAfter = url.searchParams.get("starting_after") ?? undefined;
     const statusFilter = url.searchParams.get("status") ?? undefined;
 
-    const ctx = await resolveBillingContext(supabase, stripe, req.headers.get("Authorization"));
-    if (!ctx.stripeCustomerId) {
+    let ctx;
+    try {
+      ctx = await resolveBillingContext(supabase, stripe, req.headers.get("Authorization"));
+    } catch (e) {
+      console.warn("[stripe-list-invoices] context resolution failed:", (e as Error).message);
       return new Response(JSON.stringify({ invoices: [], has_more: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!ctx.stripeCustomerId) {
+      return new Response(JSON.stringify({ invoices: [], has_more: false, message: "No invoices available yet." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
