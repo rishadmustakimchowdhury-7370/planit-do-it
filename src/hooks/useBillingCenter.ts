@@ -104,13 +104,17 @@ export function useBillingNotifications() {
   const [items, setItems] = useState<BillingNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.rpc('get_billing_notifications', {
-      p_tenant_id: tenantId, p_limit: 50,
-    });
-    setItems((data as any) ?? []);
-    setLoading(false);
+    try {
+      const { data } = await supabase.rpc('get_billing_notifications', {
+        p_tenant_id: tenantId, p_limit: 50,
+      });
+      setItems((data as any) ?? []);
+    } catch (e) {
+      console.warn('[useBillingNotifications]', e);
+      setItems([]);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { items, loading, refresh };
