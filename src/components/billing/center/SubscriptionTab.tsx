@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
 
 interface Plan {
   id: string; name: string; slug: string; description: string | null;
