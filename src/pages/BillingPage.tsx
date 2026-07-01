@@ -14,6 +14,7 @@ import { PromoTab } from '@/components/billing/center/PromoTab';
 import { TimelineTab } from '@/components/billing/center/TimelineTab';
 import { NotificationsTab } from '@/components/billing/center/NotificationsTab';
 import { BillingDetailsTab } from '@/components/billing/center/BillingDetailsTab';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import {
   LayoutDashboard, Sparkles, Receipt, CreditCard, Gauge, Tag, History, Bell, Building2,
 } from 'lucide-react';
