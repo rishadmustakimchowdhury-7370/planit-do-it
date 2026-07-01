@@ -119,6 +119,13 @@ serve(async (req) => {
   let submissionIdForStatus: string | null = null;
   let adminForStatus: any = null;
 
+  // Batch A / Phase 2 metering state
+  let __meterAdmin: any = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "executive_assessment";
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return fail("Please sign in again to generate this pack.");
@@ -137,6 +144,27 @@ serve(async (req) => {
     const { data: userData, error: ue } = await supabase.auth.getUser();
     if (ue || !userData?.user) return fail("Your session has expired. Please sign in again.");
     const userId = userData.user.id;
+
+    // Resolve tenant & meter (Batch A / Phase 2)
+    const { data: __profile } = await admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const __tenantId = (__profile?.tenant_id as string | null) ?? null;
+    __meterAdmin = admin; __meterTenant = __tenantId; __meterUser = userId;
+    if (__tenantId) {
+      const __r = await admin.rpc("check_and_reserve_feature_usage", {
+        _tenant_id: __tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userId,
+      });
+      if (__r.error) {
+        const m = __r.error.message ?? "";
+        if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+          return new Response(JSON.stringify({
+            error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+            code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+          }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        console.error("[meter] reserve error", m);
+      } else { __meterReserved = true; }
+    }
+
 
     const body = await req.json().catch(() => ({} as any));
     const { submission_id, components: reqComponents } = body || {};
@@ -810,6 +838,16 @@ serve(async (req) => {
         }).eq("id", submissionIdForStatus);
       } catch {}
     }
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser,
+          _reason: (e instanceof Error ? e.message : "err").slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return fail("Package generation temporarily failed. Please retry.", e);
   }
+
 });

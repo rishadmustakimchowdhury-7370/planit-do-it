@@ -41,6 +41,11 @@ const EMPLOYEE_RANGES: Record<string, string> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_prospect_search";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
@@ -57,6 +62,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
     const tenantId = profile.tenant_id as string;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userId;
 
     const { data: roles } = await admin
       .from("user_roles").select("role,tenant_id").eq("user_id", userId);
@@ -67,6 +73,22 @@ Deno.serve(async (req) => {
     if (!allowed) {
       return json({ error: "Forbidden: Apollo search requires Owner or Manager role." }, 403);
     }
+
+    // Server-side metering (Batch A / Phase 2)
+    const __r = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userId,
+    });
+    if (__r.error) {
+      const m = __r.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
+
 
     const encKey = Deno.env.get("APOLLO_ENCRYPTION_KEY");
     console.log("[apollo-search] tenant", tenantId, "hasEncKey", !!encKey);
@@ -262,6 +284,15 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}\n${e.stack ?? ""}` : String(e);
     console.error("[apollo-search] fatal", msg);
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: (e instanceof Error ? e.message : "err").slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
   }
+
 });

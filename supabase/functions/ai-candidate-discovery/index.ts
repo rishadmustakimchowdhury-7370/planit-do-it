@@ -82,15 +82,42 @@ async function extractPdfWithOpenAI(fileBase64: string, fileName: string): Promi
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // ── Batch A / Phase 2 metering state (refund on failure) ────────────
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_candidate_discovery";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return json({ error: "Unauthorized" }, 401);
+    const admin = createClient(supabaseUrl, serviceKey);
+    const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userData.user.id).maybeSingle();
+    const tenantId = (profile?.tenant_id as string | null) ?? null;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userData.user.id;
+    if (tenantId) {
+      const __r = await admin.rpc("check_and_reserve_feature_usage", {
+        _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userData.user.id,
+      });
+      if (__r.error) {
+        const m = __r.error.message ?? "";
+        if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+          return new Response(JSON.stringify({
+            error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+            code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+          }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        console.error("[meter] reserve error", m);
+      } else { __meterReserved = true; }
+    }
+
 
     const body = await req.json().catch(() => ({}));
     const prompt = (body.prompt ?? "").toString().trim();
@@ -147,6 +174,15 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[discovery] error:", msg);
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return json({ error: msg }, 500);
   }
+
 });

@@ -193,3 +193,25 @@ verify_jwt = true
 
 [functions.sync-stripe-coupons]
 verify_jwt = true
+
+[functions.ai-compose-invoice-email]
+verify_jwt = true
+
+[functions.ai-candidate-discovery]
+verify_jwt = true
+
+[functions.ai-candidate-search]
+verify_jwt = true
+
+[functions.ai-prospect-parse]
+verify_jwt = true
+
+[functions.apollo-search]
+verify_jwt = true
+
+[functions.open-web-candidate-discovery]
+verify_jwt = true
+
+[functions.open-web-client-discovery]
+verify_jwt = true
+
