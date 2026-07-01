@@ -61,6 +61,13 @@ async function invokeFunction(name: string, body: any, authHeader: string): Prom
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // ── Batch A / Phase 2 metering state (refund on failure) ────────────
+  let __meterAdmin: any = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_matching";
+
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -89,6 +96,28 @@ serve(async (req) => {
         });
       }
       effectiveAuthHeader = authHeader;
+
+      // Resolve tenant + reserve usage for direct user calls. Internal queue
+      // drains are NOT metered here (upstream owns the reservation) to avoid
+      // double counting.
+      const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userData.user.id).maybeSingle();
+      const tenantId = (profile?.tenant_id as string | null) ?? null;
+      __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userData.user.id;
+      if (tenantId) {
+        const __r = await admin.rpc("check_and_reserve_feature_usage", {
+          _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userData.user.id,
+        });
+        if (__r.error) {
+          const m = __r.error.message ?? "";
+          if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+            return new Response(JSON.stringify({
+              error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+              code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+            }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          console.error("[meter] reserve error", m);
+        } else { __meterReserved = true; }
+      }
     }
 
     const { job_id, candidate_id, force } = await req.json();
@@ -97,6 +126,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     // 1. Load job + candidate (RLS-checked for user calls; admin for worker calls)
     const reader = isInternal ? admin : supabase;
@@ -222,8 +252,18 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
     console.error("validate-candidate-fit-v2 error:", e);
-    return new Response(JSON.stringify({ error: e?.message ?? "unknown" }), {
+    const msg = e?.message ?? "unknown";
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: String(msg).slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
+
