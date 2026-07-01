@@ -138,6 +138,16 @@ ${b.custom_instructions ? `\nADDITIONAL INSTRUCTIONS: ${b.custom_instructions}` 
     });
   } catch (e: any) {
     console.error("[ai-compose-invoice-email]", e);
-    return new Response(JSON.stringify({ error: e?.message || "Failed" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const msg = e?.message || "Failed";
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc('refund_feature_usage', {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: String(msg).slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+
 });
