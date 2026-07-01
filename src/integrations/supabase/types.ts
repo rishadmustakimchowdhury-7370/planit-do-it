@@ -8035,7 +8035,11 @@ export type Database = {
             }
             Returns: Json
           }
+      enforcement_add_tenant: { Args: { _tenant_id: string }; Returns: Json }
+      enforcement_arm_global: { Args: never; Returns: Json }
+      enforcement_disarm_global: { Args: never; Returns: Json }
       enforcement_enabled: { Args: never; Returns: boolean }
+      enforcement_remove_tenant: { Args: { _tenant_id: string }; Returns: Json }
       fix_invited_user_profile: {
         Args: { p_email: string; p_invitation_id: string; p_user_id: string }
         Returns: undefined
@@ -8194,6 +8198,7 @@ export type Database = {
       }
       is_recruiter: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_tenant_enforced: { Args: { _tenant_id: string }; Returns: boolean }
       lead_can_access: {
         Args: { _assigned_to: string; _tenant_id: string; _user_id: string }
         Returns: boolean
