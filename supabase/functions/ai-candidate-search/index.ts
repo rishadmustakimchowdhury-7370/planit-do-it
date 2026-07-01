@@ -1137,22 +1137,21 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userData.user.id).maybeSingle();
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
     const tenantId = profile.tenant_id as string;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userData.user.id;
 
     // ── Server-side metering (Batch A / Phase 2) ───────────────────────────────
     // Atomically checks plan limit + reserves 1 unit of ai_candidate_discovery.
     // Respects platform_settings.enforce_plan_limits toggle: while OFF (default)
     // this only meters; when ON it blocks over-limit callers with 402.
-    const __meterFeature = "ai_candidate_discovery";
-    let __meterReserved = false;
     const __reserve = await admin.rpc("check_and_reserve_feature_usage", {
-      _tenant_id: tenantId, _feature_key: __meterFeature, _amount: 1, _user_id: userData.user.id,
+      _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userData.user.id,
     });
     if (__reserve.error) {
       const m = __reserve.error.message ?? "";
       if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
         return new Response(JSON.stringify({
-          error: `Plan limit reached for ${__meterFeature}. Upgrade to continue.`,
-          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeature, upgrade_required: true,
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
         }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       console.error("[meter] reserve error", m);
