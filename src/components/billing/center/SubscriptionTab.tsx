@@ -44,7 +44,7 @@ export function SubscriptionTab() {
     setBusy(plan.id);
     try {
       const { data, error } = await supabase.functions.invoke('change-subscription', {
-        body: { plan_id: plan.id, billingInterval, mode },
+        body: { plan_id: plan.id, interval: billingInterval, mode },
       });
       if (error) throw error;
       if ((data as any)?.checkout_url) { window.location.href = (data as any).checkout_url; return; }
@@ -117,7 +117,7 @@ export function SubscriptionTab() {
       </Card>
 
       <div className="flex items-center justify-end gap-2">
-        <span className="text-sm text-muted-foreground">Billing billingInterval:</span>
+        <span className="text-sm text-muted-foreground">Billing interval:</span>
         <div className="inline-flex rounded-md border p-0.5">
           <button onClick={() => setBillingInterval("monthly")}
             className={`px-3 py-1 text-xs rounded ${billingInterval === 'monthly' ? 'bg-primary text-primary-foreground' : ''}`}>Monthly</button>
