@@ -69,7 +69,10 @@ export function InvoicesTab() {
         </CardContent>
       </Card>
 
-      {error && <div className="text-sm text-destructive">{error}</div>}
+      {error && <div className="text-sm text-muted-foreground">{error}</div>}
+      {!error && message && invoices.length === 0 && (
+        <div className="text-sm text-muted-foreground">{message}</div>
+      )}
 
       <Card>
         <CardContent className="p-0">
