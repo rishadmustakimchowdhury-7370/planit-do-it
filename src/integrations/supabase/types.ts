@@ -7929,6 +7929,15 @@ export type Database = {
           candidate_id: string
         }[]
       }
+      check_and_reserve_feature_usage: {
+        Args: {
+          _amount?: number
+          _feature_key: string
+          _tenant_id: string
+          _user_id?: string
+        }
+        Returns: Json
+      }
       client_can_see_candidate: {
         Args: { _job_candidate_id: string; _user_id: string }
         Returns: boolean
@@ -8241,6 +8250,16 @@ export type Database = {
       recruiter_intelligence_summary: {
         Args: { _tenant_id: string }
         Returns: Json
+      }
+      refund_feature_usage: {
+        Args: {
+          _amount?: number
+          _feature_key: string
+          _reason?: string
+          _tenant_id: string
+          _user_id?: string
+        }
+        Returns: number
       }
       reset_usage_counters_for_period: {
         Args: { _period_end: string; _period_start: string; _tenant_id: string }

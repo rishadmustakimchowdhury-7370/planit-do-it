@@ -170,6 +170,12 @@ function clampTarget(t: number) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // Hoisted metering state for outer-catch refund (Batch A / Phase 2)
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "open_web_discovery";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
@@ -184,6 +190,23 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", u.user.id).maybeSingle();
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
+    const tenantId = profile.tenant_id as string;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = u.user.id;
+
+    // ── Server-side metering ────────────────────────────────────────────────
+    const __reserve = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: u.user.id,
+    });
+    if (__reserve.error) {
+      const m = __reserve.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
 
     const provider = pickProvider();
     if (!provider) return json({ error: "No AI provider configured (set OPENAI_API_KEY or LOVABLE_API_KEY)." }, 500);
@@ -298,6 +321,15 @@ Deno.serve(async (req) => {
       total: returned.length,
     });
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : "Server error" }, 500);
+    const msg = e instanceof Error ? e.message : "Server error";
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
+    return json({ error: msg }, 500);
   }
 });

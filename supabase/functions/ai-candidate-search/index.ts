@@ -1115,6 +1115,12 @@ async function runPass(
 // ---------------- Handler -------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // Hoisted so the outer catch can refund on failure (Batch A / Phase 2).
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_candidate_discovery";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
@@ -1131,6 +1137,25 @@ Deno.serve(async (req) => {
     const { data: profile } = await admin.from("profiles").select("tenant_id").eq("id", userData.user.id).maybeSingle();
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
     const tenantId = profile.tenant_id as string;
+    __meterAdmin = admin; __meterTenant = tenantId; __meterUser = userData.user.id;
+
+    // ── Server-side metering (Batch A / Phase 2) ───────────────────────────────
+    // Atomically checks plan limit + reserves 1 unit of ai_candidate_discovery.
+    // Respects platform_settings.enforce_plan_limits toggle: while OFF (default)
+    // this only meters; when ON it blocks over-limit callers with 402.
+    const __reserve = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenantId, _feature_key: __meterFeatureKey, _amount: 1, _user_id: userData.user.id,
+    });
+    if (__reserve.error) {
+      const m = __reserve.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeatureKey}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeatureKey, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
 
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
@@ -1302,6 +1327,15 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Server error";
     console.error("[search] error", msg);
+    // Refund reservation — failed requests must never consume quota.
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc("refund_feature_usage", {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     // Always return 200 so the client can render fallback UI
     return json({ candidates: [], errors: { server: msg }, queries: [], message: msg });
   }
