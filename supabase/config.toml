@@ -169,3 +169,27 @@ verify_jwt = true
 
 [functions.build-submission-pack]
 verify_jwt = true
+
+[functions.stripe-list-invoices]
+verify_jwt = true
+
+[functions.stripe-get-invoice]
+verify_jwt = true
+
+[functions.stripe-payment-method]
+verify_jwt = true
+
+[functions.change-subscription]
+verify_jwt = true
+
+[functions.resume-subscription]
+verify_jwt = true
+
+[functions.admin-stripe-resync]
+verify_jwt = true
+
+[functions.admin-manual-invoice]
+verify_jwt = true
+
+[functions.sync-stripe-coupons]
+verify_jwt = true
