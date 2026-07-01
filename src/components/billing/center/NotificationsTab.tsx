@@ -33,7 +33,7 @@ export function NotificationsTab() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm truncate">{n.title}</span>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                      {(() => { try { return n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ''; } catch { return ''; } })()}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{n.message}</p>
