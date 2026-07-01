@@ -6994,6 +6994,7 @@ export type Database = {
           favicon_url: string | null
           grace_until: string | null
           id: string
+          is_internal: boolean
           is_paused: boolean | null
           is_suspended: boolean | null
           logo_url: string | null
@@ -7020,6 +7021,7 @@ export type Database = {
           favicon_url?: string | null
           grace_until?: string | null
           id?: string
+          is_internal?: boolean
           is_paused?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
@@ -7046,6 +7048,7 @@ export type Database = {
           favicon_url?: string | null
           grace_until?: string | null
           id?: string
+          is_internal?: boolean
           is_paused?: boolean | null
           is_suspended?: boolean | null
           logo_url?: string | null
