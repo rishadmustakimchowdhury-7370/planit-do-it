@@ -172,9 +172,24 @@ export async function meterFeature<T>(
 
   const usage = (reserve.data ?? {}) as Record<string, unknown>;
 
-  // 2. Run the real action; refund on failure.
+  // 2. Run the real action; commit on success, refund on failure.
   try {
     const data = await action();
+
+    // Commit: move reservation into permanent used counter.
+    if (!reserve.error) {
+      try {
+        await admin.rpc("commit_feature_usage", {
+          _tenant_id: tenantId,
+          _feature_key: opts.featureKey,
+          _amount: amount,
+          _user_id: userId,
+        });
+      } catch (commitErr) {
+        console.error("[metering] commit failed", (commitErr as Error).message);
+      }
+    }
+
     await writeAudit(admin, {
       tenantId, userId,
       action: `${opts.featureKey}.success`,
@@ -192,6 +207,7 @@ export async function meterFeature<T>(
         enforced: Boolean(usage.enforced ?? false),
       },
     };
+
   } catch (err) {
     // Refund reservation — failed requests must never consume quota.
     if (!reserve.error) {
