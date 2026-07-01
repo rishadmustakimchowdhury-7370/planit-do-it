@@ -59,6 +59,9 @@ export function useStripePaymentMethod() {
     try {
       const { data } = await supabase.functions.invoke('stripe-payment-method');
       setPm((data as any)?.payment_method ?? null);
+    } catch (e) {
+      console.warn('[useStripePaymentMethod]', e);
+      setPm(null);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
