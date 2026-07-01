@@ -133,10 +133,17 @@ const queryClient = new QueryClient({
 
 // Loading fallback component
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <Loader2 className="h-8 w-8 animate-spin text-accent" />
+  <div
+    className="min-h-screen flex items-center justify-center bg-background"
+    role="status"
+    aria-live="polite"
+    aria-label="Loading"
+  >
+    <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden="true" />
+    <span className="sr-only">Loading…</span>
   </div>
 );
+
 
 // Protected route wrapper with role-based dashboard routing
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
