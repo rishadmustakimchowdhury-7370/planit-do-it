@@ -67,7 +67,7 @@ export function TimelineTab() {
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <h4 className="font-medium text-sm">{label(e.action)}</h4>
                   <time className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+                    {(() => { try { return e.created_at ? formatDistanceToNow(new Date(e.created_at), { addSuffix: true }) : ''; } catch { return ''; } })()}
                   </time>
                 </div>
                 {e.metadata && Object.keys(e.metadata).length > 0 && (
