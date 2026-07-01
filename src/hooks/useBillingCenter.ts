@@ -26,6 +26,7 @@ export function useStripeInvoices() {
   const [data, setData] = useState<StripeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -33,18 +34,24 @@ export function useStripeInvoices() {
       const { data: res, error } = await supabase.functions.invoke('stripe-list-invoices');
       if (error) {
         console.error('[useStripeInvoices] stripe-list-invoices failed', error);
-        throw error;
+        setData([]);
+        setMessage('No invoices available yet.');
+        setError(null);
+        return;
       }
       const invoices = (res as any)?.invoices;
       setData(Array.isArray(invoices) ? invoices : []);
+      setMessage((res as any)?.message ?? null);
       setError(null);
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to load invoices');
+      console.error('[useStripeInvoices] unexpected', e);
+      setError(null);
+      setMessage('No invoices available yet.');
       setData([]);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
-  return { invoices: data, loading, error, refresh };
+  return { invoices: data, loading, error, message, refresh };
 }
 
 export interface StripePaymentMethod {
