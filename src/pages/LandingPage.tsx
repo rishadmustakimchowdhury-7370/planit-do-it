@@ -785,49 +785,69 @@ export default function LandingPage() {
       {/* ============ FOOTER ============ */}
       <footer className="border-t border-slate-200 bg-white pt-16 pb-10 px-5 sm:px-6">
         <div className="container mx-auto max-w-7xl">
-          <div className="grid md:grid-cols-5 gap-10 mb-12">
-            <div className="md:col-span-2">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-10 mb-12">
+            <div className="col-span-2 md:col-span-2">
               <Logo size="md" />
               <p className="mt-4 text-sm text-slate-600 max-w-sm leading-relaxed">
                 {BRAND.name} — an AI-powered recruitment operating system for modern recruitment teams.
               </p>
-              <div className="flex items-center gap-3 mt-5">
-                <a href="#" aria-label="LinkedIn" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)]"><Linkedin className="h-4 w-4" /></a>
-                <a href="#" aria-label="Twitter" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)]"><Twitter className="h-4 w-4" /></a>
-                <a href="#" aria-label="GitHub" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)]"><Github className="h-4 w-4" /></a>
+              <div className="flex items-center gap-3 mt-5" aria-label="Social media">
+                <a href="https://www.linkedin.com/company/hiremetrics" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)] transition-colors"><Linkedin className="h-4 w-4" /></a>
+                <a href="https://x.com/hiremetrics" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)] transition-colors"><Twitter className="h-4 w-4" /></a>
+                <a href="https://www.facebook.com/hiremetrics" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)] transition-colors"><Facebook className="h-4 w-4" /></a>
+                <a href="https://www.youtube.com/@hiremetrics" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)] transition-colors"><Youtube className="h-4 w-4" /></a>
+                <a href="https://github.com/hiremetrics" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="w-9 h-9 rounded-lg border border-slate-200 flex items-center justify-center hover:border-[color:var(--navy-15)] text-slate-500 hover:text-[color:var(--navy)] transition-colors"><Github className="h-4 w-4" /></a>
               </div>
             </div>
+
             <div>
               <h4 className="text-sm font-semibold mb-4" style={{ color: NAVY }}>Platform</h4>
               <ul className="space-y-2.5 text-sm text-slate-600">
-                <li><a href="#features" className="hover:text-slate-900">Features</a></li>
-                <li><a href="#gallery" className="hover:text-slate-900">Gallery</a></li>
-                <li><a href="#pricing" className="hover:text-slate-900">Pricing</a></li>
+                <li><a href="#features" className="hover:text-slate-900 transition-colors">Features</a></li>
+                <li><a href="#gallery" className="hover:text-slate-900 transition-colors">Gallery</a></li>
+                <li><a href="#pricing" className="hover:text-slate-900 transition-colors">Pricing</a></li>
                 <li><span className="text-slate-400">Documentation (Coming Soon)</span></li>
               </ul>
             </div>
+
             <div>
               <h4 className="text-sm font-semibold mb-4" style={{ color: NAVY }}>Company</h4>
               <ul className="space-y-2.5 text-sm text-slate-600">
-                <li><Link to="/about" className="hover:text-slate-900">About</Link></li>
-                <li><Link to="/contact" className="hover:text-slate-900">Contact</Link></li>
+                <li><Link to="/about" className="hover:text-slate-900 transition-colors">About</Link></li>
+                <li><a href="#pricing" className="hover:text-slate-900 transition-colors">Pricing</a></li>
+                <li><Link to="/contact" className="hover:text-slate-900 transition-colors">Contact</Link></li>
+                <li><span className="text-slate-400">Blog (Coming Soon)</span></li>
               </ul>
             </div>
+
             <div>
-              <h4 className="text-sm font-semibold mb-4" style={{ color: NAVY }}>Legal</h4>
+              <h4 className="text-sm font-semibold mb-4" style={{ color: NAVY }}>Help</h4>
               <ul className="space-y-2.5 text-sm text-slate-600">
-                <li><Link to="/privacy" className="hover:text-slate-900">Privacy Policy</Link></li>
-                <li><Link to="/terms" className="hover:text-slate-900">Terms</Link></li>
-                <li><Link to="/cookies" className="hover:text-slate-900">Cookies</Link></li>
+                <li><Link to="/faq" className="hover:text-slate-900 transition-colors">FAQ</Link></li>
+                <li><Link to="/privacy" className="hover:text-slate-900 transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/refund-policy" className="hover:text-slate-900 transition-colors">Refund Policy</Link></li>
+                <li><Link to="/terms" className="hover:text-slate-900 transition-colors">Terms &amp; Conditions</Link></li>
+                <li><Link to="/cookie-policy" className="hover:text-slate-900 transition-colors">Cookie Policy</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold mb-4" style={{ color: NAVY }}>Support</h4>
+              <ul className="space-y-2.5 text-sm text-slate-600">
+                <li><Link to="/contact" className="hover:text-slate-900 transition-colors">Contact Support</Link></li>
+                <li><a href={`mailto:${BRAND.email}`} className="hover:text-slate-900 transition-colors">Email Us</a></li>
+                <li><span className="text-slate-400">Status (Coming Soon)</span></li>
               </ul>
             </div>
           </div>
+
           <div className="pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-slate-500">© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</p>
             <p className="text-xs text-slate-500">Built for modern recruitment teams.</p>
           </div>
         </div>
       </footer>
+
 
       {/* Dialogs */}
       <BookDemoDialog open={bookDemoOpen} onOpenChange={setBookDemoOpen} />
