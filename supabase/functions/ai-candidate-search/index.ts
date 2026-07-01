@@ -1132,6 +1132,26 @@ Deno.serve(async (req) => {
     if (!profile?.tenant_id) return json({ error: "No tenant" }, 403);
     const tenantId = profile.tenant_id as string;
 
+    // ── Server-side metering (Batch A / Phase 2) ───────────────────────────────
+    // Atomically checks plan limit + reserves 1 unit of ai_candidate_discovery.
+    // Respects platform_settings.enforce_plan_limits toggle: while OFF (default)
+    // this only meters; when ON it blocks over-limit callers with 402.
+    const __meterFeature = "ai_candidate_discovery";
+    let __meterReserved = false;
+    const __reserve = await admin.rpc("check_and_reserve_feature_usage", {
+      _tenant_id: tenantId, _feature_key: __meterFeature, _amount: 1, _user_id: userData.user.id,
+    });
+    if (__reserve.error) {
+      const m = __reserve.error.message ?? "";
+      if (m.includes("FEATURE_LIMIT_EXCEEDED")) {
+        return new Response(JSON.stringify({
+          error: `Plan limit reached for ${__meterFeature}. Upgrade to continue.`,
+          code: "FEATURE_LIMIT_EXCEEDED", feature_key: __meterFeature, upgrade_required: true,
+        }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      console.error("[meter] reserve error", m);
+    } else { __meterReserved = true; }
+
     const body = await req.json().catch(() => ({}));
     const criteria = (body.criteria ?? {}) as Criteria;
     const perProviderLimit = Math.min(50, Math.max(10, Number(body.limit ?? 25)));
