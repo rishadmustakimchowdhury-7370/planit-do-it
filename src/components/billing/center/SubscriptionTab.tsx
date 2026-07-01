@@ -96,9 +96,9 @@ export function SubscriptionTab() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <CardTitle>Current Subscription</CardTitle>
-              <CardDescription>
+              <div className="text-sm text-muted-foreground">
                 {sub.planName ?? 'Free'} · <Badge variant="outline" className="capitalize">{sub.status ?? 'inactive'}</Badge>
-              </CardDescription>
+              </div>
             </div>
             <div className="flex gap-2">
               {sub.cancelled || sub.status === 'cancelled' ? (
