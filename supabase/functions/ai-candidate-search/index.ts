@@ -1115,6 +1115,12 @@ async function runPass(
 // ---------------- Handler -------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // Hoisted so the outer catch can refund on failure (Batch A / Phase 2).
+  let __meterAdmin: ReturnType<typeof createClient> | null = null;
+  let __meterTenant: string | null = null;
+  let __meterUser: string | null = null;
+  let __meterReserved = false;
+  const __meterFeatureKey = "ai_candidate_discovery";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
