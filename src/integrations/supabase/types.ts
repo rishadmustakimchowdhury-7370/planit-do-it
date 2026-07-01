@@ -6319,11 +6319,15 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          default_limit: number | null
           description: string | null
           feature_key: string
           feature_name: string
+          icon: string | null
           id: string
           is_addon: boolean
+          is_ai: boolean
+          is_archived: boolean
           is_metered: boolean
           show_on_pricing_page: boolean
           sort_order: number
@@ -6333,11 +6337,15 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          default_limit?: number | null
           description?: string | null
           feature_key: string
           feature_name: string
+          icon?: string | null
           id?: string
           is_addon?: boolean
+          is_ai?: boolean
+          is_archived?: boolean
           is_metered?: boolean
           show_on_pricing_page?: boolean
           sort_order?: number
@@ -6347,11 +6355,15 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          default_limit?: number | null
           description?: string | null
           feature_key?: string
           feature_name?: string
+          icon?: string | null
           id?: string
           is_addon?: boolean
+          is_ai?: boolean
+          is_archived?: boolean
           is_metered?: boolean
           show_on_pricing_page?: boolean
           sort_order?: number
@@ -6363,36 +6375,48 @@ export type Database = {
       subscription_plan_features: {
         Row: {
           created_at: string
+          custom_label: string | null
+          display_order: number
           enabled: boolean
           feature_id: string
           id: string
           limit_value: number | null
+          monthly_limit: number | null
           monthly_reset: boolean
           plan_id: string
           unlimited: boolean
           updated_at: string
+          yearly_limit: number | null
         }
         Insert: {
           created_at?: string
+          custom_label?: string | null
+          display_order?: number
           enabled?: boolean
           feature_id: string
           id?: string
           limit_value?: number | null
+          monthly_limit?: number | null
           monthly_reset?: boolean
           plan_id: string
           unlimited?: boolean
           updated_at?: string
+          yearly_limit?: number | null
         }
         Update: {
           created_at?: string
+          custom_label?: string | null
+          display_order?: number
           enabled?: boolean
           feature_id?: string
           id?: string
           limit_value?: number | null
+          monthly_limit?: number | null
           monthly_reset?: boolean
           plan_id?: string
           unlimited?: boolean
           updated_at?: string
+          yearly_limit?: number | null
         }
         Relationships: [
           {
@@ -6413,20 +6437,28 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          badge: string | null
+          button_url: string | null
+          color: string | null
           created_at: string | null
           cta_label: string
           currency: string
           description: string | null
           display_order: number | null
+          enterprise: boolean
           features: Json | null
+          highlighted: boolean
+          icon: string | null
           id: string
           is_active: boolean | null
+          is_archived: boolean
           is_featured: boolean
           match_credits_monthly: number | null
           max_candidates: number | null
           max_jobs: number | null
           max_users: number | null
           name: string
+          popular: boolean
           price_monthly: number
           price_yearly: number
           show_on_pricing: boolean
@@ -6436,22 +6468,32 @@ export type Database = {
           stripe_product_id: string | null
           trial_days: number
           updated_at: string | null
+          yearly_discount_percentage: number | null
+          yearly_trial_days: number | null
         }
         Insert: {
+          badge?: string | null
+          button_url?: string | null
+          color?: string | null
           created_at?: string | null
           cta_label?: string
           currency?: string
           description?: string | null
           display_order?: number | null
+          enterprise?: boolean
           features?: Json | null
+          highlighted?: boolean
+          icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_archived?: boolean
           is_featured?: boolean
           match_credits_monthly?: number | null
           max_candidates?: number | null
           max_jobs?: number | null
           max_users?: number | null
           name: string
+          popular?: boolean
           price_monthly: number
           price_yearly: number
           show_on_pricing?: boolean
@@ -6461,22 +6503,32 @@ export type Database = {
           stripe_product_id?: string | null
           trial_days?: number
           updated_at?: string | null
+          yearly_discount_percentage?: number | null
+          yearly_trial_days?: number | null
         }
         Update: {
+          badge?: string | null
+          button_url?: string | null
+          color?: string | null
           created_at?: string | null
           cta_label?: string
           currency?: string
           description?: string | null
           display_order?: number | null
+          enterprise?: boolean
           features?: Json | null
+          highlighted?: boolean
+          icon?: string | null
           id?: string
           is_active?: boolean | null
+          is_archived?: boolean
           is_featured?: boolean
           match_credits_monthly?: number | null
           max_candidates?: number | null
           max_jobs?: number | null
           max_users?: number | null
           name?: string
+          popular?: boolean
           price_monthly?: number
           price_yearly?: number
           show_on_pricing?: boolean
@@ -6486,6 +6538,8 @@ export type Database = {
           stripe_product_id?: string | null
           trial_days?: number
           updated_at?: string | null
+          yearly_discount_percentage?: number | null
+          yearly_trial_days?: number | null
         }
         Relationships: []
       }
@@ -8030,6 +8084,7 @@ export type Database = {
       get_public_billing_setting: { Args: { _key: string }; Returns: Json }
       get_public_candidate_share: { Args: { p_token: string }; Returns: Json }
       get_public_platform_setting: { Args: { _key: string }; Returns: Json }
+      get_public_pricing: { Args: never; Returns: Json }
       get_team_invitation_by_token: {
         Args: { p_token: string }
         Returns: {
