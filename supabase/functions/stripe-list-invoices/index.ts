@@ -15,7 +15,12 @@ serve(async (req) => {
 
   try {
     const { secretKey } = await getStripeCredentials(supabase);
-    if (!secretKey) throw new Error("Stripe is not configured");
+    if (!secretKey) {
+      return new Response(
+        JSON.stringify({ invoices: [], has_more: false, message: "No invoices available yet." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const stripe = new Stripe(secretKey, { apiVersion: "2025-08-27.basil" });
 
     const url = new URL(req.url);
