@@ -13,7 +13,9 @@ import {
   Play, Menu, X, Workflow, Target, Briefcase, Building2, Search, Wallet,
   Receipt, TrendingUp, Mail, Linkedin, Twitter, Github, Shield, Lock,
   ServerCog, KeyRound, FileText, MessageSquare, Globe, ChevronRight,
+  Facebook, Youtube,
 } from 'lucide-react';
+
 
 /* Real product screenshots */
 import dashboardImg from '@/assets/crm/dashboard.jpg';
