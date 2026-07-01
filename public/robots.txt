@@ -12,3 +12,10 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /client/
+Disallow: /checkout/
+Disallow: /dashboard
+Disallow: /settings
+
+Sitemap: https://hiremetrics.co.uk/sitemap.xml
