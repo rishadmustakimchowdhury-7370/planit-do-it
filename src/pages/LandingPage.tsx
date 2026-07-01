@@ -7,6 +7,7 @@ import { Logo, BRAND } from '@/components/brand/Logo';
 import { BookDemoDialog } from '@/components/landing/BookDemoDialog';
 import { WatchDemoDialog } from '@/components/landing/WatchDemoDialog';
 import { PublicPromoBanner } from '@/components/promo/PublicPromoBanner';
+import { PricingSection } from '@/components/landing/PricingSection';
 import {
   ArrowRight, Brain, Users, Calendar, BarChart3, Sparkles, CheckCircle2,
   Play, Menu, X, Workflow, Target, Briefcase, Building2, Search, Wallet,
