@@ -59,6 +59,9 @@ export function useStripePaymentMethod() {
     try {
       const { data } = await supabase.functions.invoke('stripe-payment-method');
       setPm((data as any)?.payment_method ?? null);
+    } catch (e) {
+      console.warn('[useStripePaymentMethod]', e);
+      setPm(null);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -75,13 +78,17 @@ export function useBillingTimeline() {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setEntries([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.rpc('get_billing_timeline', {
-      p_tenant_id: tenantId, p_limit: 100, p_offset: 0,
-    });
-    setEntries((data as any) ?? []);
-    setLoading(false);
+    try {
+      const { data } = await supabase.rpc('get_billing_timeline', {
+        p_tenant_id: tenantId, p_limit: 100, p_offset: 0,
+      });
+      setEntries((data as any) ?? []);
+    } catch (e) {
+      console.warn('[useBillingTimeline]', e);
+      setEntries([]);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { entries, loading, refresh };
@@ -97,13 +104,17 @@ export function useBillingNotifications() {
   const [items, setItems] = useState<BillingNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.rpc('get_billing_notifications', {
-      p_tenant_id: tenantId, p_limit: 50,
-    });
-    setItems((data as any) ?? []);
-    setLoading(false);
+    try {
+      const { data } = await supabase.rpc('get_billing_notifications', {
+        p_tenant_id: tenantId, p_limit: 50,
+      });
+      setItems((data as any) ?? []);
+    } catch (e) {
+      console.warn('[useBillingNotifications]', e);
+      setItems([]);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { items, loading, refresh };
@@ -130,12 +141,16 @@ export function useTenantBillingDetails() {
   const [data, setData] = useState<TenantBillingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setData(null); setLoading(false); return; }
     setLoading(true);
-    const { data: row } = await supabase
-      .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
-    setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
-    setLoading(false);
+    try {
+      const { data: row } = await supabase
+        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
+      setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+    } catch (e) {
+      console.warn('[useTenantBillingDetails]', e);
+      setData({ tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
 

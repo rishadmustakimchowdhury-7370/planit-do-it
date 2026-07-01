@@ -60,8 +60,8 @@ export function OverviewTab() {
               value={sub.inTrial ? `${sub.remainingTrialDays ?? 0} days left` : '—'}
               hint={sub.trialEnd ? format(new Date(sub.trialEnd), 'MMM d, yyyy') : ''} />
         <Stat icon={CreditCard} label="Payment Method"
-              value={pmLoading ? '…' : paymentMethod ? `${paymentMethod.brand.toUpperCase()} •••• ${paymentMethod.last4}` : 'Not set'}
-              hint={paymentMethod ? `Expires ${paymentMethod.exp_month}/${paymentMethod.exp_year}` : ''} />
+              value={pmLoading ? '…' : paymentMethod ? `${(paymentMethod.brand ?? 'CARD').toUpperCase()} •••• ${paymentMethod.last4 ?? '••••'}` : 'Not set'}
+              hint={paymentMethod ? `Expires ${paymentMethod.exp_month ?? '--'}/${paymentMethod.exp_year ?? '----'}` : ''} />
         <Stat icon={Tag} label="Current Discount" value="—" hint="Add a promo in the Promo tab" />
         <Stat icon={TrendingUp} label="AI Credits"
               value={aiCredits ? `${aiCredits.used} / ${aiCredits.limit}` : '—'}
