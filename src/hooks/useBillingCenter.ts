@@ -78,13 +78,17 @@ export function useBillingTimeline() {
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    if (!tenantId) { setLoading(false); return; }
+    if (!tenantId) { setEntries([]); setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase.rpc('get_billing_timeline', {
-      p_tenant_id: tenantId, p_limit: 100, p_offset: 0,
-    });
-    setEntries((data as any) ?? []);
-    setLoading(false);
+    try {
+      const { data } = await supabase.rpc('get_billing_timeline', {
+        p_tenant_id: tenantId, p_limit: 100, p_offset: 0,
+      });
+      setEntries((data as any) ?? []);
+    } catch (e) {
+      console.warn('[useBillingTimeline]', e);
+      setEntries([]);
+    } finally { setLoading(false); }
   }, [tenantId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { entries, loading, refresh };
