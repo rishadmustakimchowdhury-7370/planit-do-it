@@ -53,7 +53,7 @@ export function PricingComparisonMatrix() {
     let cancelled = false;
     (async () => {
       const [f, p, m] = await Promise.all([
-        supabase.from('subscription_features').select('id,feature_key,feature_name,category,sort_order').order('sort_order'),
+        supabase.from('subscription_features').select('id,feature_key,feature_name,category,sort_order').eq('is_archived', false).order('sort_order'),
         supabase.from('subscription_plans').select('id,name,slug,price_monthly').eq('is_active', true).order('price_monthly'),
         supabase.from('subscription_plan_features').select('plan_id,feature_id,enabled,limit_value'),
       ]);
