@@ -66,6 +66,8 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
+
 const ClientPipelinePage = lazy(() => import("./pages/ClientPipelinePage"));
 const PlacementsPage = lazy(() => import("./pages/PlacementsPage"));
 const FinanceDashboardPage = lazy(() => import("./pages/FinanceDashboardPage"));
@@ -204,8 +206,14 @@ const AppRoutes = () => (
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/return-policy" element={<ReturnPolicyPage />} />
+      <Route path="/refund-policy" element={<ReturnPolicyPage />} />
+      <Route path="/refund" element={<Navigate to="/refund-policy" replace />} />
       <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+      <Route path="/cookies" element={<Navigate to="/cookie-policy" replace />} />
+      <Route path="/faq" element={<FAQPage />} />
+      <Route path="/help" element={<Navigate to="/faq" replace />} />
       <Route path="/share/candidate/:token" element={<PublicCandidateSharePage />} />
+
       
       {/* Protected routes */}
       <Route path="/dashboard" element={<ProtectedRoute><DashboardRoute /></ProtectedRoute>} />
