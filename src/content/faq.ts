@@ -397,7 +397,7 @@ export const faqItems: FaqItem[] = [
     category: 'support',
     question: 'How do I get help?',
     answer:
-      'Use the in-app chat widget, email support@hiremetrics.co.uk, or open the Contact page. Response time is one business day; urgent production issues are prioritised.',
+      'Use the in-app chat widget, email admin@hiremetrics.co.uk, or open the Contact page. Response time is one business day; urgent production issues are prioritised.',
   },
   {
     category: 'support',
