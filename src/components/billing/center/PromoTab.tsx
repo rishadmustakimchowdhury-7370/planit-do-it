@@ -7,6 +7,12 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleDateString() : '';
+}
+
 export function PromoTab() {
   const sub = useSubscriptionStatus();
   const { tenantId } = useAuth();
@@ -17,15 +23,17 @@ export function PromoTab() {
   useEffect(() => {
     (async () => {
       if (!tenantId) return;
-      const { data: t } = await supabase.from('tenants').select('subscription_plan_id').eq('id', tenantId).maybeSingle();
+      const { data: t, error: tenantError } = await supabase.from('tenants').select('subscription_plan_id').eq('id', tenantId).maybeSingle();
+      if (tenantError) console.error('[PromoTab] tenants query failed', tenantError);
       setPlanId((t as any)?.subscription_plan_id ?? null);
-      const { data: usage } = await supabase
+      const { data: usage, error: usageError } = await supabase
         .from('promo_code_usage')
         .select('id, used_at, promo_codes(code, discount_type, discount_value, expires_at)')
         .eq('tenant_id', tenantId)
         .order('used_at', { ascending: false })
         .limit(20);
-      setApplied((usage as any) ?? []);
+      if (usageError) console.error('[PromoTab] promo_code_usage query failed', usageError);
+      setApplied(Array.isArray(usage) ? (usage as any) : []);
     })();
   }, [tenantId]);
 
@@ -68,10 +76,10 @@ export function PromoTab() {
                       {promo?.discount_type === 'percentage'
                         ? `${promo.discount_value}% off`
                         : `$${(promo?.discount_value ?? 0)} off`}
-                      {promo?.expires_at && ` · expires ${new Date(promo.expires_at).toLocaleDateString()}`}
+                      {promo?.expires_at && ` · expires ${formatDate(promo.expires_at)}`}
                     </div>
                   </div>
-                  <Badge variant="outline">{new Date(row.used_at).toLocaleDateString()}</Badge>
+                  <Badge variant="outline">{formatDate(row?.used_at) || '—'}</Badge>
                 </li>
               );
             })}

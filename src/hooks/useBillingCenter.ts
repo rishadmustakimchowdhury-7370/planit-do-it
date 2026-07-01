@@ -31,8 +31,12 @@ export function useStripeInvoices() {
     setLoading(true);
     try {
       const { data: res, error } = await supabase.functions.invoke('stripe-list-invoices');
-      if (error) throw error;
-      setData((res as any)?.invoices ?? []);
+      if (error) {
+        console.error('[useStripeInvoices] stripe-list-invoices failed', error);
+        throw error;
+      }
+      const invoices = (res as any)?.invoices;
+      setData(Array.isArray(invoices) ? invoices : []);
       setError(null);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load invoices');
@@ -57,7 +61,11 @@ export function useStripePaymentMethod() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.functions.invoke('stripe-payment-method');
+      const { data, error } = await supabase.functions.invoke('stripe-payment-method');
+      if (error) {
+        console.error('[useStripePaymentMethod] stripe-payment-method failed', error);
+        throw error;
+      }
       setPm((data as any)?.payment_method ?? null);
     } catch (e) {
       console.warn('[useStripePaymentMethod]', e);
@@ -81,10 +89,15 @@ export function useBillingTimeline() {
     if (!tenantId) { setEntries([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const { data } = await supabase.rpc('get_billing_timeline', {
+      const { data, error } = await supabase.rpc('get_billing_timeline', {
         p_tenant_id: tenantId, p_limit: 100, p_offset: 0,
       });
-      setEntries((data as any) ?? []);
+      if (error) {
+        console.error('[useBillingTimeline] get_billing_timeline failed', error);
+        setEntries([]);
+        return;
+      }
+      setEntries(Array.isArray(data) ? (data as any) : []);
     } catch (e) {
       console.warn('[useBillingTimeline]', e);
       setEntries([]);
@@ -107,10 +120,15 @@ export function useBillingNotifications() {
     if (!tenantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const { data } = await supabase.rpc('get_billing_notifications', {
+      const { data, error } = await supabase.rpc('get_billing_notifications', {
         p_tenant_id: tenantId, p_limit: 50,
       });
-      setItems((data as any) ?? []);
+      if (error) {
+        console.error('[useBillingNotifications] get_billing_notifications failed', error);
+        setItems([]);
+        return;
+      }
+      setItems(Array.isArray(data) ? (data as any) : []);
     } catch (e) {
       console.warn('[useBillingNotifications]', e);
       setItems([]);
@@ -144,9 +162,10 @@ export function useTenantBillingDetails() {
     if (!tenantId) { setData(null); setLoading(false); return; }
     setLoading(true);
     try {
-      const { data: row } = await supabase
-        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).maybeSingle();
-      setData((row as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
+      const { data: row, error } = await supabase
+        .from('tenant_billing_details').select('*').eq('tenant_id', tenantId).limit(1);
+      if (error) console.error('[useTenantBillingDetails] tenant_billing_details query failed', error);
+      setData(((row as any[])?.[0] as any) ?? { tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);
     } catch (e) {
       console.warn('[useTenantBillingDetails]', e);
       setData({ tenant_id: tenantId, currency: 'USD', timezone: 'UTC' } as any);

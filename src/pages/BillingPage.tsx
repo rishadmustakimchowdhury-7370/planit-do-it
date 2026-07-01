@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { SubscriptionStatusBanner } from '@/components/billing/SubscriptionStatusBanner';
 import { OverviewTab } from '@/components/billing/center/OverviewTab';
 import { SubscriptionTab } from '@/components/billing/center/SubscriptionTab';
 import { InvoicesTab } from '@/components/billing/center/InvoicesTab';
@@ -38,10 +37,6 @@ export default function BillingPage() {
     <AppLayout title="Billing Center" subtitle="Manage your subscription, invoices and billing">
       <ErrorBoundary label="Billing Center">
         <div className="space-y-6">
-          <ErrorBoundary label="Subscription status">
-            <SubscriptionStatusBanner />
-          </ErrorBoundary>
-
           <Tabs value={tab} onValueChange={setTab} className="w-full">
             <div className="overflow-x-auto -mx-1">
               <TabsList className="bg-muted/40 p-1 h-auto flex flex-wrap gap-1">

@@ -30,7 +30,8 @@ function pickBanner(sub: ReturnType<typeof useSubscriptionStatus>, usage: Return
     return { tone: 'warning', icon: Clock, title: 'Trial ending soon', message: `Your trial ends in ${sub.remainingTrialDays} day${sub.remainingTrialDays === 1 ? '' : 's'}. Add a payment method to keep your workspace active.`, cta: { to: '/billing', label: 'Add payment' } };
   }
   if (sub.renewalDate) {
-    const days = Math.ceil((new Date(sub.renewalDate).getTime() - Date.now()) / 86_400_000);
+    const renewalTs = Date.parse(sub.renewalDate);
+    const days = Number.isFinite(renewalTs) ? Math.ceil((renewalTs - Date.now()) / 86_400_000) : Number.POSITIVE_INFINITY;
     if (days >= 0 && days <= 3 && sub.status === 'active') {
       return { tone: 'info', icon: Clock, title: 'Renewal approaching', message: `Your subscription renews in ${days} day${days === 1 ? '' : 's'}.`, cta: { to: '/billing', label: 'Manage' } };
     }

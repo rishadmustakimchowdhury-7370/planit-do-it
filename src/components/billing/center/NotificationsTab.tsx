@@ -5,7 +5,8 @@ import { useBillingNotifications } from '@/hooks/useBillingCenter';
 import { formatDistanceToNow } from 'date-fns';
 import { Bell, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 
-function iconFor(type: string) {
+function iconFor(type: string | null | undefined) {
+  if (!type) return Bell;
   if (type.includes('failed') || type.includes('past_due')) return AlertTriangle;
   if (type.includes('success') || type.includes('paid')) return CheckCircle2;
   if (type.includes('trial')) return Info;
@@ -25,20 +26,20 @@ export function NotificationsTab() {
         )}
         <ul className="divide-y">
           {items.map((n) => {
-            const Icon = iconFor(n.type);
+            const Icon = iconFor(n?.type);
             return (
               <li key={n.id} className="py-4 flex gap-4">
                 <div className="p-2 rounded-md bg-muted h-fit"><Icon className="h-4 w-4" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm truncate">{n.title}</span>
+                    <span className="font-medium text-sm truncate">{n?.title ?? 'Billing notification'}</span>
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {(() => { try { return n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ''; } catch { return ''; } })()}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{n.message}</p>
+                  <p className="text-sm text-muted-foreground">{n?.message ?? ''}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{n.type}</Badge>
+                    <Badge variant="outline" className="text-xs">{n?.type ?? 'billing'}</Badge>
                     {!n.is_read && <Badge className="text-xs">New</Badge>}
                     {n.link && <a href={n.link} className="text-xs text-primary hover:underline">Open</a>}
                   </div>

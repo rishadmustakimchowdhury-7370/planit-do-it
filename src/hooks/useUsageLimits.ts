@@ -61,6 +61,48 @@ const UNLIMITED_STATS: UsageStats = {
   hasBlocks: false,
 };
 
+const DEFAULT_USAGE_STATS: UsageStats = {
+  limits: { max_users: 2, max_jobs: 10, max_candidates: 150, match_credits_monthly: 50 },
+  usage: {
+    aiCredits: { used: 0, limit: 50, remaining: 50, percent: 0, warning: false, blocked: false },
+    jobs: { used: 0, limit: 10, remaining: 10, percent: 0, warning: false, blocked: false },
+    candidates: { used: 0, limit: 150, remaining: 150, percent: 0, warning: false, blocked: false },
+    teamMembers: { used: 0, limit: 2, remaining: 2, percent: 0, warning: false, blocked: false },
+  },
+  hasWarnings: false,
+  hasBlocks: false,
+};
+
+function normalizeUsageStats(data: any): UsageStats {
+  const safeMeter = (meter: any, fallback: UsageStats['usage']['aiCredits']) => ({
+    used: Number.isFinite(Number(meter?.used)) ? Number(meter.used) : fallback.used,
+    limit: Number.isFinite(Number(meter?.limit)) ? Number(meter.limit) : fallback.limit,
+    remaining: Number.isFinite(Number(meter?.remaining)) ? Number(meter.remaining) : fallback.remaining,
+    percent: Number.isFinite(Number(meter?.percent)) ? Number(meter.percent) : fallback.percent,
+    warning: Boolean(meter?.warning),
+    blocked: Boolean(meter?.blocked),
+  });
+
+  const usage = {
+    aiCredits: safeMeter(data?.usage?.aiCredits, DEFAULT_USAGE_STATS.usage.aiCredits),
+    jobs: safeMeter(data?.usage?.jobs, DEFAULT_USAGE_STATS.usage.jobs),
+    candidates: safeMeter(data?.usage?.candidates, DEFAULT_USAGE_STATS.usage.candidates),
+    teamMembers: safeMeter(data?.usage?.teamMembers, DEFAULT_USAGE_STATS.usage.teamMembers),
+  };
+
+  return {
+    limits: {
+      max_users: Number.isFinite(Number(data?.limits?.max_users)) ? Number(data.limits.max_users) : DEFAULT_USAGE_STATS.limits.max_users,
+      max_jobs: Number.isFinite(Number(data?.limits?.max_jobs)) ? Number(data.limits.max_jobs) : DEFAULT_USAGE_STATS.limits.max_jobs,
+      max_candidates: Number.isFinite(Number(data?.limits?.max_candidates)) ? Number(data.limits.max_candidates) : DEFAULT_USAGE_STATS.limits.max_candidates,
+      match_credits_monthly: Number.isFinite(Number(data?.limits?.match_credits_monthly)) ? Number(data.limits.match_credits_monthly) : DEFAULT_USAGE_STATS.limits.match_credits_monthly,
+    },
+    usage,
+    hasWarnings: Boolean(data?.hasWarnings ?? Object.values(usage).some((m) => m.warning)),
+    hasBlocks: Boolean(data?.hasBlocks ?? Object.values(usage).some((m) => m.blocked)),
+  };
+}
+
 export function useUsageLimits() {
   const { tenantId, user, isSuperAdmin } = useAuth();
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -87,55 +129,48 @@ export function useUsageLimits() {
       if (error) throw error;
       
       if (data) {
-        setUsageStats(data);
+        const normalized = normalizeUsageStats(data);
+        setUsageStats(normalized);
         
         // Show warnings for features approaching limits (only once per session)
         const newWarnings = new Set<string>();
         
-        if (data.usage.aiCredits.warning && !lastWarned.has('aiCredits')) {
+        if (normalized.usage.aiCredits.warning && !lastWarned.has('aiCredits')) {
           toast.warning('AI Credits Low', {
-            description: `You've used ${data.usage.aiCredits.percent}% of your AI match credits. Consider upgrading your plan.`,
+            description: `You've used ${normalized.usage.aiCredits.percent}% of your AI match credits. Consider upgrading your plan.`,
           });
           newWarnings.add('aiCredits');
         }
         
-        if (data.usage.jobs.warning && !lastWarned.has('jobs')) {
+        if (normalized.usage.jobs.warning && !lastWarned.has('jobs')) {
           toast.warning('Active Jobs Limit Approaching', {
-            description: `You're using ${data.usage.jobs.percent}% of your job limit. Consider upgrading your plan.`,
+            description: `You're using ${normalized.usage.jobs.percent}% of your job limit. Consider upgrading your plan.`,
           });
           newWarnings.add('jobs');
         }
         
-        if (data.usage.candidates.warning && !lastWarned.has('candidates')) {
+        if (normalized.usage.candidates.warning && !lastWarned.has('candidates')) {
           toast.warning('Candidates Limit Approaching', {
-            description: `You're using ${data.usage.candidates.percent}% of your candidate limit. Consider upgrading your plan.`,
+            description: `You're using ${normalized.usage.candidates.percent}% of your candidate limit. Consider upgrading your plan.`,
           });
           newWarnings.add('candidates');
         }
         
-        if (data.usage.teamMembers.warning && !lastWarned.has('teamMembers')) {
+        if (normalized.usage.teamMembers.warning && !lastWarned.has('teamMembers')) {
           toast.warning('Team Members Limit Approaching', {
-            description: `You're using ${data.usage.teamMembers.percent}% of your team member limit. Consider upgrading your plan.`,
+            description: `You're using ${normalized.usage.teamMembers.percent}% of your team member limit. Consider upgrading your plan.`,
           });
           newWarnings.add('teamMembers');
         }
         
-        setLastWarned(prev => new Set([...prev, ...newWarnings]));
+        if (newWarnings.size > 0) {
+          setLastWarned(prev => new Set([...prev, ...newWarnings]));
+        }
       }
     } catch (error) {
       console.error('Error fetching usage stats:', error);
       // Set default stats on error to prevent infinite loading
-      setUsageStats({
-        limits: { max_users: 2, max_jobs: 10, max_candidates: 150, match_credits_monthly: 50 },
-        usage: {
-          aiCredits: { used: 0, limit: 50, remaining: 50, percent: 0, warning: false, blocked: false },
-          jobs: { used: 0, limit: 10, remaining: 10, percent: 0, warning: false, blocked: false },
-          candidates: { used: 0, limit: 150, remaining: 150, percent: 0, warning: false, blocked: false },
-          teamMembers: { used: 0, limit: 2, remaining: 2, percent: 0, warning: false, blocked: false },
-        },
-        hasWarnings: false,
-        hasBlocks: false,
-      });
+      setUsageStats(DEFAULT_USAGE_STATS);
     } finally {
       setIsLoading(false);
     }
