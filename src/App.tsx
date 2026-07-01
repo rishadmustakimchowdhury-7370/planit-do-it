@@ -66,6 +66,8 @@ const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const ReturnPolicyPage = lazy(() => import("./pages/ReturnPolicyPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
+const FAQPage = lazy(() => import("./pages/FAQPage"));
+
 const ClientPipelinePage = lazy(() => import("./pages/ClientPipelinePage"));
 const PlacementsPage = lazy(() => import("./pages/PlacementsPage"));
 const FinanceDashboardPage = lazy(() => import("./pages/FinanceDashboardPage"));
