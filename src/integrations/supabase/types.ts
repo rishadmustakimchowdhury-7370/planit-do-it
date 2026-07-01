@@ -8009,10 +8009,24 @@ export type Database = {
         Args: { _provider: string; _tenant_id: string }
         Returns: undefined
       }
-      enforce_feature_limit: {
-        Args: { _feature_key: string; _increment?: number; _tenant_id: string }
-        Returns: Json
-      }
+      enforce_feature_limit:
+        | {
+            Args: {
+              _current_count: number
+              _feature_key: string
+              _tenant_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _feature_key: string
+              _increment?: number
+              _tenant_id: string
+            }
+            Returns: Json
+          }
+      enforcement_enabled: { Args: never; Returns: boolean }
       fix_invited_user_profile: {
         Args: { p_email: string; p_invitation_id: string; p_user_id: string }
         Returns: undefined
