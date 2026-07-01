@@ -454,7 +454,7 @@ export function GmailComposeModal({
         body: {
           candidate_id: candidate.id,
           job_id: selectedJobId,
-          from_email: profile?.email || 'info@hiremetrics.co.uk',
+          from_email: profile?.email || 'admin@hiremetrics.co.uk',
           to_email: toEmail,
           cc_email: ccEmail || null,
           bcc_email: bccEmail || null,

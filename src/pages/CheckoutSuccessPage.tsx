@@ -196,8 +196,8 @@ export default function CheckoutSuccessPage() {
               {/* Support */}
               <p className="text-sm text-muted-foreground">
                 Questions? Contact us at{' '}
-                <Link to="mailto:support@recruitifycrm.com" className="text-primary hover:underline">
-                  support@recruitifycrm.com
+                <Link to="mailto:admin@hiremetrics.co.uk" className="text-primary hover:underline">
+                  admin@hiremetrics.co.uk
                 </Link>
               </p>
             </CardContent>

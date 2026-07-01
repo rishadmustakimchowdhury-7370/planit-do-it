@@ -261,7 +261,7 @@ export default function AdminBillingPage() {
               </div>
               <p>Thank you for your business!</p>
               <p style="color: #64748b; font-size: 12px; margin-top: 40px;">
-                This email was sent from Recruitify CRM. If you have any questions, please contact info@recruitifycrm.com.
+                This email was sent from Recruitify CRM. If you have any questions, please contact admin@hiremetrics.co.uk.
               </p>
             </div>
           `,
