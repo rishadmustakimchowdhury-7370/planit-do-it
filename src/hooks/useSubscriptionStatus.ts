@@ -49,36 +49,41 @@ export function useSubscriptionStatus(): SubscriptionStatus {
       setState({ ...initial, loading: false, status: 'active', planName: 'Super Admin', planSlug: 'admin' });
       return;
     }
-    const { data: t } = await supabase
-      .from('tenants')
-      .select('subscription_status, subscription_ends_at, trial_expires_at, past_due_since, grace_until, is_suspended, is_paused, subscription_plan_id')
-      .eq('id', tenantId)
-      .maybeSingle();
-    if (!t) { setState({ ...initial, loading: false }); return; }
-    let planName: string | null = null; let planSlug: string | null = null;
-    if (t.subscription_plan_id) {
-      const { data: p } = await supabase
-        .from('subscription_plans').select('name, slug').eq('id', t.subscription_plan_id).maybeSingle();
-      planName = p?.name ?? null; planSlug = p?.slug ?? null;
-    }
-    const status = (t.subscription_status as string | null) ?? null;
-    const pastDue = !!t.past_due_since || status === 'past_due';
-    const cancelled = status === 'cancelled' || status === 'expired';
-    const suspended = !!t.is_suspended || status === 'suspended';
-    const paused = !!t.is_paused;
-    const inGracePeriod = !!t.grace_until && new Date(t.grace_until).getTime() > Date.now();
-    const inTrial = status === 'trial';
-    const remainingTrialDays = inTrial ? daysBetween(t.trial_expires_at) : null;
-    const active = !suspended && !cancelled && (!pastDue || inGracePeriod);
+    try {
+      const { data: t } = await supabase
+        .from('tenants')
+        .select('subscription_status, subscription_ends_at, trial_expires_at, past_due_since, grace_until, is_suspended, is_paused, subscription_plan_id')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (!t) { setState({ ...initial, loading: false }); return; }
+      let planName: string | null = null; let planSlug: string | null = null;
+      if (t.subscription_plan_id) {
+        const { data: p } = await supabase
+          .from('subscription_plans').select('name, slug').eq('id', t.subscription_plan_id).maybeSingle();
+        planName = p?.name ?? null; planSlug = p?.slug ?? null;
+      }
+      const status = (t.subscription_status as string | null) ?? null;
+      const pastDue = !!t.past_due_since || status === 'past_due';
+      const cancelled = status === 'cancelled' || status === 'expired';
+      const suspended = !!t.is_suspended || status === 'suspended';
+      const paused = !!t.is_paused;
+      const inGracePeriod = !!t.grace_until && new Date(t.grace_until).getTime() > Date.now();
+      const inTrial = status === 'trial';
+      const remainingTrialDays = inTrial ? daysBetween(t.trial_expires_at) : null;
+      const active = !suspended && !cancelled && (!pastDue || inGracePeriod);
 
-    setState({
-      loading: false,
-      status, planName, planSlug,
-      trialEnd: t.trial_expires_at, renewalDate: t.subscription_ends_at,
-      pastDueSince: t.past_due_since, graceUntil: t.grace_until,
-      remainingTrialDays,
-      pastDue, cancelled, suspended, paused, inGracePeriod, inTrial, active,
-    });
+      setState({
+        loading: false,
+        status, planName, planSlug,
+        trialEnd: t.trial_expires_at, renewalDate: t.subscription_ends_at,
+        pastDueSince: t.past_due_since, graceUntil: t.grace_until,
+        remainingTrialDays,
+        pastDue, cancelled, suspended, paused, inGracePeriod, inTrial, active,
+      });
+    } catch (e) {
+      console.warn('[useSubscriptionStatus]', e);
+      setState({ ...initial, loading: false });
+    }
   }, [tenantId, isSuperAdmin]);
 
   useEffect(() => { load(); }, [load]);
