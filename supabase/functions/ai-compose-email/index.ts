@@ -392,9 +392,19 @@ REMEMBER: Put a BLANK LINE between each paragraph. Start with greeting, then 3 S
     );
   } catch (error) {
     console.error("Error in ai-compose-email:", error);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    if (__meterReserved && __meterAdmin && __meterTenant) {
+      try {
+        await __meterAdmin.rpc('refund_feature_usage', {
+          _tenant_id: __meterTenant, _feature_key: __meterFeatureKey,
+          _amount: 1, _user_id: __meterUser, _reason: msg.slice(0, 200),
+        });
+      } catch (_) { /* noop */ }
+    }
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
+
 });
