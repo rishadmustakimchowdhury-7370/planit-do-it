@@ -28,7 +28,7 @@ const statusVariant = (s: string | null) => ({
 } as Record<string, any>)[s ?? ''] ?? 'outline';
 
 export function InvoicesTab() {
-  const { invoices, loading, error, refresh } = useStripeInvoices();
+  const { invoices, loading, error, message, refresh } = useStripeInvoices();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
   const [page, setPage] = useState(0);
